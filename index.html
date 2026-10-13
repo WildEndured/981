@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Детектор границ без OpenCV</title>
+    <title>Штриховка фона</title>
     <style>
         body { font-family: Arial; background: #1e1e1e; color: #fff; text-align: center; padding: 20px; }
         .wrapper { display: inline-block; position: relative; border: 2px solid #444; border-radius: 8px; overflow: hidden; }
@@ -13,22 +13,33 @@
         .row { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
         .box { display: flex; flex-direction: column; align-items: center; }
         .label { font-size: 14px; color: #aaa; margin-bottom: 8px; }
+        .controls { margin: 15px; padding: 15px; background: #2a2a2a; border-radius: 8px; display: inline-block; }
+        .controls label { margin: 0 10px; }
     </style>
 </head>
 <body>
-    <h1>Детектор границ (без OpenCV)</h1>
-    <p id="status">Выберите изображение</p>
+    <h1>Штриховка фона + лайн-арт персонажа</h1>
     
     <input type="file" id="fileInput" accept="image/*">
-    <button onclick="process()">Найти границы</button>
     
+    <div class="controls">
+        <label>Порог цвета: <input type="range" id="colorThreshold" min="20" max="120" value="70"></label>
+        <label>Плотность штриховки: <input type="range" id="hatchDensity" min="5" max="30" value="12"></label>
+        <br>
+        <label>Толщина линий: <input type="range" id="lineThickness" min="1" max="4" value="1"></label>
+        <label>Чувствительность границ: <input type="range" id="edgeThreshold" min="30" max="200" value="80"></label>
+    </div>
+
+    <button onclick="process()">Обработать</button>
+    <p id="status">Выберите изображение</p>
+
     <div class="row">
         <div class="box">
             <span class="label">Оригинал</span>
             <div class="wrapper"><canvas id="srcCanvas"></canvas></div>
         </div>
         <div class="box">
-            <span class="label">Границы (белые линии)</span>
+            <span class="label">Результат</span>
             <div class="wrapper"><canvas id="outCanvas"></canvas></div>
         </div>
     </div>
@@ -45,8 +56,7 @@
             if (!file) return;
             const img = new Image();
             img.onload = () => {
-                // Ограничиваем размер для скорости
-                const maxSize = 800;
+                const maxSize = 900;
                 let w = img.width, h = img.height;
                 if (w > maxSize || h > maxSize) {
                     const scale = maxSize / Math.max(w, h);
@@ -60,10 +70,28 @@
                 ctx.drawImage(img, 0, 0, w, h);
                 
                 imageLoaded = true;
-                status.textContent = "Изображение загружено. Нажмите 'Найти границы'.";
+                status.textContent = "Изображение загружено.";
             };
             img.src = URL.createObjectURL(file);
         });
+
+        // --- Утилита: RGB → HSV ---
+        function rgbToHsv(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            const max = Math.max(r, g, b), min = Math.min(r, g, b);
+            const d = max - min;
+            let h = 0;
+            if (d !== 0) {
+                if (max === r) h = ((g - b) / d) % 6;
+                else if (max === g) h = (b - r) / d + 2;
+                else h = (r - g) / d + 4;
+                h *= 60;
+                if (h < 0) h += 360;
+            }
+            const s = max === 0 ? 0 : d / max;
+            const v = max;
+            return [h, s, v];
+        }
 
         function process() {
             if (!imageLoaded) { alert("Сначала загрузите картинку!"); return; }
@@ -72,69 +100,138 @@
             setTimeout(() => {
                 const w = srcCanvas.width;
                 const h = srcCanvas.height;
-                
                 const srcCtx = srcCanvas.getContext('2d');
                 const outCtx = outCanvas.getContext('2d');
                 
                 const srcData = srcCtx.getImageData(0, 0, w, h);
-                const gray = new Uint8ClampedArray(w * h);
+                const pixels = srcData.data;
+
+                // Параметры из ползунков
+                const colorThreshold = parseInt(document.getElementById('colorThreshold').value);
+                const hatchDensity = parseInt(document.getElementById('hatchDensity').value);
+                const lineThickness = parseInt(document.getElementById('lineThickness').value);
+                const edgeThreshold = parseInt(document.getElementById('edgeThreshold').value);
+
+                // --- ШАГ 1: Определяем "фон" по цвету ---
+                // В вашем примере фон — жёлтый. Найдём доминирующий цвет по краям картинки.
+                const edgeColors = [];
+                const sampleStep = 5;
                 
-                // 1. Переводим в оттенки серого
-                for (let i = 0; i < srcData.data.length; i += 4) {
-                    gray[i / 4] = (srcData.data[i] * 0.299 + 
-                                   srcData.data[i+1] * 0.587 + 
-                                   srcData.data[i+2] * 0.114);
-                }
-                
-                // 2. Размытие (убираем шум)
-                const blurred = new Uint8ClampedArray(w * h);
-                for (let y = 1; y < h - 1; y++) {
-                    for (let x = 1; x < w - 1; x++) {
-                        let sum = 0;
-                        for (let dy = -1; dy <= 1; dy++) {
-                            for (let dx = -1; dx <= 1; dx++) {
-                                sum += gray[(y + dy) * w + (x + dx)];
-                            }
+                // Берём пиксели по периметру (это точно фон)
+                for (let x = 0; x < w; x += sampleStep) {
+                    for (let y of [0, 1, 2, h-3, h-2, h-1]) {
+                        if (y >= 0 && y < h) {
+                            const i = (y * w + x) * 4;
+                            edgeColors.push([pixels[i], pixels[i+1], pixels[i+2]]);
                         }
-                        blurred[y * w + x] = sum / 9;
+                    }
+                }
+                for (let y = 0; y < h; y += sampleStep) {
+                    for (let x of [0, 1, 2, w-3, w-2, w-1]) {
+                        if (x >= 0 && x < w) {
+                            const i = (y * w + x) * 4;
+                            edgeColors.push([pixels[i], pixels[i+1], pixels[i+2]]);
+                        }
                     }
                 }
                 
-                // 3. Оператор Собеля — определяем границы
-                const edges = new Uint8ClampedArray(w * h);
-                const threshold = 60; // Порог чувствительности (можно менять)
-                
-                for (let y = 1; y < h - 1; y++) {
-                    for (let x = 1; x < w - 1; x++) {
-                        // Градиент по X
-                        const gx = 
-                            -1 * blurred[(y-1)*w + (x-1)] + 1 * blurred[(y-1)*w + (x+1)] +
-                            -2 * blurred[y*w + (x-1)]     + 2 * blurred[y*w + (x+1)] +
-                            -1 * blurred[(y+1)*w + (x-1)] + 1 * blurred[(y+1)*w + (x+1)];
-                        // Градиент по Y
-                        const gy = 
-                            -1 * blurred[(y-1)*w + (x-1)] - 2 * blurred[(y-1)*w + x] - 1 * blurred[(y-1)*w + (x+1)] +
-                             1 * blurred[(y+1)*w + (x-1)] + 2 * blurred[(y+1)*w + x] + 1 * blurred[(y+1)*w + (x+1)];
-                        
-                        const mag = Math.sqrt(gx * gx + gy * gy);
-                        edges[y * w + x] = mag > threshold ? 255 : 0;
-                    }
+                // Средний цвет фона
+                let avgR = 0, avgG = 0, avgB = 0;
+                for (const c of edgeColors) {
+                    avgR += c[0]; avgG += c[1]; avgB += c[2];
                 }
+                avgR /= edgeColors.length;
+                avgG /= edgeColors.length;
+                avgB /= edgeColors.length;
                 
-                // 4. Рисуем результат
+                console.log("Средний цвет фона:", avgR.toFixed(0), avgG.toFixed(0), avgB.toFixed(0));
+
+                // --- ШАГ 2: Строим маску фона ---
+                const isBackground = new Uint8Array(w * h);
+                for (let i = 0; i < pixels.length; i += 4) {
+                    const r = pixels[i], g = pixels[i+1], b = pixels[i+2];
+                    // Расстояние до среднего цвета фона
+                    const dist = Math.sqrt(
+                        (r - avgR) ** 2 + 
+                        (g - avgG) ** 2 + 
+                        (b - avgB) ** 2
+                    );
+                    isBackground[i / 4] = dist < colorThreshold ? 1 : 0;
+                }
+
+                // --- ШАГ 3: Рисуем диагональную штриховку на фоне ---
                 const outData = outCtx.createImageData(w, h);
-                for (let i = 0; i < edges.length; i++) {
-                    // Инвертируем: черные линии на белом фоне
-                    const val = 255 - edges[i];
-                    outData.data[i*4]     = val;
-                    outData.data[i*4 + 1] = val;
-                    outData.data[i*4 + 2] = val;
-                    outData.data[i*4 + 3] = 255;
+                // Заливаем белым
+                for (let i = 0; i < outData.data.length; i += 4) {
+                    outData.data[i] = 255;
+                    outData.data[i+1] = 255;
+                    outData.data[i+2] = 255;
+                    outData.data[i+3] = 255;
                 }
+
+                // Рисуем диагональные линии (под углом 45°)
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        // Определяем, на линии ли мы (диагональная штриховка)
+                        const diagonal = (x + y) % hatchDensity;
+                        const onLine = diagonal < lineThickness;
+                        
+                        const idx = y * w + x;
+                        if (isBackground[idx] && onLine) {
+                            const i = idx * 4;
+                            outData.data[i] = 0;      // Чёрный
+                            outData.data[i+1] = 0;
+                            outData.data[i+2] = 0;
+                        }
+                    }
+                }
+
+                // --- ШАГ 4: Рисуем контур персонажа (лайнарт) ---
+                // Переводим в grayscale
+                const gray = new Uint8ClampedArray(w * h);
+                for (let i = 0; i < pixels.length; i += 4) {
+                    gray[i / 4] = pixels[i] * 0.299 + pixels[i+1] * 0.587 + pixels[i+2] * 0.114;
+                }
+                // Размытие
+                const blurred = new Uint8ClampedArray(w * h);
+                for (let y = 1; y < h-1; y++) {
+                    for (let x = 1; x < w-1; x++) {
+                        let s = 0;
+                        for (let dy = -1; dy <= 1; dy++)
+                            for (let dx = -1; dx <= 1; dx++)
+                                s += gray[(y+dy)*w + (x+dx)];
+                        blurred[y*w + x] = s / 9;
+                    }
+                }
+                // Собель
+                for (let y = 1; y < h-1; y++) {
+                    for (let x = 1; x < w-1; x++) {
+                        const gx = 
+                            -blurred[(y-1)*w + (x-1)] + blurred[(y-1)*w + (x+1)] +
+                            -2*blurred[y*w + (x-1)] + 2*blurred[y*w + (x+1)] +
+                            -blurred[(y+1)*w + (x-1)] + blurred[(y+1)*w + (x+1)];
+                        const gy = 
+                            -blurred[(y-1)*w + (x-1)] - 2*blurred[(y-1)*w + x] - blurred[(y-1)*w + (x+1)] +
+                             blurred[(y+1)*w + (x-1)] + 2*blurred[(y+1)*w + x] + blurred[(y+1)*w + (x+1)];
+                        
+                        const mag = Math.sqrt(gx*gx + gy*gy);
+                        
+                        // Рисуем контур только ВНЕ фона (т.е. на персонаже или на границе)
+                        const idx = y * w + x;
+                        const i = idx * 4;
+                        
+                        // Если пиксель — граница и НЕ глубокий фон
+                        if (mag > edgeThreshold && !isBackground[idx]) {
+                            outData.data[i] = 100;      // Синеватый оттенок для контура
+                            outData.data[i+1] = 100;
+                            outData.data[i+2] = 200;
+                        }
+                    }
+                }
+
                 outCtx.putImageData(outData, 0, 0);
-                
                 status.textContent = "Готово!";
-            }, 50); // Небольшая задержка, чтобы UI обновился
+            }, 50);
         }
     </script>
 </body>
