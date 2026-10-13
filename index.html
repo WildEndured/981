@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Детектор границ фона и лайн-арта</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1e1e1e;
+            color: #fff;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        .image-wrapper {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+            border: 2px solid #444;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        canvas, img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+        #canvasOutput {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none; /* Чтобы клики проходили сквозь canvas */
+        }
+        .controls {
+            margin-top: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #ff4d4d;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #cc0000;
+        }
+        #status {
+            font-size: 14px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Поиск границ: Фон и Лайн-арт</h1>
+        <p id="status">Загрузка OpenCV...</p>
+        
+        <div class="controls">
+            <input type="file" id="imageInput" accept="image/*">
+            <button onclick="processImage()">Найти границы</button>
+        </div>
+
+        <div class="image-wrapper">
+            <!-- Сюда загружается картинка пользователя -->
+            <img id="imageSrc" src="" alt="Загруженное изображение" style="display:none;">
+            <!-- Сюда выводится результат -->
+            <canvas id="canvasOutput"></canvas>
+        </div>
+    </div>
+
+    <!-- Подключаем OpenCV.js -->
+    <script async src="https://docs.opencv.org/4.10.0/opencv.js" onload="onOpenCvReady();"></script>
+    
+    <script>
+        let imgElement = document.getElementById('imageSrc');
+        let inputElement = document.getElementById('imageInput');
+        let canvasOutput = document.getElementById('canvasOutput');
+        let status = document.getElementById('status');
+        let cvReady = false;
+
+        // 1. Проверяем загрузку OpenCV
+        function onOpenCvReady() {
+            cvReady = true;
+            status.innerText = "OpenCV загружен. Выберите картинку.";
+        }
+
+        // 2. Обработка выбора файла
+        inputElement.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    imgElement.src = event.target.result;
+                    imgElement.style.display = 'block';
+                    canvasOutput.style.display = 'none'; // Скрываем старый результат
+                    // Автоматически применяем обработку после загрузки
+                    imgElement.onload = () => {
+                        if(cvReady) processImage();
+                    };
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+
+        // 3. Основная функция обработки
+        function processImage() {
+            if (!cvReady) {
+                alert("Подождите, OpenCV еще загружается!");
+                return;
+            }
+            if (!imgElement.src) {
+                alert("Сначала загрузите картинку!");
+                return;
+            }
+
+            status.innerText = "Обработка...";
+            
+            // Создаем матрицу из картинки
+            let src = cv.imread(imgElement);
+            let dst = new cv.Mat();
+            
+            // Переводим в оттенки серого (упрощает поиск границ)
+            let gray = new cv.Mat();
+            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+
+            // Применяем размытие, чтобы убрать шум
+            cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+
+            // Детектор границ Кэнни (Canny)
+            // Эти пороги (50, 150) можно менять, чтобы регулировать чувствительность
+            cv.Canny(gray, dst, 50, 150, 3, false);
+
+            // Опционально: делаем линии толще для лучшей видимости
+            let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+            cv.dilate(dst, dst, kernel);
+
+            // Отрисовка результата
+            // Создаем цветной фон (белый) и накладываем черные границы
+            let result = new cv.Mat();
+            cv.cvtColor(dst, result, cv.COLOR_GRAY2RGBA);
+            
+            // Инвертируем цвета (границы будут черными на белом фоне)
+            // Или оставляем как есть (белые линии на черном фоне)
+            // Для наглядности сделаем белый фон и черные линии:
+            let whiteBg = new cv.Mat(src.rows, src.cols, cv.CV_8UC4, new cv.Scalar(255, 255, 255, 255));
+            let mask = new cv.Mat();
+            cv.bitwise_not(dst, mask); // Инвертируем маску
+            
+            // Накладываем маску на белый фон (черные линии)
+            whiteBg.setTo(new cv.Scalar(0, 0, 0, 255), mask); 
+            
+            // Или накладываем границы на оригинал (более красочный вариант)
+            // Для этого просто используем dst как маску для оригинала
+            let output = new cv.Mat();
+            src.copyTo(output, dst); // Копируем только там, где есть границы
+            
+            // Выводим на canvas
+            cv.imshow('canvasOutput', output);
+
+            // Показываем canvas поверх картинки
+            canvasOutput.style.display = 'block';
+            canvasOutput.width = src.cols;
+            canvasOutput.height = src.rows;
+
+            // Очистка памяти
+            src.delete(); gray.delete(); dst.delete(); result.delete(); whiteBg.delete(); mask.delete(); output.delete(); kernel.delete();
+            status.innerText = "Готово! Границы найдены.";
+        }
+    </script>
+</body>
+</html>
