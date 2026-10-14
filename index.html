@@ -73,13 +73,8 @@
   </label>
 
   <label>Порог фона:
-    <input id="bgTol" type="range" min="5" max="120" value="30" />
-    <span id="bgTolVal">30</span>
-  </label>
-
-  <label>Порог контура:
-    <input id="barrierTol" type="range" min="20" max="200" value="120" />
-    <span id="barrierTolVal">120</span>
+    <input id="bgTol" type="range" min="5" max="120" value="15" />
+    <span id="bgTolVal">15</span>
   </label>
 
   <label>Плотность у контура:
@@ -134,9 +129,9 @@
 </div>
 
 <p class="hint">
-  Фон определяется как самый частый цвет изображения. Заливка идёт от краёв
-  и упирается в тёмный контур персонажа — поэтому штриховка заполняет только
-  фон снаружи и во внутренних «окнах», но не залезает на кожу и блики.
+  Фон определяется автоматически как самый частый цвет изображения.
+  Порог фона подбирается автоматически — так, чтобы светлая кожа
+  не попадала в маску фона.
 </p>
 
 <script>
@@ -144,7 +139,6 @@ const fileInput      = document.getElementById('file');
 const baseCanvas     = document.getElementById('base');
 const overlay        = document.getElementById('overlay');
 const bgTolEl        = document.getElementById('bgTol');
-const barrierTolEl   = document.getElementById('barrierTol');
 const stepEl         = document.getElementById('step');
 const falloffEl      = document.getElementById('falloff');
 const thicknessEl    = document.getElementById('thickness');
@@ -154,7 +148,6 @@ const showGridEl     = document.getElementById('showGrid');
 const showMaskBgEl   = document.getElementById('showMaskBg');
 const showMaskCharEl = document.getElementById('showMaskChar');
 const bgTolVal       = document.getElementById('bgTolVal');
-const barrierTolVal  = document.getElementById('barrierTolVal');
 const stepVal        = document.getElementById('stepVal');
 const falloffVal     = document.getElementById('falloffVal');
 const thicknessVal   = document.getElementById('thicknessVal');
@@ -171,8 +164,8 @@ let imageData = null;
 let imgWidth = 0, imgHeight = 0;
 let srcImage = null;
 let bgColor = { r: 255, g: 255, b: 255 };
-let isBg = null;        // Uint8Array: 1 = фон, 0 = персонаж
-let distMap = null;     // Int32Array: расстояние от пикселя фона до силуэта
+let isBg = null;
+let distMap = null;
 let pickBgMode = false;
 
 // ---------- Загрузка ----------
@@ -194,6 +187,7 @@ fileInput.addEventListener('change', e => {
     imageData = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
 
     detectBgColor();
+    autoPickThreshold();
     updateBgUI();
     buildMask();
     buildDistanceMap();
@@ -203,16 +197,14 @@ fileInput.addEventListener('change', e => {
   img.src = URL.createObjectURL(file);
 });
 
-// ---------- Автоопределение фона: самая большая корзина цвета ----------
-// Пробегаем все пиксели, квантуем цвет (5 бит на канал), ищем самую
-// популярную корзину. Игнорируем полностью прозрачные. Больше не
-// отбрасываем белый — это важно, потому что у вашей картинки фон белый.
+// ---------- Автоопределение цвета фона ----------
+// Самый частый цвет среди всех пикселей (квантование 5 бит на канал).
 function detectBgColor() {
   const d = imageData.data;
   const w = imgWidth, h = imgHeight;
   const N = w * h;
 
-  const SHIFT = 3;         // 8 бит → 5 бит на канал (32 уровня)
+  const SHIFT = 3;
   const buckets = new Map();
   let total = 0;
 
@@ -223,8 +215,7 @@ function detectBgColor() {
       const a = d[i + 3];
       if (a < 20) continue;
       const r = d[i], g = d[i + 1], b = d[i + 2];
-      const qr = r >> SHIFT, qg = g >> SHIFT, qb = b >> SHIFT;
-      const key = (qr << 10) | (qg << 5) | qb;
+      const key = ((r >> SHIFT) << 10) | ((g >> SHIFT) << 5) | (b >> SHIFT);
       let e = buckets.get(key);
       if (!e) { e = { n: 0, r: 0, g: 0, b: 0 }; buckets.set(key, e); }
       e.n++; e.r += r; e.g += g; e.b += b;
@@ -243,7 +234,6 @@ function detectBgColor() {
   const qbg = Math.round(bg) >> SHIFT;
   const qbb = Math.round(bb) >> SHIFT;
 
-  // Усредняем по соседним корзинам (±1 по каждому каналу)
   let sr = 0, sg = 0, sb = 0, sn = 0;
   for (const [key, e] of buckets) {
     const qr = (key >> 10) & 31;
@@ -256,6 +246,49 @@ function detectBgColor() {
   bgColor = { r: Math.round(sr / sn), g: Math.round(sg / sn), b: Math.round(sb / sn) };
 }
 
+// ---------- Автоподбор порога фона ----------
+// Идея: у фона и у кожи похожие цвета, но фон "плотнее". Считаем
+// распределение квадратов расстояний от цвета фона среди пикселей
+// и находим первый "провал" в распределении — там где фон заканчивается.
+// Это эвристика, но она даёт разумный порог за один проход.
+function autoPickThreshold() {
+  const d = imageData.data;
+  const w = imgWidth, h = imgHeight;
+  const N = w * h;
+
+  const stepPx = Math.max(1, Math.round(Math.sqrt(N / 200000)));
+  const dists = [];
+
+  for (let y = 0; y < h; y += stepPx) {
+    for (let x = 0; x < w; x += stepPx) {
+      const i = (y * w + x) * 4;
+      if (d[i + 3] < 20) continue;
+      const dr = d[i]     - bgColor.r;
+      const dg = d[i + 1] - bgColor.g;
+      const db = d[i + 2] - bgColor.b;
+      const dist2 = dr * dr + dg * dg + db * db;
+      dists.push(dist2);
+    }
+  }
+  if (!dists.length) return;
+
+  dists.sort((a, b) => a - b);
+
+  // Ищем точку, где накопленная кривая перестаёт быстро расти.
+  // Это значит: большая часть "фона" сосредоточена в начале.
+  // Возьмём 30-й процентиль от конца пикселей и переведём в порог.
+  const idx = Math.floor(dists.length * 0.30);
+  const ref = dists[idx];
+
+  // Порог по RGB: sqrt(ref / 3), округляем и зажимаем в [6..60].
+  let tol = Math.round(Math.sqrt(ref / 3));
+  if (tol < 6)  tol = 6;
+  if (tol > 60) tol = 60;
+
+  bgTolEl.value = tol;
+  bgTolVal.textContent = tol;
+}
+
 function updateBgUI() {
   const { r, g, b } = bgColor;
   bgSwatch.style.background = `rgb(${r|0},${g|0},${b|0})`;
@@ -263,107 +296,57 @@ function updateBgUI() {
 }
 
 // ---------- Маска: 1 = фон, 0 = персонаж ----------
-// 1. Строим карту "барьеров" — пикселей с тёмным контуром (line art).
-//    Барьер = пиксель, у которого яркость заметно ниже яркости фона.
-// 2. Flood fill от рамки изображения по пикселям, близким к цвету фона,
-//    НЕ переходя через барьеры. Это даёт чистый внешний фон.
-// 3. Затем отдельно заливаем внутренние "окна" — там, где фон окружён
-//    барьерами, но всё равно далёк от персонажа.
 function buildMask() {
   const w = imgWidth, h = imgHeight;
   const d = imageData.data;
-  const tol = +bgTolEl.value;          // допуск по цвету фона
+  const tol = +bgTolEl.value;
   const tol2 = tol * tol * 3;
-  const barrierTol = +barrierTolEl.value; // допуск по яркости для контура
 
-  // --- Шаг 1. Карта: похож ли пиксель на фон ---
-  const looksLikeBg = new Uint8Array(w * h);
-  const lum = new Float32Array(w * h);
-
-  for (let i = 0, p = 0; i < w * h; i++, p += 4) {
-    const a = d[p + 3];
-    const r = d[p], g = d[p + 1], b = d[p + 2];
-    lum[i] = 0.299 * r + 0.587 * g + 0.114 * b;
-    if (a < 20) { looksLikeBg[i] = 1; continue; }
-    const dr = r - bgColor.r;
-    const dg = g - bgColor.g;
-    const db = b - bgColor.b;
-    looksLikeBg[i] = (dr * dr + dg * dg + db * db) < tol2 ? 1 : 0;
-  }
-
-  // --- Шаг 2. Карта барьеров: очень тёмные пиксели (контур) ---
-  // Порог: яркость пикселя существенно ниже, чем у фона.
-  // Это ловит чёрные линии, но не трогает светлую кожу и блики.
-  const barrier = new Uint8Array(w * h);
-  for (let i = 0; i < w * h; i++) {
-    if (!looksLikeBg[i] && lum[i] < barrierTol) barrier[i] = 1;
-  }
-
-  // --- Шаг 3. Flood fill от рамки по фону, не переходя барьеры ---
   isBg = new Uint8Array(w * h);
-  const visited = new Uint8Array(w * h);
-  const queue = [];
 
-  const push = (x, y) => {
-    if (x < 0 || y < 0 || x >= w || y >= h) return;
-    const idx = y * w + x;
-    if (visited[idx]) return;
-    if (barrier[idx]) return;         // через контур не проходим
-    if (!looksLikeBg[idx]) return;    // не фон — не заливаем
-    visited[idx] = 1;
-    isBg[idx] = 1;
-    queue.push(idx);
+  const looksLikeBg = (x, y) => {
+    const i = (y * w + x) * 4;
+    if (d[i + 3] < 20) return true;
+    const dr = d[i]     - bgColor.r;
+    const dg = d[i + 1] - bgColor.g;
+    const db = d[i + 2] - bgColor.b;
+    return (dr * dr + dg * dg + db * db) < tol2;
   };
 
-  for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
-  for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+  const visited = new Uint8Array(w * h);
 
-  let head = 0;
-  while (head < queue.length) {
-    const idx = queue[head++];
-    const x = idx % w;
-    const y = (idx / w) | 0;
-    push(x + 1, y);
-    push(x - 1, y);
-    push(x, y + 1);
-    push(x, y - 1);
-  }
+  const floodFrom = (sx, sy) => {
+    const queue = [sy * w + sx];
+    visited[sy * w + sx] = 1;
+    isBg[sy * w + sx] = 1;
+    let head = 0;
+    while (head < queue.length) {
+      const idx = queue[head++];
+      const x = idx % w;
+      const y = (idx / w) | 0;
 
-  // --- Шаг 4. Внутренние "окна" ---
-  // Всё ещё не посещённое, похожее на фон, но не залитое от рамки —
-  // это изолированные участки фона внутри персонажа (между ног,
-  // между рукой и телом, в петлях змей). Заливаем их от каждого
-  // такого пикселя тоже (только по фону и без пересечения барьеров).
+      const tryPush = (nx, ny) => {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
+        const nIdx = ny * w + nx;
+        if (visited[nIdx]) return;
+        if (!looksLikeBg(nx, ny)) return;
+        visited[nIdx] = 1;
+        isBg[nIdx] = 1;
+        queue.push(nIdx);
+      };
+      tryPush(x + 1, y);
+      tryPush(x - 1, y);
+      tryPush(x, y + 1);
+      tryPush(x, y - 1);
+    }
+  };
+
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = y * w + x;
       if (visited[idx]) continue;
-      if (!looksLikeBg[idx]) continue;
-      if (barrier[idx]) continue;
-      // Запускаем локальный flood fill от этого пикселя
-      const localQueue = [idx];
-      visited[idx] = 1;
-      isBg[idx] = 1;
-      let lh = 0;
-      while (lh < localQueue.length) {
-        const ci = localQueue[lh++];
-        const cx = ci % w;
-        const cy = (ci / w) | 0;
-        const tryPush = (nx, ny) => {
-          if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
-          const ni = ny * w + nx;
-          if (visited[ni]) return;
-          if (barrier[ni]) return;
-          if (!looksLikeBg[ni]) return;
-          visited[ni] = 1;
-          isBg[ni] = 1;
-          localQueue.push(ni);
-        };
-        tryPush(cx + 1, cy);
-        tryPush(cx - 1, cy);
-        tryPush(cx, cy + 1);
-        tryPush(cx, cy - 1);
-      }
+      if (!looksLikeBg(x, y)) continue;
+      floodFrom(x, y);
     }
   }
 }
@@ -449,9 +432,9 @@ function redrawOverlay() {
     for (let i = 0; i < w * h; i++) {
       const j = i * 4;
       if (showMaskBgEl.checked && isBg[i] === 1) {
-        md[j]     = 255; md[j + 1] = 60; md[j + 2] = 60; md[j + 3] = 100;
+        md[j] = 255; md[j + 1] = 60; md[j + 2] = 60; md[j + 3] = 100;
       } else if (showMaskCharEl.checked && isBg[i] === 0) {
-        md[j]     = 60;  md[j + 1] = 220; md[j + 2] = 120; md[j + 3] = 120;
+        md[j] = 60;  md[j + 1] = 220; md[j + 2] = 120; md[j + 3] = 120;
       }
     }
     overlayCtx.putImageData(mask, 0, 0);
@@ -492,9 +475,7 @@ function redrawOverlay() {
       if (!isLine[dist]) continue;
 
       const j = idx * 4;
-      data[j]     = rr;
-      data[j + 1] = gg;
-      data[j + 2] = bb;
+      data[j] = rr; data[j + 1] = gg; data[j + 2] = bb;
       data[j + 3] = Math.round(alpha * 255);
     }
   }
@@ -502,7 +483,7 @@ function redrawOverlay() {
   overlayCtx.putImageData(img, 0, 0);
 }
 
-// ---------- Ручной выбор цвета фона (резервный вариант) ----------
+// ---------- Ручной выбор цвета фона ----------
 pickBgBtn.addEventListener('click', () => {
   pickBgMode = !pickBgMode;
   pickBgBtn.classList.toggle('active', pickBgMode);
@@ -518,6 +499,7 @@ baseCanvas.addEventListener('click', e => {
   const i = (y * imgWidth + x) * 4;
   const d = imageData.data;
   bgColor = { r: d[i], g: d[i + 1], b: d[i + 2] };
+  autoPickThreshold();
   updateBgUI();
   buildMask();
   buildDistanceMap();
@@ -528,18 +510,18 @@ baseCanvas.addEventListener('click', e => {
 
 // ---------- Сброс ----------
 resetBtn.addEventListener('click', () => {
-  bgTolEl.value = 30;        bgTolVal.textContent        = 30;
-  barrierTolEl.value = 120;  barrierTolVal.textContent   = 120;
-  stepEl.value  = 5;         stepVal.textContent         = 5;
-  falloffEl.value = 0.6;     falloffVal.textContent      = 0.6;
-  thicknessEl.value = 1;     thicknessVal.textContent    = 1;
-  alphaEl.value = 0.7;       alphaVal.textContent        = 0.7;
+  bgTolEl.value = 15;    bgTolVal.textContent     = 15;
+  stepEl.value  = 5;     stepVal.textContent      = 5;
+  falloffEl.value = 0.6; falloffVal.textContent   = 0.6;
+  thicknessEl.value = 1; thicknessVal.textContent = 1;
+  alphaEl.value = 0.7;   alphaVal.textContent     = 0.7;
   colorEl.value = '#1e4a8a';
   showGridEl.checked = true;
   showMaskBgEl.checked = false;
   showMaskCharEl.checked = false;
   if (imageData) {
     detectBgColor();
+    autoPickThreshold();
     updateBgUI();
     buildMask();
     buildDistanceMap();
@@ -551,10 +533,6 @@ resetBtn.addEventListener('click', () => {
 // ---------- Реакции на контролы ----------
 bgTolEl.addEventListener('input', () => {
   bgTolVal.textContent = bgTolEl.value;
-  if (imageData) { buildMask(); buildDistanceMap(); redrawOverlay(); }
-});
-barrierTolEl.addEventListener('input', () => {
-  barrierTolVal.textContent = barrierTolEl.value;
   if (imageData) { buildMask(); buildDistanceMap(); redrawOverlay(); }
 });
 stepEl.addEventListener('input', () => {
