@@ -107,8 +107,13 @@
   </label>
 
   <label>
-    <input id="showMask" type="checkbox" />
-    Маска силуэта
+    <input id="showMaskBg" type="checkbox" />
+    Маска фона
+  </label>
+
+  <label>
+    <input id="showMaskChar" type="checkbox" />
+    Маска персонажа
   </label>
 
   <button id="pickBg">🎯 Фон кликом</button>
@@ -130,26 +135,27 @@
 </p>
 
 <script>
-const fileInput    = document.getElementById('file');
-const baseCanvas   = document.getElementById('base');
-const overlay      = document.getElementById('overlay');
-const bgTolEl      = document.getElementById('bgTol');
-const stepEl       = document.getElementById('step');
-const falloffEl    = document.getElementById('falloff');
-const thicknessEl  = document.getElementById('thickness');
-const alphaEl      = document.getElementById('alpha');
-const colorEl      = document.getElementById('color');
-const showGridEl   = document.getElementById('showGrid');
-const showMaskEl   = document.getElementById('showMask');
-const bgTolVal     = document.getElementById('bgTolVal');
-const stepVal      = document.getElementById('stepVal');
-const falloffVal   = document.getElementById('falloffVal');
-const thicknessVal = document.getElementById('thicknessVal');
-const alphaVal     = document.getElementById('alphaVal');
-const pickBgBtn    = document.getElementById('pickBg');
-const resetBtn     = document.getElementById('reset');
-const bgSwatch     = document.getElementById('bgSwatch');
-const bgRGB        = document.getElementById('bgRGB');
+const fileInput      = document.getElementById('file');
+const baseCanvas     = document.getElementById('base');
+const overlay        = document.getElementById('overlay');
+const bgTolEl        = document.getElementById('bgTol');
+const stepEl         = document.getElementById('step');
+const falloffEl      = document.getElementById('falloff');
+const thicknessEl    = document.getElementById('thickness');
+const alphaEl        = document.getElementById('alpha');
+const colorEl        = document.getElementById('color');
+const showGridEl     = document.getElementById('showGrid');
+const showMaskBgEl   = document.getElementById('showMaskBg');
+const showMaskCharEl = document.getElementById('showMaskChar');
+const bgTolVal       = document.getElementById('bgTolVal');
+const stepVal        = document.getElementById('stepVal');
+const falloffVal     = document.getElementById('falloffVal');
+const thicknessVal   = document.getElementById('thicknessVal');
+const alphaVal       = document.getElementById('alphaVal');
+const pickBgBtn      = document.getElementById('pickBg');
+const resetBtn       = document.getElementById('reset');
+const bgSwatch       = document.getElementById('bgSwatch');
+const bgRGB          = document.getElementById('bgRGB');
 
 const baseCtx    = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
@@ -325,7 +331,7 @@ function drawGrid() {
   baseCtx.restore();
 }
 
-// ---------- Обтекающая штриховка по изолиниям + маска силуэта ----------
+// ---------- Обтекающая штриховка + две маски ----------
 function redrawOverlay() {
   if (!imageData || !distMap) return;
 
@@ -338,16 +344,24 @@ function redrawOverlay() {
   const w = imgWidth, h = imgHeight;
   overlayCtx.clearRect(0, 0, w, h);
 
-  // --- Отладочный слой: маска силуэта (красным) ---
-  if (showMaskEl.checked) {
+  // --- Слой масок ---
+  if (showMaskBgEl.checked || showMaskCharEl.checked) {
     const mask = overlayCtx.createImageData(w, h);
+    const md = mask.data;
     for (let i = 0; i < w * h; i++) {
-      if (isBg[i] === 1) {
-        const j = i * 4;
-        mask.data[j]     = 255;
-        mask.data[j + 1] = 60;
-        mask.data[j + 2] = 60;
-        mask.data[j + 3] = 90;
+      const j = i * 4;
+      if (showMaskBgEl.checked && isBg[i] === 1) {
+        // фон — красный
+        md[j]     = 255;
+        md[j + 1] = 60;
+        md[j + 2] = 60;
+        md[j + 3] = 100;
+      } else if (showMaskCharEl.checked && isBg[i] === 0) {
+        // персонаж — зелёный
+        md[j]     = 60;
+        md[j + 1] = 220;
+        md[j + 2] = 120;
+        md[j + 3] = 120;
       }
     }
     overlayCtx.putImageData(mask, 0, 0);
@@ -432,7 +446,8 @@ resetBtn.addEventListener('click', () => {
   alphaEl.value = 0.7;   alphaVal.textContent     = 0.7;
   colorEl.value = '#1e4a8a';
   showGridEl.checked = true;
-  showMaskEl.checked = false;
+  showMaskBgEl.checked = false;
+  showMaskCharEl.checked = false;
   if (imageData) {
     detectBgColor();
     updateBgUI();
@@ -466,7 +481,8 @@ alphaEl.addEventListener('input', () => {
 });
 colorEl.addEventListener('input', redrawOverlay);
 showGridEl.addEventListener('change', drawGrid);
-showMaskEl.addEventListener('change', redrawOverlay);
+showMaskBgEl.addEventListener('change', redrawOverlay);
+showMaskCharEl.addEventListener('change', redrawOverlay);
 </script>
 
 </body>
