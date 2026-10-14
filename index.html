@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lineart Highlighter Fix</title>
+    <title>Lineart Highlighter (Тонкие линии)</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -58,7 +58,7 @@
 </head>
 <body>
 
-    <h1>Авто-штриховка фона (исправленная версия)</h1>
+    <h1>Авто-штриховка фона (Тонкие линии)</h1>
 
     <div class="controls">
         <label for="imageInput" class="upload-btn">Выбрать изображение</label>
@@ -83,17 +83,17 @@
         const overlayCtx = overlayCanvas.getContext('2d');
 
         // --- НАСТРОЙКИ АЛГОРИТМА ---
-        // Порог яркости: если пиксель темнее этого значения, считаем его линией.
-        // Увеличьте, если линии светлые. Уменьшите, если фон слишком темный.
         const DARKNESS_THRESHOLD = 120; 
         
         // Цвет полос
         const STRIPE_COLOR = '#ff4757';
-        // Толщина полос
-        const STRIPE_WIDTH = 12;
-        // Расстояние между полосами
-        const STRIPE_GAP = 20;
-        // Шаг сканирования (меньше = точнее, но медленнее)
+        
+        // ТОЛЩИНА ПОЛОС: Уменьшено с 12 до 4 (можно ставить 2, 3, 5)
+        const STRIPE_WIDTH = 4; 
+        
+        // РАССТОЯНИЕ МЕЖДУ ПОЛОСАМИ: Увеличено, чтобы фон выглядел воздушнее
+        const STRIPE_GAP = 18; 
+        
         const SCAN_STEP = 2; 
 
         imageInput.addEventListener('change', (e) => {
@@ -113,7 +113,6 @@
         });
 
         function processImage(img) {
-            // Ограничиваем размер для производительности на мобильных
             const MAX_WIDTH = 800;
             let width = img.width;
             let height = img.height;
@@ -130,7 +129,6 @@
 
             imgCtx.drawImage(img, 0, 0, width, height);
 
-            // Получаем данные пикселей
             const imageData = imgCtx.getImageData(0, 0, width, height);
             const data = imageData.data;
 
@@ -142,7 +140,6 @@
             canvasContainer.style.display = 'block';
         }
 
-        // Проверка: является ли пиксель контуром (темным или цветным)
         function isBoundary(data, width, height, x, y) {
             if (x < 0 || x >= width || y < 0 || y >= height) return true;
 
@@ -152,20 +149,15 @@
             const b = data[index + 2];
             const a = data[index + 3];
 
-            // Прозрачные пиксели игнорируем
             if (a < 50) return false;
 
-            // 1. Проверка на темноту (черные/серые линии)
             const brightness = (r + g + b) / 3;
             if (brightness < DARKNESS_THRESHOLD) return true;
 
-            // 2. Проверка на насыщенность (цветные линии)
-            // Если цвет сильно отличается от серого, это может быть контур персонажа
             const max = Math.max(r, g, b);
             const min = Math.min(r, g, b);
             const saturation = max - min;
             
-            // Если насыщенность высокая (например, синяя линия), считаем это границей
             if (saturation > 60 && brightness < 200) return true;
 
             return false;
@@ -173,26 +165,22 @@
 
         function drawDiagonalStripes(data, width, height) {
             overlayCtx.strokeStyle = STRIPE_COLOR;
+            // lineCap 'butt' делает концы линий ровными, а не скругленными
+            overlayCtx.lineCap = 'butt'; 
             overlayCtx.lineWidth = STRIPE_WIDTH;
-            overlayCtx.lineCap = 'butt'; // Плоские концы, чтобы не было наложений
 
             const step = STRIPE_WIDTH + STRIPE_GAP;
 
-            // Сканируем от левого верхнего угла к правому нижнему
-            // Начинаем с отрицательных координат, чтобы захватить левый край
             for (let startX = -height; startX < width + height; startX += step) {
                 
                 let startY = 0;
                 let currentX = startX;
 
-                // Если линия начинается за левым краем, сдвигаем точку старта вниз
                 if (currentX < 0) {
                     startY = -currentX;
                     currentX = 0;
                 }
 
-                // Проверяем, не начинается ли линия уже внутри персонажа
-                // Если да, пропускаем эту полосу
                 if (isBoundary(data, width, height, Math.floor(currentX), Math.floor(startY))) {
                     continue; 
                 }
@@ -204,7 +192,6 @@
                 let x = currentX;
                 let y = startY;
 
-                // Идем вниз и вправо
                 while (x < width && y < height) {
                     if (isBoundary(data, width, height, Math.floor(x), Math.floor(y))) {
                         hitBoundary = true;
@@ -214,7 +201,6 @@
                     y += SCAN_STEP;
                 }
 
-                // Рисуем только если нашли границу персонажа
                 if (hitBoundary) {
                     overlayCtx.lineTo(x, y);
                     overlayCtx.stroke();
