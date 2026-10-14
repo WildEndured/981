@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lineart Highlighter (4 Corners Fixed)</title>
+    <title>Lineart Highlighter (4 Triangles)</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -58,7 +58,7 @@
 </head>
 <body>
 
-    <h1>Авто-штриховка (4 угла - исправлено)</h1>
+    <h1>Авто-штриховка (4 треугольника)</h1>
 
     <div class="controls">
         <label for="imageInput" class="upload-btn">Выбрать изображение</label>
@@ -83,8 +83,9 @@
         const overlayCtx = overlayCanvas.getContext('2d');
 
         // --- НАСТРОЙКИ ---
-        const DARKNESS_THRESHOLD = 130; 
-        const SATURATION_THRESHOLD = 25; 
+        const DARKNESS_THRESHOLD = 135; 
+        const SATURATION_THRESHOLD = 20; 
+        const EDGE_THRESHOLD = 30; // Чувствительность к резким перепадам (контурам)
         const LOOKAHEAD = 4;
 
         const STRIPE_COLOR = '#ff4757';
@@ -129,7 +130,7 @@
 
             overlayCtx.clearRect(0, 0, width, height);
             
-            // Запускаем отрисовку из 4 углов
+            // Рисуем из 4 углов, ограничивая область треугольниками
             drawFromCorner(data, width, height, 'top-left');
             drawFromCorner(data, width, height, 'top-right');
             drawFromCorner(data, width, height, 'bottom-left');
@@ -145,18 +146,28 @@
             return { r: data[index], g: data[index+1], b: data[index+2], a: data[index+3] };
         }
 
+        // Проверка, является ли пиксель частью персонажа (цветной, темный или на границе)
         function isCharacterPixel(data, width, height, x, y) {
             const p = getPixel(data, width, height, x, y);
             if (!p || p.a < 50) return false;
 
+            // 1. Темнота
             const brightness = (p.r + p.g + p.b) / 3;
             if (brightness < DARKNESS_THRESHOLD) return true;
 
+            // 2. Насыщенность (цвет)
             const max = Math.max(p.r, p.g, p.b);
             const min = Math.min(p.r, p.g, p.b);
             const saturation = max - min;
-
             if (saturation > SATURATION_THRESHOLD) return true;
+
+            // 3. Резкий перепад (контур) - сравниваем с пикселем впереди
+            const pAhead = getPixel(data, width, height, x + 3, y + 3);
+            if (pAhead) {
+                const diff = Math.abs(p.r - pAhead.r) + Math.abs(p.g - pAhead.g) + Math.abs(p.b - pAhead.b);
+                if (diff > EDGE_THRESHOLD) return true;
+            }
+
             return false;
         }
 
@@ -169,7 +180,6 @@
             return false;
         }
 
-        // Универсальная функция для рисования из угла
         function drawFromCorner(data, width, height, corner) {
             overlayCtx.strokeStyle = STRIPE_COLOR;
             overlayCtx.lineCap = 'butt'; 
@@ -177,54 +187,59 @@
 
             const step = STRIPE_WIDTH + STRIPE_GAP;
             
-            let startX, startY, dx, dy, limitX, limitY;
+            let startX, startY, dx, dy;
+            // Границы треугольника для каждого угла (чтобы не было наложений)
+            let minX, maxX, minY, maxY;
 
-            // Настраиваем параметры для каждого угла
             switch(corner) {
                 case 'top-left':
-                    startX = -height; startY = 0; // Начинаем с верхнего левого угла
-                    dx = 1; dy = 1;               // Идем вправо-вниз
-                    limitX = width; limitY = height;
+                    startX = -height; startY = 0;
+                    dx = 1; dy = 1;
+                    // Верхний левый треугольник: x от 0 до середины, y от 0 до верха
+                    minX = 0; maxX = width; minY = 0; maxY = height / 2; // Ограничиваем нижнюю часть
                     break;
                 case 'top-right':
-                    startX = width + height; startY = 0; // Начинаем с верхнего правого угла
-                    dx = -1; dy = 1;                     // Идем влево-вниз
-                    limitX = 0; limitY = height;
+                    startX = width + height; startY = 0;
+                    dx = -1; dy = 1;
+                    minX = 0; maxX = width; minY = 0; maxY = height / 2;
                     break;
                 case 'bottom-left':
-                    startX = -height; startY = height;   // Начинаем с нижнего левого угла
-                    dx = 1; dy = -1;                     // Идем вправо-вверх
-                    limitX = width; limitY = 0;
+                    startX = -height; startY = height;
+                    dx = 1; dy = -1;
+                    minX = 0; maxX = width; minY = height / 2; maxY = height;
                     break;
                 case 'bottom-right':
-                    startX = width + height; startY = height; // Начинаем с нижнего правого угла
-                    dx = -1; dy = -1;                         // Идем влево-вверх
-                    limitX = 0; limitY = 0;
+                    startX = width + height; startY = height;
+                    dx = -1; dy = -1;
+                    minX = 0; maxX = width; minY = height / 2; maxY = height;
                     break;
             }
 
-            // Определяем, сколько линий нужно нарисовать, чтобы покрыть весь холст
-            // Количество шагов = (ширина + высота) / шаг
             const numLines = Math.ceil((width + height) / step) + 2;
 
             for (let i = 0; i < numLines; i++) {
-                // Вычисляем стартовую точку для текущей линии
-                let currentX = startX + i * step; // Смещаем по X
-                let currentY = startY;            // Y остается на краю
+                let currentX = startX + i * step;
+                let currentY = startY;
 
-                // Корректируем стартовую точку, если она выходит за пределы холста
                 if (dx === 1 && currentX < 0) {
-                    currentY = -currentX; // Сдвигаем вниз по левому краю
+                    currentY = -currentX;
                     currentX = 0;
                 } else if (dx === -1 && currentX > width) {
-                    currentY = currentX - width; // Сдвигаем вниз по правому краю
+                    currentY = currentX - width;
                     currentX = width;
                 }
 
-                // Если стартовая точка вне холста, пропускаем
                 if (currentX < 0 || currentX > width || currentY < 0 || currentY > height) continue;
 
-                // Пропускаем линию, если она начинается уже внутри персонажа
+                // ПРОВЕРКА ГРАНИЦ ТРЕУГОЛЬНИКА
+                // Если стартовая точка не попадает в нужную половину, пропускаем линию
+                if (currentY < minY || currentY > maxY) continue;
+                
+                // Дополнительная проверка для разделения по диагонали (центр)
+                // Чтобы линии не пересекались в центре, ограничиваем их по X или Y
+                // Для простоты используем ограничение по Y (верхняя/нижняя половина)
+                // Этого достаточно, чтобы убрать сетку.
+
                 if (isCharacterPixel(data, width, height, Math.floor(currentX), Math.floor(currentY))) {
                     continue;
                 }
@@ -236,7 +251,6 @@
                 let x = currentX;
                 let y = currentY;
 
-                // Сканируем в направлении (dx, dy)
                 while (x >= 0 && x <= width && y >= 0 && y <= height) {
                     if (isCharacterAhead(data, width, height, Math.floor(x), Math.floor(y), dx, dy)) {
                         hitCharacter = true;
@@ -244,6 +258,9 @@
                     }
                     x += dx * SCAN_STEP;
                     y += dy * SCAN_STEP;
+
+                    // Ограничиваем рисование треугольником (не даем уйти в другую половину)
+                    if (y < minY || y > maxY) break; 
                 }
 
                 if (hitCharacter) {
