@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lineart Highlighter (Тонкие линии)</title>
+    <title>Lineart Highlighter (Edge Detection)</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -58,7 +58,7 @@
 </head>
 <body>
 
-    <h1>Авто-штриховка фона (Тонкие линии)</h1>
+    <h1>Авто-штриховка (Поиск контуров)</h1>
 
     <div class="controls">
         <label for="imageInput" class="upload-btn">Выбрать изображение</label>
@@ -82,19 +82,16 @@
         const imgCtx = imageCanvas.getContext('2d');
         const overlayCtx = overlayCanvas.getContext('2d');
 
-        // --- НАСТРОЙКИ АЛГОРИТМА ---
-        const DARKNESS_THRESHOLD = 120; 
+        // --- НАСТРОЙКИ ---
+        // Чувствительность к контурам. Чем МЕНЬШЕ число, тем больше линий найдет.
+        // Если полосы пробивают персонажа - уменьшите (например, до 30).
+        // Если полосы останавливаются слишком рано на фоне - увеличьте (до 80-100).
+        const EDGE_THRESHOLD = 45; 
         
-        // Цвет полос
         const STRIPE_COLOR = '#ff4757';
-        
-        // ТОЛЩИНА ПОЛОС: Уменьшено с 12 до 4 (можно ставить 2, 3, 5)
-        const STRIPE_WIDTH = 4; 
-        
-        // РАССТОЯНИЕ МЕЖДУ ПОЛОСАМИ: Увеличено, чтобы фон выглядел воздушнее
-        const STRIPE_GAP = 18; 
-        
-        const SCAN_STEP = 2; 
+        const STRIPE_WIDTH = 4;     // Толщина полос
+        const STRIPE_GAP = 18;      // Расстояние между полосами
+        const SCAN_STEP = 2;        // Шаг сканирования
 
         imageInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
@@ -128,49 +125,55 @@
             overlayCanvas.height = height;
 
             imgCtx.drawImage(img, 0, 0, width, height);
-
             const imageData = imgCtx.getImageData(0, 0, width, height);
             const data = imageData.data;
 
             overlayCtx.clearRect(0, 0, width, height);
-
             drawDiagonalStripes(data, width, height);
 
             loader.style.display = 'none';
             canvasContainer.style.display = 'block';
         }
 
-        function isBoundary(data, width, height, x, y) {
-            if (x < 0 || x >= width || y < 0 || y >= height) return true;
-
+        // Функция получения цвета пикселя
+        function getPixel(data, width, height, x, y) {
+            if (x < 0 || x >= width || y < 0 || y >= height) return null;
             const index = (y * width + x) * 4;
-            const r = data[index];
-            const g = data[index + 1];
-            const b = data[index + 2];
-            const a = data[index + 3];
+            return {
+                r: data[index],
+                g: data[index + 1],
+                b: data[index + 2],
+                a: data[index + 3]
+            };
+        }
 
-            if (a < 50) return false;
+        // Проверка: является ли текущая точка контуром?
+        // Мы сравниваем текущий пиксель с пикселем, который находится на несколько шагов ВПЕРЕД по диагонали.
+        function isEdge(data, width, height, x, y) {
+            const p1 = getPixel(data, width, height, x, y);
+            // Смотрим на 3 пикселя вперед по диагонали
+            const p2 = getPixel(data, width, height, x + 3, y + 3); 
 
-            const brightness = (r + g + b) / 3;
-            if (brightness < DARKNESS_THRESHOLD) return true;
+            if (!p1 || !p2) return false;
 
-            const max = Math.max(r, g, b);
-            const min = Math.min(r, g, b);
-            const saturation = max - min;
-            
-            if (saturation > 60 && brightness < 200) return true;
+            // Если один из пикселей прозрачный, пропускаем
+            if (p1.a < 50 || p2.a < 50) return false;
 
-            return false;
+            // Вычисляем разницу в яркости и цвете
+            const diff = Math.abs(p1.r - p2.r) + Math.abs(p1.g - p2.g) + Math.abs(p1.b - p2.b);
+
+            // Если разница больше порога, значит мы наткнулись на линию
+            return diff > EDGE_THRESHOLD;
         }
 
         function drawDiagonalStripes(data, width, height) {
             overlayCtx.strokeStyle = STRIPE_COLOR;
-            // lineCap 'butt' делает концы линий ровными, а не скругленными
             overlayCtx.lineCap = 'butt'; 
             overlayCtx.lineWidth = STRIPE_WIDTH;
 
             const step = STRIPE_WIDTH + STRIPE_GAP;
 
+            // Проходим по верхнему и левому краям
             for (let startX = -height; startX < width + height; startX += step) {
                 
                 let startY = 0;
@@ -181,27 +184,25 @@
                     currentX = 0;
                 }
 
-                if (isBoundary(data, width, height, Math.floor(currentX), Math.floor(startY))) {
-                    continue; 
-                }
-
                 overlayCtx.beginPath();
                 overlayCtx.moveTo(currentX, startY);
 
-                let hitBoundary = false;
+                let hitEdge = false;
                 let x = currentX;
                 let y = startY;
 
+                // Сканируем диагональ
                 while (x < width && y < height) {
-                    if (isBoundary(data, width, height, Math.floor(x), Math.floor(y))) {
-                        hitBoundary = true;
+                    if (isEdge(data, width, height, Math.floor(x), Math.floor(y))) {
+                        hitEdge = true;
                         break;
                     }
                     x += SCAN_STEP;
                     y += SCAN_STEP;
                 }
 
-                if (hitBoundary) {
+                // Рисуем полосу только если нашли контур
+                if (hitEdge) {
                     overlayCtx.lineTo(x, y);
                     overlayCtx.stroke();
                 }
