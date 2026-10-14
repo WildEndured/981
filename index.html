@@ -3,52 +3,33 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Разметка на 4 части + диагональная штриховка до контура</title>
+<title>Разметка 4 части + штриховка до контура</title>
 <style>
   :root { color-scheme: dark; }
   body {
-    margin: 0;
-    font-family: system-ui, sans-serif;
-    background: #14161a;
-    color: #e6e6e6;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
-    gap: 14px;
+    margin: 0; font-family: system-ui, sans-serif;
+    background: #14161a; color: #e6e6e6;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 16px; gap: 12px;
   }
-  h1 { font-size: 18px; margin: 0; }
+  h1 { font-size: 16px; margin: 0; }
   .controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    align-items: center;
-    justify-content: center;
-    padding: 10px 14px;
-    background: #1d2027;
-    border-radius: 10px;
+    display: flex; flex-wrap: wrap; gap: 10px 16px;
+    align-items: center; justify-content: center;
+    padding: 10px 14px; background: #1d2027; border-radius: 10px;
     max-width: 900px;
   }
-  .controls label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
-  input[type="file"] { font-size: 13px; }
+  .controls label { font-size: 12px; display: flex; gap: 6px; align-items: center; }
+  input[type="file"] { font-size: 12px; }
+  input[type="range"] { width: 100px; }
   .stage {
-    position: relative;
-    display: inline-block;
-    border: 1px solid #2b2f37;
-    background: #0b0c0f;
-    line-height: 0;
+    position: relative; display: inline-block;
+    border: 1px solid #2b2f37; background: #0b0c0f; line-height: 0;
   }
-  .stage canvas {
-    display: block;
-    max-width: min(90vw, 900px);
-    height: auto;
-  }
-  .stage canvas#overlay {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-  }
+  .stage canvas { display: block; max-width: min(92vw, 900px); height: auto; }
+  .stage canvas#overlay { position: absolute; inset: 0; pointer-events: none; }
   .hint { font-size: 12px; color: #8b93a1; max-width: 700px; text-align: center; }
+  .val { display: inline-block; min-width: 28px; text-align: right; color: #7fd7ff; }
 </style>
 </head>
 <body>
@@ -56,25 +37,34 @@
 <h1>Загрузите изображение персонажа</h1>
 
 <div class="controls">
-  <label>Изображение:
-    <input id="file" type="file" accept="image/*" />
-  </label>
+  <label>Файл: <input id="file" type="file" accept="image/*" /></label>
+
   <label>Порог контура:
-    <input id="threshold" type="range" min="20" max="200" value="90" />
-    <span id="thresholdVal">90</span>
+    <input id="threshold" type="range" min="20" max="220" value="90" />
+    <span class="val" id="thresholdVal">90</span>
   </label>
-  <label>Шаг штриховки:
-    <input id="step" type="range" min="2" max="20" value="6" />
-    <span id="stepVal">6</span>
+
+  <label>Плотность лучей:
+    <input id="density" type="range" min="4" max="60" value="16" />
+    <span class="val" id="densityVal">16</span>
   </label>
-  <label>Угол:
-    <input id="angle" type="range" min="0" max="180" value="45" />
-    <span id="angleVal">45°</span>
+
+  <label>Длина штриха:
+    <input id="length" type="range" min="10" max="400" value="120" />
+    <span class="val" id="lengthVal">120</span>
   </label>
-  <label>
-    <input id="showGrid" type="checkbox" checked />
-    Показать разметку на 4 части
+
+  <label>Толщина:
+    <input id="thickness" type="range" min="1" max="12" value="2" />
+    <span class="val" id="thicknessVal">2</span>
   </label>
+
+  <label>Пропуск мелких деталей (gap):
+    <input id="gap" type="range" min="0" max="60" value="10" />
+    <span class="val" id="gapVal">10</span>
+  </label>
+
+  <label><input id="showGrid" type="checkbox" checked /> Разметка</label>
 </div>
 
 <div class="stage">
@@ -83,22 +73,21 @@
 </div>
 
 <p class="hint">
-  Штриховка идёт диагональными линиями от краёв к центру и останавливается,
-  когда встречает тёмный пиксель — то есть line art персонажа.
-  Порог яркости, шаг и угол штриховки можно регулировать.
+  Лучи идут от краёв к центру и останавливаются на силуэте.
+  «Пропуск мелких деталей» — сколько подряд светлых пикселей нужно пройти,
+  чтобы считать тёмное пятно внутренней деталью и не останавливаться на нём.
 </p>
 
 <script>
-const fileInput    = document.getElementById('file');
-const baseCanvas   = document.getElementById('base');
-const overlay      = document.getElementById('overlay');
-const thresholdEl  = document.getElementById('threshold');
-const stepEl       = document.getElementById('step');
-const angleEl      = document.getElementById('angle');
-const showGridEl   = document.getElementById('showGrid');
-const thresholdVal = document.getElementById('thresholdVal');
-const stepVal      = document.getElementById('stepVal');
-const angleVal     = document.getElementById('angleVal');
+const fileInput   = document.getElementById('file');
+const baseCanvas  = document.getElementById('base');
+const overlay     = document.getElementById('overlay');
+const thresholdEl = document.getElementById('threshold');
+const densityEl   = document.getElementById('density');
+const lengthEl    = document.getElementById('length');
+const thicknessEl = document.getElementById('thickness');
+const gapEl       = document.getElementById('gap');
+const showGridEl  = document.getElementById('showGrid');
 
 const baseCtx    = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
@@ -107,7 +96,7 @@ let imageData = null;
 let imgWidth = 0, imgHeight = 0;
 let srcImage = null;
 
-// ---------- Шаг 1: загрузка изображения ----------
+// ---- Шаг 1: загрузка изображения ----
 fileInput.addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
@@ -132,160 +121,130 @@ fileInput.addEventListener('change', e => {
   img.src = URL.createObjectURL(file);
 });
 
-// ---------- Шаг 2: разметка на 4 части ----------
+// ---- Шаг 2: разметка на 4 части ----
 function drawGrid() {
   if (!imageData) return;
   baseCtx.clearRect(0, 0, imgWidth, imgHeight);
   baseCtx.drawImage(srcImage, 0, 0);
-
   if (!showGridEl.checked) return;
 
   baseCtx.save();
   baseCtx.strokeStyle = 'rgba(255, 60, 60, 0.9)';
   baseCtx.lineWidth = Math.max(2, Math.round(imgWidth / 400));
-  baseCtx.setLineDash([12, 8]);
-
-  const mx = imgWidth / 2;
-  const my = imgHeight / 2;
-
-  baseCtx.beginPath();
-  baseCtx.moveTo(mx, 0);
-  baseCtx.lineTo(mx, imgHeight);
-  baseCtx.stroke();
-
-  baseCtx.beginPath();
-  baseCtx.moveTo(0, my);
-  baseCtx.lineTo(imgWidth, my);
-  baseCtx.stroke();
-
+  baseCtx.setLineDash([14, 8]);
+  const mx = imgWidth / 2, my = imgHeight / 2;
+  baseCtx.beginPath(); baseCtx.moveTo(mx, 0); baseCtx.lineTo(mx, imgHeight); baseCtx.stroke();
+  baseCtx.beginPath(); baseCtx.moveTo(0, my); baseCtx.lineTo(imgWidth, my); baseCtx.stroke();
   baseCtx.restore();
 }
 
-// ---------- проверка "тёмный ли пиксель" (line art) ----------
-function isDark(x, y, threshold) {
-  if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) return true;
+// ---- проверка яркости пикселя ----
+function lumAt(x, y) {
+  x = Math.round(x); y = Math.round(y);
+  if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) return 999;
   const i = (y * imgWidth + x) * 4;
   const d = imageData.data;
-  const r = d[i], g = d[i + 1], b = d[i + 2], a = d[i + 3];
-  if (a < 20) return false;
-  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-  return lum < threshold;
+  if (d[i + 3] < 20) return 999; // прозрачное
+  return 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
 }
 
-// ---------- Шаг 3 + 4: ДИАГОНАЛЬНАЯ штриховка от краёв к центру до контура ----------
+// ---- Шаг 3 + 4: радиальные лучи от краёв к центру ----
 function drawHatching() {
   if (!imageData) return;
 
   const threshold = +thresholdEl.value;
-  const gap       = +stepEl.value;
-  const angle     = (+angleEl.value) * Math.PI / 180;
+  const rayCount  = +densityEl.value;
+  const maxLen    = +lengthEl.value;
+  const thickness = +thicknessEl.value;
+  const gap       = +gapEl.value;
 
   overlayCtx.clearRect(0, 0, imgWidth, imgHeight);
-  overlayCtx.save();
   overlayCtx.strokeStyle = 'rgba(80, 200, 255, 0.85)';
-  overlayCtx.lineWidth = 1;
+  overlayCtx.lineWidth   = thickness;
+  overlayCtx.lineCap     = 'round';
 
-  const W = imgWidth, H = imgHeight;
-  const cx = W / 2, cy = H / 2;
+  const cx = imgWidth / 2;
+  const cy = imgHeight / 2;
 
-  const dx = Math.cos(angle);
-  const dy = Math.sin(angle);
-
-  // Нормаль к направлению линий
-  const nx = -dy;
-  const ny =  dx;
-
-  const diag = Math.hypot(W, H);
-
-  // Проекция центра на нормаль
-  const cProj = cx * nx + cy * ny;
-
-  // Идём по всем параллельным линиям, покрывающим изображение
-  for (let offset = -diag; offset <= diag; offset += gap) {
-    // Точка-опора: точка на линии, ближайшая к центру изображения
-    const baseX = cx + (offset - cProj) * nx;
-    const baseY = cy + (offset - cProj) * ny;
-
-    // Отсечение линии по прямоугольнику [0,W] x [0,H]
-    let tMin = -diag, tMax = diag;
-
-    if (Math.abs(dx) > 1e-6) {
-      const t1 = (0 - baseX) / dx;
-      const t2 = (W - baseX) / dx;
-      tMin = Math.max(tMin, Math.min(t1, t2));
-      tMax = Math.min(tMax, Math.max(t1, t2));
-    }
-    if (Math.abs(dy) > 1e-6) {
-      const t1 = (0 - baseY) / dy;
-      const t2 = (H - baseY) / dy;
-      tMin = Math.max(tMin, Math.min(t1, t2));
-      tMax = Math.min(tMax, Math.max(t1, t2));
-    }
-    if (tMin >= tMax) continue;
-
-    // Параметр t, соответствующий ближайшей точке к центру вдоль этой линии
-    const tC = ((cx - baseX) * dx + (cy - baseY) * dy) / (dx * dx + dy * dy);
-
-    // Два луча: от одного конца к центру и от другого конца к центру
-    drawRay(baseX, baseY, dx, dy, tMin, tC, threshold);
-    drawRay(baseX, baseY, dx, dy, tMax, tC, threshold);
+  // «Радиус до края» для каждого угла, чтобы луч начинался точно от рамки
+  function edgeDistance(angle) {
+    const dx = Math.cos(angle), dy = Math.sin(angle);
+    const tx = dx !== 0 ? (cx / Math.abs(dx)) : Infinity;
+    const ty = dy !== 0 ? (cy / Math.abs(dy)) : Infinity;
+    return Math.min(tx, ty);
   }
 
-  overlayCtx.restore();
-}
+  for (let k = 0; k < rayCount; k++) {
+    const angle = (k / rayCount) * Math.PI * 2;
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
 
-// Рисует отрезок вдоль направления (dx,dy) от "внешнего" конца к центру,
-// останавливаясь на первом тёмном пикселе (контур).
-function drawRay(baseX, baseY, dx, dy, tEndA, tCenter, threshold) {
-  // Всегда начинаем с внешнего конца и идём к центру
-  let tStart = tEndA;
-  let tEnd   = tCenter;
+    const startR = edgeDistance(angle);          // от края
+    const maxR   = Math.min(maxLen, startR);     // ограничиваем длину ползунком
 
-  // шаг по параметру. Направление (dx,dy) единичное, значит t ~= пиксели
-  const stepT = 1;
+    // Идём от края к центру, ищем силуэт с учётом gap
+    let stopped = -1;
+    let gapCounter = 0;
+    let foundDark = false;
 
-  overlayCtx.beginPath();
-  let started = false;
+    for (let r = 0; r <= maxR; r++) {
+      const x = cx + dx * (startR - r);
+      const y = cy + dy * (startR - r);
+      const lum = lumAt(x, y);
 
-  if (tEnd >= tStart) {
-    for (let t = tStart; t <= tEnd; t += stepT) {
-      const x = baseX + dx * t;
-      const y = baseY + dy * t;
-      const xi = Math.round(x), yi = Math.round(y);
-      if (xi < 0 || yi < 0 || xi >= imgWidth || yi >= imgHeight) break;
-      if (isDark(xi, yi, threshold)) break;
-
-      if (!started) { overlayCtx.moveTo(x, y); started = true; }
-      else          { overlayCtx.lineTo(x, y); }
+      if (lum < threshold) {
+        // тёмный пиксель
+        if (!foundDark) { foundDark = true; gapCounter = 0; }
+        else { gapCounter = 0; }
+      } else if (foundDark) {
+        gapCounter++;
+        if (gapCounter > gap) {
+          // прошли достаточно светлого — значит это была внутренняя деталь
+          // откатываемся: стоп на предыдущей тёмной границе
+          stopped = r - gapCounter;
+          break;
+        }
+      }
     }
-  } else {
-    for (let t = tStart; t >= tEnd; t -= stepT) {
-      const x = baseX + dx * t;
-      const y = baseY + dy * t;
-      const xi = Math.round(x), yi = Math.round(y);
-      if (xi < 0 || yi < 0 || xi >= imgWidth || yi >= imgHeight) break;
-      if (isDark(xi, yi, threshold)) break;
 
-      if (!started) { overlayCtx.moveTo(x, y); started = true; }
-      else          { overlayCtx.lineTo(x, y); }
+    if (foundDark && stopped === -1) {
+      // тёмное найдено и до конца луча gap не сработал — стоп на конце
+      stopped = maxR;
     }
+
+    if (!foundDark) {
+      // ничего тёмного не встретили — рисуем пустой луч (опционально можно пропустить)
+      stopped = maxR;
+    }
+
+    // Рисуем штрих от края к найденной точке
+    const rEnd = Math.max(0, stopped);
+    const x0 = cx + dx * startR;
+    const y0 = cy + dy * startR;
+    const x1 = cx + dx * (startR - rEnd);
+    const y1 = cy + dy * (startR - rEnd);
+
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(x0, y0);
+    overlayCtx.lineTo(x1, y1);
+    overlayCtx.stroke();
   }
-
-  if (started) overlayCtx.stroke();
 }
 
-// ---------- перерисовка при изменении параметров ----------
-thresholdEl.addEventListener('input', () => {
-  thresholdVal.textContent = thresholdEl.value;
-  drawHatching();
-});
-stepEl.addEventListener('input', () => {
-  stepVal.textContent = stepEl.value;
-  drawHatching();
-});
-angleEl.addEventListener('input', () => {
-  angleVal.textContent = angleEl.value + '°';
-  drawHatching();
+// ---- перерисовка при изменении параметров ----
+const binds = [
+  [thresholdEl, 'thresholdVal'],
+  [densityEl,   'densityVal'],
+  [lengthEl,    'lengthVal'],
+  [thicknessEl, 'thicknessVal'],
+  [gapEl,       'gapVal'],
+];
+binds.forEach(([el, out]) => {
+  const span = document.getElementById(out);
+  el.addEventListener('input', () => {
+    span.textContent = el.value;
+    drawHatching();
+  });
 });
 showGridEl.addEventListener('change', drawGrid);
 </script>
