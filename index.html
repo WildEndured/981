@@ -3,101 +3,50 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Удаление фона v2 — кластеры + мягкий color key + агрессивные дырки</title>
+<title>Фон и персонаж</title>
 <style>
-  * { box-sizing: border-box; }
   body {
-    margin: 0; font-family: system-ui, -apple-system, sans-serif;
-    background: #14161a; color: #e6e6e6;
-    display: flex; flex-direction: column; align-items: center;
-    padding: 16px; gap: 12px; min-height: 100vh;
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    background: #14161a;
+    color: #e6e6e6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    gap: 12px;
   }
-  h1 { font-size: 15px; font-weight: 600; margin: 0; opacity: .8; }
   .controls {
     display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
-    justify-content: center; padding: 12px 16px;
-    background: #1d2027; border-radius: 12px;
-    max-width: min(96vw, 1000px);
-    box-shadow: 0 4px 24px rgba(0,0,0,.35);
+    justify-content: center; padding: 10px 14px;
+    background: #1d2027; border-radius: 10px;
   }
-  .controls label {
-    font-size: 13px; display: flex; gap: 6px; align-items: center;
-    user-select: none;
-  }
-  input[type="file"] { font-size: 13px; max-width: 200px; }
-  input[type="range"] { width: 130px; accent-color: #ff5a7a; }
-  .val { min-width: 30px; text-align: right; opacity: .8; font-variant-numeric: tabular-nums; }
-  button {
-    background: #2a2f3a; color: #e6e6e6; border: 1px solid #3a4150;
-    padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13px;
-  }
-  button:hover { background: #343b48; }
-  button.primary { background: #ff5a7a; border-color: #ff5a7a; color: #fff; }
-  button.primary:hover { background: #ff738c; }
-  .colorSwatch {
-    width: 22px; height: 22px; border-radius: 5px;
-    border: 1px solid #3a4150; display: inline-block; vertical-align: middle;
-  }
+  .controls label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
+  input[type="file"] { font-size: 13px; }
+  input[type="range"] { width: 160px; }
   .stage {
     position: relative; display: inline-block;
     border: 1px solid #2b2f37; background: #0b0c0f; line-height: 0;
-    border-radius: 8px; overflow: hidden;
-    max-width: min(96vw, 1000px);
   }
-  .stage canvas { display: block; max-width: 100%; height: auto; }
-  .stage canvas#overlay {
-    position: absolute; inset: 0;
-    pointer-events: none; width: 100%; height: 100%;
-  }
-  .stage.picking canvas#overlay { pointer-events: auto; cursor: crosshair; }
-  .status { font-size: 12px; opacity: .65; min-height: 16px; }
-  .legend { display: flex; gap: 14px; font-size: 12px; opacity: .75; flex-wrap: wrap; }
-  .legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-  @media (max-width: 700px) {
+  .stage.hide canvas#base { opacity: 0; }
+  .stage.hide { background: #fff; }
+  .stage canvas { display: block; max-width: min(92vw, 900px); height: auto; }
+  .stage canvas#base { transition: opacity 0.15s; }
+  .stage canvas#overlay { position: absolute; inset: 0; pointer-events: none; }
+  @media (max-width: 600px) {
     .controls { flex-direction: column; align-items: stretch; }
-    input[type="range"] { width: 100%; }
   }
 </style>
 </head>
 <body>
 
-<h1>Удаление фона v2 — кластеры + мягкий color key + агрессивные дырки</h1>
-
 <div class="controls">
-  <label>🖼 <input id="file" type="file" accept="image/*" /></label>
-
-  <label>🎚 Толерантность
-    <input id="tol" type="range" min="5" max="150" value="55" />
-    <span class="val" id="tolVal">55</span>
+  <label>Изображение: <input id="file" type="file" accept="image/*" /></label>
+  <label>Яркость фона:
+    <input id="bgLum" type="range" min="200" max="255" value="200" />
+    <span id="bgLumVal">200</span>
   </label>
-
-  <label>🌫 Мягкость (тени)
-    <input id="soft" type="range" min="0" max="150" value="60" />
-    <span class="val" id="softVal">60</span>
-  </label>
-
-  <label>🕳 Мин. дырка, %
-    <input id="holeMin" type="range" min="1" max="100" value="15" />
-    <span class="val" id="holeMinVal">15</span>
-  </label>
-
-  <label>🖌 Растушёвка
-    <input id="feather" type="range" min="0" max="4" value="1" />
-    <span class="val" id="featherVal">1</span>
-  </label>
-
-  <label title="Кликните по картинке">
-    🎯 <span class="colorSwatch" id="swatch"></span>
-    <button id="pickBtn" type="button">Пипетка</button>
-    <button id="autoBtn" type="button">Авто</button>
-  </label>
-
-  <label>👁 <input id="showMask" type="checkbox" checked /> Маска</label>
-  <label>🙈 <input id="hideImage" type="checkbox" /> Скрыть оригинал</label>
-  <label>💥 <input id="aggressive" type="checkbox" checked /> Агрессивные дырки</label>
-
-  <button id="exportBtn" class="primary" type="button">💾 Экспорт PNG</button>
+  <label><input id="hideImage" type="checkbox" /> Скрыть изображение</label>
 </div>
 
 <div class="stage" id="stage">
@@ -105,490 +54,117 @@
   <canvas id="overlay"></canvas>
 </div>
 
-<div class="legend">
-  <span><span class="dot" style="background:#ff3c5c"></span> Персонаж</span>
-  <span><span class="dot" style="background:#4ade80"></span> Дырка-фон (закрыта)</span>
-  <span><span class="dot" style="background:#ffd166"></span> Растушёвка</span>
-  <span><span class="dot" style="background:#60a5fa"></span> Мягкий фон</span>
-</div>
-<div class="status" id="status">Загрузите изображение.</div>
-
 <script>
-/* =========================================================
-   Элементы
-   ========================================================= */
 const fileInput   = document.getElementById('file');
 const baseCanvas  = document.getElementById('base');
 const overlay     = document.getElementById('overlay');
 const stageEl     = document.getElementById('stage');
-const tolEl       = document.getElementById('tol');
-const tolVal      = document.getElementById('tolVal');
-const softEl      = document.getElementById('soft');
-const softVal     = document.getElementById('softVal');
-const holeMinEl   = document.getElementById('holeMin');
-const holeMinVal  = document.getElementById('holeMinVal');
-const featherEl   = document.getElementById('feather');
-const featherVal  = document.getElementById('featherVal');
-const swatchEl    = document.getElementById('swatch');
-const pickBtn     = document.getElementById('pickBtn');
-const autoBtn     = document.getElementById('autoBtn');
-const showMaskEl  = document.getElementById('showMask');
-const hideImgEl   = document.getElementById('hideImage');
-const aggressiveEl= document.getElementById('aggressive');
-const exportBtn   = document.getElementById('exportBtn');
-const statusEl    = document.getElementById('status');
+const bgLumEl     = document.getElementById('bgLum');
+const bgLumVal    = document.getElementById('bgLumVal');
+const hideImageEl = document.getElementById('hideImage');
 
-const baseCtx    = baseCanvas.getContext('2d', { willReadFrequently: true });
-const overlayCtx = overlay.getContext('2d', { willReadFrequently: true });
+const baseCtx    = baseCanvas.getContext('2d');
+const overlayCtx = overlay.getContext('2d');
 
-/* =========================================================
-   Состояние
-   ========================================================= */
-let imgW = 0, imgH = 0;
-let sourceData = null;      // RGBA
-let mask = null;            // 0=char, 1=bg, 2=hole-bg, 3=feather, 4=soft-bg
-let bgColors = [];          // набор «эталонных» цветов фона (кластеры)
-let picking = false;
+let imgWidth = 0, imgHeight = 0;
+let lum = null;
+let isBg = null;
 
-/* =========================================================
-   Загрузка
-   ========================================================= */
+// ---------- Загрузка ----------
 fileInput.addEventListener('change', e => {
-  const file = e.target.files?.[0];
+  const file = e.target.files && e.target.files[0];
   if (!file) return;
-  const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = () => {
-    imgW = img.naturalWidth;
-    imgH = img.naturalHeight;
-    [baseCanvas, overlay].forEach(c => { c.width = imgW; c.height = imgH; });
-    baseCtx.clearRect(0, 0, imgW, imgH);
+    imgWidth  = img.naturalWidth;
+    imgHeight = img.naturalHeight;
+
+    [baseCanvas, overlay].forEach(c => {
+      c.width = imgWidth; c.height = imgHeight;
+    });
+
     baseCtx.drawImage(img, 0, 0);
-
-    const id = baseCtx.getImageData(0, 0, imgW, imgH);
-    sourceData = id.data;
-
-    autoDetectBgColors();
-    process();
-    URL.revokeObjectURL(url);
-    statusEl.textContent = `Загружено ${imgW}×${imgH}. Найдено кластеров фона: ${bgColors.length}.`;
+    const data = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
+    computeLuminance(data);
+    buildMask();
+    drawOverlay();
   };
-  img.onerror = () => statusEl.textContent = 'Не удалось загрузить.';
-  img.src = url;
+  img.src = URL.createObjectURL(file);
 });
 
-/* =========================================================
-   АВТО: ищем доминирующие цвета фона по краям
-   - Собираем квантованные цвета по периметру (полоса шириной 3% от мин. стороны)
-   - Считаем частоту, берём топ-N
-   ========================================================= */
-function autoDetectBgColors() {
-  if (!sourceData) return;
-  const w = imgW, h = imgH;
-  const band = Math.max(2, Math.floor(Math.min(w, h) * 0.03));
+// ---------- Яркость ----------
+function computeLuminance(data) {
+  const d = data.data;
+  const N = imgWidth * imgHeight;
+  lum = new Float32Array(N);
+  for (let i = 0, p = 0; i < N; i++, p += 4) {
+    if (d[p + 3] < 20) { lum[i] = 255; continue; }
+    lum[i] = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2];
+  }
+}
 
-  const counts = new Map();
-  const key = (r, g, b) => ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+// ---------- Маска фона ----------
+function buildMask() {
+  const w = imgWidth, h = imgHeight;
+  const N = w * h;
+  const threshold = +bgLumEl.value;
 
-  const add = (x, y) => {
-    const i = (y * w + x) * 4;
-    const k = key(sourceData[i], sourceData[i + 1], sourceData[i + 2]);
-    const prev = counts.get(k);
-    if (prev) {
-      prev.n++;
-      prev.r += sourceData[i];
-      prev.g += sourceData[i + 1];
-      prev.b += sourceData[i + 2];
-    } else {
-      counts.set(k, {
-        n: 1,
-        r: sourceData[i],
-        g: sourceData[i + 1],
-        b: sourceData[i + 2],
-      });
-    }
+  isBg = new Uint8Array(N);
+  const queue = [];
+  const isBright = i => lum[i] >= threshold;
+
+  const push = (x, y) => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return;
+    const idx = y * w + x;
+    if (isBg[idx]) return;
+    if (!isBright(idx)) return;
+    isBg[idx] = 1;
+    queue.push(idx);
   };
 
-  for (let y = 0; y < h; y++) {
-    for (let d = 0; d < band; d++) {
-      add(d, y);
-      add(w - 1 - d, y);
-    }
+  for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
+  for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+
+  let head = 0;
+  while (head < queue.length) {
+    const idx = queue[head++];
+    push(idx % w + 1, (idx / w) | 0);
+    push(idx % w - 1, (idx / w) | 0);
+    push(idx % w, (idx / w | 0) + 1);
+    push(idx % w, (idx / w | 0) - 1);
   }
-  for (let x = 0; x < w; x++) {
-    for (let d = 0; d < band; d++) {
-      add(x, d);
-      add(x, h - 1 - d);
-    }
-  }
-
-  // Топ-6 кластеров
-  const top = [...counts.values()]
-    .map(c => ({ n: c.n, r: c.r / c.n, g: c.g / c.n, b: c.b / c.n }))
-    .sort((a, b) => b.n - a.n)
-    .slice(0, 6);
-
-  bgColors = top.map(c => ({
-    r: Math.round(c.r), g: Math.round(c.g), b: Math.round(c.b),
-    weight: c.n,
-  }));
-
-  // Основной — самый крупный
-  updateSwatch();
 }
 
-function updateSwatch() {
-  if (!bgColors.length) return;
-  const c = bgColors[0];
-  swatchEl.style.background = `rgb(${c.r},${c.g},${c.b})`;
-}
-
-/* =========================================================
-   ПИПЕТКА
-   ========================================================= */
-pickBtn.addEventListener('click', () => {
-  if (!sourceData) return;
-  picking = !picking;
-  stageEl.classList.toggle('picking', picking);
-  pickBtn.textContent = picking ? 'Отмена' : 'Пипетка';
-  statusEl.textContent = picking ? 'Кликните по фону.' : '';
-});
-
-overlay.addEventListener('click', e => {
-  if (!picking || !sourceData) return;
-  const rect = overlay.getBoundingClientRect();
-  const x = Math.floor((e.clientX - rect.left) / rect.width  * imgW);
-  const y = Math.floor((e.clientY - rect.top)  / rect.height * imgH);
-  const i = (y * imgW + x) * 4;
-  // Добавляем этот цвет как эталон (в начало)
-  bgColors.unshift({
-    r: sourceData[i], g: sourceData[i + 1], b: sourceData[i + 2],
-    weight: 1e9,
-  });
-  // Не даём списку расти бесконечно
-  if (bgColors.length > 6) bgColors.pop();
-  updateSwatch();
-  picking = false;
-  stageEl.classList.remove('picking');
-  pickBtn.textContent = 'Пипетка';
-  process();
-  statusEl.textContent = `Добавлен цвет фона: rgb(${sourceData[i]}, ${sourceData[i+1]}, ${sourceData[i+2]})`;
-});
-
-autoBtn.addEventListener('click', () => {
-  autoDetectBgColors();
-  process();
-  statusEl.textContent = `Определено кластеров: ${bgColors.length}.`;
-});
-
-/* =========================================================
-   Ползунки
-   ========================================================= */
-const reprocess = () => process();
-tolEl.addEventListener('input', () => { tolVal.textContent = tolEl.value; reprocess(); });
-softEl.addEventListener('input', () => { softVal.textContent = softEl.value; reprocess(); });
-holeMinEl.addEventListener('input', () => { holeMinVal.textContent = holeMinEl.value; reprocess(); });
-featherEl.addEventListener('input', () => { featherVal.textContent = featherEl.value; reprocess(); });
-showMaskEl.addEventListener('change', reprocess);
-aggressiveEl.addEventListener('change', reprocess);
-hideImgEl.addEventListener('change', () => {
-  baseCanvas.style.opacity = hideImgEl.checked ? '0' : '1';
-  stageEl.style.background = hideImgEl.checked ? '#fff' : '#0b0c0f';
-});
-
-/* =========================================================
-   ОСНОВНОЙ КОНВЕЙЕР
-   ========================================================= */
-function process() {
-  if (!sourceData) return;
-  const w = imgW, h = imgH, N = w * h;
-  const tol = +tolEl.value;
-  const soft = +softEl.value;
-  const tol2 = tol * tol;
-  const softLimit2 = (tol + soft) * (tol + soft);
-
-  /* ---------- Шаг 1. Мягкий color key по НАБОРУ цветов фона ----------
-     Для каждого пикселя находим минимальное расстояние до любого эталона.
-     dist2 < tol2          → фон
-     tol2 <= dist2 < soft2 → мягкий фон (полупрозрачный)
-     иначе                 → персонаж
-  ---------------------------------------------------------------- */
-  const bgClass = new Uint8Array(N); // 0=char, 1=bg, 4=soft-bg
-  for (let i = 0; i < N; i++) {
-    const p = i * 4;
-    const r = sourceData[p], g = sourceData[p + 1], b = sourceData[p + 2];
-
-    let best = Infinity;
-    for (let k = 0; k < bgColors.length; k++) {
-      const c = bgColors[k];
-      const dr = r - c.r, dg = g - c.g, db = b - c.b;
-      const d2 = dr * dr + dg * dg + db * db;
-      if (d2 < best) best = d2;
-      if (best === 0) break;
-    }
-    if (best <= tol2) bgClass[i] = 1;
-    else if (best <= softLimit2) bgClass[i] = 4;
-  }
-
-  /* ---------- Шаг 2. BFS от краёв по «фоноподобным» ---------- */
-  const isBg = new Uint8Array(N);
-  const queue = new Int32Array(N);
-  let qh = 0, qt = 0;
-  const pushBg = i => {
-    if (i < 0 || i >= N) return;
-    if (isBg[i] || bgClass[i] !== 1) return;
-    isBg[i] = 1; queue[qt++] = i;
-  };
-  for (let x = 0; x < w; x++) { pushBg(x); pushBg((h - 1) * w + x); }
-  for (let y = 0; y < h; y++) { pushBg(y * w); pushBg(y * w + w - 1); }
-  while (qh < qt) {
-    const i = queue[qh++];
-    const x = i % w, y = (i / w) | 0;
-    if (x > 0)     pushBg(i - 1);
-    if (x < w - 1) pushBg(i + 1);
-    if (y > 0)     pushBg(i - w);
-    if (y < h - 1) pushBg(i + w);
-  }
-
-  /* ---------- Шаг 3. Определяем «персонаж» и его главную компоненту ----------
-     Персонаж = всё, что НЕ isBg.
-     Ищем компоненты персонажа, отбрасываем маленькие (шум), берём самые крупные.
-  ---------------------------------------------------------------- */
-  const charComp = new Int32Array(N).fill(-1);
-  const compSizes = [];
-  qh = 0; qt = 0;
-  const pushChar = (i, id) => {
-    if (i < 0 || i >= N) return;
-    if (isBg[i] || charComp[i] !== -1) return;
-    charComp[i] = id; queue[qt++] = i;
-  };
-
-  let compId = 0;
-  for (let start = 0; start < N; start++) {
-    if (isBg[start] || charComp[start] !== -1) continue;
-    const id = compId++;
-    charComp[start] = id;
-    queue[qt++] = start;
-    let size = 0;
-    while (qh < qt) {
-      const i = queue[qh++];
-      size++;
-      const x = i % w, y = (i / w) | 0;
-      if (x > 0)     pushChar(i - 1, id);
-      if (x < w - 1) pushChar(i + 1, id);
-      if (y > 0)     pushChar(i - w, id);
-      if (y < h - 1) pushChar(i + w, id);
-    }
-    compSizes.push(size);
-  }
-
-  /* ---------- Шаг 4. АГРЕССИВНЫЕ ДЫРКИ ----------
-     Берём крупнейшую компоненту персонажа (или несколько крупных).
-     Всё, что меньше N% площади главной компоненты — считаем фоном.
-     Это и убирает «острова» фона внутри силуэта, если они по какой-то
-     причине не попали в isBg.
-  ---------------------------------------------------------------- */
-  const aggressive = aggressiveEl.checked;
-  const holeMin = +holeMinEl.value / 100;
-  mask = new Uint8Array(N);
-
-  if (compSizes.length === 0) {
-    // Нет персонажа вообще
-    for (let i = 0; i < N; i++) mask[i] = 1;
-  } else {
-    // Находим максимальный размер
-    let maxSize = 0, mainId = 0;
-    for (let k = 0; k < compSizes.length; k++) {
-      if (compSizes[k] > maxSize) { maxSize = compSizes[k]; mainId = k; }
-    }
-    const threshold = maxSize * holeMin;
-
-    for (let i = 0; i < N; i++) {
-      if (isBg[i]) { mask[i] = 1; continue; }
-      const id = charComp[i];
-      const size = compSizes[id];
-
-      if (id === mainId) {
-        mask[i] = 0; // главная компонента — персонаж
-      } else if (aggressive && size < threshold) {
-        // мелкий «остров» — это на самом деле фон/дырка
-        mask[i] = 2;
-      } else {
-        // средние компоненты: например, отдельный хвост-змея,
-        // или реально отдельные части персонажа. Оставляем как есть,
-        // но помечаем отдельным цветом чтобы было видно.
-        mask[i] = 0;
-      }
-    }
-  }
-
-  /* ---------- Шаг 5. Мягкий фон (полупрозрачный) ----------
-     Пиксели, помеченные как soft-bg, но не isBg → делаем feather.
-  ---------------------------------------------------------------- */
-  for (let i = 0; i < N; i++) {
-    if (bgClass[i] === 4 && mask[i] !== 0 && mask[i] !== 2) {
-      mask[i] = 4;
-    }
-  }
-
-  /* ---------- Шаг 6. Морфология (open) ---------- */
-  mask = morphologyOpen(mask, w, h, 1);
-
-  /* ---------- Шаг 7. Растушёвка ---------- */
-  const feather = +featherEl.value;
-  if (feather > 0) {
-    for (let pass = 0; pass < feather; pass++) {
-      const next = mask.slice();
-      for (let y = 1; y < h - 1; y++) {
-        for (let x = 1; x < w - 1; x++) {
-          const i = y * w + x;
-          if (mask[i] !== 0) continue;
-          const n =
-            mask[i - 1] > 0 || mask[i + 1] > 0 ||
-            mask[i - w] > 0 || mask[i + w] > 0;
-          if (n) next[i] = 3;
-        }
-      }
-      mask = next;
-    }
-  }
-
-  drawOverlay();
-  updateStatusCounts();
-}
-
-/* =========================================================
-   Морфология: open (erode → dilate) для персонажа (mask==0)
-   ========================================================= */
-function morphologyOpen(m, w, h, r) {
-  const isChar = v => v === 0;
-  let cur = m;
-  for (let p = 0; p < r; p++) cur = erode(cur, w, h, isChar);
-  for (let p = 0; p < r; p++) cur = dilate(cur, w, h, isChar);
-  return cur;
-}
-function erode(m, w, h, isChar) {
-  const out = m.slice();
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      const i = y * w + x;
-      if (!isChar(m[i])) continue;
-      if (!isChar(m[i - 1]) || !isChar(m[i + 1]) ||
-          !isChar(m[i - w]) || !isChar(m[i + w])) out[i] = 1;
-    }
-  }
-  return out;
-}
-function dilate(m, w, h, isChar) {
-  const out = m.slice();
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      const i = y * w + x;
-      if (isChar(m[i])) continue;
-      if (isChar(m[i - 1]) || isChar(m[i + 1]) ||
-          isChar(m[i - w]) || isChar(m[i + w])) out[i] = 0;
-    }
-  }
-  return out;
-}
-
-/* =========================================================
-   Отрисовка маски
-   ========================================================= */
+// ---------- Отрисовка ----------
 function drawOverlay() {
-  if (!mask) return;
-  const w = imgW, h = imgH;
+  const w = imgWidth, h = imgHeight;
+  if (!w) return;
+  overlayCtx.clearRect(0, 0, w, h);
   const img = overlayCtx.createImageData(w, h);
-  const d = img.data;
-  const showMask = showMaskEl.checked;
-  const hideImg = hideImgEl.checked;
+  const data = img.data;
 
-  for (let i = 0, p = 0; i < w * h; i++, p += 4) {
-    const m = mask[i];
-    const q = i * 4;
-
-    if (hideImg) {
-      // Показываем «чистый» результат на белом
-      if (m === 0) {
-        d[p]     = sourceData[q];
-        d[p + 1] = sourceData[q + 1];
-        d[p + 2] = sourceData[q + 2];
-        d[p + 3] = 255;
-      } else if (m === 2) {
-        d[p] = 74; d[p + 1] = 222; d[p + 2] = 128; d[p + 3] = 255;
-      } else if (m === 3) {
-        d[p] = 255; d[p + 1] = 209; d[p + 2] = 102; d[p + 3] = 255;
-      } else if (m === 4) {
-        d[p] = 96; d[p + 1] = 165; d[p + 2] = 250; d[p + 3] = 255;
-      } else {
-        d[p] = 255; d[p + 1] = 255; d[p + 2] = 255; d[p + 3] = 255;
-      }
-    } else if (showMask) {
-      if (m === 0)      { d[p] = 255; d[p + 1] = 60;  d[p + 2] = 92;  d[p + 3] = 110; }
-      else if (m === 2) { d[p] = 74;  d[p + 1] = 222; d[p + 2] = 128; d[p + 3] = 160; }
-      else if (m === 3) { d[p] = 255; d[p + 1] = 209; d[p + 2] = 102; d[p + 3] = 150; }
-      else if (m === 4) { d[p] = 96;  d[p + 1] = 165; d[p + 2] = 250; d[p + 3] = 130; }
+  for (let i = 0, j = 0; i < w * h; i++, j += 4) {
+    if (!isBg[i]) {
+      data[j]     = 255;
+      data[j + 1] = 60;
+      data[j + 2] = 60;
+      data[j + 3] = 140;
     }
   }
   overlayCtx.putImageData(img, 0, 0);
 }
 
-function updateStatusCounts() {
-  if (!mask) return;
-  let c0 = 0, c1 = 0, c2 = 0, c3 = 0, c4 = 0;
-  for (let i = 0; i < mask.length; i++) {
-    switch (mask[i]) {
-      case 0: c0++; break;
-      case 1: c1++; break;
-      case 2: c2++; break;
-      case 3: c3++; break;
-      case 4: c4++; break;
-    }
-  }
-  const total = mask.length;
-  const pct = v => ((v / total) * 100).toFixed(1) + '%';
-  statusEl.textContent =
-    `Персонаж: ${pct(c0)} | Фон: ${pct(c1)} | Закрыто дырок: ${pct(c2)} | ` +
-    `Растушёвка: ${pct(c3)} | Мягкий фон: ${pct(c4)}`;
-}
-
-/* =========================================================
-   Экспорт PNG
-   ========================================================= */
-exportBtn.addEventListener('click', () => {
-  if (!sourceData) return;
-  const w = imgW, h = imgH;
-  const out = new ImageData(w, h);
-  const d = out.data;
-
-  for (let i = 0, p = 0; i < w * h; i++, p += 4) {
-    const m = mask[i];
-    const q = i * 4;
-    d[p]     = sourceData[q];
-    d[p + 1] = sourceData[q + 1];
-    d[p + 2] = sourceData[q + 2];
-
-    if (m === 0)       d[p + 3] = 255;
-    else if (m === 3)  d[p + 3] = 140;
-    else if (m === 4)  d[p + 3] = 100;
-    else               d[p + 3] = 0; // фон, дырки → прозрачно
-  }
-
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  c.getContext('2d').putImageData(out, 0, 0);
-
-  c.toBlob(blob => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'no-bg.png';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    statusEl.textContent = 'PNG сохранён.';
-  }, 'image/png');
+// ---------- Реакции ----------
+bgLumEl.addEventListener('input', () => {
+  bgLumVal.textContent = bgLumEl.value;
+  if (!lum) return;
+  buildMask();
+  drawOverlay();
 });
 
-updateSwatch();
+hideImageEl.addEventListener('change', () => {
+  stageEl.classList.toggle('hide', hideImageEl.checked);
+});
 </script>
 
 </body>
