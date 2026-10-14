@@ -42,6 +42,7 @@
   }
   .stage canvas {
     display: block; max-width: min(92vw, 900px); height: auto;
+    cursor: crosshair;
   }
   .stage canvas#overlay {
     position: absolute; inset: 0; pointer-events: none;
@@ -49,6 +50,10 @@
   .hint {
     font-size: 12px; color: #8b93a1; max-width: 780px;
     text-align: center; line-height: 1.5;
+  }
+  .bg-swatch {
+    display: inline-block; width: 14px; height: 14px;
+    border: 1px solid #555; border-radius: 3px; vertical-align: middle;
   }
   @media (max-width: 600px) {
     input[type="range"] { width: 120px; height: 24px; }
@@ -66,9 +71,14 @@
     <input id="file" type="file" accept="image/*" />
   </label>
 
-  <label>Шаг линий:
-    <input id="step" type="range" min="3" max="30" value="7" />
-    <span id="stepVal">7</span>
+  <label>Порог фона:
+    <input id="bgTol" type="range" min="5" max="120" value="30" />
+    <span id="bgTolVal">30</span>
+  </label>
+
+  <label>Плотность у контура:
+    <input id="step" type="range" min="2" max="20" value="5" />
+    <span id="stepVal">5</span>
   </label>
 
   <label>Затухание:
@@ -105,7 +115,11 @@
     Маска персонажа
   </label>
 
+  <button id="pickBg">🎯 Фон кликом</button>
   <button id="reset">↺ Сброс</button>
+
+  <span>Фон: <span id="bgSwatch" class="bg-swatch" style="background:#888"></span>
+    <span id="bgRGB">—</span></span>
 </div>
 
 <div class="stage">
@@ -114,27 +128,32 @@
 </div>
 
 <p class="hint">
-  Персонаж определяется автоматически по замкнутому тёмному контуру.
-  Заливка от рамки идёт только по светлому и не проходит сквозь контур.
+  Штриховка идёт от краёв изображения и обтекает силуэт персонажа.
+  Фон внутри силуэта (между рук, ног, змей) не штрихуется.
 </p>
 
 <script>
-const fileInput    = document.getElementById('file');
-const baseCanvas   = document.getElementById('base');
-const overlay      = document.getElementById('overlay');
-const stepEl       = document.getElementById('step');
-const falloffEl    = document.getElementById('falloff');
-const thicknessEl  = document.getElementById('thickness');
-const alphaEl      = document.getElementById('alpha');
-const colorEl      = document.getElementById('color');
-const showGridEl   = document.getElementById('showGrid');
-const showMaskBgEl = document.getElementById('showMaskBg');
+const fileInput      = document.getElementById('file');
+const baseCanvas     = document.getElementById('base');
+const overlay        = document.getElementById('overlay');
+const bgTolEl        = document.getElementById('bgTol');
+const stepEl         = document.getElementById('step');
+const falloffEl      = document.getElementById('falloff');
+const thicknessEl    = document.getElementById('thickness');
+const alphaEl        = document.getElementById('alpha');
+const colorEl        = document.getElementById('color');
+const showGridEl     = document.getElementById('showGrid');
+const showMaskBgEl   = document.getElementById('showMaskBg');
 const showMaskCharEl = document.getElementById('showMaskChar');
-const stepVal      = document.getElementById('stepVal');
-const falloffVal   = document.getElementById('falloffVal');
-const thicknessVal = document.getElementById('thicknessVal');
-const alphaVal     = document.getElementById('alphaVal');
-const resetBtn     = document.getElementById('reset');
+const bgTolVal       = document.getElementById('bgTolVal');
+const stepVal        = document.getElementById('stepVal');
+const falloffVal     = document.getElementById('falloffVal');
+const thicknessVal   = document.getElementById('thicknessVal');
+const alphaVal       = document.getElementById('alphaVal');
+const pickBgBtn      = document.getElementById('pickBg');
+const resetBtn       = document.getElementById('reset');
+const bgSwatch       = document.getElementById('bgSwatch');
+const bgRGB          = document.getElementById('bgRGB');
 
 const baseCtx    = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
@@ -142,8 +161,10 @@ const overlayCtx = overlay.getContext('2d');
 let imageData = null;
 let imgWidth = 0, imgHeight = 0;
 let srcImage = null;
+let bgColor = { r: 255, g: 255, b: 255 };
 let isBg = null;
 let distMap = null;
+let pickBgMode = false;
 
 // ---------- Загрузка ----------
 fileInput.addEventListener('change', e => {
@@ -163,6 +184,8 @@ fileInput.addEventListener('change', e => {
     baseCtx.drawImage(img, 0, 0);
     imageData = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
 
+    detectBgColor();
+    updateBgUI();
     buildMask();
     buildDistanceMap();
     drawGrid();
@@ -171,76 +194,98 @@ fileInput.addEventListener('change', e => {
   img.src = URL.createObjectURL(file);
 });
 
-// ============================================================
-//  МАСКА: flood fill от рамки с барьером по тёмному контуру
-// ============================================================
-// Ключевое отличие от прошлых версий:
-//  - НЕТ "второго прохода" по изолированным светлым участкам.
-//    Именно он ошибочно заливал светлую кожу внутри персонажа.
-//  - Всё, что не залилось от рамки — персонаж. Точка.
-// ============================================================
-const EDGE_THRESHOLD = 100;   // яркость ниже — тёмный контур
-const DILATE_PX      = 2;     // расширение контура, чтобы закрыть разрывы
-
-function buildMask() {
+// ---------- Автоопределение цвета фона: самая большая корзина цвета ----------
+function detectBgColor() {
+  const d = imageData.data;
   const w = imgWidth, h = imgHeight;
   const N = w * h;
+
+  const SHIFT = 3;
+  const buckets = new Map();
+  let total = 0;
+
+  const stepPx = Math.max(1, Math.round(Math.sqrt(N / 250000)));
+  for (let y = 0; y < h; y += stepPx) {
+    for (let x = 0; x < w; x += stepPx) {
+      const i = (y * w + x) * 4;
+      const a = d[i + 3];
+      if (a < 20) continue;
+      const r = d[i], g = d[i + 1], b = d[i + 2];
+      const key = ((r >> SHIFT) << 10) | ((g >> SHIFT) << 5) | (b >> SHIFT);
+      let e = buckets.get(key);
+      if (!e) { e = { n: 0, r: 0, g: 0, b: 0 }; buckets.set(key, e); }
+      e.n++; e.r += r; e.g += g; e.b += b;
+      total++;
+    }
+  }
+
+  if (total === 0) { bgColor = { r: 255, g: 255, b: 255 }; return; }
+
+  let best = null;
+  for (const e of buckets.values()) {
+    if (!best || e.n > best.n) best = e;
+  }
+  const br = best.r / best.n, bg = best.g / best.n, bb = best.b / best.n;
+  const qbr = Math.round(br) >> SHIFT;
+  const qbg = Math.round(bg) >> SHIFT;
+  const qbb = Math.round(bb) >> SHIFT;
+
+  let sr = 0, sg = 0, sb = 0, sn = 0;
+  for (const [key, e] of buckets) {
+    const qr = (key >> 10) & 31;
+    const qg = (key >> 5)  & 31;
+    const qb =  key        & 31;
+    if (Math.abs(qr - qbr) <= 1 && Math.abs(qg - qbg) <= 1 && Math.abs(qb - qbb) <= 1) {
+      sr += e.r; sg += e.g; sb += e.b; sn += e.n;
+    }
+  }
+  bgColor = { r: Math.round(sr / sn), g: Math.round(sg / sn), b: Math.round(sb / sn) };
+}
+
+function updateBgUI() {
+  const { r, g, b } = bgColor;
+  bgSwatch.style.background = `rgb(${r|0},${g|0},${b|0})`;
+  bgRGB.textContent = `${r|0}, ${g|0}, ${b|0}`;
+}
+
+// ============================================================
+//  МАСКА: только внешний фон
+// ============================================================
+// Flood fill запускается ТОЛЬКО от рамки изображения.
+// Внутренние изолированные светлые участки (между ног, рук,
+// змей) НЕ заливаются — они остаются частью персонажа.
+// ============================================================
+function buildMask() {
+  const w = imgWidth, h = imgHeight;
   const d = imageData.data;
+  const tol = +bgTolEl.value;
+  const tol2 = tol * tol * 3;
 
-  // --- 1. Карта контура ---
-  const lum = new Float32Array(N);
-  const edge = new Uint8Array(N);
-  for (let i = 0, p = 0; i < N; i++, p += 4) {
-    const a = d[p + 3];
-    if (a < 20) { lum[i] = 255; continue; }
-    const L = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2];
-    lum[i] = L;
-    if (L < EDGE_THRESHOLD) edge[i] = 1;
-  }
+  isBg = new Uint8Array(w * h);
 
-  // --- 2. Морфологическое расширение контура ---
-  const barrier = new Uint8Array(N);
-  const r = DILATE_PX;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      if (!edge[y * w + x]) continue;
-      for (let dx = -r; dx <= r; dx++) {
-        const nx = x + dx;
-        if (nx < 0 || nx >= w) continue;
-        barrier[y * w + nx] = 1;
-      }
-    }
-  }
-  const barrier2 = new Uint8Array(N);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      if (!barrier[y * w + x]) continue;
-      for (let dy = -r; dy <= r; dy++) {
-        const ny = y + dy;
-        if (ny < 0 || ny >= h) continue;
-        barrier2[ny * w + x] = 1;
-      }
-    }
-  }
+  const looksLikeBg = (x, y) => {
+    const i = (y * w + x) * 4;
+    if (d[i + 3] < 20) return true;
+    const dr = d[i]     - bgColor.r;
+    const dg = d[i + 1] - bgColor.g;
+    const db = d[i + 2] - bgColor.b;
+    return (dr * dr + dg * dg + db * db) < tol2;
+  };
 
-  // --- 3. Flood fill от рамки ---
-  // Идём по пикселям, не являющимся барьером.
-  // Никаких ограничений по цвету — фон может быть любого цвета,
-  // важно только, что он СНАРУЖИ контура.
-  isBg = new Uint8Array(N);
-  const visited = new Uint8Array(N);
+  const visited = new Uint8Array(w * h);
   const queue = [];
 
   const push = (x, y) => {
     if (x < 0 || y < 0 || x >= w || y >= h) return;
     const idx = y * w + x;
     if (visited[idx]) return;
-    if (barrier2[idx]) return;
+    if (!looksLikeBg(x, y)) return;
     visited[idx] = 1;
     isBg[idx] = 1;
     queue.push(idx);
   };
 
+  // Старт — вся рамка изображения
   for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
   for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
 
@@ -254,11 +299,7 @@ function buildMask() {
     push(x, y + 1);
     push(x, y - 1);
   }
-
-  // Всё остальное (не залитое от рамки) — персонаж, включая:
-  //  - кожу и блики внутри силуэта,
-  //  - сами линии контура,
-  //  - всё, что не связано с рамкой через светлый коридор.
+  // ВСЁ. Больше ничего не заливаем.
 }
 // ============================================================
 
@@ -394,17 +435,44 @@ function redrawOverlay() {
   overlayCtx.putImageData(img, 0, 0);
 }
 
+// ---------- Ручной выбор цвета фона ----------
+pickBgBtn.addEventListener('click', () => {
+  pickBgMode = !pickBgMode;
+  pickBgBtn.classList.toggle('active', pickBgMode);
+});
+
+baseCanvas.addEventListener('click', e => {
+  if (!pickBgMode || !imageData) return;
+  const rect = baseCanvas.getBoundingClientRect();
+  const scaleX = imgWidth / rect.width;
+  const scaleY = imgHeight / rect.height;
+  const x = Math.floor((e.clientX - rect.left) * scaleX);
+  const y = Math.floor((e.clientY - rect.top)  * scaleY);
+  const i = (y * imgWidth + x) * 4;
+  const d = imageData.data;
+  bgColor = { r: d[i], g: d[i + 1], b: d[i + 2] };
+  updateBgUI();
+  buildMask();
+  buildDistanceMap();
+  redrawOverlay();
+  pickBgMode = false;
+  pickBgBtn.classList.remove('active');
+});
+
 // ---------- Сброс ----------
 resetBtn.addEventListener('click', () => {
-  stepEl.value  = 7;       stepVal.textContent      = 7;
-  falloffEl.value = 0.6;   falloffVal.textContent   = 0.6;
-  thicknessEl.value = 1;   thicknessVal.textContent = 1;
-  alphaEl.value = 0.7;     alphaVal.textContent     = 0.7;
+  bgTolEl.value = 30;    bgTolVal.textContent     = 30;
+  stepEl.value  = 5;     stepVal.textContent      = 5;
+  falloffEl.value = 0.6; falloffVal.textContent   = 0.6;
+  thicknessEl.value = 1; thicknessVal.textContent = 1;
+  alphaEl.value = 0.7;   alphaVal.textContent     = 0.7;
   colorEl.value = '#1e4a8a';
   showGridEl.checked = true;
   showMaskBgEl.checked = false;
   showMaskCharEl.checked = false;
   if (imageData) {
+    detectBgColor();
+    updateBgUI();
     buildMask();
     buildDistanceMap();
     drawGrid();
@@ -413,6 +481,10 @@ resetBtn.addEventListener('click', () => {
 });
 
 // ---------- Реакции ----------
+bgTolEl.addEventListener('input', () => {
+  bgTolVal.textContent = bgTolEl.value;
+  if (imageData) { buildMask(); buildDistanceMap(); redrawOverlay(); }
+});
 stepEl.addEventListener('input', () => {
   stepVal.textContent = stepEl.value;
   redrawOverlay();
