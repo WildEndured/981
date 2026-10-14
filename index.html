@@ -2,237 +2,258 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Штриховка фона</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Line Art & Hatching Effect</title>
     <style>
-        body { font-family: Arial; background: #1e1e1e; color: #fff; text-align: center; padding: 20px; }
-        .wrapper { display: inline-block; position: relative; border: 2px solid #444; border-radius: 8px; overflow: hidden; }
-        canvas { display: block; max-width: 100%; }
-        input, button { margin: 10px; padding: 8px 16px; font-size: 16px; cursor: pointer; }
-        button { background: #ff4d4d; color: white; border: none; border-radius: 5px; }
-        button:hover { background: #cc0000; }
-        .row { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
-        .box { display: flex; flex-direction: column; align-items: center; }
-        .label { font-size: 14px; color: #aaa; margin-bottom: 8px; }
-        .controls { margin: 15px; padding: 15px; background: #2a2a2a; border-radius: 8px; display: inline-block; }
-        .controls label { margin: 0 10px; }
+        body {
+            background-color: #1a1a1a;
+            color: white;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 { font-size: 1.2rem; margin-bottom: 20px; text-align: center; }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 800px;
+            width: 100%;
+        }
+        .controls {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+        }
+        label { display: flex; flex-direction: column; font-size: 0.8rem; gap: 5px; }
+        input[type="range"] { width: 120px; }
+        input[type="file"] { margin-bottom: 10px; }
+        canvas {
+            max-width: 100%;
+            border: 1px solid #333;
+            border-radius: 4px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            background: #000;
+        }
     </style>
 </head>
 <body>
-    <h1>Штриховка фона + лайн-арт персонажа</h1>
-    
-    <input type="file" id="fileInput" accept="image/*">
-    
-    <div class="controls">
-        <label>Порог цвета: <input type="range" id="colorThreshold" min="20" max="120" value="70"></label>
-        <label>Плотность штриховки: <input type="range" id="hatchDensity" min="5" max="30" value="12"></label>
-        <br>
-        <label>Толщина линий: <input type="range" id="lineThickness" min="1" max="4" value="1"></label>
-        <label>Чувствительность границ: <input type="range" id="edgeThreshold" min="30" max="200" value="80"></label>
-    </div>
 
-    <button onclick="process()">Обработать</button>
-    <p id="status">Выберите изображение</p>
-
-    <div class="row">
-        <div class="box">
-            <span class="label">Оригинал</span>
-            <div class="wrapper"><canvas id="srcCanvas"></canvas></div>
+    <h1>Генератор эффекта Line Art & Hatching</h1>
+    
+    <div class="container">
+        <div class="controls">
+            <input type="file" id="upload" accept="image/*">
+            <label>
+                Толщина линии:
+                <input type="range" id="thickness" min="1" max="5" value="2" step="0.5">
+            </label>
+            <label>
+                Сдвиг цвета (RGB):
+                <input type="range" id="shift" min="0" max="20" value="8">
+            </label>
+            <label>
+                Плотность штриховки:
+                <input type="range" id="hatchDensity" min="5" max="30" value="15">
+            </label>
+            <button id="downloadBtn" style="padding: 8px 16px; cursor: pointer;">Скачать PNG</button>
         </div>
-        <div class="box">
-            <span class="label">Результат</span>
-            <div class="wrapper"><canvas id="outCanvas"></canvas></div>
-        </div>
+        <canvas id="canvas"></canvas>
     </div>
 
     <script>
-        const fileInput = document.getElementById('fileInput');
-        const srcCanvas = document.getElementById('srcCanvas');
-        const outCanvas = document.getElementById('outCanvas');
-        const status = document.getElementById('status');
-        let imageLoaded = false;
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const uploadInput = document.getElementById('upload');
+        const thicknessInput = document.getElementById('thickness');
+        const shiftInput = document.getElementById('shift');
+        const hatchInput = document.getElementById('hatchDensity');
+        const downloadBtn = document.getElementById('downloadBtn');
 
-        fileInput.addEventListener('change', (e) => {
+        let img = new Image();
+        let originalImageData = null;
+
+        // 1. Загрузка изображения
+        uploadInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            const img = new Image();
-            img.onload = () => {
-                const maxSize = 900;
-                let w = img.width, h = img.height;
-                if (w > maxSize || h > maxSize) {
-                    const scale = maxSize / Math.max(w, h);
-                    w = Math.round(w * scale);
-                    h = Math.round(h * scale);
-                }
-                srcCanvas.width = w; srcCanvas.height = h;
-                outCanvas.width = w; outCanvas.height = h;
-                
-                const ctx = srcCanvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, w, h);
-                
-                imageLoaded = true;
-                status.textContent = "Изображение загружено.";
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                img.onload = () => {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    processImage();
+                };
+                img.src = event.target.result;
             };
-            img.src = URL.createObjectURL(file);
+            reader.readAsDataURL(file);
         });
 
-        // --- Утилита: RGB → HSV ---
-        function rgbToHsv(r, g, b) {
-            r /= 255; g /= 255; b /= 255;
-            const max = Math.max(r, g, b), min = Math.min(r, g, b);
-            const d = max - min;
-            let h = 0;
-            if (d !== 0) {
-                if (max === r) h = ((g - b) / d) % 6;
-                else if (max === g) h = (b - r) / d + 2;
-                else h = (r - g) / d + 4;
-                h *= 60;
-                if (h < 0) h += 360;
-            }
-            const s = max === 0 ? 0 : d / max;
-            const v = max;
-            return [h, s, v];
-        }
+        // 2. Основная функция обработки
+        function processImage() {
+            if (!originalImageData) return;
 
-        function process() {
-            if (!imageLoaded) { alert("Сначала загрузите картинку!"); return; }
-            status.textContent = "Обработка...";
+            const width = canvas.width;
+            const height = canvas.height;
             
-            setTimeout(() => {
-                const w = srcCanvas.width;
-                const h = srcCanvas.height;
-                const srcCtx = srcCanvas.getContext('2d');
-                const outCtx = outCanvas.getContext('2d');
-                
-                const srcData = srcCtx.getImageData(0, 0, w, h);
-                const pixels = srcData.data;
+            // Создаем копию данных для работы
+            const srcData = new Uint8ClampedArray(originalImageData.data);
+            const outputData = ctx.createImageData(width, height);
+            const outData = outputData.data;
 
-                // Параметры из ползунков
-                const colorThreshold = parseInt(document.getElementById('colorThreshold').value);
-                const hatchDensity = parseInt(document.getElementById('hatchDensity').value);
-                const lineThickness = parseInt(document.getElementById('lineThickness').value);
-                const edgeThreshold = parseInt(document.getElementById('edgeThreshold').value);
+            const shift = parseInt(shiftInput.value);
+            const thickness = parseFloat(thicknessInput.value);
+            const hatchSpacing = parseInt(hatchInput.value);
 
-                // --- ШАГ 1: Определяем "фон" по цвету ---
-                // В вашем примере фон — жёлтый. Найдём доминирующий цвет по краям картинки.
-                const edgeColors = [];
-                const sampleStep = 5;
-                
-                // Берём пиксели по периметру (это точно фон)
-                for (let x = 0; x < w; x += sampleStep) {
-                    for (let y of [0, 1, 2, h-3, h-2, h-1]) {
-                        if (y >= 0 && y < h) {
-                            const i = (y * w + x) * 4;
-                            edgeColors.push([pixels[i], pixels[i+1], pixels[i+2]]);
+            // --- ЭТАП 1 & 2: Поиск границ (Line Art) ---
+            // Мы будем использовать простой градиентный фильтр (разница между соседними пикселями)
+            // для определения контуров.
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const idx = (y * width + x) * 4;
+                    
+                    // Получаем яркость текущего пикселя (упрощенно)
+                    const r = srcData[idx];
+                    const g = srcData[idx + 1];
+                    const b = srcData[idx + 2];
+                    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+
+                    // Проверяем соседей (справа и снизу) для определения границы
+                    let isEdge = false;
+                    if (x < width - 1 && y < height - 1) {
+                        const idxRight = (y * width + (x + 1)) * 4;
+                        const idxDown = ((y + 1) * width + x) * 4;
+                        
+                        const grayRight = 0.299 * srcData[idxRight] + 0.587 * srcData[idxRight+1] + 0.114 * srcData[idxRight+2];
+                        const grayDown = 0.299 * srcData[idxDown] + 0.587 * srcData[idxDown+1] + 0.114 * srcData[idxDown+2];
+
+                        // Если разница в яркости превышает порог, это граница (лайнарт)
+                        // Порог можно настроить, здесь 30
+                        if (Math.abs(gray - grayRight) > 30 || Math.abs(gray - grayDown) > 30) {
+                            isEdge = true;
+                        }
+                    }
+
+                    // --- ЭТАП 3: Определение толщины линии и Сдвиг ---
+                    // Вместо сложного морфологического расширения (dilation), 
+                    // мы просто делаем пиксель черным, если это граница, 
+                    // и расширяем его влияние на соседей через смещение каналов.
+                    
+                    let finalR, finalG, finalB;
+
+                    if (isEdge) {
+                        // Линия Art - делаем её черной или темной
+                        // Чем толще, тем больше пикселей закрашиваем (упрощенно через размытие)
+                        finalR = 0; finalG = 0; finalB = 0;
+                    } else {
+                        // Фон и заливка
+                        // Применяем эффект "сдвига" (Chromatic Aberration)
+                        
+                        // Берем пиксель со сдвигом для красного канала
+                        const shiftX = Math.round(shift); 
+                        const shiftY = Math.round(shift); // Диагональный сдвиг
+                        
+                        let rSrcIdx = idx;
+                        let bSrcIdx = idx;
+
+                        // Сдвигаем координаты для выборки цвета
+                        if (x + shiftX < width && y + shiftY < height) {
+                            rSrcIdx = ((y + shiftY) * width + (x + shiftX)) * 4;
+                        }
+                        if (x - shiftX >= 0 && y - shiftY >= 0) {
+                            bSrcIdx = ((y - shiftY) * width + (x - shiftX)) * 4;
+                        }
+
+                        // Берем красный канал со сдвигом вправо-вниз, синий - влево-вверх
+                        // Это создает эффект "двоения" как на картинке
+                        finalR = srcData[rSrcIdx];
+                        finalG = srcData[idx + 1]; // Зеленый оставляем на месте
+                        finalB = srcData[bSrcIdx + 2]; // Синий со сдвигом
+                    }
+
+                    // --- Фоновая штриховка (Hatching) ---
+                    // Если пиксель не является частью лайнарта, накладываем диагональную штриховку
+                    if (!isEdge) {
+                        // Условие для диагональных линий
+                        // (x + y) % spacing < lineWidth
+                        const lineWidth = 2; // Толщина штриха
+                        const isHatchLine = ((x + y) % hatchSpacing) < lineWidth;
+                        
+                        if (isHatchLine) {
+                            // Смешиваем цвет штриховки (желтый/розовый) с текущим цветом
+                            // На картинке штриховка желтая/оранжевая
+                            const hatchColor = { r: 255, g: 230, b: 0 }; // Желтый
+                            
+                            // Смешиваем 50/50
+                            finalR = (finalR * 0.4 + hatchColor.r * 0.6);
+                            finalG = (finalG * 0.4 + hatchColor.g * 0.6);
+                            finalB = (finalB * 0.4 + hatchColor.b * 0.6);
+                        }
+                    }
+
+                    outData[idx] = finalR;
+                    outData[idx + 1] = finalG;
+                    outData[idx + 2] = finalB;
+                    outData[idx + 3] = 255; // Alpha
+                }
+            }
+
+            // Дополнительный проход для "утолщения" линий (упрощенный эффект)
+            // Если пиксель черный, делаем соседей темнее в зависимости от thickness
+            if (thickness > 1) {
+                const thickCopy = new Uint8ClampedArray(outData);
+                const radius = Math.floor(thickness / 2);
+                for (let y = radius; y < height - radius; y++) {
+                    for (let x = radius; x < width - radius; x++) {
+                        const idx = (y * width + x) * 4;
+                        // Если текущий пиксель черный (лайнарт)
+                        if (thickCopy[idx] < 50 && thickCopy[idx+1] < 50 && thickCopy[idx+2] < 50) {
+                            // Закрашиваем соседей
+                            for(let dy = -radius; dy <= radius; dy++) {
+                                for(let dx = -radius; dx <= radius; dx++) {
+                                    const nIdx = ((y+dy) * width + (x+dx)) * 4;
+                                    outData[nIdx] = 0;
+                                    outData[nIdx+1] = 0;
+                                    outData[nIdx+2] = 0;
+                                }
+                            }
                         }
                     }
                 }
-                for (let y = 0; y < h; y += sampleStep) {
-                    for (let x of [0, 1, 2, w-3, w-2, w-1]) {
-                        if (x >= 0 && x < w) {
-                            const i = (y * w + x) * 4;
-                            edgeColors.push([pixels[i], pixels[i+1], pixels[i+2]]);
-                        }
-                    }
-                }
-                
-                // Средний цвет фона
-                let avgR = 0, avgG = 0, avgB = 0;
-                for (const c of edgeColors) {
-                    avgR += c[0]; avgG += c[1]; avgB += c[2];
-                }
-                avgR /= edgeColors.length;
-                avgG /= edgeColors.length;
-                avgB /= edgeColors.length;
-                
-                console.log("Средний цвет фона:", avgR.toFixed(0), avgG.toFixed(0), avgB.toFixed(0));
+            }
 
-                // --- ШАГ 2: Строим маску фона ---
-                const isBackground = new Uint8Array(w * h);
-                for (let i = 0; i < pixels.length; i += 4) {
-                    const r = pixels[i], g = pixels[i+1], b = pixels[i+2];
-                    // Расстояние до среднего цвета фона
-                    const dist = Math.sqrt(
-                        (r - avgR) ** 2 + 
-                        (g - avgG) ** 2 + 
-                        (b - avgB) ** 2
-                    );
-                    isBackground[i / 4] = dist < colorThreshold ? 1 : 0;
-                }
-
-                // --- ШАГ 3: Рисуем диагональную штриховку на фоне ---
-                const outData = outCtx.createImageData(w, h);
-                // Заливаем белым
-                for (let i = 0; i < outData.data.length; i += 4) {
-                    outData.data[i] = 255;
-                    outData.data[i+1] = 255;
-                    outData.data[i+2] = 255;
-                    outData.data[i+3] = 255;
-                }
-
-                // Рисуем диагональные линии (под углом 45°)
-                for (let y = 0; y < h; y++) {
-                    for (let x = 0; x < w; x++) {
-                        // Определяем, на линии ли мы (диагональная штриховка)
-                        const diagonal = (x + y) % hatchDensity;
-                        const onLine = diagonal < lineThickness;
-                        
-                        const idx = y * w + x;
-                        if (isBackground[idx] && onLine) {
-                            const i = idx * 4;
-                            outData.data[i] = 0;      // Чёрный
-                            outData.data[i+1] = 0;
-                            outData.data[i+2] = 0;
-                        }
-                    }
-                }
-
-                // --- ШАГ 4: Рисуем контур персонажа (лайнарт) ---
-                // Переводим в grayscale
-                const gray = new Uint8ClampedArray(w * h);
-                for (let i = 0; i < pixels.length; i += 4) {
-                    gray[i / 4] = pixels[i] * 0.299 + pixels[i+1] * 0.587 + pixels[i+2] * 0.114;
-                }
-                // Размытие
-                const blurred = new Uint8ClampedArray(w * h);
-                for (let y = 1; y < h-1; y++) {
-                    for (let x = 1; x < w-1; x++) {
-                        let s = 0;
-                        for (let dy = -1; dy <= 1; dy++)
-                            for (let dx = -1; dx <= 1; dx++)
-                                s += gray[(y+dy)*w + (x+dx)];
-                        blurred[y*w + x] = s / 9;
-                    }
-                }
-                // Собель
-                for (let y = 1; y < h-1; y++) {
-                    for (let x = 1; x < w-1; x++) {
-                        const gx = 
-                            -blurred[(y-1)*w + (x-1)] + blurred[(y-1)*w + (x+1)] +
-                            -2*blurred[y*w + (x-1)] + 2*blurred[y*w + (x+1)] +
-                            -blurred[(y+1)*w + (x-1)] + blurred[(y+1)*w + (x+1)];
-                        const gy = 
-                            -blurred[(y-1)*w + (x-1)] - 2*blurred[(y-1)*w + x] - blurred[(y-1)*w + (x+1)] +
-                             blurred[(y+1)*w + (x-1)] + 2*blurred[(y+1)*w + x] + blurred[(y+1)*w + (x+1)];
-                        
-                        const mag = Math.sqrt(gx*gx + gy*gy);
-                        
-                        // Рисуем контур только ВНЕ фона (т.е. на персонаже или на границе)
-                        const idx = y * w + x;
-                        const i = idx * 4;
-                        
-                        // Если пиксель — граница и НЕ глубокий фон
-                        if (mag > edgeThreshold && !isBackground[idx]) {
-                            outData.data[i] = 100;      // Синеватый оттенок для контура
-                            outData.data[i+1] = 100;
-                            outData.data[i+2] = 200;
-                        }
-                    }
-                }
-
-                outCtx.putImageData(outData, 0, 0);
-                status.textContent = "Готово!";
-            }, 50);
+            ctx.putImageData(outputData, 0, 0);
         }
+
+        // Перерисовка при изменении настроек
+        thicknessInput.addEventListener('input', processImage);
+        shiftInput.addEventListener('input', processImage);
+        hatchInput.addEventListener('input', processImage);
+
+        // Скачивание
+        downloadBtn.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'lineart_effect.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+
+        // Инициализация пустого холста
+        ctx.fillStyle = '#333';
+        ctx.fillRect(0, 0, 300, 300);
+        ctx.fillStyle = '#fff';
+        ctx.font = '16px sans-serif';
+        ctx.fillText('Загрузите изображение...', 20, 150);
     </script>
 </body>
 </html>
