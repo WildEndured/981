@@ -3,10 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Фон, персонаж, суставы</title>
+<title>Фон и персонаж</title>
 <style>
-  :root { color-scheme: dark; }
-  * { box-sizing: border-box; }
   body {
     margin: 0;
     font-family: system-ui, sans-serif;
@@ -16,71 +14,38 @@
     flex-direction: column;
     align-items: center;
     padding: 16px;
-    gap: 14px;
+    gap: 12px;
   }
-  h1 { font-size: 18px; margin: 0; }
   .controls {
     display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
     justify-content: center; padding: 10px 14px;
-    background: #1d2027; border-radius: 10px; max-width: 100%;
+    background: #1d2027; border-radius: 10px;
   }
   .controls label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
-  input[type="file"] { font-size: 13px; max-width: 180px; }
-  input[type="range"] { width: 130px; }
+  input[type="file"] { font-size: 13px; }
+  input[type="range"] { width: 160px; }
   .stage {
     position: relative; display: inline-block;
     border: 1px solid #2b2f37; background: #0b0c0f; line-height: 0;
   }
-  .stage.hide { background: #ffffff; }
+  .stage.hide canvas#base { opacity: 0; }
+  .stage.hide { background: #fff; }
   .stage canvas { display: block; max-width: min(92vw, 900px); height: auto; }
   .stage canvas#base { transition: opacity 0.15s; }
-  .stage.hide canvas#base { opacity: 0; }
   .stage canvas#overlay { position: absolute; inset: 0; pointer-events: none; }
-  .hint {
-    font-size: 12px; color: #8b93a1; max-width: 800px;
-    text-align: center; line-height: 1.5;
-  }
-  .stats {
-    font-size: 13px; color: #b9c3d1;
-    display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
-  }
-  .stats b { color: #e6e6e6; }
   @media (max-width: 600px) {
     .controls { flex-direction: column; align-items: stretch; }
-    .stage canvas { max-width: 96vw; }
   }
 </style>
 </head>
 <body>
 
-<h1>Фон, персонаж, суставы</h1>
-
 <div class="controls">
-  <label>Изображение:
-    <input id="file" type="file" accept="image/*" />
-  </label>
-
+  <label>Изображение: <input id="file" type="file" accept="image/*" /></label>
   <label>Яркость фона:
     <input id="bgLum" type="range" min="200" max="255" value="200" />
     <span id="bgLumVal">200</span>
   </label>
-
-  <label>Порог сужения:
-    <input id="narrowTol" type="range" min="5" max="60" value="25" />
-    <span id="narrowTolVal">25</span>
-  </label>
-
-  <label>Мин. расстояние:
-    <input id="minDist" type="range" min="3" max="60" value="15" />
-    <span id="minDistVal">15</span>
-  </label>
-</div>
-
-<div class="controls">
-  <label><input id="showMask" type="checkbox" checked /> Маска персонажа</label>
-  <label><input id="showWidthJoints" type="checkbox" checked /> Суставы по ширине</label>
-  <label><input id="showDistJoints" type="checkbox" checked /> Суставы по расстоянию</label>
-  <label><input id="showPropJoints" type="checkbox" checked /> Суставы по пропорциям</label>
   <label><input id="hideImage" type="checkbox" /> Скрыть изображение</label>
 </div>
 
@@ -89,42 +54,14 @@
   <canvas id="overlay"></canvas>
 </div>
 
-<div class="stats">
-  <span>Фон: <b id="statBg">—</b></span>
-  <span>Персонаж: <b id="statChar">—</b></span>
-  <span>Сужения: <b id="statNarrow">—</b></span>
-  <span>Расстояние: <b id="statDist">—</b></span>
-  <span>Пропорции: <b id="statProp">—</b></span>
-</div>
-
-<p class="hint">
-  Суставы ищутся тремя способами:
-  по локальным сужениям ширины силуэта,
-  по локальным минимумам расстояния до границы,
-  и по стандартным пропорциям человеческого тела.
-</p>
-
 <script>
-const fileInput      = document.getElementById('file');
-const baseCanvas     = document.getElementById('base');
-const overlay        = document.getElementById('overlay');
-const stageEl        = document.getElementById('stage');
-const bgLumEl        = document.getElementById('bgLum');
-const narrowTolEl    = document.getElementById('narrowTol');
-const minDistEl      = document.getElementById('minDist');
-const bgLumVal       = document.getElementById('bgLumVal');
-const narrowTolVal   = document.getElementById('narrowTolVal');
-const minDistVal     = document.getElementById('minDistVal');
-const showMaskEl     = document.getElementById('showMask');
-const showWidthJEl   = document.getElementById('showWidthJoints');
-const showDistJEl    = document.getElementById('showDistJoints');
-const showPropJEl    = document.getElementById('showPropJoints');
-const hideImageEl    = document.getElementById('hideImage');
-const statBg         = document.getElementById('statBg');
-const statChar       = document.getElementById('statChar');
-const statNarrow     = document.getElementById('statNarrow');
-const statDist       = document.getElementById('statDist');
-const statProp       = document.getElementById('statProp');
+const fileInput   = document.getElementById('file');
+const baseCanvas  = document.getElementById('base');
+const overlay     = document.getElementById('overlay');
+const stageEl     = document.getElementById('stage');
+const bgLumEl     = document.getElementById('bgLum');
+const bgLumVal    = document.getElementById('bgLumVal');
+const hideImageEl = document.getElementById('hideImage');
 
 const baseCtx    = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
@@ -132,11 +69,6 @@ const overlayCtx = overlay.getContext('2d');
 let imgWidth = 0, imgHeight = 0;
 let lum = null;
 let isBg = null;
-let distToBg = null;          // расстояние от каждого пикселя персонажа до фона
-let jointsWidth = null;       // точки сужений по ширине
-let jointsDist = null;        // точки минимумов расстояния
-let jointsProp = null;        // пропорциональные точки
-let bbox = null;              // ограничивающий прямоугольник персонажа
 
 // ---------- Загрузка ----------
 fileInput.addEventListener('change', e => {
@@ -151,11 +83,11 @@ fileInput.addEventListener('change', e => {
       c.width = imgWidth; c.height = imgHeight;
     });
 
-    baseCtx.clearRect(0, 0, imgWidth, imgHeight);
     baseCtx.drawImage(img, 0, 0);
     const data = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
     computeLuminance(data);
-    rebuildAll();
+    buildMask();
+    drawOverlay();
   };
   img.src = URL.createObjectURL(file);
 });
@@ -196,228 +128,11 @@ function buildMask() {
   let head = 0;
   while (head < queue.length) {
     const idx = queue[head++];
-    const x = idx % w;
-    const y = (idx / w) | 0;
-    push(x + 1, y);
-    push(x - 1, y);
-    push(x, y + 1);
-    push(x, y - 1);
+    push(idx % w + 1, (idx / w) | 0);
+    push(idx % w - 1, (idx / w) | 0);
+    push(idx % w, (idx / w | 0) + 1);
+    push(idx % w, (idx / w | 0) - 1);
   }
-}
-
-// ---------- Bounding box персонажа ----------
-function buildBBox() {
-  const w = imgWidth, h = imgHeight;
-  let minX = w, minY = h, maxX = -1, maxY = -1;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      if (!isBg[y * w + x]) {
-        if (x < minX) minX = x;
-        if (y < minY) minY = y;
-        if (x > maxX) maxX = x;
-        if (y > maxY) maxY = y;
-      }
-    }
-  }
-  bbox = { minX, minY, maxX, maxY };
-}
-
-// ---------- Карта расстояний от персонажа до фона (BFS) ----------
-function buildDistanceToBg() {
-  const w = imgWidth, h = imgHeight;
-  const N = w * h;
-  distToBg = new Int32Array(N).fill(-1);
-
-  const queue = [];
-  // Граничные пиксели персонажа — соседи фона
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const idx = y * w + x;
-      if (isBg[idx]) continue;
-      const nearBg =
-        (x > 0     && isBg[idx - 1]) ||
-        (x < w - 1 && isBg[idx + 1]) ||
-        (y > 0     && isBg[idx - w]) ||
-        (y < h - 1 && isBg[idx + w]);
-      if (nearBg) {
-        distToBg[idx] = 1;
-        queue.push(idx);
-      }
-    }
-  }
-
-  let head = 0;
-  while (head < queue.length) {
-    const idx = queue[head++];
-    const x = idx % w;
-    const y = (idx / w) | 0;
-    const cd = distToBg[idx];
-
-    const tryPush = (nx, ny) => {
-      if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
-      const ni = ny * w + nx;
-      if (isBg[ni]) return;
-      if (distToBg[ni] !== -1) return;
-      distToBg[ni] = cd + 1;
-      queue.push(ni);
-    };
-    tryPush(x + 1, y);
-    tryPush(x - 1, y);
-    tryPush(x, y + 1);
-    tryPush(x, y - 1);
-  }
-}
-
-// ---------- Метод 1: суставы по ширине силуэта ----------
-// Идём сверху вниз. Для каждой строки считаем количество
-// пикселей персонажа. Ищем локальные минимумы ширины
-// (силуэт сужается).
-function findWidthJoints() {
-  const w = imgWidth, h = imgHeight;
-  jointsWidth = [];
-
-  // Ширина силуэта в каждой строке
-  const widths = new Int32Array(h);
-  for (let y = 0; y < h; y++) {
-    let cnt = 0;
-    for (let x = 0; x < w; x++) {
-      if (!isBg[y * w + x]) cnt++;
-    }
-    widths[y] = cnt;
-  }
-
-  // Сглаживание окном 5, чтобы не ловить шум
-  const smoothed = new Float32Array(h);
-  for (let y = 0; y < h; y++) {
-    let s = 0, c = 0;
-    for (let k = -2; k <= 2; k++) {
-      const yy = y + k;
-      if (yy < 0 || yy >= h) continue;
-      s += widths[yy];
-      c++;
-    }
-    smoothed[y] = s / c;
-  }
-
-  const tol = +narrowTolEl.value;
-
-  // Ищем локальные минимумы: пиксель, где средняя ширина
-  // в окне меньше, чем у соседей выше и ниже на tol.
-  for (let y = 6; y < h - 6; y++) {
-    if (smoothed[y] < 3) continue; // почти пустая строка
-
-    // Средняя ширина "выше" и "ниже"
-    let above = 0, below = 0;
-    for (let k = 3; k <= 6; k++) {
-      above += smoothed[y - k];
-      below += smoothed[y + k];
-    }
-    above /= 4;
-    below /= 4;
-
-    const localMin = smoothed[y] < above - tol && smoothed[y] < below - tol;
-    if (localMin) {
-      // Находим центр силуэта в этой строке
-      let xMin = -1, xMax = -1;
-      for (let x = 0; x < w; x++) {
-        if (!isBg[y * w + x]) {
-          if (xMin < 0) xMin = x;
-          xMax = x;
-        }
-      }
-      if (xMin >= 0) {
-        jointsWidth.push({ x: Math.round((xMin + xMax) / 2), y, w: smoothed[y] });
-      }
-    }
-  }
-}
-
-// ---------- Метод 2: суставы по минимумам расстояния ----------
-// Смотрим только на "осевые" пиксели персонажа — те, где
-// расстояние до фона максимально в своей строке.
-// Среди них ищем локальные минимумы расстояния — это узкие места.
-function findDistanceJoints() {
-  const w = imgWidth, h = imgHeight;
-  jointsDist = [];
-
-  const tol = +minDistEl.value;
-
-  // Собираем "осевую" линию: для каждой строки — пиксель с макс. dist
-  const axisDist = new Int32Array(h).fill(-1);
-  const axisX = new Int32Array(h).fill(-1);
-  for (let y = 0; y < h; y++) {
-    let bestD = -1, bestX = -1;
-    for (let x = 0; x < w; x++) {
-      const idx = y * w + x;
-      if (isBg[idx]) continue;
-      const d = distToBg[idx];
-      if (d > bestD) { bestD = d; bestX = x; }
-    }
-    axisDist[y] = bestD;
-    axisX[y] = bestX;
-  }
-
-  // Ищем локальные минимумы на оси
-  for (let y = 5; y < h - 5; y++) {
-    const d = axisDist[y];
-    if (d < 2 || d > tol) continue;
-
-    // Среднее по соседям
-    const above = (axisDist[y-2] + axisDist[y-3] + axisDist[y-4]) / 3;
-    const below = (axisDist[y+2] + axisDist[y+3] + axisDist[y+4]) / 3;
-    if (d < above && d < below && (above - d) >= 2 && (below - d) >= 2) {
-      jointsDist.push({ x: axisX[y], y, d });
-    }
-  }
-}
-
-// ---------- Метод 3: суставы по пропорциям тела ----------
-// Стандартные пропорции стоящей фигуры:
-// голова 12%, шея 15%, плечи 22%, локти 40%, кисти 55%,
-// таз 52%, колени 72%, лодыжки 92%.
-function findProportionalJoints() {
-  jointsProp = [];
-  if (!bbox) return;
-
-  const height = bbox.maxY - bbox.minY;
-  const centerX = Math.round((bbox.minX + bbox.maxX) / 2);
-
-  const fractions = [
-    { f: 0.10, name: 'голова' },
-    { f: 0.16, name: 'шея' },
-    { f: 0.22, name: 'плечи' },
-    { f: 0.40, name: 'локти' },
-    { f: 0.52, name: 'таз' },
-    { f: 0.72, name: 'колени' },
-    { f: 0.92, name: 'лодыжки' },
-  ];
-
-  for (const { f, name } of fractions) {
-    const y = bbox.minY + Math.round(height * f);
-    // Уточняем x: берём центр силуэта на этой строке
-    let xMin = -1, xMax = -1;
-    for (let x = 0; x < imgWidth; x++) {
-      if (!isBg[y * imgWidth + x]) {
-        if (xMin < 0) xMin = x;
-        xMax = x;
-      }
-    }
-    const x = xMin >= 0 ? Math.round((xMin + xMax) / 2) : centerX;
-    jointsProp.push({ x, y, name });
-  }
-}
-
-// ---------- Полный проход ----------
-function rebuildAll() {
-  if (!lum) return;
-  buildMask();
-  buildBBox();
-  buildDistanceToBg();
-  findWidthJoints();
-  findDistanceJoints();
-  findProportionalJoints();
-  drawOverlay();
-  updateStats();
 }
 
 // ---------- Отрисовка ----------
@@ -425,79 +140,28 @@ function drawOverlay() {
   const w = imgWidth, h = imgHeight;
   if (!w) return;
   overlayCtx.clearRect(0, 0, w, h);
-
   const img = overlayCtx.createImageData(w, h);
   const data = img.data;
 
-  if (showMaskEl.checked) {
-    for (let i = 0, j = 0; i < w * h; i++, j += 4) {
-      if (!isBg[i]) {
-        data[j]     = 60;
-        data[j + 1] = 220;
-        data[j + 2] = 120;
-        data[j + 3] = 90;
-      }
+  for (let i = 0, j = 0; i < w * h; i++, j += 4) {
+    if (!isBg[i]) {
+      data[j]     = 255;
+      data[j + 1] = 60;
+      data[j + 2] = 60;
+      data[j + 3] = 140;
     }
   }
   overlayCtx.putImageData(img, 0, 0);
-
-  const drawCircle = (x, y, r, color) => {
-    overlayCtx.beginPath();
-    overlayCtx.arc(x, y, r, 0, Math.PI * 2);
-    overlayCtx.fillStyle = color;
-    overlayCtx.fill();
-    overlayCtx.lineWidth = 2;
-    overlayCtx.strokeStyle = '#000';
-    overlayCtx.stroke();
-  };
-
-  if (showWidthJEl.checked && jointsWidth) {
-    for (const j of jointsWidth) drawCircle(j.x, j.y, 6, '#ff4040');
-  }
-  if (showDistJEl.checked && jointsDist) {
-    for (const j of jointsDist) drawCircle(j.x, j.y, 6, '#40a0ff');
-  }
-  if (showPropJEl.checked && jointsProp) {
-    for (const j of jointsProp) drawCircle(j.x, j.y, 7, '#ffcc00');
-  }
-}
-
-// ---------- Статистика ----------
-function updateStats() {
-  const N = imgWidth * imgHeight;
-  let bg = 0, char_ = 0;
-  for (let i = 0; i < N; i++) { if (isBg[i]) bg++; else char_++; }
-  statBg.textContent     = ((bg / N) * 100).toFixed(1) + '%';
-  statChar.textContent   = ((char_ / N) * 100).toFixed(1) + '%';
-  statNarrow.textContent = jointsWidth.length;
-  statDist.textContent   = jointsDist.length;
-  statProp.textContent   = jointsProp.length;
 }
 
 // ---------- Реакции ----------
 bgLumEl.addEventListener('input', () => {
   bgLumVal.textContent = bgLumEl.value;
-  rebuildAll();
-});
-narrowTolEl.addEventListener('input', () => {
-  narrowTolVal.textContent = narrowTolEl.value;
   if (!lum) return;
-  findWidthJoints();
+  buildMask();
   drawOverlay();
-  updateStats();
-});
-minDistEl.addEventListener('input', () => {
-  minDistVal.textContent = minDistEl.value;
-  if (!lum) return;
-  findDistanceJoints();
-  drawOverlay();
-  updateStats();
 });
 
-showMaskEl.addEventListener('change', drawOverlay);
-showWidthJEl.addEventListener('change', drawOverlay);
-showDistJEl.addEventListener('change', drawOverlay);
-showPropJEl.addEventListener('change', drawOverlay);
 hideImageEl.addEventListener('change', () => {
   stageEl.classList.toggle('hide', hideImageEl.checked);
 });
