@@ -1,241 +1,256 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lineart Highlighter (Final Fix)</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #1a1a1a;
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-            margin: 0;
-        }
-
-        h1 { font-size: 1.1rem; text-align: center; margin-bottom: 15px; }
-        .controls { margin-bottom: 20px; }
-
-        input[type="file"] { display: none; }
-
-        .upload-btn {
-            background-color: #ff4757;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        .canvas-container {
-            position: relative;
-            max-width: 100%;
-            max-height: 80vh;
-            border: 2px solid #333;
-            background: #000;
-            display: none;
-            overflow: hidden;
-        }
-
-        #imageCanvas, #overlayCanvas {
-            display: block;
-            max-width: 100%;
-            max-height: 80vh;
-        }
-
-        #overlayCanvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            pointer-events: none;
-        }
-
-        .loader { display: none; color: #ff4757; margin-top: 10px; }
-    </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Разметка на 4 части + штриховка до контура</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    background: #14161a;
+    color: #e6e6e6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    gap: 14px;
+  }
+  h1 { font-size: 18px; margin: 0; }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 14px;
+    background: #1d2027;
+    border-radius: 10px;
+  }
+  .controls label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
+  input[type="file"] { font-size: 13px; }
+  .stage {
+    position: relative;
+    display: inline-block;
+    border: 1px solid #2b2f37;
+    background: #0b0c0f;
+    line-height: 0;
+  }
+  .stage canvas {
+    display: block;
+    max-width: min(90vw, 900px);
+    height: auto;
+  }
+  .stage canvas#overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .hint { font-size: 12px; color: #8b93a1; max-width: 700px; text-align: center; }
+</style>
 </head>
 <body>
 
-    <h1>Авто-штриховка (Финальная версия)</h1>
+<h1>Загрузите изображение персонажа</h1>
 
-    <div class="controls">
-        <label for="imageInput" class="upload-btn">Выбрать изображение</label>
-        <input type="file" id="imageInput" accept="image/*">
-    </div>
+<div class="controls">
+  <label>Изображение:
+    <input id="file" type="file" accept="image/*" />
+  </label>
+  <label>Порог контура:
+    <input id="threshold" type="range" min="20" max="200" value="90" />
+    <span id="thresholdVal">90</span>
+  </label>
+  <label>Шаг штриховки:
+    <input id="step" type="range" min="2" max="20" value="6" />
+    <span id="stepVal">6</span>
+  </label>
+  <label>
+    <input id="showGrid" type="checkbox" checked />
+    Показать разметку на 4 части
+  </label>
+</div>
 
-    <div class="loader" id="loader">Обработка...</div>
+<div class="stage">
+  <canvas id="base"></canvas>
+  <canvas id="overlay"></canvas>
+</div>
 
-    <div class="canvas-container" id="canvasContainer">
-        <canvas id="imageCanvas"></canvas>
-        <canvas id="overlayCanvas"></canvas>
-    </div>
+<p class="hint">
+  Штриховка идёт от краёв к центру и останавливается, когда встречает тёмный пиксель —
+  то есть line art персонажа. Порог яркости и шаг штриховки можно регулировать.
+</p>
 
-    <script>
-        const imageInput = document.getElementById('imageInput');
-        const canvasContainer = document.getElementById('canvasContainer');
-        const imageCanvas = document.getElementById('imageCanvas');
-        const overlayCanvas = document.getElementById('overlayCanvas');
-        const loader = document.getElementById('loader');
+<script>
+const fileInput   = document.getElementById('file');
+const baseCanvas  = document.getElementById('base');
+const overlay     = document.getElementById('overlay');
+const thresholdEl = document.getElementById('threshold');
+const stepEl      = document.getElementById('step');
+const showGridEl  = document.getElementById('showGrid');
+const thresholdVal= document.getElementById('thresholdVal');
+const stepVal     = document.getElementById('stepVal');
 
-        const imgCtx = imageCanvas.getContext('2d');
-        const overlayCtx = overlayCanvas.getContext('2d');
+const baseCtx    = baseCanvas.getContext('2d');
+const overlayCtx = overlay.getContext('2d');
 
-        // --- НАСТРОЙКИ ---
-        // Порог яркости. Увеличьте, если линии светлые. Уменьшите, если фон темный.
-        const DARKNESS_THRESHOLD = 160; 
-        
-        // Порог насыщенности. Если пиксель сильно цветной (красный, синий), он тоже считается границей.
-        const COLOR_THRESHOLD = 50;
+let imageData   = null;   // ImageData исходного изображения
+let imgWidth = 0, imgHeight = 0;
+let srcImage = null;
 
-        const STRIPE_COLOR = '#ff4757';
-        const STRIPE_WIDTH = 4;     
-        const STRIPE_GAP = 18;      
-        const SCAN_STEP = 2;        
+// ---------- Шаг 1: загрузка изображения ----------
+fileInput.addEventListener('change', e => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const img = new Image();
+  img.onload = () => {
+    srcImage  = img;
+    imgWidth  = img.naturalWidth;
+    imgHeight = img.naturalHeight;
 
-        imageInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+    // размеры канвасов
+    [baseCanvas, overlay].forEach(c => {
+      c.width  = imgWidth;
+      c.height = imgHeight;
+    });
 
-            loader.style.display = 'block';
-            canvasContainer.style.display = 'none';
+    // рисуем изображение и сохраняем пиксели
+    baseCtx.clearRect(0, 0, imgWidth, imgHeight);
+    baseCtx.drawImage(img, 0, 0);
+    imageData = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
 
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const img = new Image();
-                img.onload = () => processImage(img);
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
+    // Шаг 2: разметка на 4 части
+    drawGrid();
 
-        function processImage(img) {
-            const MAX_WIDTH = 800;
-            let width = img.width;
-            let height = img.height;
+    // Шаг 3: слой штриховки
+    drawHatching();
+  };
+  img.src = URL.createObjectURL(file);
+});
 
-            if (width > MAX_WIDTH) {
-                height = Math.floor(height * (MAX_WIDTH / width));
-                width = MAX_WIDTH;
-            }
+// ---------- Шаг 2: разметка на 4 части ----------
+function drawGrid() {
+  if (!imageData) return;
+  // перерисовываем базовый слой: изображение + линии
+  baseCtx.clearRect(0, 0, imgWidth, imgHeight);
+  baseCtx.drawImage(srcImage, 0, 0);
 
-            imageCanvas.width = width;
-            imageCanvas.height = height;
-            overlayCanvas.width = width;
-            overlayCanvas.height = height;
+  if (!showGridEl.checked) return;
 
-            imgCtx.drawImage(img, 0, 0, width, height);
-            const imageData = imgCtx.getImageData(0, 0, width, height);
-            const data = imageData.data;
+  baseCtx.save();
+  baseCtx.strokeStyle = 'rgba(255, 60, 60, 0.9)';
+  baseCtx.lineWidth = Math.max(2, Math.round(imgWidth / 400));
+  baseCtx.setLineDash([12, 8]);
 
-            overlayCtx.clearRect(0, 0, width, height);
-            
-            // Рисуем из 4 углов
-            drawFromCorner(data, width, height, 'top-left');
-            drawFromCorner(data, width, height, 'top-right');
-            drawFromCorner(data, width, height, 'bottom-left');
-            drawFromCorner(data, width, height, 'bottom-right');
+  const mx = imgWidth / 2;
+  const my = imgHeight / 2;
 
-            loader.style.display = 'none';
-            canvasContainer.style.display = 'block';
-        }
+  // вертикальная линия
+  baseCtx.beginPath();
+  baseCtx.moveTo(mx, 0);
+  baseCtx.lineTo(mx, imgHeight);
+  baseCtx.stroke();
 
-        // Проверка: является ли пиксель границей (темный или сильно цветной)?
-        function isBoundary(data, width, height, x, y) {
-            if (x < 0 || x >= width || y < 0 || y >= height) return true; // Край холста
+  // горизонтальная линия
+  baseCtx.beginPath();
+  baseCtx.moveTo(0, my);
+  baseCtx.lineTo(imgWidth, my);
+  baseCtx.stroke();
 
-            const index = (y * width + x) * 4;
-            const r = data[index];
-            const g = data[index + 1];
-            const b = data[index + 2];
-            const a = data[index + 3];
+  baseCtx.restore();
+}
 
-            if (a < 50) return false; // Прозрачный
+// ---------- проверка "тёмный ли пиксель" (line art) ----------
+function isDark(x, y, threshold) {
+  if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) return true;
+  const i = (y * imgWidth + x) * 4;
+  const d = imageData.data;
+  const r = d[i], g = d[i + 1], b = d[i + 2], a = d[i + 3];
+  if (a < 20) return false; // прозрачное — не контур
+  // воспринимаемая яркость
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  return lum < threshold;
+}
 
-            // 1. Проверка на темноту
-            const brightness = (r + g + b) / 3;
-            if (brightness < DARKNESS_THRESHOLD) return true;
+// ---------- Шаг 3 + 4: штриховка от краёв к центру до контура ----------
+function drawHatching() {
+  if (!imageData) return;
 
-            // 2. Проверка на насыщенность (цветные линии)
-            const max = Math.max(r, g, b);
-            const min = Math.min(r, g, b);
-            const saturation = max - min;
-            if (saturation > COLOR_THRESHOLD) return true;
+  const threshold = +thresholdEl.value;
+  const step      = +stepEl.value;
 
-            return false;
-        }
+  overlayCtx.clearRect(0, 0, imgWidth, imgHeight);
 
-        function drawFromCorner(data, width, height, corner) {
-            overlayCtx.strokeStyle = STRIPE_COLOR;
-            overlayCtx.lineCap = 'butt'; 
-            overlayCtx.lineWidth = STRIPE_WIDTH;
+  const cx = imgWidth / 2;
+  const cy = imgHeight / 2;
 
-            const step = STRIPE_WIDTH + STRIPE_GAP;
-            
-            let startX, startY, dx, dy, limitY;
+  overlayCtx.save();
+  overlayCtx.strokeStyle = 'rgba(80, 200, 255, 0.85)';
+  overlayCtx.lineWidth = 1;
 
-            switch(corner) {
-                case 'top-left':
-                    startX = -height; startY = 0; dx = 1; dy = 1; limitY = height / 2; break;
-                case 'top-right':
-                    startX = width + height; startY = 0; dx = -1; dy = 1; limitY = height / 2; break;
-                case 'bottom-left':
-                    startX = -height; startY = height; dx = 1; dy = -1; limitY = height / 2; break;
-                case 'bottom-right':
-                    startX = width + height; startY = height; dx = -1; dy = -1; limitY = height / 2; break;
-            }
+  const maxLen = Math.hypot(cx, cy);
 
-            const numLines = Math.ceil((width + height) / step) + 2;
+  // Горизонтальные линии: слева и справа к центру
+  for (let y = 0; y < imgHeight; y += step) {
+    // слева → к центру: стоп у первого тёмного пикселя
+    let xL = 0;
+    while (xL < cx && !isDark(xL, y, threshold)) xL++;
+    if (xL > 0) {
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(0, y);
+      overlayCtx.lineTo(xL, y);
+      overlayCtx.stroke();
+    }
 
-            for (let i = 0; i < numLines; i++) {
-                let currentX = startX + i * step;
-                let currentY = startY;
+    // справа → к центру
+    let xR = imgWidth - 1;
+    while (xR > cx && !isDark(xR, y, threshold)) xR--;
+    if (xR < imgWidth - 1) {
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(imgWidth, y);
+      overlayCtx.lineTo(xR, y);
+      overlayCtx.stroke();
+    }
+  }
 
-                if (dx === 1 && currentX < 0) {
-                    currentY = -currentX;
-                    currentX = 0;
-                } else if (dx === -1 && currentX > width) {
-                    currentY = currentX - width;
-                    currentX = width;
-                }
+  // Вертикальные линии: сверху и снизу к центру
+  for (let x = 0; x < imgWidth; x += step) {
+    // сверху → к центру
+    let yT = 0;
+    while (yT < cy && !isDark(x, yT, threshold)) yT++;
+    if (yT > 0) {
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(x, 0);
+      overlayCtx.lineTo(x, yT);
+      overlayCtx.stroke();
+    }
 
-                if (currentX < 0 || currentX > width || currentY < 0 || currentY > height) continue;
+    // снизу → к центру
+    let yB = imgHeight - 1;
+    while (yB > cy && !isDark(x, yB, threshold)) yB--;
+    if (yB < imgHeight - 1) {
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(x, imgHeight);
+      overlayCtx.lineTo(x, yB);
+      overlayCtx.stroke();
+    }
+  }
 
-                // Ограничение треугольником
-                if (corner.includes('top') && currentY > limitY) continue;
-                if (corner.includes('bottom') && currentY < limitY) continue;
+  overlayCtx.restore();
+}
 
-                // Пропускаем, если старт на границе
-                if (isBoundary(data, width, height, Math.floor(currentX), Math.floor(currentY))) {
-                    continue;
-                }
+// ---------- перерисовка при изменении параметров ----------
+thresholdEl.addEventListener('input', () => {
+  thresholdVal.textContent = thresholdEl.value;
+  drawHatching();
+});
+stepEl.addEventListener('input', () => {
+  stepVal.textContent = stepEl.value;
+  drawHatching();
+});
+showGridEl.addEventListener('change', drawGrid);
+</script>
 
-                overlayCtx.beginPath();
-                overlayCtx.moveTo(currentX, currentY);
-
-                let hitBoundary = false;
-                let x = currentX;
-                let y = currentY;
-
-                while (x >= 0 && x <= width && y >= 0 && y <= height) {
-                    if (isBoundary(data, width, height, Math.floor(x), Math.floor(y))) {
-                        hitBoundary = true;
-                        break;
-                    }
-                    x += dx * SCAN_STEP;
-                    y += dy * SCAN_STEP;
-
-                    if (corner.includes('top') && y > limitY) break;
-                    if (corner.includes('bottom') && y < limitY) break;
-                }
-
-                if (hitBoundary) {
-                    overlayCtx.lineTo(x, y);
-                    overlayCtx.stroke();
-                }
-            }
-        }
-    </script>
 </body>
 </html>
