@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Разметка на 4 части + штриховка до контура</title>
+<title>Разметка на 4 части + диагональная штриховка до контура</title>
 <style>
   :root { color-scheme: dark; }
   body {
@@ -27,6 +27,7 @@
     padding: 10px 14px;
     background: #1d2027;
     border-radius: 10px;
+    max-width: 900px;
   }
   .controls label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
   input[type="file"] { font-size: 13px; }
@@ -66,6 +67,10 @@
     <input id="step" type="range" min="2" max="20" value="6" />
     <span id="stepVal">6</span>
   </label>
+  <label>Угол:
+    <input id="angle" type="range" min="0" max="180" value="45" />
+    <span id="angleVal">45°</span>
+  </label>
   <label>
     <input id="showGrid" type="checkbox" checked />
     Показать разметку на 4 части
@@ -78,24 +83,27 @@
 </div>
 
 <p class="hint">
-  Штриховка идёт от краёв к центру и останавливается, когда встречает тёмный пиксель —
-  то есть line art персонажа. Порог яркости и шаг штриховки можно регулировать.
+  Штриховка идёт диагональными линиями от краёв к центру и останавливается,
+  когда встречает тёмный пиксель — то есть line art персонажа.
+  Порог яркости, шаг и угол штриховки можно регулировать.
 </p>
 
 <script>
-const fileInput   = document.getElementById('file');
-const baseCanvas  = document.getElementById('base');
-const overlay     = document.getElementById('overlay');
-const thresholdEl = document.getElementById('threshold');
-const stepEl      = document.getElementById('step');
-const showGridEl  = document.getElementById('showGrid');
-const thresholdVal= document.getElementById('thresholdVal');
-const stepVal     = document.getElementById('stepVal');
+const fileInput    = document.getElementById('file');
+const baseCanvas   = document.getElementById('base');
+const overlay      = document.getElementById('overlay');
+const thresholdEl  = document.getElementById('threshold');
+const stepEl       = document.getElementById('step');
+const angleEl      = document.getElementById('angle');
+const showGridEl   = document.getElementById('showGrid');
+const thresholdVal = document.getElementById('thresholdVal');
+const stepVal      = document.getElementById('stepVal');
+const angleVal     = document.getElementById('angleVal');
 
 const baseCtx    = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
 
-let imageData   = null;   // ImageData исходного изображения
+let imageData = null;
 let imgWidth = 0, imgHeight = 0;
 let srcImage = null;
 
@@ -109,21 +117,16 @@ fileInput.addEventListener('change', e => {
     imgWidth  = img.naturalWidth;
     imgHeight = img.naturalHeight;
 
-    // размеры канвасов
     [baseCanvas, overlay].forEach(c => {
       c.width  = imgWidth;
       c.height = imgHeight;
     });
 
-    // рисуем изображение и сохраняем пиксели
     baseCtx.clearRect(0, 0, imgWidth, imgHeight);
     baseCtx.drawImage(img, 0, 0);
     imageData = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
 
-    // Шаг 2: разметка на 4 части
     drawGrid();
-
-    // Шаг 3: слой штриховки
     drawHatching();
   };
   img.src = URL.createObjectURL(file);
@@ -132,7 +135,6 @@ fileInput.addEventListener('change', e => {
 // ---------- Шаг 2: разметка на 4 части ----------
 function drawGrid() {
   if (!imageData) return;
-  // перерисовываем базовый слой: изображение + линии
   baseCtx.clearRect(0, 0, imgWidth, imgHeight);
   baseCtx.drawImage(srcImage, 0, 0);
 
@@ -146,13 +148,11 @@ function drawGrid() {
   const mx = imgWidth / 2;
   const my = imgHeight / 2;
 
-  // вертикальная линия
   baseCtx.beginPath();
   baseCtx.moveTo(mx, 0);
   baseCtx.lineTo(mx, imgHeight);
   baseCtx.stroke();
 
-  // горизонтальная линия
   baseCtx.beginPath();
   baseCtx.moveTo(0, my);
   baseCtx.lineTo(imgWidth, my);
@@ -167,77 +167,111 @@ function isDark(x, y, threshold) {
   const i = (y * imgWidth + x) * 4;
   const d = imageData.data;
   const r = d[i], g = d[i + 1], b = d[i + 2], a = d[i + 3];
-  if (a < 20) return false; // прозрачное — не контур
-  // воспринимаемая яркость
+  if (a < 20) return false;
   const lum = 0.299 * r + 0.587 * g + 0.114 * b;
   return lum < threshold;
 }
 
-// ---------- Шаг 3 + 4: штриховка от краёв к центру до контура ----------
+// ---------- Шаг 3 + 4: ДИАГОНАЛЬНАЯ штриховка от краёв к центру до контура ----------
 function drawHatching() {
   if (!imageData) return;
 
   const threshold = +thresholdEl.value;
-  const step      = +stepEl.value;
+  const gap       = +stepEl.value;
+  const angle     = (+angleEl.value) * Math.PI / 180;
 
   overlayCtx.clearRect(0, 0, imgWidth, imgHeight);
-
-  const cx = imgWidth / 2;
-  const cy = imgHeight / 2;
-
   overlayCtx.save();
   overlayCtx.strokeStyle = 'rgba(80, 200, 255, 0.85)';
   overlayCtx.lineWidth = 1;
 
-  const maxLen = Math.hypot(cx, cy);
+  const W = imgWidth, H = imgHeight;
+  const cx = W / 2, cy = H / 2;
 
-  // Горизонтальные линии: слева и справа к центру
-  for (let y = 0; y < imgHeight; y += step) {
-    // слева → к центру: стоп у первого тёмного пикселя
-    let xL = 0;
-    while (xL < cx && !isDark(xL, y, threshold)) xL++;
-    if (xL > 0) {
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(0, y);
-      overlayCtx.lineTo(xL, y);
-      overlayCtx.stroke();
-    }
+  const dx = Math.cos(angle);
+  const dy = Math.sin(angle);
 
-    // справа → к центру
-    let xR = imgWidth - 1;
-    while (xR > cx && !isDark(xR, y, threshold)) xR--;
-    if (xR < imgWidth - 1) {
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(imgWidth, y);
-      overlayCtx.lineTo(xR, y);
-      overlayCtx.stroke();
-    }
-  }
+  // Нормаль к направлению линий
+  const nx = -dy;
+  const ny =  dx;
 
-  // Вертикальные линии: сверху и снизу к центру
-  for (let x = 0; x < imgWidth; x += step) {
-    // сверху → к центру
-    let yT = 0;
-    while (yT < cy && !isDark(x, yT, threshold)) yT++;
-    if (yT > 0) {
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(x, 0);
-      overlayCtx.lineTo(x, yT);
-      overlayCtx.stroke();
-    }
+  const diag = Math.hypot(W, H);
 
-    // снизу → к центру
-    let yB = imgHeight - 1;
-    while (yB > cy && !isDark(x, yB, threshold)) yB--;
-    if (yB < imgHeight - 1) {
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(x, imgHeight);
-      overlayCtx.lineTo(x, yB);
-      overlayCtx.stroke();
+  // Проекция центра на нормаль
+  const cProj = cx * nx + cy * ny;
+
+  // Идём по всем параллельным линиям, покрывающим изображение
+  for (let offset = -diag; offset <= diag; offset += gap) {
+    // Точка-опора: точка на линии, ближайшая к центру изображения
+    const baseX = cx + (offset - cProj) * nx;
+    const baseY = cy + (offset - cProj) * ny;
+
+    // Отсечение линии по прямоугольнику [0,W] x [0,H]
+    let tMin = -diag, tMax = diag;
+
+    if (Math.abs(dx) > 1e-6) {
+      const t1 = (0 - baseX) / dx;
+      const t2 = (W - baseX) / dx;
+      tMin = Math.max(tMin, Math.min(t1, t2));
+      tMax = Math.min(tMax, Math.max(t1, t2));
     }
+    if (Math.abs(dy) > 1e-6) {
+      const t1 = (0 - baseY) / dy;
+      const t2 = (H - baseY) / dy;
+      tMin = Math.max(tMin, Math.min(t1, t2));
+      tMax = Math.min(tMax, Math.max(t1, t2));
+    }
+    if (tMin >= tMax) continue;
+
+    // Параметр t, соответствующий ближайшей точке к центру вдоль этой линии
+    const tC = ((cx - baseX) * dx + (cy - baseY) * dy) / (dx * dx + dy * dy);
+
+    // Два луча: от одного конца к центру и от другого конца к центру
+    drawRay(baseX, baseY, dx, dy, tMin, tC, threshold);
+    drawRay(baseX, baseY, dx, dy, tMax, tC, threshold);
   }
 
   overlayCtx.restore();
+}
+
+// Рисует отрезок вдоль направления (dx,dy) от "внешнего" конца к центру,
+// останавливаясь на первом тёмном пикселе (контур).
+function drawRay(baseX, baseY, dx, dy, tEndA, tCenter, threshold) {
+  // Всегда начинаем с внешнего конца и идём к центру
+  let tStart = tEndA;
+  let tEnd   = tCenter;
+
+  // шаг по параметру. Направление (dx,dy) единичное, значит t ~= пиксели
+  const stepT = 1;
+
+  overlayCtx.beginPath();
+  let started = false;
+
+  if (tEnd >= tStart) {
+    for (let t = tStart; t <= tEnd; t += stepT) {
+      const x = baseX + dx * t;
+      const y = baseY + dy * t;
+      const xi = Math.round(x), yi = Math.round(y);
+      if (xi < 0 || yi < 0 || xi >= imgWidth || yi >= imgHeight) break;
+      if (isDark(xi, yi, threshold)) break;
+
+      if (!started) { overlayCtx.moveTo(x, y); started = true; }
+      else          { overlayCtx.lineTo(x, y); }
+    }
+  } else {
+    for (let t = tStart; t >= tEnd; t -= stepT) {
+      const x = baseX + dx * t;
+      const y = baseY + dy * t;
+      const xi = Math.round(x), yi = Math.round(y);
+      if (xi < 0 || yi < 0 || xi >= imgWidth || yi >= imgHeight) break;
+      if (isDark(xi, yi, threshold)) break;
+
+      if (!started) { overlayCtx.moveTo(x, y); started = true; }
+      else          { overlayCtx.lineTo(x, y); }
+    }
+  }
+
+  if (started) overlayCtx.stroke();
 }
 
 // ---------- перерисовка при изменении параметров ----------
@@ -247,6 +281,10 @@ thresholdEl.addEventListener('input', () => {
 });
 stepEl.addEventListener('input', () => {
   stepVal.textContent = stepEl.value;
+  drawHatching();
+});
+angleEl.addEventListener('input', () => {
+  angleVal.textContent = angleEl.value + '°';
   drawHatching();
 });
 showGridEl.addEventListener('change', drawGrid);
