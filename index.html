@@ -48,6 +48,12 @@
     pointer-events: none;
   }
   .hint { font-size: 12px; color: #8b93a1; max-width: 700px; text-align: center; }
+
+  @media (max-width: 600px) {
+    input[type="range"] { width: 140px; height: 24px; }
+    .controls { flex-direction: column; align-items: stretch; }
+    .stage canvas { max-width: 96vw; }
+  }
 </style>
 </head>
 <body>
@@ -59,8 +65,12 @@
     <input id="file" type="file" accept="image/*" />
   </label>
   <label>Порог контура:
-    <input id="threshold" type="range" min="20" max="200" value="90" />
-    <span id="thresholdVal">90</span>
+    <input id="threshold" type="range" min="20" max="200" value="80" />
+    <span id="thresholdVal">80</span>
+  </label>
+  <label>Отличие от фона:
+    <input id="bgDist" type="range" min="30" max="250" value="140" />
+    <span id="bgDistVal">140</span>
   </label>
   <label>Шаг штриховки:
     <input id="step" type="range" min="2" max="20" value="6" />
@@ -78,26 +88,29 @@
 </div>
 
 <p class="hint">
-  Штриховка идёт от краёв к центру и останавливается, когда встречает тёмный пиксель —
-  то есть line art персонажа. Порог яркости и шаг штриховки можно регулировать.
+  Фон определяется автоматически по краям изображения — штриховка идёт от краёв
+  к центру сквозь фон и останавливается на тёмных контурах персонажа.
 </p>
 
 <script>
-const fileInput   = document.getElementById('file');
-const baseCanvas  = document.getElementById('base');
-const overlay     = document.getElementById('overlay');
-const thresholdEl = document.getElementById('threshold');
-const stepEl      = document.getElementById('step');
-const showGridEl  = document.getElementById('showGrid');
-const thresholdVal= document.getElementById('thresholdVal');
-const stepVal     = document.getElementById('stepVal');
+const fileInput    = document.getElementById('file');
+const baseCanvas   = document.getElementById('base');
+const overlay      = document.getElementById('overlay');
+const thresholdEl  = document.getElementById('threshold');
+const bgDistEl     = document.getElementById('bgDist');
+const stepEl       = document.getElementById('step');
+const showGridEl   = document.getElementById('showGrid');
+const thresholdVal = document.getElementById('thresholdVal');
+const bgDistVal    = document.getElementById('bgDistVal');
+const stepVal      = document.getElementById('stepVal');
 
 const baseCtx    = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
 
-let imageData   = null;   // ImageData исходного изображения
+let imageData = null;
 let imgWidth = 0, imgHeight = 0;
 let srcImage = null;
+let bgColor = { r: 0, g: 0, b: 0 };
 
 // ---------- Шаг 1: загрузка изображения ----------
 fileInput.addEventListener('change', e => {
@@ -109,30 +122,48 @@ fileInput.addEventListener('change', e => {
     imgWidth  = img.naturalWidth;
     imgHeight = img.naturalHeight;
 
-    // размеры канвасов
     [baseCanvas, overlay].forEach(c => {
       c.width  = imgWidth;
       c.height = imgHeight;
     });
 
-    // рисуем изображение и сохраняем пиксели
     baseCtx.clearRect(0, 0, imgWidth, imgHeight);
     baseCtx.drawImage(img, 0, 0);
     imageData = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
 
-    // Шаг 2: разметка на 4 части
+    detectBgColor();
     drawGrid();
-
-    // Шаг 3: слой штриховки
     drawHatching();
   };
   img.src = URL.createObjectURL(file);
 });
 
+// ---------- Автоопределение цвета фона ----------
+function detectBgColor() {
+  const d = imageData.data;
+  const w = imgWidth, h = imgHeight;
+  let r = 0, g = 0, b = 0, n = 0;
+  const take = (x, y) => {
+    const i = (y * w + x) * 4;
+    const a = d[i + 3];
+    if (a < 20) return; // прозрачное не учитываем
+    r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
+  };
+  // рамка 4px по периметру
+  for (let x = 0; x < w; x += 2) {
+    take(x, 1); take(x, 2); take(x, h - 2); take(x, h - 3);
+  }
+  for (let y = 0; y < h; y += 2) {
+    take(1, y); take(2, y); take(w - 2, y); take(w - 3, y);
+  }
+  if (n === 0) { bgColor = { r: 255, g: 255, b: 255 }; return; }
+  bgColor = { r: r / n, g: g / n, b: b / n };
+}
+
 // ---------- Шаг 2: разметка на 4 части ----------
 function drawGrid() {
   if (!imageData) return;
-  // перерисовываем базовый слой: изображение + линии
+
   baseCtx.clearRect(0, 0, imgWidth, imgHeight);
   baseCtx.drawImage(srcImage, 0, 0);
 
@@ -146,13 +177,11 @@ function drawGrid() {
   const mx = imgWidth / 2;
   const my = imgHeight / 2;
 
-  // вертикальная линия
   baseCtx.beginPath();
   baseCtx.moveTo(mx, 0);
   baseCtx.lineTo(mx, imgHeight);
   baseCtx.stroke();
 
-  // горизонтальная линия
   baseCtx.beginPath();
   baseCtx.moveTo(0, my);
   baseCtx.lineTo(imgWidth, my);
@@ -161,16 +190,29 @@ function drawGrid() {
   baseCtx.restore();
 }
 
-// ---------- проверка "тёмный ли пиксель" (line art) ----------
-function isDark(x, y, threshold) {
+// ---------- Препятствие: тёмный контур ИЛИ сильно отличается от фона ----------
+function isObstacle(x, y, threshold, bgDist) {
   if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) return true;
+
   const i = (y * imgWidth + x) * 4;
   const d = imageData.data;
   const r = d[i], g = d[i + 1], b = d[i + 2], a = d[i + 3];
-  if (a < 20) return false; // прозрачное — не контур
-  // воспринимаемая яркость
+
+  if (a < 20) return false; // прозрачное — не препятствие
+
   const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-  return lum < threshold;
+
+  // (A) явно тёмный пиксель — line art
+  if (lum < threshold) return true;
+
+  // (B) сильно отличается от цвета фона
+  const dr = r - bgColor.r;
+  const dg = g - bgColor.g;
+  const db = b - bgColor.b;
+  const dist = Math.sqrt(dr * dr + dg * dg + db * db);
+  if (dist > bgDist) return true;
+
+  return false;
 }
 
 // ---------- Шаг 3 + 4: штриховка от краёв к центру до контура ----------
@@ -178,6 +220,7 @@ function drawHatching() {
   if (!imageData) return;
 
   const threshold = +thresholdEl.value;
+  const bgDist    = +bgDistEl.value;
   const step      = +stepEl.value;
 
   overlayCtx.clearRect(0, 0, imgWidth, imgHeight);
@@ -189,13 +232,11 @@ function drawHatching() {
   overlayCtx.strokeStyle = 'rgba(80, 200, 255, 0.85)';
   overlayCtx.lineWidth = 1;
 
-  const maxLen = Math.hypot(cx, cy);
-
   // Горизонтальные линии: слева и справа к центру
   for (let y = 0; y < imgHeight; y += step) {
-    // слева → к центру: стоп у первого тёмного пикселя
+    // слева → к центру
     let xL = 0;
-    while (xL < cx && !isDark(xL, y, threshold)) xL++;
+    while (xL < cx && !isObstacle(xL, y, threshold, bgDist)) xL++;
     if (xL > 0) {
       overlayCtx.beginPath();
       overlayCtx.moveTo(0, y);
@@ -205,7 +246,7 @@ function drawHatching() {
 
     // справа → к центру
     let xR = imgWidth - 1;
-    while (xR > cx && !isDark(xR, y, threshold)) xR--;
+    while (xR > cx && !isObstacle(xR, y, threshold, bgDist)) xR--;
     if (xR < imgWidth - 1) {
       overlayCtx.beginPath();
       overlayCtx.moveTo(imgWidth, y);
@@ -218,7 +259,7 @@ function drawHatching() {
   for (let x = 0; x < imgWidth; x += step) {
     // сверху → к центру
     let yT = 0;
-    while (yT < cy && !isDark(x, yT, threshold)) yT++;
+    while (yT < cy && !isObstacle(x, yT, threshold, bgDist)) yT++;
     if (yT > 0) {
       overlayCtx.beginPath();
       overlayCtx.moveTo(x, 0);
@@ -228,7 +269,7 @@ function drawHatching() {
 
     // снизу → к центру
     let yB = imgHeight - 1;
-    while (yB > cy && !isDark(x, yB, threshold)) yB--;
+    while (yB > cy && !isObstacle(x, yB, threshold, bgDist)) yB--;
     if (yB < imgHeight - 1) {
       overlayCtx.beginPath();
       overlayCtx.moveTo(x, imgHeight);
@@ -240,9 +281,13 @@ function drawHatching() {
   overlayCtx.restore();
 }
 
-// ---------- перерисовка при изменении параметров ----------
+// ---------- Перерисовка при изменении параметров ----------
 thresholdEl.addEventListener('input', () => {
   thresholdVal.textContent = thresholdEl.value;
+  drawHatching();
+});
+bgDistEl.addEventListener('input', () => {
+  bgDistVal.textContent = bgDistEl.value;
   drawHatching();
 });
 stepEl.addEventListener('input', () => {
