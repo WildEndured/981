@@ -196,7 +196,13 @@ fileInput.addEventListener('change', e => {
   img.src = URL.createObjectURL(file);
 });
 
-// ---------- Автоопределение цвета фона ----------
+// ---------- Улучшенное автоопределение цвета фона ----------
+// 1. Собираем пиксели рамки с отступом ~6% от края.
+// 2. Игнорируем почти-белые (>245) и почти-чёрные (<15) — это артефакты краёв.
+// 3. Считаем медиану по оставшимся.
+// 4. Если медиана сама оказалась белой/чёрной, или оставшихся пикселей
+//    слишком мало — берём моду (самый частый цвет).
+// 5. Если и мода не помогла — берём цвет из центра изображения.
 function detectBgColor() {
   const d = imageData.data;
   const w = imgWidth, h = imgHeight;
@@ -207,15 +213,61 @@ function detectBgColor() {
   const take = (x, y) => {
     if (x < 0 || y < 0 || x >= w || y >= h) return;
     const i = (y * w + x) * 4;
-    if (d[i + 3] < 20) return;
-    rs.push(d[i]); gs.push(d[i + 1]); bs.push(d[i + 2]);
+    const a = d[i + 3];
+    if (a < 20) return;
+    const r = d[i], g = d[i + 1], b = d[i + 2];
+    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    // Игнорируем почти-белые и почти-чёрные пиксели (полосы/рамки)
+    if (lum > 245) return;
+    if (lum < 15)  return;
+    rs.push(r); gs.push(g); bs.push(b);
   };
+
   for (let x = padX; x < w - padX; x++) { take(x, padY); take(x, h - padY); }
   for (let y = padY; y < h - padY; y++) { take(padX, y); take(w - padX, y); }
 
-  if (!rs.length) { bgColor = { r: 255, g: 255, b: 255 }; return; }
-  const median = a => (a.sort((x, y) => x - y), a[a.length >> 1]);
-  bgColor = { r: median(rs), g: median(gs), b: median(bs) };
+  // Мало валидных пикселей — берём цвет из центра
+  if (rs.length < 50) {
+    const cx = Math.floor(w / 2);
+    const cy = Math.floor(h / 2);
+    const i = (cy * w + cx) * 4;
+    bgColor = { r: d[i], g: d[i + 1], b: d[i + 2] };
+    return;
+  }
+
+  const median = arr => {
+    arr.sort((a, b) => a - b);
+    return arr[arr.length >> 1];
+  };
+
+  let mr = median(rs);
+  let mg = median(gs);
+  let mb = median(bs);
+  const mLum = 0.299 * mr + 0.587 * mg + 0.114 * mb;
+
+  // Медиана почти белая или почти чёрная — плохо, берём моду
+  if (mLum > 240 || mLum < 20) {
+    const buckets = new Map();
+    for (let i = 0; i < rs.length; i++) {
+      // квантуем до 8 уровней на канал — это даёт устойчивую моду
+      const key = ((rs[i] >> 5) << 10) | ((gs[i] >> 5) << 5) | (bs[i] >> 5);
+      let entry = buckets.get(key);
+      if (!entry) { entry = { n: 0, r: 0, g: 0, b: 0 }; buckets.set(key, entry); }
+      entry.n++;
+      entry.r += rs[i]; entry.g += gs[i]; entry.b += bs[i];
+    }
+    let best = null;
+    for (const v of buckets.values()) {
+      if (!best || v.n > best.n) best = v;
+    }
+    if (best) {
+      mr = Math.round(best.r / best.n);
+      mg = Math.round(best.g / best.n);
+      mb = Math.round(best.b / best.n);
+    }
+  }
+
+  bgColor = { r: mr, g: mg, b: mb };
 }
 
 function updateBgUI() {
