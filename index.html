@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lineart Highlighter (Color Mask)</title>
+    <title>Lineart Highlighter (4 Corners)</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -58,7 +58,7 @@
 </head>
 <body>
 
-    <h1>Авто-штриховка (Анализ цвета)</h1>
+    <h1>Авто-штриховка (4 угла)</h1>
 
     <div class="controls">
         <label for="imageInput" class="upload-btn">Выбрать изображение</label>
@@ -83,14 +83,8 @@
         const overlayCtx = overlayCanvas.getContext('2d');
 
         // --- НАСТРОЙКИ ---
-        // 1. Порог темноты (0-255). Если пиксель темнее этого значения - это контур.
         const DARKNESS_THRESHOLD = 130; 
-
-        // 2. Порог насыщенности (0-255). Если цвет сильно отличается от серого - это персонаж.
-        // Увеличьте, если фон цветной. Уменьшите, если полосы пропускают персонажа.
         const SATURATION_THRESHOLD = 25; 
-
-        // 3. Насколько "вперед" смотреть при проверке (игнорирует шум)
         const LOOKAHEAD = 4;
 
         const STRIPE_COLOR = '#ff4757';
@@ -134,7 +128,12 @@
             const data = imageData.data;
 
             overlayCtx.clearRect(0, 0, width, height);
-            drawDiagonalStripes(data, width, height);
+            
+            // Рисуем из 4 углов
+            drawFromTopLeft(data, width, height);
+            drawFromTopRight(data, width, height);
+            drawFromBottomLeft(data, width, height);
+            drawFromBottomRight(data, width, height);
 
             loader.style.display = 'none';
             canvasContainer.style.display = 'block';
@@ -144,80 +143,85 @@
             if (x < 0 || x >= width || y < 0 || y >= height) return null;
             const index = (y * width + x) * 4;
             return {
-                r: data[index],
-                g: data[index + 1],
-                b: data[index + 2],
-                a: data[index + 3]
+                r: data[index], g: data[index + 1], b: data[index + 2], a: data[index + 3]
             };
         }
 
-        // Проверяем, является ли пиксель частью персонажа (темный или цветной)
         function isCharacterPixel(data, width, height, x, y) {
             const p = getPixel(data, width, height, x, y);
-            if (!p || p.a < 50) return false; // Прозрачный
+            if (!p || p.a < 50) return false;
 
-            // Проверка на темноту
             const brightness = (p.r + p.g + p.b) / 3;
             if (brightness < DARKNESS_THRESHOLD) return true;
 
-            // Проверка на насыщенность (цветность)
             const max = Math.max(p.r, p.g, p.b);
             const min = Math.min(p.r, p.g, p.b);
             const saturation = max - min;
 
-            // Если цвет сильно отличается от серого, это персонаж
             if (saturation > SATURATION_THRESHOLD) return true;
 
             return false;
         }
 
-        // Проверяем, есть ли персонаж впереди по диагонали
-        function isCharacterAhead(data, width, height, x, y) {
-            // Смотрим на несколько пикселей вперед, чтобы не реагировать на шум
+        function isCharacterAhead(data, width, height, x, y, dx, dy) {
             for (let i = 1; i <= LOOKAHEAD; i++) {
-                if (isCharacterPixel(data, width, height, Math.floor(x + i), Math.floor(y + i))) {
+                if (isCharacterPixel(data, width, height, Math.floor(x + dx * i), Math.floor(y + dy * i))) {
                     return true;
                 }
             }
             return false;
         }
 
-        function drawDiagonalStripes(data, width, height) {
+        // Функция для отрисовки линий в заданном направлении
+        function drawLines(data, width, height, startX, startY, dx, dy, limitX, limitY) {
             overlayCtx.strokeStyle = STRIPE_COLOR;
             overlayCtx.lineCap = 'butt'; 
             overlayCtx.lineWidth = STRIPE_WIDTH;
 
             const step = STRIPE_WIDTH + STRIPE_GAP;
+            
+            // Определяем количество линий, которые нужно нарисовать
+            // Мы идем по перпендикулярной оси
+            let numLines;
+            let perpX = -dy; // Перпендикулярный вектор
+            let perpY = dx;
 
-            for (let startX = -height; startX < width + height; startX += step) {
-                
-                let startY = 0;
-                let currentX = startX;
+            if (dx !== 0) {
+                numLines = Math.ceil((width + height) / step);
+            } else {
+                numLines = Math.ceil((width + height) / step);
+            }
 
-                if (currentX < 0) {
-                    startY = -currentX;
-                    currentX = 0;
-                }
+            // Смещение для первой линии, чтобы она начиналась за пределами холста
+            let offset = -Math.max(width, height);
 
-                // Пропускаем полосу, если она начинается уже внутри персонажа
-                if (isCharacterPixel(data, width, height, Math.floor(currentX), Math.floor(startY))) {
-                    continue;
+            for (let i = 0; i < numLines + 50; i++) {
+                let currentStartX = startX + perpX * (offset + i * step);
+                let currentStartY = startY + perpY * (offset + i * step);
+
+                // Проверяем, находится ли стартовая точка в пределах холста (или за ним)
+                // Если линия начинается внутри персонажа, пропускаем
+                if (currentStartX >= 0 && currentStartX < width && currentStartY >= 0 && currentStartY < height) {
+                    if (isCharacterPixel(data, width, height, Math.floor(currentStartX), Math.floor(currentStartY))) {
+                        continue;
+                    }
                 }
 
                 overlayCtx.beginPath();
-                overlayCtx.moveTo(currentX, startY);
+                overlayCtx.moveTo(currentStartX, currentStartY);
 
                 let hitCharacter = false;
-                let x = currentX;
-                let y = startY;
+                let x = currentStartX;
+                let y = currentStartY;
 
-                while (x < width && y < height) {
-                    if (isCharacterAhead(data, width, height, Math.floor(x), Math.floor(y))) {
+                // Сканируем в заданном направлении
+                while (x >= 0 && x < width && y >= 0 && y < height) {
+                    if (isCharacterAhead(data, width, height, Math.floor(x), Math.floor(y), dx, dy)) {
                         hitCharacter = true;
                         break;
                     }
-                    x += SCAN_STEP;
-                    y += SCAN_STEP;
+                    x += dx * SCAN_STEP;
+                    y += dy * SCAN_STEP;
                 }
 
                 if (hitCharacter) {
@@ -225,6 +229,26 @@
                     overlayCtx.stroke();
                 }
             }
+        }
+
+        // 1. Из левого верхнего угла (вправо-вниз)
+        function drawFromTopLeft(data, width, height) {
+            drawLines(data, width, height, 0, 0, 1, 1, width, height);
+        }
+
+        // 2. Из правого верхнего угла (влево-вниз)
+        function drawFromTopRight(data, width, height) {
+            drawLines(data, width, height, width, 0, -1, 1, 0, height);
+        }
+
+        // 3. Из левого нижнего угла (вправо-вверх)
+        function drawFromBottomLeft(data, width, height) {
+            drawLines(data, width, height, 0, height, 1, -1, width, 0);
+        }
+
+        // 4. Из правого нижнего угла (влево-вверх)
+        function drawFromBottomRight(data, width, height) {
+            drawLines(data, width, height, width, height, -1, -1, 0, 0);
         }
     </script>
 </body>
