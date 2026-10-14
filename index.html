@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Определение фона и границы персонажа</title>
+<title>Фон, персонаж, границы, line art</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -20,13 +20,13 @@
   }
   h1 { font-size: 18px; margin: 0; }
   .controls {
-    display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
     justify-content: center; padding: 10px 14px;
     background: #1d2027; border-radius: 10px; max-width: 100%;
   }
   .controls label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
   input[type="file"] { font-size: 13px; max-width: 180px; }
-  input[type="range"] { width: 160px; }
+  input[type="range"] { width: 130px; }
   button {
     font-size: 13px; padding: 6px 10px; border-radius: 8px;
     border: 1px solid #333a44; background: #232830; color: #e6e6e6;
@@ -47,12 +47,12 @@
     position: absolute; inset: 0; pointer-events: none;
   }
   .hint {
-    font-size: 12px; color: #8b93a1; max-width: 760px;
+    font-size: 12px; color: #8b93a1; max-width: 800px;
     text-align: center; line-height: 1.5;
   }
   .stats {
     font-size: 13px; color: #b9c3d1;
-    display: flex; gap: 18px; flex-wrap: wrap; justify-content: center;
+    display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
   }
   .stats b { color: #e6e6e6; }
   @media (max-width: 600px) {
@@ -63,7 +63,7 @@
 </head>
 <body>
 
-<h1>Определение фона и границы персонажа</h1>
+<h1>Фон, персонаж, границы, line art</h1>
 
 <div class="controls">
   <label>Изображение:
@@ -85,26 +85,24 @@
     <span id="maxHoleVal">50</span>
   </label>
 
-  <label>
-    <input id="showBorder" type="checkbox" checked />
-    Граница
+  <label>Порог чёрного:
+    <input id="blackTol" type="range" min="20" max="150" value="70" />
+    <span id="blackTolVal">70</span>
   </label>
 
-  <label>
-    <input id="showMask" type="checkbox" checked />
-    Маска персонажа
+  <label>Порог внутр. линии:
+    <input id="innerTol" type="range" min="5" max="100" value="30" />
+    <span id="innerTolVal">30</span>
   </label>
+</div>
 
-  <label>
-    <input id="showWindows" type="checkbox" />
-    Внутренние окна
-  </label>
-
-  <label>
-    <input id="hideImage" type="checkbox" />
-    Скрыть изображение
-  </label>
-
+<div class="controls">
+  <label><input id="showBorder" type="checkbox" checked /> Граница</label>
+  <label><input id="showMask" type="checkbox" checked /> Маска персонажа</label>
+  <label><input id="showWindows" type="checkbox" /> Внутренние окна</label>
+  <label><input id="showOuterLine" type="checkbox" /> Внешний лайн</label>
+  <label><input id="showInnerLine" type="checkbox" /> Внутренний лайн</label>
+  <label><input id="hideImage" type="checkbox" /> Скрыть изображение</label>
   <button id="reset">↺ Сброс</button>
 </div>
 
@@ -114,19 +112,21 @@
 </div>
 
 <div class="stats">
-  <span>Порог: <b id="statThreshold">—</b></span>
+  <span>Порог фона: <b id="statThreshold">—</b></span>
   <span>Фон: <b id="statBg">—</b></span>
   <span>Персонаж: <b id="statChar">—</b></span>
   <span>Окна: <b id="statWin">—</b></span>
   <span>Дырок закрыто: <b id="statHoles">—</b></span>
   <span>Граница: <b id="statBorder">—</b></span>
+  <span>Внешний лайн: <b id="statOuter">—</b></span>
+  <span>Внутренний лайн: <b id="statInner">—</b></span>
 </div>
 
 <p class="hint">
-  Первично: фон — всё ярче порога, соединённое с рамкой.
-  Вторично: внутри персонажа ищутся яркие области — те, что не касаются
-  внешнего фона, становятся окнами.
-  Третично: мелкие «дырки» в маске персонажа автоматически заливаются.
+  Первично: фон по яркости от рамки. Вторично: внутренние окна.
+  Третично: закрытие мелких дырок.
+  Четвёрто: line art — внешний (очень тёмный) и внутренний
+  (тёмный относительно окружения, но не чёрный).
 </p>
 
 <script>
@@ -137,12 +137,18 @@ const stageEl       = document.getElementById('stage');
 const bgLumEl       = document.getElementById('bgLum');
 const minWinEl      = document.getElementById('minWin');
 const maxHoleEl     = document.getElementById('maxHole');
+const blackTolEl    = document.getElementById('blackTol');
+const innerTolEl    = document.getElementById('innerTol');
 const bgLumVal      = document.getElementById('bgLumVal');
 const minWinVal     = document.getElementById('minWinVal');
 const maxHoleVal    = document.getElementById('maxHoleVal');
+const blackTolVal   = document.getElementById('blackTolVal');
+const innerTolVal   = document.getElementById('innerTolVal');
 const showBorderEl  = document.getElementById('showBorder');
 const showMaskEl    = document.getElementById('showMask');
 const showWindowsEl = document.getElementById('showWindows');
+const showOuterEl   = document.getElementById('showOuterLine');
+const showInnerEl   = document.getElementById('showInnerLine');
 const hideImageEl   = document.getElementById('hideImage');
 const resetBtn      = document.getElementById('reset');
 const statThreshold = document.getElementById('statThreshold');
@@ -151,6 +157,8 @@ const statChar      = document.getElementById('statChar');
 const statWin       = document.getElementById('statWin');
 const statHoles     = document.getElementById('statHoles');
 const statBorder    = document.getElementById('statBorder');
+const statOuter     = document.getElementById('statOuter');
+const statInner     = document.getElementById('statInner');
 
 const baseCtx    = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
@@ -163,6 +171,8 @@ let isBgExt = null;
 let isWin   = null;
 let isBg    = null;
 let isBorder = null;
+let isOuterLine = null;
+let isInnerLine = null;
 let holesFilled = 0;
 
 // ---------- Загрузка ----------
@@ -204,13 +214,14 @@ function computeLuminance() {
 // ---------- Полный проход ----------
 function buildAll() {
   buildPrimaryMask();
-  closeSmallHoles();       // закрываем мелкие дырки в персонаже
+  closeSmallHoles();
   buildSecondaryWindows();
   buildFinalMask();
   buildBorder();
+  buildLineArt();
 }
 
-// ---------- 1. Первичная маска: flood fill от рамки ----------
+// ---------- 1. Первичная маска ----------
 function buildPrimaryMask() {
   const w = imgWidth, h = imgHeight;
   const N = w * h;
@@ -248,9 +259,6 @@ function buildPrimaryMask() {
 }
 
 // ---------- 2. Закрытие мелких дырок ----------
-// Ищем связные области isBgExt, которые НЕ касаются рамки изображения.
-// Если такая область меньше maxHole по площади — считаем её дыркой
-// и присоединяем к персонажу (убираем из isBgExt).
 function closeSmallHoles() {
   const w = imgWidth, h = imgHeight;
   const N = w * h;
@@ -267,7 +275,6 @@ function closeSmallHoles() {
       if (visited[idx]) continue;
       if (!isBgExt[idx]) continue;
 
-      // Локальный flood fill — собираем связную область фона
       const pixels = [idx];
       const localSeen = new Uint8Array(N);
       localSeen[idx] = 1;
@@ -279,16 +286,12 @@ function closeSmallHoles() {
         const cx = ci % w;
         const cy = (ci / w) | 0;
 
-        // Проверяем, касается ли рамки изображения
         if (cx === 0 || cy === 0 || cx === w - 1 || cy === h - 1) {
           touchesFrame = true;
         }
 
         const neighbors = [
-          [cx + 1, cy],
-          [cx - 1, cy],
-          [cx, cy + 1],
-          [cx, cy - 1],
+          [cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]
         ];
         for (const [nx, ny] of neighbors) {
           if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
@@ -302,19 +305,15 @@ function closeSmallHoles() {
 
       for (const p of pixels) visited[p] = 1;
 
-      // Если область НЕ касается рамки и меньше maxHole —
-      // это дырка внутри персонажа. Убираем её из isBgExt.
       if (!touchesFrame && pixels.length <= maxHole) {
-        for (const p of pixels) {
-          isBgExt[p] = 0;
-        }
+        for (const p of pixels) isBgExt[p] = 0;
         holesFilled += pixels.length;
       }
     }
   }
 }
 
-// ---------- 3. Вторичная маска: внутренние окна ----------
+// ---------- 3. Внутренние окна ----------
 function buildSecondaryWindows() {
   const w = imgWidth, h = imgHeight;
   const N = w * h;
@@ -337,7 +336,6 @@ function buildSecondaryWindows() {
       const pixels = [idx];
       const localSeen = new Uint8Array(N);
       localSeen[idx] = 1;
-
       let touchesBgExt = false;
 
       let head = 0;
@@ -347,10 +345,7 @@ function buildSecondaryWindows() {
         const cy = (ci / w) | 0;
 
         const neighbors = [
-          [cx + 1, cy],
-          [cx - 1, cy],
-          [cx, cy + 1],
-          [cx, cy - 1],
+          [cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]
         ];
         for (const [nx, ny] of neighbors) {
           if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
@@ -383,9 +378,7 @@ function buildFinalMask() {
   }
 }
 
-// ---------- 5. Граница — 1 пиксель, чёткая ----------
-// Граница — это пиксели ПЕРСОНАЖА, у которых есть сосед-фон.
-// Так линия непрерывная и тонкая (1 px), идёт ровно по контуру.
+// ---------- 5. Граница 1 px ----------
 function buildBorder() {
   const w = imgWidth, h = imgHeight;
   const N = w * h;
@@ -394,7 +387,7 @@ function buildBorder() {
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = y * w + x;
-      if (isBg[idx]) continue; // граница — только по персонажу
+      if (isBg[idx]) continue;
 
       const hasBgNeighbor =
         (x > 0     && isBg[idx - 1]) ||
@@ -407,7 +400,86 @@ function buildBorder() {
   }
 }
 
-// ---------- 6. Отрисовка ----------
+// ============================================================
+//  6. LINE ART
+// ============================================================
+// Внешний лайн: пиксели персонажа с яркостью ниже "Порог чёрного".
+//               Это чёрная обводка вокруг силуэта.
+//
+// Внутренний лайн: пиксели внутри персонажа (не фон, не внешний лайн,
+//                  не граница), у которых яркость заметно ниже СРЕДНЕЙ
+//                  яркости окружения. Это цветные линии внутри
+//                  (складки, тени, обводки лица и т.д.).
+//
+// Пороги берутся из ползунков.
+// ============================================================
+function buildLineArt() {
+  const w = imgWidth, h = imgHeight;
+  const N = w * h;
+  const blackTol = +blackTolEl.value;
+  const innerTol = +innerTolEl.value;
+
+  isOuterLine = new Uint8Array(N);
+  isInnerLine = new Uint8Array(N);
+
+  // --- Внешний лайн ---
+  // Только пиксели, которые близко к внешней границе персонажа
+  // (в пределах пары пикселей от isBg). Это отсекает тёмные пиксели
+  // глубоко внутри (например, чёрное платье в центре).
+  const NEAR_BG_RADIUS = 3;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = y * w + x;
+      if (isBg[idx]) continue;
+      if (lum[idx] >= blackTol) continue;
+
+      // Проверяем, есть ли фон в радиусе NEAR_BG_RADIUS
+      let nearBg = false;
+      for (let dy = -NEAR_BG_RADIUS; dy <= NEAR_BG_RADIUS && !nearBg; dy++) {
+        for (let dx = -NEAR_BG_RADIUS; dx <= NEAR_BG_RADIUS; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          if (isBg[ny * w + nx]) { nearBg = true; break; }
+        }
+      }
+      if (nearBg) isOuterLine[idx] = 1;
+    }
+  }
+
+  // --- Внутренний лайн ---
+  // Пиксели персонажа (не фон, не окно, не внешний лайн),
+  // у которых яркость ниже средней яркости окружения.
+  const RADIUS = 5;
+  for (let y = RADIUS; y < h - RADIUS; y++) {
+    for (let x = RADIUS; x < w - RADIUS; x++) {
+      const idx = y * w + x;
+      if (isBg[idx]) continue;
+      if (isOuterLine[idx]) continue;
+
+      const L = lum[idx];
+
+      // Средняя яркость по кольцу радиуса RADIUS
+      let sum = 0, cnt = 0;
+      for (let dy = -RADIUS; dy <= RADIUS; dy += 1) {
+        for (let dx = -RADIUS; dx <= RADIUS; dx += 1) {
+          // берём только "периметр" — пропускаем внутренние пиксели
+          if (Math.abs(dx) !== RADIUS && Math.abs(dy) !== RADIUS) continue;
+          const nx = x + dx, ny = y + dy;
+          const ni = ny * w + nx;
+          sum += lum[ni];
+          cnt++;
+        }
+      }
+      const avg = sum / cnt;
+
+      if (avg - L > innerTol) {
+        isInnerLine[idx] = 1;
+      }
+    }
+  }
+}
+
+// ---------- 7. Отрисовка ----------
 function drawOverlay() {
   if (!imageData) return;
 
@@ -417,8 +489,10 @@ function drawOverlay() {
   const showMask    = showMaskEl.checked;
   const showBorder  = showBorderEl.checked;
   const showWindows = showWindowsEl.checked;
+  const showOuter   = showOuterEl.checked;
+  const showInner   = showInnerEl.checked;
 
-  if (!showMask && !showBorder && !showWindows) {
+  if (!showMask && !showBorder && !showWindows && !showOuter && !showInner) {
     updateStats();
     return;
   }
@@ -429,7 +503,12 @@ function drawOverlay() {
   for (let i = 0, j = 0; i < w * h; i++, j += 4) {
     let r = 0, g = 0, b = 0, a = 0;
 
-    if (showWindows && isWin[i]) {
+    // Приоритет: внешний лайн → внутренний лайн → окна → граница → маска
+    if (showOuter && isOuterLine[i]) {
+      r = 255; g = 255; b = 0; a = 255;          // жёлтый внешний лайн
+    } else if (showInner && isInnerLine[i]) {
+      r = 255; g = 0; b = 255; a = 220;          // пурпурный внутренний лайн
+    } else if (showWindows && isWin[i]) {
       r = 60; g = 160; b = 255; a = 160;
     } else if (showBorder && isBorder[i]) {
       r = 255; g = 40; b = 40; a = 240;
@@ -447,15 +526,17 @@ function drawOverlay() {
   updateStats();
 }
 
-// ---------- 7. Статистика ----------
+// ---------- 8. Статистика ----------
 function updateStats() {
   if (!isBg) return;
   const N = imgWidth * imgHeight;
-  let bg = 0, char_ = 0, win = 0, border = 0;
+  let bg = 0, char_ = 0, win = 0, border = 0, outer = 0, inner = 0;
   for (let i = 0; i < N; i++) {
     if (isBg[i]) bg++; else char_++;
     if (isWin[i]) win++;
     if (isBorder[i]) border++;
+    if (isOuterLine[i]) outer++;
+    if (isInnerLine[i]) inner++;
   }
   const pct = (n) => ((n / N) * 100).toFixed(1) + '%';
   statThreshold.textContent = bgLumEl.value;
@@ -464,15 +545,17 @@ function updateStats() {
   statWin.textContent       = pct(win);
   statHoles.textContent     = holesFilled.toLocaleString('ru-RU') + ' px';
   statBorder.textContent    = border.toLocaleString('ru-RU');
+  statOuter.textContent     = outer.toLocaleString('ru-RU') + ' px';
+  statInner.textContent     = inner.toLocaleString('ru-RU') + ' px';
 }
 
-// ---------- 8. Скрытие изображения ----------
+// ---------- 9. Скрытие изображения ----------
 function applyHideImage() {
   if (hideImageEl.checked) stageEl.classList.add('hide-image');
   else stageEl.classList.remove('hide-image');
 }
 
-// ---------- 9. Реакции ----------
+// ---------- 10. Реакции ----------
 function rebuildAll() {
   if (!imageData) return;
   buildAll();
@@ -491,18 +574,33 @@ maxHoleEl.addEventListener('input', () => {
   maxHoleVal.textContent = maxHoleEl.value;
   rebuildAll();
 });
+blackTolEl.addEventListener('input', () => {
+  blackTolVal.textContent = blackTolEl.value;
+  rebuildAll();
+});
+innerTolEl.addEventListener('input', () => {
+  innerTolVal.textContent = innerTolEl.value;
+  rebuildAll();
+});
+
 showBorderEl.addEventListener('change', drawOverlay);
 showMaskEl.addEventListener('change', drawOverlay);
 showWindowsEl.addEventListener('change', drawOverlay);
+showOuterEl.addEventListener('change', drawOverlay);
+showInnerEl.addEventListener('change', drawOverlay);
 hideImageEl.addEventListener('change', applyHideImage);
 
 resetBtn.addEventListener('click', () => {
   bgLumEl.value = 200;    bgLumVal.textContent    = 200;
   minWinEl.value = 200;   minWinVal.textContent   = 200;
   maxHoleEl.value = 50;   maxHoleVal.textContent  = 50;
+  blackTolEl.value = 70;  blackTolVal.textContent = 70;
+  innerTolEl.value = 30;  innerTolVal.textContent = 30;
   showBorderEl.checked = true;
   showMaskEl.checked = true;
   showWindowsEl.checked = false;
+  showOuterEl.checked = false;
+  showInnerEl.checked = false;
   hideImageEl.checked = false;
   applyHideImage();
   rebuildAll();
