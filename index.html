@@ -72,9 +72,9 @@
     <input id="file" type="file" accept="image/*" />
   </label>
 
-  <label>Порог фона:
-    <input id="bgTol" type="range" min="5" max="120" value="30" />
-    <span id="bgTolVal">30</span>
+  <label>Сдвиг порога яркости:
+    <input id="shift" type="range" min="-20" max="20" value="0" />
+    <span id="shiftVal">0</span>
   </label>
 
   <label>Плотность у контура:
@@ -121,11 +121,9 @@
     Маска окон
   </label>
 
-  <button id="pickBg">🎯 Фон кликом</button>
   <button id="reset">↺ Сброс</button>
 
-  <span>Фон: <span id="bgSwatch" class="bg-swatch" style="background:#888"></span>
-    <span id="bgRGB">—</span></span>
+  <span>Порог: <span id="threshOut">—</span></span>
 </div>
 
 <div class="stage">
@@ -134,16 +132,16 @@
 </div>
 
 <p class="hint">
-  Штриховка идёт от краёв изображения и обтекает силуэт персонажа.
-  Внутренние окна (между рук, ног, змей) определяются отдельным
-  третьим этапом — только внутри границ персонажа.
+  Фон определяется по яркости: всё, что ярче порога — фон,
+  всё, что темнее — персонаж. Внутренние окна — отдельный этап
+  внутри маски персонажа.
 </p>
 
 <script>
 const fileInput      = document.getElementById('file');
 const baseCanvas     = document.getElementById('base');
 const overlay        = document.getElementById('overlay');
-const bgTolEl        = document.getElementById('bgTol');
+const shiftEl        = document.getElementById('shift');
 const stepEl         = document.getElementById('step');
 const falloffEl      = document.getElementById('falloff');
 const thicknessEl    = document.getElementById('thickness');
@@ -153,15 +151,13 @@ const showGridEl     = document.getElementById('showGrid');
 const showMaskBgEl   = document.getElementById('showMaskBg');
 const showMaskCharEl = document.getElementById('showMaskChar');
 const showMaskWinEl  = document.getElementById('showMaskWin');
-const bgTolVal       = document.getElementById('bgTolVal');
+const shiftVal       = document.getElementById('shiftVal');
 const stepVal        = document.getElementById('stepVal');
 const falloffVal     = document.getElementById('falloffVal');
 const thicknessVal   = document.getElementById('thicknessVal');
 const alphaVal       = document.getElementById('alphaVal');
-const pickBgBtn      = document.getElementById('pickBg');
 const resetBtn       = document.getElementById('reset');
-const bgSwatch       = document.getElementById('bgSwatch');
-const bgRGB          = document.getElementById('bgRGB');
+const threshOut      = document.getElementById('threshOut');
 
 const baseCtx    = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
@@ -169,15 +165,16 @@ const overlayCtx = overlay.getContext('2d');
 let imageData = null;
 let imgWidth = 0, imgHeight = 0;
 let srcImage = null;
-let bgColor = { r: 255, g: 255, b: 255 };
 
-let isBgExt  = null;   // Uint8Array: 1 = внешний фон
-let isChar   = null;   // Uint8Array: 1 = персонаж
-let isWin    = null;   // Uint8Array: 1 = внутренние окна
-let isBg     = null;   // Uint8Array: 1 = внешний фон ИЛИ окна (для штриховки)
-let distMap  = null;
+let lum = null;          // Float32Array яркости
+let lumThreshold = 248;  // порог яркости (>= = фон)
+let autoThreshold = 248; // авто-порог (без сдвига)
 
-let pickBgMode = false;
+let isBgExt = null;
+let isChar  = null;
+let isWin   = null;
+let isBg    = null;
+let distMap = null;
 
 // ---------- Загрузка ----------
 fileInput.addEventListener('change', e => {
@@ -197,8 +194,9 @@ fileInput.addEventListener('change', e => {
     baseCtx.drawImage(img, 0, 0);
     imageData = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
 
-    detectBgColor();
-    updateBgUI();
+    computeLuminance();
+    detectThreshold();
+    applyShift();
     buildAllMasks();
     buildDistanceMap();
     drawGrid();
@@ -207,80 +205,90 @@ fileInput.addEventListener('change', e => {
   img.src = URL.createObjectURL(file);
 });
 
-// ---------- Автоопределение цвета фона ----------
-function detectBgColor() {
+// ---------- Яркость всех пикселей ----------
+function computeLuminance() {
   const d = imageData.data;
-  const w = imgWidth, h = imgHeight;
-  const N = w * h;
-
-  const SHIFT = 3;
-  const buckets = new Map();
-  let total = 0;
-
-  const stepPx = Math.max(1, Math.round(Math.sqrt(N / 250000)));
-  for (let y = 0; y < h; y += stepPx) {
-    for (let x = 0; x < w; x += stepPx) {
-      const i = (y * w + x) * 4;
-      if (d[i + 3] < 20) continue;
-      const r = d[i], g = d[i + 1], b = d[i + 2];
-      const key = ((r >> SHIFT) << 10) | ((g >> SHIFT) << 5) | (b >> SHIFT);
-      let e = buckets.get(key);
-      if (!e) { e = { n: 0, r: 0, g: 0, b: 0 }; buckets.set(key, e); }
-      e.n++; e.r += r; e.g += g; e.b += b;
-      total++;
-    }
+  const N = imgWidth * imgHeight;
+  lum = new Float32Array(N);
+  for (let i = 0, p = 0; i < N; i++, p += 4) {
+    if (d[p + 3] < 20) { lum[i] = 255; continue; }
+    lum[i] = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2];
   }
-  if (total === 0) { bgColor = { r: 255, g: 255, b: 255 }; return; }
-
-  let best = null;
-  for (const e of buckets.values()) if (!best || e.n > best.n) best = e;
-  const qbr = Math.round(best.r / best.n) >> SHIFT;
-  const qbg = Math.round(best.g / best.n) >> SHIFT;
-  const qbb = Math.round(best.b / best.n) >> SHIFT;
-
-  let sr = 0, sg = 0, sb = 0, sn = 0;
-  for (const [key, e] of buckets) {
-    const qr = (key >> 10) & 31;
-    const qg = (key >> 5)  & 31;
-    const qb =  key        & 31;
-    if (Math.abs(qr - qbr) <= 1 && Math.abs(qg - qbg) <= 1 && Math.abs(qb - qbb) <= 1) {
-      sr += e.r; sg += e.g; sb += e.b; sn += e.n;
-    }
-  }
-  bgColor = { r: Math.round(sr / sn), g: Math.round(sg / sn), b: Math.round(sb / sn) };
 }
 
-function updateBgUI() {
-  const { r, g, b } = bgColor;
-  bgSwatch.style.background = `rgb(${r|0},${g|0},${b|0})`;
-  bgRGB.textContent = `${r|0}, ${g|0}, ${b|0}`;
+// ---------- Автоопределение порога по гистограмме яркости ----------
+// Идея: фон — самая яркая большая мода.
+// 1. Строим гистограмму 256 значений.
+// 2. Смотрим верхнюю половину (128..255).
+// 3. Ищем пик — значение с максимумом.
+// 4. Порог = пик - 4.
+function detectThreshold() {
+  const N = imgWidth * imgHeight;
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < N; i++) {
+    const v = Math.max(0, Math.min(255, Math.round(lum[i])));
+    hist[v]++;
+  }
+
+  // Ищем самый яркий существенный пик в диапазоне 128..255
+  // "Существенный" — не менее 0.5% от всех пикселей.
+  const minCount = Math.max(1, Math.floor(N * 0.005));
+  let bestBin = -1;
+  let bestCount = 0;
+
+  // Сглаживание гистограммы окном 5 для устойчивости
+  const smooth = new Uint32Array(256);
+  for (let v = 0; v < 256; v++) {
+    let s = 0;
+    for (let k = -2; k <= 2; k++) {
+      const vv = v + k;
+      if (vv >= 0 && vv < 256) s += hist[vv];
+    }
+    smooth[v] = s;
+  }
+
+  for (let v = 255; v >= 128; v--) {
+    if (smooth[v] >= minCount && smooth[v] > bestCount) {
+      bestCount = smooth[v];
+      bestBin = v;
+    }
+  }
+
+  // Если пик не найден в верхней половине — ищем максимум вообще
+  if (bestBin < 0) {
+    bestCount = 0;
+    for (let v = 255; v >= 0; v--) {
+      if (hist[v] > bestCount) { bestCount = hist[v]; bestBin = v; }
+    }
+  }
+
+  if (bestBin < 0) bestBin = 248;
+
+  // Порог = пик - 4 (соседние "шумные" значения фона чуть ниже пика)
+  autoThreshold = Math.max(0, Math.min(255, bestBin - 4));
+}
+
+function applyShift() {
+  const shift = +shiftEl.value;
+  lumThreshold = Math.max(0, Math.min(255, autoThreshold + shift));
+  threshOut.textContent = `${lumThreshold} (авто ${autoThreshold})`;
 }
 
 // ============================================================
-//  ТРИ МАСКИ
+//  ТРИ МАСКИ ПО ЯРКОСТИ
 // ============================================================
-// 1. isBgExt — flood fill от рамки по пикселям, похожим на фон.
-// 2. isChar  — всё, что не isBgExt и не окно (после этапа 3).
-// 3. isWin   — flood fill ВНУТРИ isChar от пикселей, похожих на фон,
-//              но НЕ соединённых с внешним фоном.
+// isBgExt  — flood fill от рамки по пикселям с lum >= порога
+// isChar   — всё, что не isBgExt
+// isWin    — flood fill ВНУТРИ isChar по пикселям с lum >= порога
+// isBg     — isBgExt | isWin
 // ============================================================
 function buildAllMasks() {
   const w = imgWidth, h = imgHeight;
   const N = w * h;
-  const d = imageData.data;
-  const tol = +bgTolEl.value;
-  const tol2 = tol * tol * 3;
 
-  const looksLikeBg = (x, y) => {
-    const i = (y * w + x) * 4;
-    if (d[i + 3] < 20) return true;
-    const dr = d[i]     - bgColor.r;
-    const dg = d[i + 1] - bgColor.g;
-    const db = d[i + 2] - bgColor.b;
-    return (dr * dr + dg * dg + db * db) < tol2;
-  };
+  const isBright = (i) => lum[i] >= lumThreshold;
 
-  // --- Этап 1: внешний фон (flood fill от рамки) ---
+  // --- Этап 1: внешний фон ---
   isBgExt = new Uint8Array(N);
   const visited = new Uint8Array(N);
   const queue = [];
@@ -289,7 +297,7 @@ function buildAllMasks() {
     if (x < 0 || y < 0 || x >= w || y >= h) return;
     const idx = y * w + x;
     if (visited[idx]) return;
-    if (!looksLikeBg(x, y)) return;
+    if (!isBright(idx)) return;
     visited[idx] = 1;
     isBgExt[idx] = 1;
     queue.push(idx);
@@ -309,92 +317,43 @@ function buildAllMasks() {
     push(x, y - 1);
   }
 
-  // --- Этап 2: персонаж = всё, что не внешний фон ---
+  // --- Этап 2: персонаж ---
   isChar = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
     if (!isBgExt[i]) isChar[i] = 1;
   }
 
   // --- Этап 3: внутренние окна ---
-  // Идём ТОЛЬКО по пикселям isChar.
-  // Запускаем flood fill от пикселей isChar, похожих на цвет фона.
-  // Заливка ограничена isChar и не выходит за его пределы.
   isWin = new Uint8Array(N);
   const visitedWin = new Uint8Array(N);
-
-  const floodWin = (sx, sy) => {
-    const q = [sy * w + sx];
-    visitedWin[sy * w + sx] = 1;
-    isWin[sy * w + sx] = 1;
-    let hh = 0;
-    while (hh < q.length) {
-      const ci = q[hh++];
-      const cx = ci % w;
-      const cy = (ci / w) | 0;
-
-      const tryPush = (nx, ny) => {
-        if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
-        const ni = ny * w + nx;
-        if (visitedWin[ni]) return;
-        if (!isChar[ni]) return;       // не выходим за границы персонажа
-        if (!looksLikeBg(nx, ny)) return;
-        visitedWin[ni] = 1;
-        isWin[ni] = 1;
-        q.push(ni);
-      };
-      tryPush(cx + 1, cy);
-      tryPush(cx - 1, cy);
-      tryPush(cx, cy + 1);
-      tryPush(cx, cy - 1);
-    }
-  };
-
-  // Запускаем от каждого пикселя isChar, похожего на фон.
-  // Но: чтобы не тратить время, пропускаем мелкие «капли» — считаем
-  // площадь заливки, и если она меньше MIN_WINDOW_AREA, откатываем.
-  const MIN_WINDOW_AREA = 40;
+  const MIN_WINDOW_AREA = 30;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = y * w + x;
       if (visitedWin[idx]) continue;
       if (!isChar[idx]) continue;
-      if (!looksLikeBg(x, y)) continue;
+      if (!isBright(idx)) continue;
 
-      // Запоминаем список залитых, чтобы при малой площади откатить
-      const before = [];
-      const visitedWinCopy = visitedWin.slice();  // не нужен, обойдёмся без копии
-      // Проще: сделать отдельную очередь и пометить отдельно
-      // Здесь используем тот же floodWin, но с подсчётом.
-
-      // Реализация с подсчётом площади:
-      const q = [idx];
-      const localSeen = new Uint8Array(N);  // тяжело по памяти, но проще
-      // на больших картинках это неэффективно, поэтому используем простой
-      // список без копий:
-      // (для продакшена лучше делать аккуратнее, здесь — рабочий вариант)
-
-      // --- упрощённый вариант ---
-      // Используем общий visitedWin, но помечаем поэтапно
-      const tempPixels = [];
-      const tempVisited = new Uint8Array(N);
-      tempVisited[idx] = 1;
-      tempPixels.push(idx);
+      // Локальный flood fill внутри isChar
+      const pixels = [idx];
+      const localSeen = new Uint8Array(N); // проще и надёжнее; для больших картинок можно заменить
+      localSeen[idx] = 1;
 
       let hh = 0;
-      while (hh < tempPixels.length) {
-        const ci = tempPixels[hh++];
+      while (hh < pixels.length) {
+        const ci = pixels[hh++];
         const cx = ci % w;
         const cy = (ci / w) | 0;
 
         const tryPush = (nx, ny) => {
           if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
           const ni = ny * w + nx;
-          if (tempVisited[ni]) return;
+          if (localSeen[ni]) return;
           if (!isChar[ni]) return;
-          if (!looksLikeBg(nx, ny)) return;
-          tempVisited[ni] = 1;
-          tempPixels.push(ni);
+          if (!isBright(ni)) return;
+          localSeen[ni] = 1;
+          pixels.push(ni);
         };
         tryPush(cx + 1, cy);
         tryPush(cx - 1, cy);
@@ -402,20 +361,18 @@ function buildAllMasks() {
         tryPush(cx, cy - 1);
       }
 
-      // Помечаем как окно только если площадь достаточная
-      if (tempPixels.length >= MIN_WINDOW_AREA) {
-        for (const p of tempPixels) {
+      if (pixels.length >= MIN_WINDOW_AREA) {
+        for (const p of pixels) {
           visitedWin[p] = 1;
           isWin[p] = 1;
         }
       } else {
-        // маленькая капля — помечаем visited, но НЕ добавляем в isWin
-        for (const p of tempPixels) visitedWin[p] = 1;
+        for (const p of pixels) visitedWin[p] = 1;
       }
     }
   }
 
-  // --- Итоговая маска для штриховки: внешний фон + окна ---
+  // --- Итоговая маска фона ---
   isBg = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
     if (isBgExt[i] || isWin[i]) isBg[i] = 1;
@@ -556,45 +513,20 @@ function redrawOverlay() {
   overlayCtx.putImageData(img, 0, 0);
 }
 
-// ---------- Ручной выбор цвета фона ----------
-pickBgBtn.addEventListener('click', () => {
-  pickBgMode = !pickBgMode;
-  pickBgBtn.classList.toggle('active', pickBgMode);
-});
-
-baseCanvas.addEventListener('click', e => {
-  if (!pickBgMode || !imageData) return;
-  const rect = baseCanvas.getBoundingClientRect();
-  const scaleX = imgWidth / rect.width;
-  const scaleY = imgHeight / rect.height;
-  const x = Math.floor((e.clientX - rect.left) * scaleX);
-  const y = Math.floor((e.clientY - rect.top)  * scaleY);
-  const i = (y * imgWidth + x) * 4;
-  const d = imageData.data;
-  bgColor = { r: d[i], g: d[i + 1], b: d[i + 2] };
-  updateBgUI();
-  buildAllMasks();
-  buildDistanceMap();
-  redrawOverlay();
-  pickBgMode = false;
-  pickBgBtn.classList.remove('active');
-});
-
 // ---------- Сброс ----------
 resetBtn.addEventListener('click', () => {
-  bgTolEl.value = 30;    bgTolVal.textContent     = 30;
-  stepEl.value  = 5;     stepVal.textContent      = 5;
-  falloffEl.value = 0.6; falloffVal.textContent   = 0.6;
-  thicknessEl.value = 1; thicknessVal.textContent = 1;
-  alphaEl.value = 0.7;   alphaVal.textContent     = 0.7;
+  shiftEl.value = 0;      shiftVal.textContent      = 0;
+  stepEl.value  = 5;      stepVal.textContent       = 5;
+  falloffEl.value = 0.6;  falloffVal.textContent    = 0.6;
+  thicknessEl.value = 1;  thicknessVal.textContent  = 1;
+  alphaEl.value = 0.7;    alphaVal.textContent      = 0.7;
   colorEl.value = '#1e4a8a';
   showGridEl.checked = true;
   showMaskBgEl.checked = false;
   showMaskCharEl.checked = false;
   showMaskWinEl.checked = false;
   if (imageData) {
-    detectBgColor();
-    updateBgUI();
+    applyShift();
     buildAllMasks();
     buildDistanceMap();
     drawGrid();
@@ -603,9 +535,14 @@ resetBtn.addEventListener('click', () => {
 });
 
 // ---------- Реакции ----------
-bgTolEl.addEventListener('input', () => {
-  bgTolVal.textContent = bgTolEl.value;
-  if (imageData) { buildAllMasks(); buildDistanceMap(); redrawOverlay(); }
+shiftEl.addEventListener('input', () => {
+  shiftVal.textContent = shiftEl.value;
+  if (imageData) {
+    applyShift();
+    buildAllMasks();
+    buildDistanceMap();
+    redrawOverlay();
+  }
 });
 stepEl.addEventListener('input', () => {
   stepVal.textContent = stepEl.value;
