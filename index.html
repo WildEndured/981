@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lineart Highlighter (Black Pixels)</title>
+    <title>Lineart Highlighter (Final Fix)</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -58,7 +58,7 @@
 </head>
 <body>
 
-    <h1>Авто-штриховка (Поиск черных линий)</h1>
+    <h1>Авто-штриховка (Финальная версия)</h1>
 
     <div class="controls">
         <label for="imageInput" class="upload-btn">Выбрать изображение</label>
@@ -83,10 +83,11 @@
         const overlayCtx = overlayCanvas.getContext('2d');
 
         // --- НАСТРОЙКИ ---
-        // Порог яркости: если пиксель темнее этого значения, считаем его черной линией.
-        // 0 - абсолютно черный, 255 - белый. 
-        // Если линии светлые, увеличьте (до 150). Если фон темный, уменьшите (до 50).
-        const BLACK_THRESHOLD = 100; 
+        // Порог яркости. Увеличьте, если линии светлые. Уменьшите, если фон темный.
+        const DARKNESS_THRESHOLD = 160; 
+        
+        // Порог насыщенности. Если пиксель сильно цветной (красный, синий), он тоже считается границей.
+        const COLOR_THRESHOLD = 50;
 
         const STRIPE_COLOR = '#ff4757';
         const STRIPE_WIDTH = 4;     
@@ -130,7 +131,7 @@
 
             overlayCtx.clearRect(0, 0, width, height);
             
-            // Рисуем из 4 углов, ограничивая область треугольниками
+            // Рисуем из 4 углов
             drawFromCorner(data, width, height, 'top-left');
             drawFromCorner(data, width, height, 'top-right');
             drawFromCorner(data, width, height, 'bottom-left');
@@ -140,9 +141,9 @@
             canvasContainer.style.display = 'block';
         }
 
-        // Проверка: является ли пиксель черным (или очень темным)?
-        function isBlackPixel(data, width, height, x, y) {
-            if (x < 0 || x >= width || y < 0 || y >= height) return true; // Границы холста
+        // Проверка: является ли пиксель границей (темный или сильно цветной)?
+        function isBoundary(data, width, height, x, y) {
+            if (x < 0 || x >= width || y < 0 || y >= height) return true; // Край холста
 
             const index = (y * width + x) * 4;
             const r = data[index];
@@ -150,14 +151,19 @@
             const b = data[index + 2];
             const a = data[index + 3];
 
-            // Прозрачные пиксели игнорируем
-            if (a < 50) return false;
+            if (a < 50) return false; // Прозрачный
 
-            // Вычисляем яркость
+            // 1. Проверка на темноту
             const brightness = (r + g + b) / 3;
+            if (brightness < DARKNESS_THRESHOLD) return true;
 
-            // Если яркость ниже порога — это черная линия
-            return brightness < BLACK_THRESHOLD;
+            // 2. Проверка на насыщенность (цветные линии)
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            const saturation = max - min;
+            if (saturation > COLOR_THRESHOLD) return true;
+
+            return false;
         }
 
         function drawFromCorner(data, width, height, corner) {
@@ -169,7 +175,6 @@
             
             let startX, startY, dx, dy, limitY;
 
-            // Настраиваем направление и границы для каждого угла
             switch(corner) {
                 case 'top-left':
                     startX = -height; startY = 0; dx = 1; dy = 1; limitY = height / 2; break;
@@ -187,7 +192,6 @@
                 let currentX = startX + i * step;
                 let currentY = startY;
 
-                // Корректировка стартовой точки, чтобы она попала на край холста
                 if (dx === 1 && currentX < 0) {
                     currentY = -currentX;
                     currentX = 0;
@@ -198,37 +202,35 @@
 
                 if (currentX < 0 || currentX > width || currentY < 0 || currentY > height) continue;
 
-                // Ограничение треугольником (верхняя/нижняя половина)
+                // Ограничение треугольником
                 if (corner.includes('top') && currentY > limitY) continue;
                 if (corner.includes('bottom') && currentY < limitY) continue;
 
-                // Пропускаем линию, если она начинается на черной линии
-                if (isBlackPixel(data, width, height, Math.floor(currentX), Math.floor(currentY))) {
+                // Пропускаем, если старт на границе
+                if (isBoundary(data, width, height, Math.floor(currentX), Math.floor(currentY))) {
                     continue;
                 }
 
                 overlayCtx.beginPath();
                 overlayCtx.moveTo(currentX, currentY);
 
-                let hitBlackLine = false;
+                let hitBoundary = false;
                 let x = currentX;
                 let y = currentY;
 
-                // Сканируем в заданном направлении
                 while (x >= 0 && x <= width && y >= 0 && y <= height) {
-                    if (isBlackPixel(data, width, height, Math.floor(x), Math.floor(y))) {
-                        hitBlackLine = true;
+                    if (isBoundary(data, width, height, Math.floor(x), Math.floor(y))) {
+                        hitBoundary = true;
                         break;
                     }
                     x += dx * SCAN_STEP;
                     y += dy * SCAN_STEP;
 
-                    // Не даем линии выйти за пределы треугольника
                     if (corner.includes('top') && y > limitY) break;
                     if (corner.includes('bottom') && y < limitY) break;
                 }
 
-                if (hitBlackLine) {
+                if (hitBoundary) {
                     overlayCtx.lineTo(x, y);
                     overlayCtx.stroke();
                 }
