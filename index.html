@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Штриховка до силуэта персонажа</title>
+<title>Обтекающая штриховка вокруг персонажа</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -20,15 +20,9 @@
   }
   h1 { font-size: 18px; margin: 0; }
   .controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    align-items: center;
-    justify-content: center;
-    padding: 10px 14px;
-    background: #1d2027;
-    border-radius: 10px;
-    max-width: 100%;
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    justify-content: center; padding: 10px 14px;
+    background: #1d2027; border-radius: 10px; max-width: 100%;
   }
   .controls label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
   input[type="file"] { font-size: 13px; max-width: 160px; }
@@ -37,33 +31,22 @@
     background: none; cursor: pointer; padding: 0;
   }
   button {
-    font-size: 13px;
-    padding: 6px 10px;
-    border-radius: 8px;
-    border: 1px solid #333a44;
-    background: #232830;
-    color: #e6e6e6;
+    font-size: 13px; padding: 6px 10px; border-radius: 8px;
+    border: 1px solid #333a44; background: #232830; color: #e6e6e6;
     cursor: pointer;
   }
   button:hover { background: #2c323c; }
   button.active { background: #2b6cb0; border-color: #2b6cb0; }
   .stage {
-    position: relative;
-    display: inline-block;
-    border: 1px solid #2b2f37;
-    background: #0b0c0f;
-    line-height: 0;
+    position: relative; display: inline-block;
+    border: 1px solid #2b2f37; background: #0b0c0f; line-height: 0;
   }
   .stage canvas {
-    display: block;
-    max-width: min(92vw, 900px);
-    height: auto;
+    display: block; max-width: min(92vw, 900px); height: auto;
     cursor: crosshair;
   }
   .stage canvas#overlay {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
+    position: absolute; inset: 0; pointer-events: none;
   }
   .hint {
     font-size: 12px; color: #8b93a1; max-width: 780px;
@@ -82,7 +65,7 @@
 </head>
 <body>
 
-<h1>Штриховка до силуэта</h1>
+<h1>Обтекающая штриховка вокруг персонажа</h1>
 
 <div class="controls">
   <label>Изображение:
@@ -90,18 +73,18 @@
   </label>
 
   <label>Порог фона:
-    <input id="bgTol" type="range" min="3" max="120" value="25" />
+    <input id="bgTol" type="range" min="5" max="120" value="25" />
     <span id="bgTolVal">25</span>
   </label>
 
-  <label>Зазор:
-    <input id="gap" type="range" min="0" max="10" value="0" />
-    <span id="gapVal">0</span>
+  <label>Плотность у контура:
+    <input id="step" type="range" min="2" max="20" value="5" />
+    <span id="stepVal">5</span>
   </label>
 
-  <label>Шаг:
-    <input id="step" type="range" min="3" max="30" value="7" />
-    <span id="stepVal">7</span>
+  <label>Затухание:
+    <input id="falloff" type="range" min="0" max="3" step="0.1" value="0.6" />
+    <span id="falloffVal">0.6</span>
   </label>
 
   <label>Толщина:
@@ -123,11 +106,6 @@
     Разметка 4 части
   </label>
 
-  <label>
-    <input id="showMask" type="checkbox" />
-    Маска силуэта
-  </label>
-
   <button id="pickBg">🎯 Фон кликом</button>
   <button id="reset">↺ Сброс</button>
 
@@ -141,9 +119,9 @@
 </div>
 
 <p class="hint">
-  Штриховка идёт от краёв и доходит до самого контура персонажа.
-  Ползунок «Зазор» добавляет визуальный отступ, если он нужен.
-  Ползунок «Порог фона» регулирует, насколько точно определяется граница силуэта.
+  Штриховка идёт не лучами, а линиями равного удаления от контура —
+  поэтому она обтекает персонажа, повторяя форму силуэта, как вода.
+  Чем ближе к контуру, тем плотнее линии.
 </p>
 
 <script>
@@ -151,16 +129,15 @@ const fileInput    = document.getElementById('file');
 const baseCanvas   = document.getElementById('base');
 const overlay      = document.getElementById('overlay');
 const bgTolEl      = document.getElementById('bgTol');
-const gapEl        = document.getElementById('gap');
 const stepEl       = document.getElementById('step');
+const falloffEl    = document.getElementById('falloff');
 const thicknessEl  = document.getElementById('thickness');
 const alphaEl      = document.getElementById('alpha');
 const colorEl      = document.getElementById('color');
 const showGridEl   = document.getElementById('showGrid');
-const showMaskEl   = document.getElementById('showMask');
 const bgTolVal     = document.getElementById('bgTolVal');
-const gapVal       = document.getElementById('gapVal');
 const stepVal      = document.getElementById('stepVal');
+const falloffVal   = document.getElementById('falloffVal');
 const thicknessVal = document.getElementById('thicknessVal');
 const alphaVal     = document.getElementById('alphaVal');
 const pickBgBtn    = document.getElementById('pickBg');
@@ -175,7 +152,8 @@ let imageData = null;
 let imgWidth = 0, imgHeight = 0;
 let srcImage = null;
 let bgColor = { r: 255, g: 255, b: 255 };
-let silhouette = null;   // 1 = фон (штрихуем), 0 = персонаж (не штрихуем)
+let isBg = null;        // Uint8Array: 1 = фон, 0 = персонаж
+let distMap = null;     // Int32Array: расстояние от пикселя фона до силуэта
 let pickBgMode = false;
 
 // ---------- Загрузка ----------
@@ -198,7 +176,8 @@ fileInput.addEventListener('change', e => {
 
     detectBgColor();
     updateBgUI();
-    buildSilhouette();
+    buildMask();
+    buildDistanceMap();
     drawGrid();
     redrawOverlay();
   };
@@ -233,18 +212,16 @@ function updateBgUI() {
   bgRGB.textContent = `${r|0}, ${g|0}, ${b|0}`;
 }
 
-// ---------- Маска силуэта: 1 = ФОН (штрихуем), 0 = ПЕРСОНАЖ ----------
-function buildSilhouette() {
+// ---------- Маска: 1 = фон, 0 = персонаж ----------
+function buildMask() {
   const w = imgWidth, h = imgHeight;
   const d = imageData.data;
   const tol = +bgTolEl.value;
   const tol2 = tol * tol * 3;
 
-  // По умолчанию считаем всё ПЕРСОНАЖЕМ (не штрихуем).
-  // Flood fill от краёв помечает ФОН (штрихуем).
-  silhouette = new Uint8Array(w * h); // 0 = персонаж, 1 = фон
+  isBg = new Uint8Array(w * h); // 0 = персонаж (не штрихуем), 1 = фон (штрихуем)
 
-  const isBg = (x, y) => {
+  const looksLikeBg = (x, y) => {
     const i = (y * w + x) * 4;
     if (d[i + 3] < 20) return true;
     const dr = d[i]     - bgColor.r;
@@ -259,13 +236,12 @@ function buildSilhouette() {
     if (x < 0 || y < 0 || x >= w || y >= h) return;
     const idx = y * w + x;
     if (visited[idx]) return;
-    if (!isBg(x, y)) return;
+    if (!looksLikeBg(x, y)) return;
     visited[idx] = 1;
-    silhouette[idx] = 1;   // это фон
+    isBg[idx] = 1;
     queue.push(idx);
   };
 
-  // старт — вся рамка изображения
   for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
   for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
 
@@ -279,32 +255,51 @@ function buildSilhouette() {
     push(x, y + 1);
     push(x, y - 1);
   }
-
-  // Если включён зазор — расширяем область ПЕРСОНАЖА,
-  // то есть «закрываем» фон на N пикселей вокруг силуэта.
-  const gap = +gapEl.value;
-  if (gap > 0) erodeBackground(gap);
 }
 
-// Делает фон уже: пиксели фона, которые рядом с персонажем, помечает как персонаж.
-function erodeBackground(radius) {
+// ---------- Карта расстояний от фона до силуэта (BFS) ----------
+function buildDistanceMap() {
   const w = imgWidth, h = imgHeight;
-  const src = silhouette.slice();
+  distMap = new Int32Array(w * h).fill(-1);
+
+  const queue = [];
+  // стартовая точка: пиксели фона, соседние с персонажем
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = y * w + x;
-      if (src[idx] === 0) continue; // уже персонаж
-      // если рядом (в радиусе) есть персонаж — становимся персонажем
+      if (!isBg[idx]) continue;
+      // есть ли рядом персонаж?
       let nearChar = false;
-      for (let dy = -radius; dy <= radius && !nearChar; dy++) {
-        for (let dx = -radius; dx <= radius; dx++) {
-          const nx = x + dx, ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-          if (src[ny * w + nx] === 0) { nearChar = true; break; }
-        }
+      if (x > 0     && !isBg[idx - 1]) nearChar = true;
+      else if (x < w - 1 && !isBg[idx + 1]) nearChar = true;
+      else if (y > 0     && !isBg[idx - w]) nearChar = true;
+      else if (y < h - 1 && !isBg[idx + w]) nearChar = true;
+      if (nearChar) {
+        distMap[idx] = 1;
+        queue.push(idx);
       }
-      if (nearChar) silhouette[idx] = 0;
     }
+  }
+
+  let head = 0;
+  while (head < queue.length) {
+    const idx = queue[head++];
+    const x = idx % w;
+    const y = (idx / w) | 0;
+    const cd = distMap[idx];
+
+    const tryPush = (nx, ny) => {
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
+      const nIdx = ny * w + nx;
+      if (!isBg[nIdx]) return;
+      if (distMap[nIdx] !== -1) return;
+      distMap[nIdx] = cd + 1;
+      queue.push(nIdx);
+    };
+    tryPush(x + 1, y);
+    tryPush(x - 1, y);
+    tryPush(x, y + 1);
+    tryPush(x, y - 1);
   }
 }
 
@@ -326,11 +321,12 @@ function drawGrid() {
   baseCtx.restore();
 }
 
-// ---------- Штриховка ----------
+// ---------- Обтекающая штриховка по изолиниям ----------
 function redrawOverlay() {
-  if (!imageData || !silhouette) return;
+  if (!imageData || !distMap) return;
 
-  const step      = +stepEl.value;
+  const step0     = +stepEl.value;      // шаг у контура
+  const falloff   = +falloffEl.value;   // затухание (растягивание шага)
   const thickness = +thicknessEl.value;
   const alpha     = +alphaEl.value;
   const hex       = colorEl.value;
@@ -338,88 +334,83 @@ function redrawOverlay() {
   const w = imgWidth, h = imgHeight;
   overlayCtx.clearRect(0, 0, w, h);
 
-  // Отладка: показать фон красным
-  if (showMaskEl.checked) {
-    const tmp = overlayCtx.createImageData(w, h);
-    for (let i = 0; i < w * h; i++) {
-      if (silhouette[i]) { // фон
-        const j = i * 4;
-        tmp.data[j]     = 255;
-        tmp.data[j + 1] = 80;
-        tmp.data[j + 2] = 80;
-        tmp.data[j + 3] = 90;
-      }
-    }
-    overlayCtx.putImageData(tmp, 0, 0);
-  }
-
   const rr = parseInt(hex.slice(1, 3), 16);
   const gg = parseInt(hex.slice(3, 5), 16);
   const bb = parseInt(hex.slice(5, 7), 16);
   const strokeStyle = `rgba(${rr},${gg},${bb},${alpha})`;
 
-  overlayCtx.save();
-  overlayCtx.strokeStyle = strokeStyle;
-  overlayCtx.lineWidth = thickness;
-  overlayCtx.lineCap = 'round';
+  // --- Предвычисляем, какой цвет ставить в каждый пиксель ---
+  // Пиксель попадает в изолинию, если он находится на "нужном" расстоянии
+  // от силуэта. Нужные расстояния расту от шага к шагу, увеличиваясь
+  // по мере удаления от контура (falloff).
+  const w2 = w, h2 = h;
 
-  // Луч идёт от края, пока пиксель — ФОН (silhouette[idx] === 1).
-  // Останавливается, как только встретит ПЕРСОНАЖ (silhouette[idx] === 0).
+  // Сначала построим список "пороговых" дистанций
+  const thresholds = [];
+  let d = step0;
+  let add = step0;
+  while (d < Math.max(w, h)) {
+    thresholds.push(d);
+    // с каждым шагом полоса становится шире
+    add = Math.max(1, add + falloff);
+    d += Math.round(add);
+  }
 
-  // Горизонтальные лучи
-  for (let y = 0; y < h; y += step) {
-    const yy = y + 0.5;
+  // Преобразуем thresholds в набор: для каждого пикселя дистанции p
+  // определяем "пороговый индекс" — номер полосы, к которой он относится.
+  // Полосы имеют переменную ширину, поэтому делаем это через массив сегментов.
+  const maxDist = thresholds.length ? thresholds[thresholds.length - 1] : 0;
+  const isBand = new Uint8Array(maxDist + 2);
 
-    // слева → вправо
-    let xL = 0;
-    while (xL < w && silhouette[y * w + xL] === 1) xL++;
-    if (xL > 0) {
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(0, yy);
-      overlayCtx.lineTo(xL, yy);
-      overlayCtx.stroke();
-    }
+  // Начало каждой полосы
+  const bandStart = [0];
+  let acc = 0;
+  for (let i = 0; i < thresholds.length; i++) {
+    // конец полосы = thresholds[i]
+    bandStart.push(thresholds[i]);
+  }
 
-    // справа → влево
-    let xR = w - 1;
-    while (xR >= 0 && silhouette[y * w + xR] === 1) xR--;
-    if (xR < w - 1) {
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(w, yy);
-      overlayCtx.lineTo(xR + 1, yy);
-      overlayCtx.stroke();
+  // Пиксель принадлежит линии (полосе), если его dist попадает
+  // в интервал [thresholds[i] - lineThicknessPx, thresholds[i]]
+  // Здесь lineThicknessPx = thickness (в пикселях) для имитации изолинии.
+
+  const linePx = Math.max(1, Math.round(thickness));
+
+  // --- Отрисовка линий как набора пикселей ---
+  const img = overlayCtx.createImageData(w, h);
+
+  // Быстрый поиск: принадлежит ли dist линии?
+  // Для ускорения — массив флагов на каждую дистанцию.
+  const isLine = new Uint8Array(maxDist + 2);
+  // дельта полосы — переменная, но начало полос фиксировано по thresholds
+  // ставим флаг: 0..linePx пикселей ВНУТРЬ от thresholds[i]
+  for (let i = 0; i < thresholds.length; i++) {
+    const t = thresholds[i];
+    for (let k = 0; k < linePx; k++) {
+      if (t - k >= 0 && t - k < isLine.length) isLine[t - k] = 1;
     }
   }
 
-  // Вертикальные лучи
-  for (let x = 0; x < w; x += step) {
-    const xx = x + 0.5;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = y * w + x;
+      const dist = distMap[idx];
+      if (dist <= 0) continue;              // внутри персонажа или не фон
+      if (dist >= isLine.length) continue;  // слишком далеко
+      if (!isLine[dist]) continue;
 
-    // сверху → вниз
-    let yT = 0;
-    while (yT < h && silhouette[yT * w + x] === 1) yT++;
-    if (yT > 0) {
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(xx, 0);
-      overlayCtx.lineTo(xx, yT);
-      overlayCtx.stroke();
-    }
-
-    // снизу → вверх
-    let yB = h - 1;
-    while (yB >= 0 && silhouette[yB * w + x] === 1) yB--;
-    if (yB < h - 1) {
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(xx, h);
-      overlayCtx.lineTo(xx, yB + 1);
-      overlayCtx.stroke();
+      const j = idx * 4;
+      img.data[j]     = rr;
+      img.data[j + 1] = gg;
+      img.data[j + 2] = bb;
+      img.data[j + 3] = Math.round(alpha * 255);
     }
   }
 
-  overlayCtx.restore();
+  overlayCtx.putImageData(img, 0, 0);
 }
 
-// ---------- Ручной выбор цвета фона кликом ----------
+// ---------- Ручной выбор цвета фона ----------
 pickBgBtn.addEventListener('click', () => {
   pickBgMode = !pickBgMode;
   pickBgBtn.classList.toggle('active', pickBgMode);
@@ -436,7 +427,8 @@ baseCanvas.addEventListener('click', e => {
   const d = imageData.data;
   bgColor = { r: d[i], g: d[i + 1], b: d[i + 2] };
   updateBgUI();
-  buildSilhouette();
+  buildMask();
+  buildDistanceMap();
   redrawOverlay();
   pickBgMode = false;
   pickBgBtn.classList.remove('active');
@@ -444,18 +436,18 @@ baseCanvas.addEventListener('click', e => {
 
 // ---------- Сброс ----------
 resetBtn.addEventListener('click', () => {
-  bgTolEl.value = 25;   bgTolVal.textContent     = 25;
-  gapEl.value   = 0;    gapVal.textContent       = 0;
-  stepEl.value  = 7;    stepVal.textContent      = 7;
+  bgTolEl.value = 25;    bgTolVal.textContent     = 25;
+  stepEl.value  = 5;     stepVal.textContent      = 5;
+  falloffEl.value = 0.6; falloffVal.textContent   = 0.6;
   thicknessEl.value = 1; thicknessVal.textContent = 1;
-  alphaEl.value = 0.7;  alphaVal.textContent     = 0.7;
+  alphaEl.value = 0.7;   alphaVal.textContent     = 0.7;
   colorEl.value = '#1e4a8a';
   showGridEl.checked = true;
-  showMaskEl.checked = false;
   if (imageData) {
     detectBgColor();
     updateBgUI();
-    buildSilhouette();
+    buildMask();
+    buildDistanceMap();
     drawGrid();
     redrawOverlay();
   }
@@ -464,14 +456,14 @@ resetBtn.addEventListener('click', () => {
 // ---------- Реакции на контролы ----------
 bgTolEl.addEventListener('input', () => {
   bgTolVal.textContent = bgTolEl.value;
-  if (imageData) { buildSilhouette(); redrawOverlay(); }
-});
-gapEl.addEventListener('input', () => {
-  gapVal.textContent = gapEl.value;
-  if (imageData) { buildSilhouette(); redrawOverlay(); }
+  if (imageData) { buildMask(); buildDistanceMap(); redrawOverlay(); }
 });
 stepEl.addEventListener('input', () => {
   stepVal.textContent = stepEl.value;
+  redrawOverlay();
+});
+falloffEl.addEventListener('input', () => {
+  falloffVal.textContent = falloffEl.value;
   redrawOverlay();
 });
 thicknessEl.addEventListener('input', () => {
@@ -484,7 +476,6 @@ alphaEl.addEventListener('input', () => {
 });
 colorEl.addEventListener('input', redrawOverlay);
 showGridEl.addEventListener('change', drawGrid);
-showMaskEl.addEventListener('change', redrawOverlay);
 </script>
 
 </body>
