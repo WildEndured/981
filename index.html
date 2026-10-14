@@ -129,9 +129,9 @@
 </div>
 
 <p class="hint">
-  Штриховка идёт не лучами, а линиями равного удаления от контура —
-  поэтому она обтекает персонажа, повторяя форму силуэта, как вода.
-  Чем ближе к контуру, тем плотнее линии.
+  Штриховка идёт линиями равного удаления от контура персонажа —
+  она обтекает силуэт как вода и заполняет все участки фона:
+  и снаружи, и во внутренних «окнах» (между рук, ног, змей).
 </p>
 
 <script>
@@ -225,13 +225,15 @@ function updateBgUI() {
 }
 
 // ---------- Маска: 1 = фон, 0 = персонаж ----------
+// Заливаем от ЛЮБОГО пикселя, похожего на фон — так ловятся и внешний фон,
+// и внутренние «окна» (между рук, ног, змей), отрезанные от рамки.
 function buildMask() {
   const w = imgWidth, h = imgHeight;
   const d = imageData.data;
   const tol = +bgTolEl.value;
   const tol2 = tol * tol * 3;
 
-  isBg = new Uint8Array(w * h); // 0 = персонаж (не штрихуем), 1 = фон (штрихуем)
+  isBg = new Uint8Array(w * h); // 0 = персонаж, 1 = фон
 
   const looksLikeBg = (x, y) => {
     const i = (y * w + x) * 4;
@@ -242,30 +244,41 @@ function buildMask() {
     return (dr * dr + dg * dg + db * db) < tol2;
   };
 
-  const queue = [];
   const visited = new Uint8Array(w * h);
-  const push = (x, y) => {
-    if (x < 0 || y < 0 || x >= w || y >= h) return;
-    const idx = y * w + x;
-    if (visited[idx]) return;
-    if (!looksLikeBg(x, y)) return;
-    visited[idx] = 1;
-    isBg[idx] = 1;
-    queue.push(idx);
+
+  const floodFrom = (sx, sy) => {
+    const queue = [sy * w + sx];
+    visited[sy * w + sx] = 1;
+    isBg[sy * w + sx] = 1;
+    let head = 0;
+    while (head < queue.length) {
+      const idx = queue[head++];
+      const x = idx % w;
+      const y = (idx / w) | 0;
+
+      const tryPush = (nx, ny) => {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
+        const nIdx = ny * w + nx;
+        if (visited[nIdx]) return;
+        if (!looksLikeBg(nx, ny)) return;
+        visited[nIdx] = 1;
+        isBg[nIdx] = 1;
+        queue.push(nIdx);
+      };
+      tryPush(x + 1, y);
+      tryPush(x - 1, y);
+      tryPush(x, y + 1);
+      tryPush(x, y - 1);
+    }
   };
 
-  for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
-  for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
-
-  let head = 0;
-  while (head < queue.length) {
-    const idx = queue[head++];
-    const x = idx % w;
-    const y = (idx / w) | 0;
-    push(x + 1, y);
-    push(x - 1, y);
-    push(x, y + 1);
-    push(x, y - 1);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = y * w + x;
+      if (visited[idx]) continue;
+      if (!looksLikeBg(x, y)) continue;
+      floodFrom(x, y);
+    }
   }
 }
 
@@ -351,13 +364,11 @@ function redrawOverlay() {
     for (let i = 0; i < w * h; i++) {
       const j = i * 4;
       if (showMaskBgEl.checked && isBg[i] === 1) {
-        // фон — красный
         md[j]     = 255;
         md[j + 1] = 60;
         md[j + 2] = 60;
         md[j + 3] = 100;
       } else if (showMaskCharEl.checked && isBg[i] === 0) {
-        // персонаж — зелёный
         md[j]     = 60;
         md[j + 1] = 220;
         md[j + 2] = 120;
