@@ -37,8 +37,18 @@
     position: relative; display: inline-block;
     border: 1px solid #2b2f37; background: #0b0c0f; line-height: 0;
   }
+  /* Фон под canvas: когда изображение скрыто, видно только маску */
+  .stage.hide-image {
+    background: #ffffff;
+  }
   .stage canvas {
     display: block; max-width: min(92vw, 900px); height: auto;
+  }
+  .stage canvas#base {
+    transition: opacity 0.15s;
+  }
+  .stage.hide-image canvas#base {
+    opacity: 0;
   }
   .stage canvas#overlay {
     position: absolute; inset: 0; pointer-events: none;
@@ -92,10 +102,15 @@
     Внутренние окна
   </label>
 
+  <label>
+    <input id="hideImage" type="checkbox" />
+    Скрыть изображение
+  </label>
+
   <button id="reset">↺ Сброс</button>
 </div>
 
-<div class="stage">
+<div class="stage" id="stage">
   <canvas id="base"></canvas>
   <canvas id="overlay"></canvas>
 </div>
@@ -111,13 +126,15 @@
 <p class="hint">
   Первично: фон — всё ярче порога, соединённое с рамкой.
   Вторично: внутри персонажа ищутся яркие области; те, что НЕ касаются
-  внешнего фона — это внутренние окна (тоже фон).
+  внешнего фона — это внутренние окна.
+  Галочка «Скрыть изображение» убирает нижний слой — остаётся чистая маска.
 </p>
 
 <script>
 const fileInput     = document.getElementById('file');
 const baseCanvas    = document.getElementById('base');
 const overlay       = document.getElementById('overlay');
+const stageEl       = document.getElementById('stage');
 const bgLumEl       = document.getElementById('bgLum');
 const minWinEl      = document.getElementById('minWin');
 const bgLumVal      = document.getElementById('bgLumVal');
@@ -125,6 +142,7 @@ const minWinVal     = document.getElementById('minWinVal');
 const showBorderEl  = document.getElementById('showBorder');
 const showMaskEl    = document.getElementById('showMask');
 const showWindowsEl = document.getElementById('showWindows');
+const hideImageEl   = document.getElementById('hideImage');
 const resetBtn      = document.getElementById('reset');
 const statThreshold = document.getElementById('statThreshold');
 const statBg        = document.getElementById('statBg');
@@ -139,9 +157,9 @@ let imageData = null;
 let imgWidth = 0, imgHeight = 0;
 let srcImage = null;
 let lum = null;
-let isBgExt = null;   // 1 = внешний фон (первичная)
-let isWin   = null;   // 1 = внутреннее окно (вторичная)
-let isBg    = null;   // isBgExt | isWin
+let isBgExt = null;
+let isWin   = null;
+let isBg    = null;
 let isBorder = null;
 
 // ---------- Загрузка ----------
@@ -226,9 +244,6 @@ function buildPrimaryMask() {
 }
 
 // ---------- 2. Вторичная маска: внутренние окна ----------
-// Внутри персонажа (isBgExt = 0) ищем связные яркие области.
-// Область → окно, ЕСЛИ она не касается внешнего фона.
-// "Касается" = среди её соседей есть пиксель isBgExt = 1.
 function buildSecondaryWindows() {
   const w = imgWidth, h = imgHeight;
   const N = w * h;
@@ -241,8 +256,6 @@ function buildSecondaryWindows() {
   const isBright = (i) => lum[i] >= threshold;
   const isChar = (i) => !isBgExt[i];
 
-  // Для каждой ещё не посещённой яркой точки внутри персонажа
-  // запускаем локальный flood fill, ограниченный "не внешний фон".
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = y * w + x;
@@ -250,12 +263,10 @@ function buildSecondaryWindows() {
       if (!isChar(idx)) continue;
       if (!isBright(idx)) continue;
 
-      // Локальный BFS
       const pixels = [idx];
       const localSeen = new Uint8Array(N);
       localSeen[idx] = 1;
 
-      // Флаг: касается ли эта область внешнего фона
       let touchesBgExt = false;
 
       let head = 0;
@@ -264,7 +275,6 @@ function buildSecondaryWindows() {
         const cx = ci % w;
         const cy = (ci / w) | 0;
 
-        // Проверяем соседей
         const neighbors = [
           [cx + 1, cy],
           [cx - 1, cy],
@@ -287,11 +297,8 @@ function buildSecondaryWindows() {
         }
       }
 
-      // Помечаем всех посещённых в глобальном visited
       for (const p of pixels) visited[p] = 1;
 
-      // Если область не касается внешнего фона И достаточно большая —
-      // это внутреннее окно.
       if (!touchesBgExt && pixels.length >= minArea) {
         for (const p of pixels) isWin[p] = 1;
       }
@@ -352,13 +359,12 @@ function drawOverlay() {
   for (let i = 0, j = 0; i < w * h; i++, j += 4) {
     let r = 0, g = 0, b = 0, a = 0;
 
-    // Приоритет: окна → граница → маска персонажа
     if (showWindows && isWin[i]) {
-      r = 60; g = 160; b = 255; a = 140;        // синие окна
+      r = 60; g = 160; b = 255; a = 160;
     } else if (showBorder && isBorder[i]) {
-      r = 255; g = 40; b = 40; a = 230;         // красная граница
+      r = 255; g = 40; b = 40; a = 240;
     } else if (showMask && !isBg[i]) {
-      r = 60; g = 220; b = 120; a = 90;         // зелёный персонаж
+      r = 60; g = 220; b = 120; a = 110;
     }
 
     data[j]     = r;
@@ -389,7 +395,16 @@ function updateStats() {
   statBorder.textContent    = border.toLocaleString('ru-RU');
 }
 
-// ---------- 7. Реакции ----------
+// ---------- 7. Скрытие изображения ----------
+function applyHideImage() {
+  if (hideImageEl.checked) {
+    stageEl.classList.add('hide-image');
+  } else {
+    stageEl.classList.remove('hide-image');
+  }
+}
+
+// ---------- 8. Реакции ----------
 function rebuildAll() {
   if (!imageData) return;
   buildAll();
@@ -409,6 +424,7 @@ minWinEl.addEventListener('input', () => {
 showBorderEl.addEventListener('change', drawOverlay);
 showMaskEl.addEventListener('change', drawOverlay);
 showWindowsEl.addEventListener('change', drawOverlay);
+hideImageEl.addEventListener('change', applyHideImage);
 
 resetBtn.addEventListener('click', () => {
   bgLumEl.value = 200;
@@ -418,9 +434,11 @@ resetBtn.addEventListener('click', () => {
   showBorderEl.checked = true;
   showMaskEl.checked = true;
   showWindowsEl.checked = false;
+  hideImageEl.checked = false;
+  applyHideImage();
   rebuildAll();
 });
 </script>
 
 </body>
-  </html>
+</html>
