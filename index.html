@@ -106,6 +106,11 @@
     Разметка 4 части
   </label>
 
+  <label>
+    <input id="showMask" type="checkbox" />
+    Маска силуэта
+  </label>
+
   <button id="pickBg">🎯 Фон кликом</button>
   <button id="reset">↺ Сброс</button>
 
@@ -135,6 +140,7 @@ const thicknessEl  = document.getElementById('thickness');
 const alphaEl      = document.getElementById('alpha');
 const colorEl      = document.getElementById('color');
 const showGridEl   = document.getElementById('showGrid');
+const showMaskEl   = document.getElementById('showMask');
 const bgTolVal     = document.getElementById('bgTolVal');
 const stepVal      = document.getElementById('stepVal');
 const falloffVal   = document.getElementById('falloffVal');
@@ -263,12 +269,10 @@ function buildDistanceMap() {
   distMap = new Int32Array(w * h).fill(-1);
 
   const queue = [];
-  // стартовая точка: пиксели фона, соседние с персонажем
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = y * w + x;
       if (!isBg[idx]) continue;
-      // есть ли рядом персонаж?
       let nearChar = false;
       if (x > 0     && !isBg[idx - 1]) nearChar = true;
       else if (x < w - 1 && !isBg[idx + 1]) nearChar = true;
@@ -321,12 +325,12 @@ function drawGrid() {
   baseCtx.restore();
 }
 
-// ---------- Обтекающая штриховка по изолиниям ----------
+// ---------- Обтекающая штриховка по изолиниям + маска силуэта ----------
 function redrawOverlay() {
   if (!imageData || !distMap) return;
 
-  const step0     = +stepEl.value;      // шаг у контура
-  const falloff   = +falloffEl.value;   // затухание (растягивание шага)
+  const step0     = +stepEl.value;
+  const falloff   = +falloffEl.value;
   const thickness = +thicknessEl.value;
   const alpha     = +alphaEl.value;
   const hex       = colorEl.value;
@@ -334,56 +338,38 @@ function redrawOverlay() {
   const w = imgWidth, h = imgHeight;
   overlayCtx.clearRect(0, 0, w, h);
 
+  // --- Отладочный слой: маска силуэта (красным) ---
+  if (showMaskEl.checked) {
+    const mask = overlayCtx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) {
+      if (isBg[i] === 1) {
+        const j = i * 4;
+        mask.data[j]     = 255;
+        mask.data[j + 1] = 60;
+        mask.data[j + 2] = 60;
+        mask.data[j + 3] = 90;
+      }
+    }
+    overlayCtx.putImageData(mask, 0, 0);
+  }
+
+  // --- Основная штриховка по изолиниям ---
   const rr = parseInt(hex.slice(1, 3), 16);
   const gg = parseInt(hex.slice(3, 5), 16);
   const bb = parseInt(hex.slice(5, 7), 16);
-  const strokeStyle = `rgba(${rr},${gg},${bb},${alpha})`;
 
-  // --- Предвычисляем, какой цвет ставить в каждый пиксель ---
-  // Пиксель попадает в изолинию, если он находится на "нужном" расстоянии
-  // от силуэта. Нужные расстояния расту от шага к шагу, увеличиваясь
-  // по мере удаления от контура (falloff).
-  const w2 = w, h2 = h;
-
-  // Сначала построим список "пороговых" дистанций
   const thresholds = [];
   let d = step0;
   let add = step0;
   while (d < Math.max(w, h)) {
     thresholds.push(d);
-    // с каждым шагом полоса становится шире
     add = Math.max(1, add + falloff);
     d += Math.round(add);
   }
 
-  // Преобразуем thresholds в набор: для каждого пикселя дистанции p
-  // определяем "пороговый индекс" — номер полосы, к которой он относится.
-  // Полосы имеют переменную ширину, поэтому делаем это через массив сегментов.
   const maxDist = thresholds.length ? thresholds[thresholds.length - 1] : 0;
-  const isBand = new Uint8Array(maxDist + 2);
-
-  // Начало каждой полосы
-  const bandStart = [0];
-  let acc = 0;
-  for (let i = 0; i < thresholds.length; i++) {
-    // конец полосы = thresholds[i]
-    bandStart.push(thresholds[i]);
-  }
-
-  // Пиксель принадлежит линии (полосе), если его dist попадает
-  // в интервал [thresholds[i] - lineThicknessPx, thresholds[i]]
-  // Здесь lineThicknessPx = thickness (в пикселях) для имитации изолинии.
-
   const linePx = Math.max(1, Math.round(thickness));
-
-  // --- Отрисовка линий как набора пикселей ---
-  const img = overlayCtx.createImageData(w, h);
-
-  // Быстрый поиск: принадлежит ли dist линии?
-  // Для ускорения — массив флагов на каждую дистанцию.
   const isLine = new Uint8Array(maxDist + 2);
-  // дельта полосы — переменная, но начало полос фиксировано по thresholds
-  // ставим флаг: 0..linePx пикселей ВНУТРЬ от thresholds[i]
   for (let i = 0; i < thresholds.length; i++) {
     const t = thresholds[i];
     for (let k = 0; k < linePx; k++) {
@@ -391,19 +377,22 @@ function redrawOverlay() {
     }
   }
 
+  const img = overlayCtx.getImageData(0, 0, w, h);
+  const data = img.data;
+
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = y * w + x;
       const dist = distMap[idx];
-      if (dist <= 0) continue;              // внутри персонажа или не фон
-      if (dist >= isLine.length) continue;  // слишком далеко
+      if (dist <= 0) continue;
+      if (dist >= isLine.length) continue;
       if (!isLine[dist]) continue;
 
       const j = idx * 4;
-      img.data[j]     = rr;
-      img.data[j + 1] = gg;
-      img.data[j + 2] = bb;
-      img.data[j + 3] = Math.round(alpha * 255);
+      data[j]     = rr;
+      data[j + 1] = gg;
+      data[j + 2] = bb;
+      data[j + 3] = Math.round(alpha * 255);
     }
   }
 
@@ -443,6 +432,7 @@ resetBtn.addEventListener('click', () => {
   alphaEl.value = 0.7;   alphaVal.textContent     = 0.7;
   colorEl.value = '#1e4a8a';
   showGridEl.checked = true;
+  showMaskEl.checked = false;
   if (imageData) {
     detectBgColor();
     updateBgUI();
@@ -476,6 +466,7 @@ alphaEl.addEventListener('input', () => {
 });
 colorEl.addEventListener('input', redrawOverlay);
 showGridEl.addEventListener('change', drawGrid);
+showMaskEl.addEventListener('change', redrawOverlay);
 </script>
 
 </body>
