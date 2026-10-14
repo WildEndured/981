@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lineart Highlighter (4 Corners)</title>
+    <title>Lineart Highlighter (4 Corners Fixed)</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -58,7 +58,7 @@
 </head>
 <body>
 
-    <h1>Авто-штриховка (4 угла)</h1>
+    <h1>Авто-штриховка (4 угла - исправлено)</h1>
 
     <div class="controls">
         <label for="imageInput" class="upload-btn">Выбрать изображение</label>
@@ -129,11 +129,11 @@
 
             overlayCtx.clearRect(0, 0, width, height);
             
-            // Рисуем из 4 углов
-            drawFromTopLeft(data, width, height);
-            drawFromTopRight(data, width, height);
-            drawFromBottomLeft(data, width, height);
-            drawFromBottomRight(data, width, height);
+            // Запускаем отрисовку из 4 углов
+            drawFromCorner(data, width, height, 'top-left');
+            drawFromCorner(data, width, height, 'top-right');
+            drawFromCorner(data, width, height, 'bottom-left');
+            drawFromCorner(data, width, height, 'bottom-right');
 
             loader.style.display = 'none';
             canvasContainer.style.display = 'block';
@@ -142,9 +142,7 @@
         function getPixel(data, width, height, x, y) {
             if (x < 0 || x >= width || y < 0 || y >= height) return null;
             const index = (y * width + x) * 4;
-            return {
-                r: data[index], g: data[index + 1], b: data[index + 2], a: data[index + 3]
-            };
+            return { r: data[index], g: data[index+1], b: data[index+2], a: data[index+3] };
         }
 
         function isCharacterPixel(data, width, height, x, y) {
@@ -159,7 +157,6 @@
             const saturation = max - min;
 
             if (saturation > SATURATION_THRESHOLD) return true;
-
             return false;
         }
 
@@ -172,50 +169,75 @@
             return false;
         }
 
-        // Функция для отрисовки линий в заданном направлении
-        function drawLines(data, width, height, startX, startY, dx, dy, limitX, limitY) {
+        // Универсальная функция для рисования из угла
+        function drawFromCorner(data, width, height, corner) {
             overlayCtx.strokeStyle = STRIPE_COLOR;
             overlayCtx.lineCap = 'butt'; 
             overlayCtx.lineWidth = STRIPE_WIDTH;
 
             const step = STRIPE_WIDTH + STRIPE_GAP;
             
-            // Определяем количество линий, которые нужно нарисовать
-            // Мы идем по перпендикулярной оси
-            let numLines;
-            let perpX = -dy; // Перпендикулярный вектор
-            let perpY = dx;
+            let startX, startY, dx, dy, limitX, limitY;
 
-            if (dx !== 0) {
-                numLines = Math.ceil((width + height) / step);
-            } else {
-                numLines = Math.ceil((width + height) / step);
+            // Настраиваем параметры для каждого угла
+            switch(corner) {
+                case 'top-left':
+                    startX = -height; startY = 0; // Начинаем с верхнего левого угла
+                    dx = 1; dy = 1;               // Идем вправо-вниз
+                    limitX = width; limitY = height;
+                    break;
+                case 'top-right':
+                    startX = width + height; startY = 0; // Начинаем с верхнего правого угла
+                    dx = -1; dy = 1;                     // Идем влево-вниз
+                    limitX = 0; limitY = height;
+                    break;
+                case 'bottom-left':
+                    startX = -height; startY = height;   // Начинаем с нижнего левого угла
+                    dx = 1; dy = -1;                     // Идем вправо-вверх
+                    limitX = width; limitY = 0;
+                    break;
+                case 'bottom-right':
+                    startX = width + height; startY = height; // Начинаем с нижнего правого угла
+                    dx = -1; dy = -1;                         // Идем влево-вверх
+                    limitX = 0; limitY = 0;
+                    break;
             }
 
-            // Смещение для первой линии, чтобы она начиналась за пределами холста
-            let offset = -Math.max(width, height);
+            // Определяем, сколько линий нужно нарисовать, чтобы покрыть весь холст
+            // Количество шагов = (ширина + высота) / шаг
+            const numLines = Math.ceil((width + height) / step) + 2;
 
-            for (let i = 0; i < numLines + 50; i++) {
-                let currentStartX = startX + perpX * (offset + i * step);
-                let currentStartY = startY + perpY * (offset + i * step);
+            for (let i = 0; i < numLines; i++) {
+                // Вычисляем стартовую точку для текущей линии
+                let currentX = startX + i * step; // Смещаем по X
+                let currentY = startY;            // Y остается на краю
 
-                // Проверяем, находится ли стартовая точка в пределах холста (или за ним)
-                // Если линия начинается внутри персонажа, пропускаем
-                if (currentStartX >= 0 && currentStartX < width && currentStartY >= 0 && currentStartY < height) {
-                    if (isCharacterPixel(data, width, height, Math.floor(currentStartX), Math.floor(currentStartY))) {
-                        continue;
-                    }
+                // Корректируем стартовую точку, если она выходит за пределы холста
+                if (dx === 1 && currentX < 0) {
+                    currentY = -currentX; // Сдвигаем вниз по левому краю
+                    currentX = 0;
+                } else if (dx === -1 && currentX > width) {
+                    currentY = currentX - width; // Сдвигаем вниз по правому краю
+                    currentX = width;
+                }
+
+                // Если стартовая точка вне холста, пропускаем
+                if (currentX < 0 || currentX > width || currentY < 0 || currentY > height) continue;
+
+                // Пропускаем линию, если она начинается уже внутри персонажа
+                if (isCharacterPixel(data, width, height, Math.floor(currentX), Math.floor(currentY))) {
+                    continue;
                 }
 
                 overlayCtx.beginPath();
-                overlayCtx.moveTo(currentStartX, currentStartY);
+                overlayCtx.moveTo(currentX, currentY);
 
                 let hitCharacter = false;
-                let x = currentStartX;
-                let y = currentStartY;
+                let x = currentX;
+                let y = currentY;
 
-                // Сканируем в заданном направлении
-                while (x >= 0 && x < width && y >= 0 && y < height) {
+                // Сканируем в направлении (dx, dy)
+                while (x >= 0 && x <= width && y >= 0 && y <= height) {
                     if (isCharacterAhead(data, width, height, Math.floor(x), Math.floor(y), dx, dy)) {
                         hitCharacter = true;
                         break;
@@ -229,26 +251,6 @@
                     overlayCtx.stroke();
                 }
             }
-        }
-
-        // 1. Из левого верхнего угла (вправо-вниз)
-        function drawFromTopLeft(data, width, height) {
-            drawLines(data, width, height, 0, 0, 1, 1, width, height);
-        }
-
-        // 2. Из правого верхнего угла (влево-вниз)
-        function drawFromTopRight(data, width, height) {
-            drawLines(data, width, height, width, 0, -1, 1, 0, height);
-        }
-
-        // 3. Из левого нижнего угла (вправо-вверх)
-        function drawFromBottomLeft(data, width, height) {
-            drawLines(data, width, height, 0, height, 1, -1, width, 0);
-        }
-
-        // 4. Из правого нижнего угла (влево-вверх)
-        function drawFromBottomRight(data, width, height) {
-            drawLines(data, width, height, width, height, -1, -1, 0, 0);
         }
     </script>
 </body>
