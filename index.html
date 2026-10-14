@@ -68,18 +68,28 @@
   </label>
 
   <label>Яркость фона:
-    <input id="bgLum" type="range" min="200" max="255" value="250" />
-    <span id="bgLumVal">250</span>
+    <input id="bgLum" type="range" min="200" max="255" value="200" />
+    <span id="bgLumVal">200</span>
+  </label>
+
+  <label>Мин. площадь окна:
+    <input id="minWin" type="range" min="10" max="2000" value="200" />
+    <span id="minWinVal">200</span>
   </label>
 
   <label>
     <input id="showBorder" type="checkbox" checked />
-    Показать границу
+    Граница
   </label>
 
   <label>
     <input id="showMask" type="checkbox" checked />
-    Показать маску персонажа
+    Маска персонажа
+  </label>
+
+  <label>
+    <input id="showWindows" type="checkbox" />
+    Внутренние окна
   </label>
 
   <button id="reset">↺ Сброс</button>
@@ -94,27 +104,33 @@
   <span>Порог: <b id="statThreshold">—</b></span>
   <span>Фон: <b id="statBg">—</b></span>
   <span>Персонаж: <b id="statChar">—</b></span>
+  <span>Окна: <b id="statWin">—</b></span>
   <span>Граница: <b id="statBorder">—</b></span>
 </div>
 
 <p class="hint">
-  Фон — всё, что ярче порога И соединено с рамкой изображения через такие же яркие пиксели.
-  Граница — красная линия по контуру, где фон соседствует с персонажем.
+  Первично: фон — всё ярче порога, соединённое с рамкой.
+  Вторично: внутри персонажа ищутся яркие области; те, что НЕ касаются
+  внешнего фона — это внутренние окна (тоже фон).
 </p>
 
 <script>
-const fileInput    = document.getElementById('file');
-const baseCanvas   = document.getElementById('base');
-const overlay      = document.getElementById('overlay');
-const bgLumEl      = document.getElementById('bgLum');
-const bgLumVal     = document.getElementById('bgLumVal');
-const showBorderEl = document.getElementById('showBorder');
-const showMaskEl   = document.getElementById('showMask');
-const resetBtn     = document.getElementById('reset');
+const fileInput     = document.getElementById('file');
+const baseCanvas    = document.getElementById('base');
+const overlay       = document.getElementById('overlay');
+const bgLumEl       = document.getElementById('bgLum');
+const minWinEl      = document.getElementById('minWin');
+const bgLumVal      = document.getElementById('bgLumVal');
+const minWinVal     = document.getElementById('minWinVal');
+const showBorderEl  = document.getElementById('showBorder');
+const showMaskEl    = document.getElementById('showMask');
+const showWindowsEl = document.getElementById('showWindows');
+const resetBtn      = document.getElementById('reset');
 const statThreshold = document.getElementById('statThreshold');
-const statBg       = document.getElementById('statBg');
-const statChar     = document.getElementById('statChar');
-const statBorder   = document.getElementById('statBorder');
+const statBg        = document.getElementById('statBg');
+const statChar      = document.getElementById('statChar');
+const statWin       = document.getElementById('statWin');
+const statBorder    = document.getElementById('statBorder');
 
 const baseCtx    = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
@@ -123,7 +139,9 @@ let imageData = null;
 let imgWidth = 0, imgHeight = 0;
 let srcImage = null;
 let lum = null;
-let isBg = null;
+let isBgExt = null;   // 1 = внешний фон (первичная)
+let isWin   = null;   // 1 = внутреннее окно (вторичная)
+let isBg    = null;   // isBgExt | isWin
 let isBorder = null;
 
 // ---------- Загрузка ----------
@@ -145,31 +163,38 @@ fileInput.addEventListener('change', e => {
     imageData = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
 
     computeLuminance();
-    buildMask();
-    buildBorder();
+    buildAll();
     drawOverlay();
   };
   img.src = URL.createObjectURL(file);
 });
 
-// ---------- 1. Яркость всех пикселей ----------
+// ---------- Яркость ----------
 function computeLuminance() {
   const d = imageData.data;
   const N = imgWidth * imgHeight;
   lum = new Float32Array(N);
   for (let i = 0, p = 0; i < N; i++, p += 4) {
-    if (d[p + 3] < 20) { lum[i] = 255; continue; } // прозрачное = фон
+    if (d[p + 3] < 20) { lum[i] = 255; continue; }
     lum[i] = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2];
   }
 }
 
-// ---------- 2. Маска фона: flood fill от рамки по ярким пикселям ----------
-function buildMask() {
+// ---------- Первичная + вторичная обработка ----------
+function buildAll() {
+  buildPrimaryMask();
+  buildSecondaryWindows();
+  buildFinalMask();
+  buildBorder();
+}
+
+// ---------- 1. Первичная маска: flood fill от рамки ----------
+function buildPrimaryMask() {
   const w = imgWidth, h = imgHeight;
   const N = w * h;
   const threshold = +bgLumEl.value;
 
-  isBg = new Uint8Array(N);
+  isBgExt = new Uint8Array(N);
   const visited = new Uint8Array(N);
   const queue = [];
 
@@ -181,7 +206,7 @@ function buildMask() {
     if (visited[idx]) return;
     if (!isBright(idx)) return;
     visited[idx] = 1;
-    isBg[idx] = 1;
+    isBgExt[idx] = 1;
     queue.push(idx);
   };
 
@@ -200,8 +225,90 @@ function buildMask() {
   }
 }
 
-// ---------- 3. Граница персонажа ----------
-// Пиксель границы — это фон, у которого хотя бы один сосед — персонаж.
+// ---------- 2. Вторичная маска: внутренние окна ----------
+// Внутри персонажа (isBgExt = 0) ищем связные яркие области.
+// Область → окно, ЕСЛИ она не касается внешнего фона.
+// "Касается" = среди её соседей есть пиксель isBgExt = 1.
+function buildSecondaryWindows() {
+  const w = imgWidth, h = imgHeight;
+  const N = w * h;
+  const threshold = +bgLumEl.value;
+  const minArea = +minWinEl.value;
+
+  isWin = new Uint8Array(N);
+  const visited = new Uint8Array(N);
+
+  const isBright = (i) => lum[i] >= threshold;
+  const isChar = (i) => !isBgExt[i];
+
+  // Для каждой ещё не посещённой яркой точки внутри персонажа
+  // запускаем локальный flood fill, ограниченный "не внешний фон".
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = y * w + x;
+      if (visited[idx]) continue;
+      if (!isChar(idx)) continue;
+      if (!isBright(idx)) continue;
+
+      // Локальный BFS
+      const pixels = [idx];
+      const localSeen = new Uint8Array(N);
+      localSeen[idx] = 1;
+
+      // Флаг: касается ли эта область внешнего фона
+      let touchesBgExt = false;
+
+      let head = 0;
+      while (head < pixels.length) {
+        const ci = pixels[head++];
+        const cx = ci % w;
+        const cy = (ci / w) | 0;
+
+        // Проверяем соседей
+        const neighbors = [
+          [cx + 1, cy],
+          [cx - 1, cy],
+          [cx, cy + 1],
+          [cx, cy - 1],
+        ];
+        for (const [nx, ny] of neighbors) {
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const ni = ny * w + nx;
+
+          if (isBgExt[ni]) {
+            touchesBgExt = true;
+            continue;
+          }
+          if (localSeen[ni]) continue;
+          if (!isBright(ni)) continue;
+
+          localSeen[ni] = 1;
+          pixels.push(ni);
+        }
+      }
+
+      // Помечаем всех посещённых в глобальном visited
+      for (const p of pixels) visited[p] = 1;
+
+      // Если область не касается внешнего фона И достаточно большая —
+      // это внутреннее окно.
+      if (!touchesBgExt && pixels.length >= minArea) {
+        for (const p of pixels) isWin[p] = 1;
+      }
+    }
+  }
+}
+
+// ---------- 3. Итоговая маска фона ----------
+function buildFinalMask() {
+  const N = imgWidth * imgHeight;
+  isBg = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    if (isBgExt[i] || isWin[i]) isBg[i] = 1;
+  }
+}
+
+// ---------- 4. Граница ----------
 function buildBorder() {
   const w = imgWidth, h = imgHeight;
   const N = w * h;
@@ -210,7 +317,7 @@ function buildBorder() {
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = y * w + x;
-      if (!isBg[idx]) continue; // граница только по фоновым пикселям
+      if (!isBg[idx]) continue;
 
       const hasCharNeighbor =
         (x > 0     && !isBg[idx - 1]) ||
@@ -223,16 +330,18 @@ function buildBorder() {
   }
 }
 
-// ---------- 4. Отрисовка поверх ----------
+// ---------- 5. Отрисовка ----------
 function drawOverlay() {
   if (!imageData) return;
 
   const w = imgWidth, h = imgHeight;
   overlayCtx.clearRect(0, 0, w, h);
 
-  const showMask   = showMaskEl.checked;
-  const showBorder = showBorderEl.checked;
-  if (!showMask && !showBorder) {
+  const showMask    = showMaskEl.checked;
+  const showBorder  = showBorderEl.checked;
+  const showWindows = showWindowsEl.checked;
+
+  if (!showMask && !showBorder && !showWindows) {
     updateStats();
     return;
   }
@@ -243,13 +352,13 @@ function drawOverlay() {
   for (let i = 0, j = 0; i < w * h; i++, j += 4) {
     let r = 0, g = 0, b = 0, a = 0;
 
-    if (showMask && !isBg[i]) {
-      // персонаж — зелёная полупрозрачная заливка
-      r = 60; g = 220; b = 120; a = 90;
-    }
-    if (showBorder && isBorder[i]) {
-      // граница — красная непрозрачная
-      r = 255; g = 40; b = 40; a = 230;
+    // Приоритет: окна → граница → маска персонажа
+    if (showWindows && isWin[i]) {
+      r = 60; g = 160; b = 255; a = 140;        // синие окна
+    } else if (showBorder && isBorder[i]) {
+      r = 255; g = 40; b = 40; a = 230;         // красная граница
+    } else if (showMask && !isBg[i]) {
+      r = 60; g = 220; b = 120; a = 90;         // зелёный персонаж
     }
 
     data[j]     = r;
@@ -262,46 +371,56 @@ function drawOverlay() {
   updateStats();
 }
 
-// ---------- 5. Статистика ----------
+// ---------- 6. Статистика ----------
 function updateStats() {
   if (!isBg) return;
   const N = imgWidth * imgHeight;
-  let bg = 0, char_ = 0, border = 0;
+  let bg = 0, char_ = 0, win = 0, border = 0;
   for (let i = 0; i < N; i++) {
     if (isBg[i]) bg++; else char_++;
+    if (isWin[i]) win++;
     if (isBorder[i]) border++;
   }
   const pct = (n) => ((n / N) * 100).toFixed(1) + '%';
   statThreshold.textContent = bgLumEl.value;
-  statBg.textContent        = pct(bg);
+  statBg.textContent        = pct(bg - win);
   statChar.textContent      = pct(char_);
+  statWin.textContent       = pct(win);
   statBorder.textContent    = border.toLocaleString('ru-RU');
 }
 
-// ---------- 6. Реакции на контролы ----------
+// ---------- 7. Реакции ----------
+function rebuildAll() {
+  if (!imageData) return;
+  buildAll();
+  drawOverlay();
+}
+
 bgLumEl.addEventListener('input', () => {
   bgLumVal.textContent = bgLumEl.value;
-  if (!imageData) return;
-  buildMask();
-  buildBorder();
-  drawOverlay();
+  rebuildAll();
+});
+
+minWinEl.addEventListener('input', () => {
+  minWinVal.textContent = minWinEl.value;
+  rebuildAll();
 });
 
 showBorderEl.addEventListener('change', drawOverlay);
 showMaskEl.addEventListener('change', drawOverlay);
+showWindowsEl.addEventListener('change', drawOverlay);
 
 resetBtn.addEventListener('click', () => {
-  bgLumEl.value = 250;
-  bgLumVal.textContent = 250;
+  bgLumEl.value = 200;
+  bgLumVal.textContent = 200;
+  minWinEl.value = 200;
+  minWinVal.textContent = 200;
   showBorderEl.checked = true;
   showMaskEl.checked = true;
-  if (imageData) {
-    buildMask();
-    buildBorder();
-    drawOverlay();
-  }
+  showWindowsEl.checked = false;
+  rebuildAll();
 });
 </script>
 
 </body>
-</html>
+  </html>
