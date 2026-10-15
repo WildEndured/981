@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Фон и персонаж</title>
+<title>Фон и персонаж (Otsu + морфология)</title>
 <style>
   body {
     margin: 0;
@@ -20,10 +20,12 @@
     display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
     justify-content: center; padding: 10px 14px;
     background: #1d2027; border-radius: 10px;
+    max-width: min(92vw, 900px);
   }
   .controls label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
   input[type="file"] { font-size: 13px; }
-  input[type="range"] { width: 160px; }
+  input[type="range"] { width: 140px; }
+  .status { font-size: 12px; opacity: 0.7; }
   .stage {
     position: relative; display: inline-block;
     border: 1px solid #2b2f37; background: #0b0c0f; line-height: 0;
@@ -42,11 +44,16 @@
 
 <div class="controls">
   <label>Изображение: <input id="file" type="file" accept="image/*" /></label>
-  <label>Яркость фона:
-    <input id="bgLum" type="range" min="200" max="255" value="200" />
-    <span id="bgLumVal">200</span>
+  <label>Порог (Otsu ±):
+    <input id="bgLum" type="range" min="-80" max="80" value="0" />
+    <span id="bgLumVal">0</span>
+  </label>
+  <label>Морфология:
+    <input id="morph" type="range" min="0" max="10" value="2" />
+    <span id="morphVal">2</span>
   </label>
   <label><input id="hideImage" type="checkbox" /> Скрыть изображение</label>
+  <span class="status" id="status">загрузка OpenCV…</span>
 </div>
 
 <div class="stage" id="stage">
@@ -61,58 +68,110 @@ const overlay     = document.getElementById('overlay');
 const stageEl     = document.getElementById('stage');
 const bgLumEl     = document.getElementById('bgLum');
 const bgLumVal    = document.getElementById('bgLumVal');
+const morphEl     = document.getElementById('morph');
+const morphVal    = document.getElementById('morphVal');
 const hideImageEl = document.getElementById('hideImage');
+const statusEl    = document.getElementById('status');
 
 const baseCtx    = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
 
+let cvReady = false;
 let imgWidth = 0, imgHeight = 0;
-let lum = null;
 let isBg = null;
+let cvSrc = null;      // cv.Mat с исходным изображением (RGBA)
+let lastImage = null;  // исходный Image, чтобы пересчитать при смене параметров
 
-// ---------- Загрузка ----------
+// ---------- Ожидание OpenCV.js ----------
+function waitForCv() {
+  if (window.cv && window.cv.Mat) {
+    cvReady = true;
+    statusEl.textContent = 'OpenCV готов';
+    return;
+  }
+  statusEl.textContent = 'загрузка OpenCV…';
+  setTimeout(waitForCv, 100);
+}
+waitForCv();
+
+// ---------- Загрузка изображения ----------
 fileInput.addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
   const img = new Image();
   img.onload = () => {
-    imgWidth  = img.naturalWidth;
-    imgHeight = img.naturalHeight;
-
-    [baseCanvas, overlay].forEach(c => {
-      c.width = imgWidth; c.height = imgHeight;
-    });
-
-    baseCtx.drawImage(img, 0, 0);
-    const data = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
-    computeLuminance(data);
-    buildMask();
-    drawOverlay();
+    lastImage = img;
+    processImage(img);
   };
   img.src = URL.createObjectURL(file);
 });
 
-// ---------- Яркость ----------
-function computeLuminance(data) {
-  const d = data.data;
-  const N = imgWidth * imgHeight;
-  lum = new Float32Array(N);
-  for (let i = 0, p = 0; i < N; i++, p += 4) {
-    if (d[p + 3] < 20) { lum[i] = 255; continue; }
-    lum[i] = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2];
+function processImage(img) {
+  imgWidth  = img.naturalWidth;
+  imgHeight = img.naturalHeight;
+
+  [baseCanvas, overlay].forEach(c => {
+    c.width = imgWidth; c.height = imgHeight;
+  });
+
+  baseCtx.drawImage(img, 0, 0);
+
+  if (!cvReady) {
+    statusEl.textContent = 'OpenCV ещё не загружен, подождите…';
+    setTimeout(() => processImage(img), 200);
+    return;
   }
+
+  // Сохраняем копию в cv.Mat
+  if (cvSrc) cvSrc.delete();
+  cvSrc = cv.imread(baseCanvas);
+
+  rebuild();
 }
 
-// ---------- Маска фона ----------
-function buildMask() {
+// ---------- Сегментация: Otsu + морфология + заливка от краёв ----------
+function rebuild() {
+  if (!cvReady || !cvSrc) return;
+
   const w = imgWidth, h = imgHeight;
+  const offset = +bgLumEl.value;      // смещение к порогу Otsu
+  const morphK = +morphEl.value;      // размер ядра морфологии
+
+  // 1. Grayscale
+  const gray = new cv.Mat();
+  cv.cvtColor(cvSrc, gray, cv.COLOR_RGBA2GRAY);
+
+  // 2. Otsu threshold — получаем авто-порог
+  const binary = new cv.Mat();
+  const otsuThresh = cv.threshold(gray, binary, 0, 255,
+                                  cv.THRESH_BINARY + cv.THRESH_OTSU);
+
+  // 3. Ручная коррекция порога (± offset)
+  //    пересчитываем бинарь с thresh = otsuThresh + offset
+  const t = Math.max(0, Math.min(255, otsuThresh + offset));
+  cv.threshold(gray, binary, t, 255, cv.THRESH_BINARY);
+
+  // 4. Морфология: убираем шум и закрываем дырки
+  if (morphK > 0) {
+    const k = 2 * morphK + 1; // нечётное ядро
+    const kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE,
+                                            new cv.Size(k, k));
+    // open — убирает мелкие яркие пятна
+    cv.morphologyEx(binary, binary, cv.MORPH_OPEN, kernel);
+    // close — заливает дырки в фоне
+    cv.morphologyEx(binary, binary, cv.MORPH_CLOSE, kernel);
+    kernel.delete();
+  }
+
+  // 5. Flood fill от краёв: фон = светлое И связанное с границей
+  //    binary: 255 = яркое. Скопируем в isBg[] только связанное с краями.
   const N = w * h;
-  const threshold = +bgLumEl.value;
-
   isBg = new Uint8Array(N);
-  const queue = [];
-  const isBright = i => lum[i] >= threshold;
 
+  const binData = binary.data;
+  const isBright = i => binData[i] > 0;
+
+  const queue = [];
   const push = (x, y) => {
     if (x < 0 || y < 0 || x >= w || y >= h) return;
     const idx = y * w + x;
@@ -128,17 +187,25 @@ function buildMask() {
   let head = 0;
   while (head < queue.length) {
     const idx = queue[head++];
-    push(idx % w + 1, (idx / w) | 0);
-    push(idx % w - 1, (idx / w) | 0);
-    push(idx % w, (idx / w | 0) + 1);
-    push(idx % w, (idx / w | 0) - 1);
+    const x = idx % w;
+    const y = (idx / w) | 0;
+    push(x + 1, y);
+    push(x - 1, y);
+    push(x, y + 1);
+    push(x, y - 1);
   }
+
+  gray.delete();
+  binary.delete();
+
+  drawOverlay();
+  statusEl.textContent = `Otsu=${otsuThresh}, порог=${t}, морфология=${morphK}`;
 }
 
-// ---------- Отрисовка ----------
+// ---------- Отрисовка маски ----------
 function drawOverlay() {
   const w = imgWidth, h = imgHeight;
-  if (!w) return;
+  if (!w || !isBg) return;
   overlayCtx.clearRect(0, 0, w, h);
   const img = overlayCtx.createImageData(w, h);
   const data = img.data;
@@ -157,15 +224,21 @@ function drawOverlay() {
 // ---------- Реакции ----------
 bgLumEl.addEventListener('input', () => {
   bgLumVal.textContent = bgLumEl.value;
-  if (!lum) return;
-  buildMask();
-  drawOverlay();
+  rebuild();
+});
+
+morphEl.addEventListener('input', () => {
+  morphVal.textContent = morphEl.value;
+  rebuild();
 });
 
 hideImageEl.addEventListener('change', () => {
   stageEl.classList.toggle('hide', hideImageEl.checked);
 });
 </script>
+
+<!-- OpenCV.js -->
+<script async src="https://docs.opencv.org/4.10.0/opencv.js" onload="onCvLoaded && onCvLoaded()"></script>
 
 </body>
 </html>
