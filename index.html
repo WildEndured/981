@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Фон и персонаж — улучшенный</title>
+<title>Фон, персонаж, пропорции</title>
 <style>
   body {
     margin: 0;
@@ -92,9 +92,7 @@
     margin: 0 0 8px 0; font-size: 13px;
     color: #ffcc00; font-weight: 600;
   }
-  .sample-list {
-    display: flex; flex-wrap: wrap; gap: 8px;
-  }
+  .sample-list { display: flex; flex-wrap: wrap; gap: 8px; }
   .sample-chip {
     display: flex; align-items: center; gap: 6px;
     padding: 5px 10px; border-radius: 8px;
@@ -110,8 +108,54 @@
     font-size: 14px; padding: 0 3px; cursor: pointer; line-height: 1;
   }
   .sample-chip button.remove:hover { color: #ff9090; }
-  .sample-empty {
-    color: #8b93a1; font-size: 12px;
+  .sample-empty { color: #8b93a1; font-size: 12px; }
+
+  /* ---------- Блок пропорций ---------- */
+  .props-block {
+    width: min(92vw, 900px);
+    background: #1d2027; border-radius: 10px;
+    padding: 12px 14px; display: none;
+  }
+  .props-block.visible { display: block; }
+  .props-block h3 {
+    margin: 0 0 10px 0; font-size: 14px;
+    color: #e6e6e6; font-weight: 600;
+  }
+  .props-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 700px) { .props-grid { grid-template-columns: 1fr; } }
+  .props-block-inner {
+    background: #14161a; border: 1px solid #2b2f37;
+    border-radius: 8px; padding: 10px 12px;
+  }
+  .props-block-inner h4 {
+    margin: 0 0 8px 0; font-size: 13px;
+    color: #ffcc00; font-weight: 600;
+  }
+  .prop-bar {
+    margin: 6px 0;
+  }
+  .prop-bar-label {
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: #b9c3d1;
+    margin-bottom: 3px;
+  }
+  .prop-bar-label b { color: #e6e6e6; font-variant-numeric: tabular-nums; }
+  .prop-bar-track {
+    height: 8px; background: #2b2f37;
+    border-radius: 4px; overflow: hidden;
+    position: relative;
+  }
+  .prop-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #1e4a8a, #40a0ff);
+  }
+  .prop-bar-marker {
+    position: absolute; top: -2px; bottom: -2px; width: 2px;
+    background: #ffcc00;
   }
 
   .info-panel {
@@ -170,21 +214,6 @@
     line-height: 1; border-radius: 4px;
   }
   .point-item .remove:hover { background: #3a1a1a; color: #ff9090; }
-
-  .swatch {
-    display: inline-block; width: 12px; height: 12px;
-    border-radius: 3px; border: 1px solid #555;
-    vertical-align: middle; margin-left: 6px;
-  }
-
-  .bar {
-    height: 6px; background: #2b2f37; border-radius: 3px;
-    overflow: hidden; margin-top: 3px;
-  }
-  .bar-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #1e4a8a, #40a0ff);
-  }
 </style>
 </head>
 <body>
@@ -198,6 +227,7 @@
   <label><input id="hideImage" type="checkbox" /> Скрыть</label>
   <label><input id="showInfo" type="checkbox" checked /> Инфо</label>
   <label><input id="showHisto" type="checkbox" checked /> Гистограмма</label>
+  <label><input id="showProps" type="checkbox" checked /> Пропорции</label>
 </div>
 
 <div class="controls">
@@ -205,20 +235,17 @@
     <button id="modeLum" class="active">Яркость</button>
     <button id="modeColor">Цвет</button>
   </div>
-
   <label><input id="invert" type="checkbox" /> Инвертировать</label>
-
   <label><input id="useWindows" type="checkbox" /> Внутренние окна</label>
   <label><input id="useHoles" type="checkbox" checked /> Закрывать дырки</label>
   <label><input id="useSmooth" type="checkbox" checked /> Сглаживание</label>
 
   <div id="lumControls">
-    <label>Порог яркости:
+    <label>Порог:
       <input id="bgLum" type="range" min="0" max="255" value="200" />
       <span id="bgLumVal">200</span>
     </label>
   </div>
-
   <div id="colorControls" style="display:none;">
     <label>Порог цвета:
       <input id="bgDist" type="range" min="1" max="150" value="30" />
@@ -236,7 +263,7 @@
     <input id="minWin" type="range" min="10" max="3000" value="300" />
     <span id="minWinVal">300</span>
   </label>
-  <label>Сглаживание (итераций):
+  <label>Сглаживание:
     <input id="smoothIter" type="range" min="0" max="4" value="1" />
     <span id="smoothIterVal">1</span>
   </label>
@@ -248,15 +275,41 @@
 </div>
 
 <p class="hint" id="hintText">
-  Режим «Яркость»: фон — по значению яркости. Режим «Цвет»: фон — по образцам
-  цвета (можно добавить несколько). Кнопки «Авто-подбор», «Добавить цвет фона»,
-  «Точка заливки» — три разных способа задать фон.
+  Пропорции считаются по bounding box персонажа: ширина, высота, положение
+  на изображении, а также канонические доли тела (голова, шея, плечи, таз, колени).
 </p>
+
+<!-- ============================================================
+     ПРОПОРЦИИ
+     ============================================================ -->
+<div class="props-block visible" id="propsPanel">
+  <h3>Пропорции персонажа</h3>
+
+  <div class="props-grid">
+
+    <div class="props-block-inner">
+      <h4>Bounding box</h4>
+      <div class="kv"><span>Ширина</span><span id="propWidth">—</span></div>
+      <div class="kv"><span>Высота</span><span id="propHeight">—</span></div>
+      <div class="kv"><span>Соотношение (выс/шир)</span><span id="propAspect">—</span></div>
+      <div class="kv"><span>Площадь bbox</span><span id="propBBoxArea">—</span></div>
+      <div class="kv"><span>Заполнение</span><span id="propFill">—</span></div>
+      <div class="kv"><span>Смещение X</span><span id="propOffsetX">—</span></div>
+      <div class="kv"><span>Смещение Y</span><span id="propOffsetY">—</span></div>
+    </div>
+
+    <div class="props-block-inner">
+      <h4>Канонические доли тела</h4>
+      <div id="propBars"></div>
+    </div>
+
+  </div>
+</div>
 
 <div class="samples-block" id="samplesPanel">
   <h4>Цветовые образцы фона <span id="samplesCount" style="color:#8b93a1;font-weight:normal;">(0)</span></h4>
   <div class="sample-list" id="samplesList">
-    <span class="sample-empty">Образцы не заданы. Нажми «Добавить цвет фона» и кликни по фону.</span>
+    <span class="sample-empty">Образцы не заданы.</span>
   </div>
 </div>
 
@@ -338,6 +391,7 @@ const smoothIterVal  = document.getElementById('smoothIterVal');
 const hideImageEl    = document.getElementById('hideImage');
 const showInfoEl     = document.getElementById('showInfo');
 const showHistoEl    = document.getElementById('showHisto');
+const showPropsEl    = document.getElementById('showProps');
 const addPointBtn    = document.getElementById('addPointBtn');
 const clearPointsBtn = document.getElementById('clearPointsBtn');
 const autoThresholdBtn = document.getElementById('autoThresholdBtn');
@@ -352,6 +406,16 @@ const hintText      = document.getElementById('hintText');
 const samplesPanel = document.getElementById('samplesPanel');
 const samplesCount = document.getElementById('samplesCount');
 const samplesList  = document.getElementById('samplesList');
+
+const propsPanel = document.getElementById('propsPanel');
+const propWidth    = document.getElementById('propWidth');
+const propHeight   = document.getElementById('propHeight');
+const propAspect   = document.getElementById('propAspect');
+const propBBoxArea = document.getElementById('propBBoxArea');
+const propFill     = document.getElementById('propFill');
+const propOffsetX  = document.getElementById('propOffsetX');
+const propOffsetY  = document.getElementById('propOffsetY');
+const propBars     = document.getElementById('propBars');
 
 const infoPanel       = document.getElementById('infoPanel');
 const infoSize        = document.getElementById('infoSize');
@@ -390,15 +454,17 @@ let histogram = null;
 let selectedPointIndex = -1;
 
 let mode = 'lum';
-let colorSamples = [];       // массив { r, g, b }
+let colorSamples = [];
 let bgColorMode = false;
 let addPointMode = false;
 
 let sourcePoints = [];
 
-// счётчики для статистики
 let holesFilledCount = 0;
 let windowsFoundCount = 0;
+
+// Bounding box персонажа
+let charBBox = null;      // { minX, minY, maxX, maxY }
 
 // ---------- Загрузка ----------
 fileInput.addEventListener('change', e => {
@@ -449,12 +515,10 @@ function computeHistogram() {
   }
 }
 
-// ---------- Авто-подбор порога яркости ----------
 function autoPickThreshold() {
   if (!histogram) return;
   const N = imgWidth * imgHeight;
   const minCount = Math.max(1, Math.floor(N * 0.003));
-
   const smooth = new Uint32Array(256);
   for (let v = 0; v < 256; v++) {
     let s = 0;
@@ -464,22 +528,19 @@ function autoPickThreshold() {
     }
     smooth[v] = s;
   }
-
   let bestBin = -1, bestCount = 0;
   for (let v = 255; v >= 0; v--) {
     if (smooth[v] >= minCount && smooth[v] > bestCount) {
-      bestCount = smooth[v];
-      bestBin = v;
+      bestCount = smooth[v]; bestBin = v;
     }
   }
   if (bestBin < 0) bestBin = 248;
-
   const threshold = Math.max(0, Math.min(255, bestBin - 4));
   bgLumEl.value = threshold;
   bgLumVal.textContent = threshold;
 }
 
-// ---------- Проверка: пиксель в фоне? ----------
+// ---------- Проверка пикселя ----------
 function isPixelBg(idx) {
   if (mode === 'lum') {
     const L = lum[idx];
@@ -487,29 +548,20 @@ function isPixelBg(idx) {
     const inv = invertEl.checked;
     return inv ? (L <= t) : (L >= t);
   }
-  // Цвет: похож ли на ЛЮБОЙ из образцов
   if (colorSamples.length === 0) return false;
-
   const p = idx * 4;
   const d = imgDataRef.data;
   const r = d[p], g = d[p + 1], b = d[p + 2];
   const t = +bgDistEl.value;
   const t2 = t * t * 3;
-
   for (const s of colorSamples) {
-    const dr = r - s.r;
-    const dg = g - s.g;
-    const db = b - s.b;
-    if (dr * dr + dg * dg + db * db <= t2) {
-      return !invertEl.checked;   // без инверсии — фон
-    }
+    const dr = r - s.r, dg = g - s.g, db = b - s.b;
+    if (dr * dr + dg * dg + db * db <= t2) return !invertEl.checked;
   }
-  return invertEl.checked;         // с инверсией — фон то, что НЕ похоже
+  return invertEl.checked;
 }
 
-// ============================================================
-//  МАСКА С УЛУЧШЕНИЯМИ
-// ============================================================
+// ---------- Маска ----------
 function buildMask() {
   const w = imgWidth, h = imgHeight;
   const N = w * h;
@@ -538,15 +590,10 @@ function buildMask() {
     const idx = queue[head++];
     const x = idx % w;
     const y = (idx / w) | 0;
-    push(x + 1, y);
-    push(x - 1, y);
-    push(x, y + 1);
-    push(x, y - 1);
+    push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
   }
 
-  // --- Улучшение 1: ЗАКРЫТИЕ ДЫРОК ---
-  // Ищем связные области фона, НЕ касающиеся рамки, площадью < maxHole.
-  // Такие «дырки» внутри персонажа — заливаем как персонажа.
+  // --- Закрытие дырок ---
   holesFilledCount = 0;
   if (useHolesEl.checked) {
     const maxHole = +maxHoleEl.value;
@@ -555,8 +602,7 @@ function buildMask() {
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
           const idx = y * w + x;
-          if (visited[idx]) continue;
-          if (!isBg[idx]) continue;
+          if (visited[idx] || !isBg[idx]) continue;
 
           const pixels = [idx];
           const localSeen = new Uint8Array(N);
@@ -566,25 +612,17 @@ function buildMask() {
           let hh = 0;
           while (hh < pixels.length) {
             const ci = pixels[hh++];
-            const cx = ci % w;
-            const cy = (ci / w) | 0;
+            const cx = ci % w, cy = (ci / w) | 0;
             if (cx === 0 || cy === 0 || cx === w - 1 || cy === h - 1) touchesFrame = true;
-
-            const nb = [
-              [cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]
-            ];
+            const nb = [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]];
             for (const [nx, ny] of nb) {
               if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
               const ni = ny * w + nx;
-              if (localSeen[ni]) continue;
-              if (!isBg[ni]) continue;
-              localSeen[ni] = 1;
-              pixels.push(ni);
+              if (localSeen[ni] || !isBg[ni]) continue;
+              localSeen[ni] = 1; pixels.push(ni);
             }
           }
-
           for (const pp of pixels) visited[pp] = 1;
-
           if (!touchesFrame && pixels.length <= maxHole) {
             for (const pp of pixels) isBg[pp] = 0;
             holesFilledCount += pixels.length;
@@ -594,22 +632,16 @@ function buildMask() {
     }
   }
 
-  // --- Улучшение 2: ВНУТРЕННИЕ ОКНА ---
-  // Ищем связные яркие/цветные области внутри персонажа, которые
-  // не касаются фона, но похожи на фон. Это окна между рук, ног, змей.
+  // --- Внутренние окна ---
   windowsFoundCount = 0;
   if (useWindowsEl.checked) {
     const minWin = +minWinEl.value;
     const visited = new Uint8Array(N);
-
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const idx = y * w + x;
-        if (visited[idx]) continue;
-        if (isBg[idx]) continue;             // уже фон
-        if (!isPixelBg(idx)) continue;       // не похоже на фон
+        if (visited[idx] || isBg[idx] || !isPixelBg(idx)) continue;
 
-        // Собираем локальную область, ограничиваясь isBg[idx] == 0
         const pixels = [idx];
         const localSeen = new Uint8Array(N);
         localSeen[idx] = 1;
@@ -618,27 +650,17 @@ function buildMask() {
         let hh = 0;
         while (hh < pixels.length) {
           const ci = pixels[hh++];
-          const cx = ci % w;
-          const cy = (ci / w) | 0;
-
-          const nb = [
-            [cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]
-          ];
+          const cx = ci % w, cy = (ci / w) | 0;
+          const nb = [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]];
           for (const [nx, ny] of nb) {
             if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
             const ni = ny * w + nx;
-
             if (isBg[ni]) { touchesBg = true; continue; }
-            if (localSeen[ni]) continue;
-            if (!isPixelBg(ni)) continue;
-
-            localSeen[ni] = 1;
-            pixels.push(ni);
+            if (localSeen[ni] || !isPixelBg(ni)) continue;
+            localSeen[ni] = 1; pixels.push(ni);
           }
         }
-
         for (const pp of pixels) visited[pp] = 1;
-
         if (!touchesBg && pixels.length >= minWin) {
           for (const pp of pixels) isBg[pp] = 1;
           windowsFoundCount += pixels.length;
@@ -647,27 +669,18 @@ function buildMask() {
     }
   }
 
-  // --- Улучшение 3: СГЛАЖИВАНИЕ ---
-  // Морфологический проход: если у пикселя подавляющее большинство
-  // соседей противоположного класса — переключаем.
+  // --- Сглаживание ---
   if (useSmoothEl.checked) {
     const iterations = +smoothIterEl.value;
-    for (let it = 0; it < iterations; it++) {
-      smoothOnce(isBg, w, h);
-    }
+    for (let it = 0; it < iterations; it++) smoothOnce(isBg, w, h);
   }
 }
 
-// ---------- Один проход сглаживания ----------
 function smoothOnce(isBg, w, h) {
-  const N = w * h;
   const copy = isBg.slice();
-
   for (let y = 1; y < h - 1; y++) {
     for (let x = 1; x < w - 1; x++) {
       const idx = y * w + x;
-
-      // Считаем 8 соседей
       let bgCount = 0;
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
@@ -675,10 +688,100 @@ function smoothOnce(isBg, w, h) {
           bgCount += copy[idx + dy * w + dx];
         }
       }
-      // Если >= 7 из 8 — фон, ставим фон
       if (bgCount >= 7) isBg[idx] = 1;
       else if (bgCount <= 1) isBg[idx] = 0;
     }
+  }
+}
+
+// ============================================================
+//  ПРОПОРЦИИ
+// ============================================================
+function computeProportions() {
+  const w = imgWidth, h = imgHeight;
+
+  // Bounding box
+  let minX = w, minY = h, maxX = -1, maxY = -1;
+  let charCount = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!isBg[y * w + x]) {
+        charCount++;
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  if (maxX < 0) { charBBox = null; return; }
+
+  charBBox = { minX, minY, maxX, maxY, width: maxX - minX + 1, height: maxY - minY + 1 };
+
+  const bw = charBBox.width;
+  const bh = charBBox.height;
+  const N = w * h;
+  const bboxArea = bw * bh;
+
+  propWidth.textContent   = `${bw} px`;
+  propHeight.textContent  = `${bh} px`;
+  propAspect.textContent  = (bh / bw).toFixed(3);
+  propBBoxArea.textContent = `${bboxArea.toLocaleString('ru-RU')} px`;
+  propFill.textContent    = `${((charCount / bboxArea) * 100).toFixed(1)}%`;
+
+  // Смещение центра bbox относительно центра изображения
+  const bboxCX = minX + bw / 2;
+  const bboxCY = minY + bh / 2;
+  const offX = ((bboxCX - w / 2) / w) * 100;
+  const offY = ((bboxCY - h / 2) / h) * 100;
+
+  propOffsetX.textContent = `${offX >= 0 ? '+' : ''}${offX.toFixed(1)}%`;
+  propOffsetY.textContent = `${offY >= 0 ? '+' : ''}${offY.toFixed(1)}%`;
+
+  // Канонические доли. Считаем ширину силуэта на каждой высоте.
+  const fractions = [
+    { f: 0.05, name: 'голова' },
+    { f: 0.15, name: 'шея' },
+    { f: 0.22, name: 'плечи' },
+    { f: 0.33, name: 'грудь' },
+    { f: 0.52, name: 'таз' },
+    { f: 0.72, name: 'колени' },
+    { f: 0.95, name: 'стопы' },
+  ];
+
+  const maxBarWidth = bw; // для нормировки
+
+  propBars.innerHTML = '';
+
+  for (const { f, name } of fractions) {
+    const y = minY + Math.round(bh * f);
+    if (y < 0 || y >= h) continue;
+
+    let rowMinX = -1, rowMaxX = -1;
+    for (let x = 0; x < w; x++) {
+      if (!isBg[y * w + x]) {
+        if (rowMinX < 0) rowMinX = x;
+        rowMaxX = x;
+      }
+    }
+
+    const rowWidth = rowMinX < 0 ? 0 : (rowMaxX - rowMinX + 1);
+    const pct = bh > 0 ? (rowWidth / maxBarWidth) * 100 : 0;
+    const pctOfHeight = ((f * 100)).toFixed(0);
+
+    const bar = document.createElement('div');
+    bar.className = 'prop-bar';
+    bar.innerHTML = `
+      <div class="prop-bar-label">
+        <span>${name} (${pctOfHeight}% высоты)</span>
+        <b>${rowWidth} px</b>
+      </div>
+      <div class="prop-bar-track">
+        <div class="prop-bar-fill" style="width:${Math.min(100, pct)}%"></div>
+      </div>
+    `;
+    propBars.appendChild(bar);
   }
 }
 
@@ -693,13 +796,45 @@ function drawOverlay() {
 
   for (let i = 0, j = 0; i < w * h; i++, j += 4) {
     if (!isBg[i]) {
-      data[j]     = 255;
-      data[j + 1] = 60;
-      data[j + 2] = 60;
-      data[j + 3] = 140;
+      data[j] = 255; data[j + 1] = 60; data[j + 2] = 60; data[j + 3] = 140;
     }
   }
   overlayCtx.putImageData(img, 0, 0);
+
+  // Рисуем bounding box персонажа — если есть
+  if (charBBox) {
+    overlayCtx.strokeStyle = 'rgba(0, 200, 255, 0.9)';
+    overlayCtx.lineWidth = Math.max(2, Math.round(imgWidth / 400));
+    overlayCtx.setLineDash([10, 6]);
+    overlayCtx.strokeRect(
+      charBBox.minX, charBBox.minY,
+      charBBox.width, charBBox.height
+    );
+    overlayCtx.setLineDash([]);
+
+    // Разметка долей тела (горизонтальные линии)
+    const fractions = [0.05, 0.15, 0.22, 0.33, 0.52, 0.72, 0.95];
+    overlayCtx.strokeStyle = 'rgba(255, 200, 0, 0.55)';
+    overlayCtx.lineWidth = Math.max(1, Math.round(imgWidth / 800));
+    for (const f of fractions) {
+      const y = charBBox.minY + Math.round(charBBox.height * f);
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(charBBox.minX, y);
+      overlayCtx.lineTo(charBBox.maxX + 1, y);
+      overlayCtx.stroke();
+    }
+
+    // Центр bbox
+    const cx = charBBox.minX + charBBox.width / 2;
+    const cy = charBBox.minY + charBBox.height / 2;
+    overlayCtx.beginPath();
+    overlayCtx.arc(cx, cy, 6, 0, Math.PI * 2);
+    overlayCtx.fillStyle = '#00c8ff';
+    overlayCtx.fill();
+    overlayCtx.lineWidth = 2;
+    overlayCtx.strokeStyle = '#000';
+    overlayCtx.stroke();
+  }
 
   sourcePoints.forEach((p, i) => {
     const isSelected = i === selectedPointIndex;
@@ -728,7 +863,6 @@ function drawHistogram() {
   let maxCount = 0;
   for (let v = 1; v < 255; v++) if (histogram[v] > maxCount) maxCount = histogram[v];
   if (maxCount === 0) maxCount = 1;
-
   const barW = W / 256;
 
   histoCtx.fillStyle = '#3a4450';
@@ -764,24 +898,20 @@ function drawHistogram() {
 
   histoCtx.fillStyle = '#8b93a1';
   histoCtx.font = '10px system-ui';
-  histoCtx.textAlign = 'left';
-  histoCtx.fillText('0', 4, H - 4);
-  histoCtx.textAlign = 'right';
-  histoCtx.fillText('255', W - 4, H - 4);
+  histoCtx.textAlign = 'left'; histoCtx.fillText('0', 4, H - 4);
+  histoCtx.textAlign = 'right'; histoCtx.fillText('255', W - 4, H - 4);
 
-  const smooth = new Float32Array(256);
+  const sm = new Float32Array(256);
   for (let v = 0; v < 256; v++) {
     let s = 0;
     for (let k = -3; k <= 3; k++) {
       const vv = v + k;
       if (vv >= 0 && vv < 256) s += histogram[vv];
     }
-    smooth[v] = s;
+    sm[v] = s;
   }
   let valleyV = -1, valleyScore = Infinity;
-  for (let v = 50; v <= 250; v++) {
-    if (smooth[v] < valleyScore) { valleyScore = smooth[v]; valleyV = v; }
-  }
+  for (let v = 50; v <= 250; v++) if (sm[v] < valleyScore) { valleyScore = sm[v]; valleyV = v; }
   histoValley.textContent = valleyV >= 0 ? `${valleyV}` : '—';
 
   histoThresholdLabel.textContent = mode === 'lum'
@@ -789,21 +919,19 @@ function drawHistogram() {
     : `Цвет-образцов: ${colorSamples.length}`;
 }
 
-// ---------- Список образцов цвета ----------
+// ---------- Список образцов ----------
 function renderSamplesList() {
   samplesCount.textContent = `(${colorSamples.length})`;
   samplesList.innerHTML = '';
-
   if (colorSamples.length === 0) {
-    samplesList.innerHTML = '<span class="sample-empty">Образцы не заданы. Нажми «Добавить цвет фона» и кликни по фону.</span>';
+    samplesList.innerHTML = '<span class="sample-empty">Образцы не заданы.</span>';
     return;
   }
-
   colorSamples.forEach((s, i) => {
     const chip = document.createElement('div');
     chip.className = 'sample-chip';
     chip.innerHTML = `
-      <span class="swatch" style="background:rgb(${s.r},${s.g},${s.b})"></span>
+      <span style="display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid #555;background:rgb(${s.r},${s.g},${s.b})"></span>
       <span>rgb(${s.r}, ${s.g}, ${s.b})</span>
       <button class="remove" title="Удалить">✕</button>
     `;
@@ -819,54 +947,42 @@ function renderSamplesList() {
 // ---------- Режимы ----------
 modeLumBtn.addEventListener('click', () => {
   mode = 'lum';
-  modeLumBtn.classList.add('active');
-  modeColorBtn.classList.remove('active');
-  lumControls.style.display = '';
-  colorControls.style.display = 'none';
+  modeLumBtn.classList.add('active'); modeColorBtn.classList.remove('active');
+  lumControls.style.display = ''; colorControls.style.display = 'none';
   samplesPanel.classList.remove('visible');
   if (lum) rebuildAll();
 });
-
 modeColorBtn.addEventListener('click', () => {
   mode = 'color';
-  modeColorBtn.classList.add('active');
-  modeLumBtn.classList.remove('active');
-  lumControls.style.display = 'none';
-  colorControls.style.display = '';
+  modeColorBtn.classList.add('active'); modeLumBtn.classList.remove('active');
+  lumControls.style.display = 'none'; colorControls.style.display = '';
   samplesPanel.classList.add('visible');
   renderSamplesList();
-  hintText.textContent = 'Нажми «Добавить цвет фона» и кликни по чистому фону. Можно добавить несколько образцов.';
   if (lum) rebuildAll();
 });
 
-// ---------- Выбор цвета фона ----------
 pickBgColorBtn.addEventListener('click', () => {
   bgColorMode = !bgColorMode;
   pickBgColorBtn.classList.toggle('active', bgColorMode);
-  addPointBtn.classList.remove('active');
-  addPointMode = false;
+  addPointBtn.classList.remove('active'); addPointMode = false;
   baseCanvas.style.cursor = bgColorMode ? 'copy' : 'default';
 });
 
-// ---------- Точки ----------
 addPointBtn.addEventListener('click', () => {
   addPointMode = !addPointMode;
   addPointBtn.classList.toggle('active', addPointMode);
-  pickBgColorBtn.classList.remove('active');
-  bgColorMode = false;
+  pickBgColorBtn.classList.remove('active'); bgColorMode = false;
   baseCanvas.style.cursor = addPointMode ? 'crosshair' : 'default';
 });
 
 clearPointsBtn.addEventListener('click', () => {
-  sourcePoints = [];
-  selectedPointIndex = -1;
+  sourcePoints = []; selectedPointIndex = -1;
   if (!lum) return;
-  buildMask(); drawOverlay(); updateInfoPanel();
+  rebuildAll();
 });
 
 baseCanvas.addEventListener('click', e => {
   if (!lum) return;
-
   const rect = baseCanvas.getBoundingClientRect();
   const scaleX = imgWidth / rect.width;
   const scaleY = imgHeight / rect.height;
@@ -879,19 +995,14 @@ baseCanvas.addEventListener('click', e => {
     const dp = idx * 4;
     const d = imgDataRef.data;
     colorSamples.push({ r: d[dp], g: d[dp + 1], b: d[dp + 2] });
-
     if (mode !== 'color') {
       mode = 'color';
-      modeColorBtn.classList.add('active');
-      modeLumBtn.classList.remove('active');
-      lumControls.style.display = 'none';
-      colorControls.style.display = '';
+      modeColorBtn.classList.add('active'); modeLumBtn.classList.remove('active');
+      lumControls.style.display = 'none'; colorControls.style.display = '';
       samplesPanel.classList.add('visible');
     }
-
     renderSamplesList();
-    bgColorMode = false;
-    pickBgColorBtn.classList.remove('active');
+    bgColorMode = false; pickBgColorBtn.classList.remove('active');
     baseCanvas.style.cursor = 'default';
     rebuildAll();
     return;
@@ -901,71 +1012,60 @@ baseCanvas.addEventListener('click', e => {
     sourcePoints.push({ x, y });
     selectedPointIndex = sourcePoints.length - 1;
   } else {
-    let hitIndex = -1;
+    let hit = -1;
     for (let i = sourcePoints.length - 1; i >= 0; i--) {
       const p = sourcePoints[i];
       const dx = p.x - x, dy = p.y - y;
-      if (dx * dx + dy * dy < 15 * 15) { hitIndex = i; break; }
+      if (dx * dx + dy * dy < 15 * 15) { hit = i; break; }
     }
-    if (hitIndex === -1) selectedPointIndex = -1;
-    else if (hitIndex === selectedPointIndex) { sourcePoints.splice(hitIndex, 1); selectedPointIndex = -1; }
-    else selectedPointIndex = hitIndex;
+    if (hit === -1) selectedPointIndex = -1;
+    else if (hit === selectedPointIndex) { sourcePoints.splice(hit, 1); selectedPointIndex = -1; }
+    else selectedPointIndex = hit;
   }
-  buildMask(); drawOverlay(); updateInfoPanel();
+  rebuildAll();
 });
 
 function removePoint(index) {
   sourcePoints.splice(index, 1);
   if (selectedPointIndex === index) selectedPointIndex = -1;
   else if (selectedPointIndex > index) selectedPointIndex--;
-  buildMask(); drawOverlay(); updateInfoPanel();
+  rebuildAll();
 }
 
-// ---------- Анализ точки ----------
 function analyzePoint(p) {
   const w = imgWidth, h = imgHeight;
   const idx = p.y * w + p.x;
   const dp = idx * 4;
-  const r = imgDataRef.data[dp];
-  const g = imgDataRef.data[dp + 1];
-  const b = imgDataRef.data[dp + 2];
+  const r = imgDataRef.data[dp], g = imgDataRef.data[dp + 1], b = imgDataRef.data[dp + 2];
   const L = lum[idx];
 
   const localIsBg = new Uint8Array(w * h);
-  const queue = [idx];
-  localIsBg[idx] = 1;
-  let touchesFrame = false;
-  let sumLum = L;
+  const queue = [idx]; localIsBg[idx] = 1;
+  let touchesFrame = false, sumLum = L;
 
   let head = 0;
   while (head < queue.length) {
     const ci = queue[head++];
-    const cx = ci % w;
-    const cy = (ci / w) | 0;
+    const cx = ci % w, cy = (ci / w) | 0;
     if (cx === 0 || cy === 0 || cx === w - 1 || cy === h - 1) touchesFrame = true;
-
     const pushLocal = (nx, ny) => {
       if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
       const ni = ny * w + nx;
-      if (localIsBg[ni]) return;
-      if (!isPixelBg(ni)) return;
-      localIsBg[ni] = 1;
-      sumLum += lum[ni];
-      queue.push(ni);
+      if (localIsBg[ni] || !isPixelBg(ni)) return;
+      localIsBg[ni] = 1; sumLum += lum[ni]; queue.push(ni);
     };
     pushLocal(cx + 1, cy); pushLocal(cx - 1, cy);
     pushLocal(cx, cy + 1); pushLocal(cx, cy - 1);
   }
-
   const filled = queue.length;
-  const avgLum = sumLum / filled;
-  return { r, g, b, L, filled, touchesFrame, avgLum };
+  return { r, g, b, L, filled, touchesFrame, avgLum: sumLum / filled };
 }
 
 // ---------- Инфо ----------
 function updateInfoPanel() {
   infoPanel.classList.toggle('visible', showInfoEl.checked);
   histoPanel.classList.toggle('visible', showHistoEl.checked);
+  propsPanel.classList.toggle('visible', showPropsEl.checked);
 
   if (!lum) return;
 
@@ -995,17 +1095,10 @@ function updateInfoPanel() {
       const left = document.createElement('div');
       left.className = 'left';
       const dotColor = (i === selectedPointIndex) ? '#ff5050' : '#ffcc00';
-      left.innerHTML =
-        `<span class="dot" style="background:${dotColor}"></span>` +
-        `<span>#${i + 1}</span>` +
-        `<span class="coords">x=${p.x}, y=${p.y}</span>`;
-      left.addEventListener('click', () => {
-        selectedPointIndex = i;
-        drawOverlay(); updateInfoPanel();
-      });
+      left.innerHTML = `<span class="dot" style="background:${dotColor}"></span><span>#${i + 1}</span><span class="coords">x=${p.x}, y=${p.y}</span>`;
+      left.addEventListener('click', () => { selectedPointIndex = i; drawOverlay(); updateInfoPanel(); });
       const btn = document.createElement('button');
-      btn.className = 'remove';
-      btn.textContent = '✕';
+      btn.className = 'remove'; btn.textContent = '✕';
       btn.addEventListener('click', (ev) => { ev.stopPropagation(); removePoint(i); });
       item.appendChild(left); item.appendChild(btn);
       pointList.appendChild(item);
@@ -1016,11 +1109,10 @@ function updateInfoPanel() {
     const p = sourcePoints[selectedPointIndex];
     const info = analyzePoint(p);
     const inBg = isPixelBg(p.y * imgWidth + p.x);
-
     pointDetailsBlock.style.display = 'block';
     pdIndex.textContent = selectedPointIndex + 1;
     pdCoords.textContent = `x=${p.x}, y=${p.y}`;
-    pdColor.innerHTML = `rgb(${info.r}, ${info.g}, ${info.b})<span class="swatch" style="background:rgb(${info.r},${info.g},${info.b})"></span>`;
+    pdColor.innerHTML = `rgb(${info.r}, ${info.g}, ${info.b})`;
     pdLum.textContent = info.L.toFixed(1);
     pdAbove.textContent = inBg ? 'да' : 'нет';
     pdAbove.style.color = inBg ? '#40d080' : '#ff6060';
@@ -1036,68 +1128,35 @@ function updateInfoPanel() {
 function rebuildAll() {
   if (!lum) return;
   buildMask();
+  computeProportions();
   drawOverlay();
   drawHistogram();
   updateInfoPanel();
 }
 
 // ---------- Слушатели ----------
-bgLumEl.addEventListener('input', () => {
-  bgLumVal.textContent = bgLumEl.value;
-  if (mode === 'lum') rebuildAll();
-});
-bgDistEl.addEventListener('input', () => {
-  bgDistVal.textContent = bgDistEl.value;
-  if (mode === 'color') rebuildAll();
-});
+bgLumEl.addEventListener('input', () => { bgLumVal.textContent = bgLumEl.value; if (mode === 'lum') rebuildAll(); });
+bgDistEl.addEventListener('input', () => { bgDistVal.textContent = bgDistEl.value; if (mode === 'color') rebuildAll(); });
 invertEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 useWindowsEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 useHolesEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 useSmoothEl.addEventListener('change', () => { if (lum) rebuildAll(); });
-
-maxHoleEl.addEventListener('input', () => {
-  maxHoleVal.textContent = maxHoleEl.value;
-  if (lum && useHolesEl.checked) rebuildAll();
-});
-minWinEl.addEventListener('input', () => {
-  minWinVal.textContent = minWinEl.value;
-  if (lum && useWindowsEl.checked) rebuildAll();
-});
-smoothIterEl.addEventListener('input', () => {
-  smoothIterVal.textContent = smoothIterEl.value;
-  if (lum && useSmoothEl.checked) rebuildAll();
-});
-
-autoThresholdBtn.addEventListener('click', () => {
-  if (!histogram) return;
-  autoPickThreshold();
-  if (mode === 'lum') rebuildAll();
-});
-
+maxHoleEl.addEventListener('input', () => { maxHoleVal.textContent = maxHoleEl.value; if (lum && useHolesEl.checked) rebuildAll(); });
+minWinEl.addEventListener('input', () => { minWinVal.textContent = minWinEl.value; if (lum && useWindowsEl.checked) rebuildAll(); });
+smoothIterEl.addEventListener('input', () => { smoothIterVal.textContent = smoothIterEl.value; if (lum && useSmoothEl.checked) rebuildAll(); });
+autoThresholdBtn.addEventListener('click', () => { if (!histogram) return; autoPickThreshold(); if (mode === 'lum') rebuildAll(); });
 histoCanvas.addEventListener('click', (e) => {
   if (!histogram || mode !== 'lum') return;
   const rect = histoCanvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const v = Math.max(0, Math.min(255, Math.round((x / rect.width) * 255)));
-  bgLumEl.value = v;
-  bgLumVal.textContent = v;
-  rebuildAll();
+  bgLumEl.value = v; bgLumVal.textContent = v; rebuildAll();
 });
-
-hideImageEl.addEventListener('change', () => {
-  stageEl.classList.toggle('hide', hideImageEl.checked);
-});
-showInfoEl.addEventListener('change', () => {
-  infoPanel.classList.toggle('visible', showInfoEl.checked);
-});
-showHistoEl.addEventListener('change', () => {
-  histoPanel.classList.toggle('visible', showHistoEl.checked);
-  if (showHistoEl.checked) drawHistogram();
-});
-
-window.addEventListener('resize', () => {
-  if (histoPanel.classList.contains('visible') && histogram) drawHistogram();
-});
+hideImageEl.addEventListener('change', () => { stageEl.classList.toggle('hide', hideImageEl.checked); });
+showInfoEl.addEventListener('change', () => { infoPanel.classList.toggle('visible', showInfoEl.checked); });
+showHistoEl.addEventListener('change', () => { histoPanel.classList.toggle('visible', showHistoEl.checked); if (showHistoEl.checked) drawHistogram(); });
+showPropsEl.addEventListener('change', () => { propsPanel.classList.toggle('visible', showPropsEl.checked); });
+window.addEventListener('resize', () => { if (histoPanel.classList.contains('visible') && histogram) drawHistogram(); });
 </script>
 
 </body>
