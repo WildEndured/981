@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Анализ персонажа — связанный</title>
+<title>Анализ персонажа — умный авто-поиск</title>
 <style>
   :root {
     color-scheme: dark;
@@ -18,8 +18,7 @@
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
-    margin: 0; padding: 0;
-    background: var(--bg); color: var(--text);
+    margin: 0; padding: 0; background: var(--bg); color: var(--text);
     font-family: system-ui, -apple-system, sans-serif;
     overscroll-behavior: none;
   }
@@ -28,13 +27,11 @@
     padding: 8px 8px 96px 8px; gap: 10px; min-height: 100vh;
   }
 
-  /* ========== ВЕРХНЯЯ ПАНЕЛЬ ========== */
   .topbar {
     width: 100%; max-width: 960px;
     display: flex; gap: 6px; align-items: center;
     background: var(--panel); border-radius: 12px;
-    padding: 6px 8px; overflow-x: auto;
-    scrollbar-width: none;
+    padding: 6px 8px; overflow-x: auto; scrollbar-width: none;
   }
   .topbar::-webkit-scrollbar { display: none; }
   .topbar .file-label {
@@ -52,7 +49,6 @@
   }
   .topbar button:hover, .topbar button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
   .topbar button.danger { background: #3a1a1a; border-color: #5a2a2a; color: #ff9090; }
-
   .menu-toggle {
     flex-shrink: 0; height: 38px; width: 44px;
     font-size: 18px; border-radius: 8px;
@@ -61,16 +57,13 @@
   }
   .menu-toggle.open { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-  /* ========== МЕНЮ-ЯЩИК ========== */
   .drawer {
     position: fixed; top: 0; left: 0; bottom: 0;
     width: min(340px, 88vw);
     background: var(--panel);
     border-right: 1px solid var(--border);
-    transform: translateX(-105%);
-    transition: transform 0.25s ease;
-    z-index: 100;
-    overflow-y: auto;
+    transform: translateX(-105%); transition: transform 0.25s ease;
+    z-index: 100; overflow-y: auto;
     padding: 12px 12px 100px 12px;
     display: flex; flex-direction: column; gap: 12px;
   }
@@ -81,7 +74,6 @@
     opacity: 0; pointer-events: none; transition: opacity 0.25s;
   }
   .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
-
   .drawer h3 {
     margin: 0 0 6px 0; font-size: 13px;
     color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;
@@ -113,7 +105,6 @@
     color: var(--text); font-size: 22px; cursor: pointer;
     width: 40px; height: 40px; line-height: 1;
   }
-
   .slider-row { display: flex; flex-direction: column; gap: 2px; padding: 6px 0; }
   .slider-row .label-line {
     display: flex; justify-content: space-between;
@@ -132,16 +123,12 @@
     background: var(--accent); border: 2px solid #fff;
     margin-top: -9px; cursor: pointer;
   }
-  input[type="range"]::-moz-range-track {
-    height: 6px; background: #2b2f37; border-radius: 3px;
-  }
+  input[type="range"]::-moz-range-track { height: 6px; background: #2b2f37; border-radius: 3px; }
   input[type="range"]::-moz-range-thumb {
     width: 24px; height: 24px; border-radius: 50%;
-    background: var(--accent); border: 2px solid #fff;
-    cursor: pointer;
+    background: var(--accent); border: 2px solid #fff; cursor: pointer;
   }
 
-  /* ========== КАНВАС ========== */
   .stage {
     position: relative; display: inline-block;
     border: 1px solid var(--border); background: #0b0c0f;
@@ -164,18 +151,14 @@
     max-width: 100vw; max-height: 100vh;
     width: auto; height: auto;
   }
-  .stage canvas {
-    display: block; max-width: min(96vw, 960px); height: auto;
-  }
+  .stage canvas { display: block; max-width: min(96vw, 960px); height: auto; }
   .stage canvas#base {
-    transition: opacity 0.15s; cursor: crosshair;
-    touch-action: none;
+    transition: opacity 0.15s; cursor: crosshair; touch-action: none;
   }
   .stage.edit-mode canvas#base { cursor: row-resize; }
   .stage.joints-mode canvas#base { cursor: grab; }
   .stage.vp-mode canvas#base { cursor: cell; }
   .stage canvas#overlay { position: absolute; inset: 0; pointer-events: none; }
-
   .stage .fullscreen-btn {
     position: absolute; top: 8px; right: 8px;
     width: 40px; height: 40px; border-radius: 8px;
@@ -185,14 +168,11 @@
     cursor: pointer; z-index: 5; pointer-events: auto;
   }
 
-  /* ========== ПАНЕЛИ АНАЛИЗА ========== */
   .panels {
     width: 100%; max-width: 960px;
     display: flex; flex-direction: column; gap: 8px;
   }
-  .panel {
-    background: var(--panel); border-radius: 12px; overflow: hidden;
-  }
+  .panel { background: var(--panel); border-radius: 12px; overflow: hidden; }
   .panel-header {
     display: flex; align-items: center; gap: 10px;
     padding: 12px 14px; cursor: pointer; user-select: none;
@@ -246,8 +226,7 @@
   }
   .histo-info {
     font-size: 12px; color: var(--muted); margin-top: 6px;
-    display: flex; justify-content: space-between;
-    gap: 12px; flex-wrap: wrap;
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   }
   .histo-info b { color: var(--text); }
 
@@ -262,7 +241,6 @@
   .persp-badge .icon { font-size: 28px; }
   .persp-badge .info { font-size: 13px; color: #ddc5ff; line-height: 1.3; }
   .persp-badge .info b { color: #fff; font-size: 18px; display: block; margin-bottom: 2px; }
-
   .link-badge {
     background: linear-gradient(135deg, #2a4a1a, #6ab02c);
     border: 1px solid #6ab02c;
@@ -370,7 +348,6 @@
   .prop-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .prop-table td.fixed { color: #b9ff80; }
 
-  /* Связка */
   .link-info {
     background: var(--panel-2);
     border: 1px solid var(--border);
@@ -383,7 +360,27 @@
   }
   .link-info b { color: #b9ff80; }
 
-  /* ========== НИЖНЯЯ ПЛАВАЮЩАЯ ПАНЕЛЬ ========== */
+  .auto-info {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--muted-2);
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+  .auto-info b { color: #40d0ff; }
+  .auto-info .method {
+    display: inline-block;
+    background: #2a3a4a;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+    color: #80d0ff;
+    margin-left: 4px;
+  }
+
   .bottom-bar {
     position: fixed; bottom: 12px; left: 50%;
     transform: translateX(-50%);
@@ -440,7 +437,6 @@
   <button id="manualVPBtn">⌖ ТС</button>
 </div>
 
-<!-- МЕНЮ -->
 <div class="drawer-backdrop" id="drawerBackdrop"></div>
 <div class="drawer" id="drawer">
   <button class="drawer-close" id="drawerClose">✕</button>
@@ -484,12 +480,22 @@
     </div>
   </div>
 
-  <h3>Анализ</h3>
+  <h3>Авто-поиск долей</h3>
   <div class="drawer-section">
     <div class="slider-row">
-      <div class="label-line"><span>Согласование долей (порог)</span><span id="jointTolVal">20</span></div>
+      <div class="label-line"><span>Чувствительность</span><span id="jointTolVal">20</span></div>
       <input id="jointTol" type="range" min="5" max="60" value="20" />
     </div>
+    <div class="row">
+      <label><input id="useSmartAuto" type="checkbox" checked /> Умный авто-поиск</label>
+    </div>
+    <div class="row">
+      <label><input id="ignoreTails" type="checkbox" checked /> Игнорировать отростки</label>
+    </div>
+  </div>
+
+  <h3>Анализ</h3>
+  <div class="drawer-section">
     <div class="slider-row">
       <div class="label-line"><span>Цветов в палитре</span><span id="paletteCountVal">8</span></div>
       <input id="paletteCount" type="range" min="3" max="16" value="8" />
@@ -515,7 +521,7 @@
   <h3>Действия</h3>
   <div class="drawer-section">
     <div class="row">
-      <button id="resyncBtn">⇄ Согласовать доли и суставы</button>
+      <button id="resyncBtn">⇄ Умный авто-поиск</button>
     </div>
     <div class="row">
       <button id="resetVPBtn">↺ Авто-ТС</button>
@@ -533,12 +539,11 @@
 </div>
 
 <p class="hint" id="hintText">
-  Доли тела и суставы теперь связаны. Тапни заголовок блока — развернуть. ☰ — меню.
+  Умный авто-поиск долей учитывает голову, шею, плечи, талию, бёдра, колени, лодыжки. Двигай линии — если промахнулся.
 </p>
 
 <div class="panels" id="panels">
 
-  <!-- ① ГИСТОГРАММА -->
   <div class="panel" id="histoPanel" data-panel="histo">
     <div class="panel-header" data-toggle>
       <span class="num">1</span>
@@ -547,9 +552,7 @@
       <span class="chevron">▶</span>
     </div>
     <div class="panel-body">
-      <div class="histo-canvas-wrap">
-        <canvas class="histo-canvas" id="histoCanvas"></canvas>
-      </div>
+      <div class="histo-canvas-wrap"><canvas class="histo-canvas" id="histoCanvas"></canvas></div>
       <div class="histo-info">
         <span>Тёмное ◀</span>
         <span>Провал: <b id="histoValley">—</b></span>
@@ -558,8 +561,7 @@
     </div>
   </div>
 
-  <!-- ② ПРОПОРЦИИ -->
-  <div class="panel" id="propsPanel" data-panel="props">
+  <div class="panel open" id="propsPanel" data-panel="props">
     <div class="panel-header" data-toggle>
       <span class="num">2</span>
       <span class="title">Пропорции персонажа</span>
@@ -567,6 +569,9 @@
       <span class="chevron">▶</span>
     </div>
     <div class="panel-body">
+      <div class="auto-info" id="autoInfo">
+        Авто-поиск: <b>ещё не выполнен</b>
+      </div>
       <div class="props-grid">
         <div class="props-block-inner">
           <h4>2.1. Габариты</h4>
@@ -588,8 +593,7 @@
     </div>
   </div>
 
-  <!-- ③ ПЕРСПЕКТИВА -->
-  <div class="panel" id="perspPanel" data-panel="persp">
+  <div class="panel open" id="perspPanel" data-panel="persp">
     <div class="panel-header" data-toggle>
       <span class="num">3</span>
       <span class="title">Перспектива</span>
@@ -629,7 +633,6 @@
     </div>
   </div>
 
-  <!-- ④ СВЯЗЬ -->
   <div class="panel" id="linkPanel" data-panel="link">
     <div class="panel-header" data-toggle>
       <span class="num">4</span>
@@ -664,7 +667,6 @@
     </div>
   </div>
 
-  <!-- ⑤ СИММЕТРИЯ -->
   <div class="panel" id="symmPanel" data-panel="symm">
     <div class="panel-header" data-toggle>
       <span class="num">5</span>
@@ -693,8 +695,7 @@
     </div>
   </div>
 
-  <!-- ⑥ СУСТАВЫ -->
-  <div class="panel" id="jointsPanel" data-panel="joints">
+  <div class="panel open" id="jointsPanel" data-panel="joints">
     <div class="panel-header" data-toggle>
       <span class="num">6</span>
       <span class="title">Суставы (= доли тела)</span>
@@ -703,14 +704,12 @@
     </div>
     <div class="panel-body">
       <div class="link-info">
-        Суставы теперь <b>едины с долями тела</b>. Тянешь линию в блоке ② — двигается сустав. Тянешь сустав — двигается линия.
-        Каждая доля автоматически даёт точку сустава в центре силуэта на своей высоте.
+        Суставы = доли тела. Тянешь линию или сустав — оба двигаются. Всё связано.
       </div>
       <div class="joint-list" id="jointList" style="margin-top:10px;"></div>
     </div>
   </div>
 
-  <!-- ⑦ ПАЛИТРА -->
   <div class="panel" id="palettePanel" data-panel="palette">
     <div class="panel-header" data-toggle>
       <span class="num">7</span>
@@ -723,7 +722,6 @@
     </div>
   </div>
 
-  <!-- ⑧ ОБРАЗЦЫ -->
   <div class="panel" id="samplesPanel" data-panel="samples">
     <div class="panel-header" data-toggle>
       <span class="num">8</span>
@@ -738,7 +736,6 @@
     </div>
   </div>
 
-  <!-- ⑨ ИНФО -->
   <div class="panel" id="infoPanel" data-panel="info">
     <div class="panel-header" data-toggle>
       <span class="num">9</span>
@@ -791,6 +788,8 @@ const invertEl = document.getElementById('invert');
 const useWindowsEl = document.getElementById('useWindows');
 const useHolesEl = document.getElementById('useHoles');
 const useSmoothEl = document.getElementById('useSmooth');
+const useSmartAutoEl = document.getElementById('useSmartAuto');
+const ignoreTailsEl = document.getElementById('ignoreTails');
 const maxHoleEl = document.getElementById('maxHole');
 const maxHoleVal = document.getElementById('maxHoleVal');
 const minWinEl = document.getElementById('minWin');
@@ -856,6 +855,7 @@ const propCx = document.getElementById('propCx');
 const propCy = document.getElementById('propCy');
 const propFractions = document.getElementById('propFractions');
 const propsSummary = document.getElementById('propsSummary');
+const autoInfo = document.getElementById('autoInfo');
 
 // Перспектива
 const perspIcon = document.getElementById('perspIcon');
@@ -901,19 +901,15 @@ const symmBot = document.getElementById('symmBot');
 const symmBotBar = document.getElementById('symmBotBar');
 const symmSummary = document.getElementById('symmSummary');
 
-// Суставы
 const jointList = document.getElementById('jointList');
 const jointsSummary = document.getElementById('jointsSummary');
 
-// Палитра
 const paletteGrid = document.getElementById('paletteGrid');
 const paletteSummary = document.getElementById('paletteSummary');
 
-// Образцы
 const samplesList = document.getElementById('samplesList');
 const samplesSummary = document.getElementById('samplesSummary');
 
-// Инфо
 const infoSize = document.getElementById('infoSize');
 const infoModeMode = document.getElementById('infoModeMode');
 const infoBgPct = document.getElementById('infoBgPct');
@@ -924,13 +920,11 @@ const infoPointsCount = document.getElementById('infoPointsCount');
 const pointList = document.getElementById('pointList');
 const infoSummary = document.getElementById('infoSummary');
 
-// Гистограмма
 const histoCanvas = document.getElementById('histoCanvas');
 const histoValley = document.getElementById('histoValley');
 const histoSummary = document.getElementById('histoSummary');
 const histoCtx = histoCanvas.getContext('2d');
 
-// Панели
 const histoPanel = document.getElementById('histoPanel');
 const propsPanel = document.getElementById('propsPanel');
 const perspPanel = document.getElementById('perspPanel');
@@ -954,6 +948,7 @@ let bgColorMode = false, addPointMode = false;
 let sourcePoints = [];
 let holesFilledCount = 0, windowsFoundCount = 0;
 let charBBox = null;
+let lastAutoMethod = '—';
 
 let symmetryResult = null;
 let paletteResult = null;
@@ -962,7 +957,7 @@ let linkResult = null;
 let manualVP = null;
 let manualVPMode = false;
 
-// ДОЛИ ТЕЛА — ЕДИНСТВЕННЫЙ ИСТОЧНИК ПРАВДЫ
+// ДОЛИ ТЕЛА
 const DEFAULT_FRACTIONS = [
   { id: 'top',     name: 'Макушка', value: 0.00, color: '#8b93a1', joint: false },
   { id: 'neck',    name: 'Шея', value: 0.13, color: '#ff00ff', joint: true },
@@ -973,9 +968,6 @@ const DEFAULT_FRACTIONS = [
   { id: 'ankle',   name: 'Лодыжки', value: 0.95, color: '#ffcc00', joint: true },
 ];
 let fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
-
-// Промежуточный результат авто-поиска суставов
-let autoJointsRaw = [];
 let autoNeckValue = 0.13;
 
 let editFractionsMode = false;
@@ -1007,14 +999,8 @@ function applyPanelVisibility() {
   el.addEventListener('change', applyPanelVisibility);
 });
 
-// ========== Сворачивание ==========
 document.querySelectorAll('.panel-header[data-toggle]').forEach(header => {
   header.addEventListener('click', () => header.parentElement.classList.toggle('open'));
-});
-window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('propsPanel').classList.add('open');
-  document.getElementById('perspPanel').classList.add('open');
-  document.getElementById('jointsPanel').classList.add('open');
 });
 
 // ========== Fullscreen ==========
@@ -1062,7 +1048,6 @@ fileInput.addEventListener('change', e => {
     colorSamples = [];
     fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
     manualVP = null;
-    autoJointsRaw = [];
     if (mode === 'lum') autoPickThreshold();
     rebuildAll();
   };
@@ -1235,9 +1220,17 @@ function smoothOnce(isBg, w, h) {
   }
 }
 
+// ========== BBOX с игнорированием отростков ==========
+// Если ignoreTails включено:
+//   1. Считаем для каждого столбца верхнюю и нижнюю границу силуэта.
+//   2. Основная высота = медиана высот столбцов.
+//   3. Столбцы, где высота < 40% основной — игнорируем.
+//   4. То же для строк.
 function computeBBox() {
   const w = imgWidth, h = imgHeight;
   let minX = w, minY = h, maxX = -1, maxY = -1, charCount = 0;
+
+  // Сначала общий bbox
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     if (!isBg[y * w + x]) {
       charCount++;
@@ -1248,20 +1241,78 @@ function computeBBox() {
     }
   }
   if (maxX < 0) { charBBox = null; return; }
+
+  if (ignoreTailsEl.checked && maxX > minX && maxY > minY) {
+    // Для каждого столбца — сколько в нём пикселей персонажа
+    const colCounts = new Int32Array(w);
+    const rowCounts = new Int32Array(h);
+    for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
+      if (!isBg[y * w + x]) {
+        colCounts[x]++;
+        rowCounts[y]++;
+      }
+    }
+
+    // Медиана ненулевых столбцов
+    const nonZeroCols = [];
+    for (let x = minX; x <= maxX; x++) if (colCounts[x] > 0) nonZeroCols.push(colCounts[x]);
+    nonZeroCols.sort((a, b) => a - b);
+    const medianCol = nonZeroCols[nonZeroCols.length >> 1] || 1;
+
+    // Медиана ненулевых строк
+    const nonZeroRows = [];
+    for (let y = minY; y <= maxY; y++) if (rowCounts[y] > 0) nonZeroRows.push(rowCounts[y]);
+    nonZeroRows.sort((a, b) => a - b);
+    const medianRow = nonZeroRows[nonZeroRows.length >> 1] || 1;
+
+    // Порог: столбец/строка меньше 35% медианы — отросток
+    const colThresh = medianCol * 0.35;
+    const rowThresh = medianRow * 0.35;
+
+    // Пересчёт границ, игнорируя столбцы/строки с малой плотностью
+    let mX = w, mY = h, MX = -1, MY = -1, cCount = 0;
+    for (let y = minY; y <= maxY; y++) {
+      if (rowCounts[y] < rowThresh) continue;
+      for (let x = minX; x <= maxX; x++) {
+        if (colCounts[x] < colThresh) continue;
+        if (!isBg[y * w + x]) {
+          cCount++;
+          if (x < mX) mX = x;
+          if (y < mY) mY = y;
+          if (x > MX) MX = x;
+          if (y > MY) MY = y;
+        }
+      }
+    }
+
+    // Применяем, только если получилось разумное сокращение
+    if (MX > mX && MY > mY && cCount > charCount * 0.5) {
+      minX = mX; minY = mY; maxX = MX; maxY = MY;
+    }
+  }
+
   charBBox = { minX, minY, maxX, maxY, width: maxX - minX + 1, height: maxY - minY + 1, charCount };
 }
 
-// ========== АВТО-ПОИСК СУСТАВОВ (согласование с fractions) ==========
-// Ищем сужения. Затем СОГЛАСУЕМ с долями:
-//  - Если найденное сужение близко к существующей доле — обновляем её (если она не правилась вручную).
-//  - Если сужение без пары и его нет среди долей — добавляем новую долю.
-function autoFindAndSyncJoints() {
-  if (!charBBox) return;
+// ============================================================
+//  УМНЫЙ АВТО-ПОИСК ДОЛЕЙ
+// ============================================================
+// Алгоритм:
+//  1. Считаем ширины строк в bbox, сглаживаем.
+//  2. Находим "шапку головы" — верхние 5-40%, где ширина максимальна.
+//  3. Ищем шею — минимальную ширину после "шапки" (несколько методов).
+//  4. Ищем плечи — максимум ширины после шеи.
+//  5. Ищем талию — минимум между плечами и бёдрами.
+//  6. Ищем бёдра — второй пик после талии.
+//  7. Ищем колени — сужение в 55-80%.
+//  8. Ищем лодыжки — сужение в 80-95%.
+function smartAutoDetect() {
+  if (!charBBox) { lastAutoMethod = '—'; return; }
+
   const w = imgWidth, h = imgHeight;
   const { minX, minY, width: bw, height: bh } = charBBox;
-  const tol = +jointTolEl.value;
 
-  // Считаем ширины строк
+  // Ширины строк внутри bbox
   const rowWidths = new Int32Array(bh);
   for (let yy = 0; yy < bh; yy++) {
     const y = minY + yy;
@@ -1271,11 +1322,13 @@ function autoFindAndSyncJoints() {
     }
     rowWidths[yy] = rowMinX < 0 ? 0 : (rowMaxX - rowMinX + 1);
   }
+
   // Сглаживание
   const sm = new Float32Array(bh);
+  const WIN = 4;
   for (let i = 0; i < bh; i++) {
     let s = 0, c = 0;
-    for (let k = -3; k <= 3; k++) {
+    for (let k = -WIN; k <= WIN; k++) {
       const ii = i + k;
       if (ii < 0 || ii >= bh) continue;
       s += rowWidths[ii]; c++;
@@ -1283,84 +1336,176 @@ function autoFindAndSyncJoints() {
     sm[i] = s / c;
   }
 
-  // Ищем сужения
-  const found = [];
-  for (let i = Math.floor(bh * 0.06); i < Math.floor(bh * 0.96); i++) {
-    if (i < 4 || i > bh - 5) continue;
-    const above = Math.max(sm[i-4], sm[i-3], sm[i-2]);
-    const below = Math.max(sm[i+2], sm[i+3], sm[i+4]);
-    if (sm[i] < above && sm[i] < below) {
-      const drop = Math.min(above - sm[i], below - sm[i]);
-      if (drop >= tol) {
-        found.push({ fracValue: i / bh, drop });
+  // Максимальная ширина в верхней части
+  let maxWidth = 0;
+  for (let i = 0; i < bh; i++) if (sm[i] > maxWidth) maxWidth = sm[i];
+  if (maxWidth <= 0) { lastAutoMethod = 'не найдено'; return; }
+
+  const methods = [];
+
+  // ========== ПОИСК ШЕИ ==========
+  let neckIdx = -1;
+
+  // Метод 1: локальный минимум в диапазоне 10-35%
+  let bestMin = Infinity;
+  for (let i = Math.floor(bh * 0.10); i < Math.floor(bh * 0.35); i++) {
+    if (i < 3 || i > bh - 3) continue;
+    const above = Math.max(sm[i-3], sm[i-2], sm[i-1]);
+    const below = Math.max(sm[i+1], sm[i+2], sm[i+3]);
+    if (sm[i] < above && sm[i] < below && sm[i] < bestMin) {
+      bestMin = sm[i];
+      neckIdx = i;
+    }
+  }
+  if (neckIdx >= 0 && sm[neckIdx] < maxWidth * 0.75) {
+    methods.push('neck-min');
+  } else {
+    neckIdx = -1;
+  }
+
+  // Метод 2: "шапка головы" + резкое падение ширины
+  if (neckIdx < 0) {
+    // Ищем пик ширины в верхней части (голова)
+    let headPeakIdx = 0, headPeakVal = 0;
+    for (let i = 0; i < Math.floor(bh * 0.35); i++) {
+      if (sm[i] > headPeakVal) { headPeakVal = sm[i]; headPeakIdx = i; }
+    }
+    // Идём вниз от пика и ищем первое падение на 25% и стабилизацию
+    const targetWidth = headPeakVal * 0.75;
+    for (let i = headPeakIdx; i < Math.floor(bh * 0.45); i++) {
+      if (sm[i] < targetWidth) {
+        // Проверяем, что это не одиночный провал — ширина должна остаться
+        // низкой в течение следующих 3 строк
+        let stable = true;
+        for (let k = 1; k <= 3; k++) {
+          if (i + k < bh && sm[i + k] > targetWidth * 1.15) { stable = false; break; }
+        }
+        if (stable) { neckIdx = i; break; }
       }
     }
+    if (neckIdx >= 0) methods.push('neck-drop');
   }
 
-  // Объединяем близкие
-  const merged = [];
-  for (const f of found) {
-    if (merged.length === 0) { merged.push(f); continue; }
-    const last = merged[merged.length - 1];
-    if (f.fracValue - last.fracValue < 0.02) {
-      if (f.drop > last.drop) merged[merged.length - 1] = f;
-    } else merged.push(f);
-  }
-
-  autoJointsRaw = merged;
-
-  // Согласование с fractions
-  const usedAuto = new Array(merged.length).fill(false);
-
-  // 1. Обновляем существующие доли, если они не manual
-  fractions.forEach(frac => {
-    if (frac.manual) return;
-    if (frac.id === 'top') return; // макушка = 0, не трогаем
-
-    // Ищем ближайшее авто-сужение
-    let bestIdx = -1, bestDist = Infinity;
-    merged.forEach((m, i) => {
-      if (usedAuto[i]) return;
-      const d = Math.abs(m.fracValue - frac.value);
-      if (d < bestDist) { bestDist = d; bestIdx = i; }
-    });
-    if (bestIdx >= 0 && bestDist < 0.06) {
-      frac.value = merged[bestIdx].fracValue;
-      frac.fromAuto = true;
-      usedAuto[bestIdx] = true;
+  // Метод 3: минимальная ширина в диапазоне 8-25% (если 1 и 2 не сработали)
+  if (neckIdx < 0) {
+    let minW = Infinity, minI = -1;
+    for (let i = Math.floor(bh * 0.08); i < Math.floor(bh * 0.30); i++) {
+      if (sm[i] > 0 && sm[i] < minW) { minW = sm[i]; minI = i; }
     }
-  });
+    if (minI >= 0 && minW < maxWidth * 0.85) {
+      neckIdx = minI;
+      methods.push('neck-global-min');
+    }
+  }
 
-  // 2. Неиспользованные авто-сужения — добавляем как новые доли
-  //    (только если их нет в fractions)
-  const unused = [];
-  merged.forEach((m, i) => { if (!usedAuto[i]) unused.push(m); });
+  // Если ничего не нашли — берём эвристику 16%
+  if (neckIdx < 0) {
+    neckIdx = Math.round(bh * 0.16);
+    methods.push('neck-default');
+  }
 
-  // Удаляем старые авто-добавленные доли (у которых fromAuto2 = true)
-  fractions = fractions.filter(f => !f.fromAuto2);
+  const neckValue = neckIdx / bh;
 
-  // Добавляем новые
-  unused.forEach((m, i) => {
-    const id = 'auto_' + Math.round(m.fracValue * 1000);
-    if (fractions.some(f => f.id === id)) return;
-    const names = ['авто-сустав 1', 'авто-сустав 2', 'авто-сустав 3'];
-    fractions.push({
-      id,
-      name: names[i] || `авто-сустав ${i + 1}`,
-      value: m.fracValue,
-      color: '#40d0d0',
-      joint: true,
-      fromAuto2: true,
-    });
-  });
+  // ========== ПОИСК ПЛЕЧ ==========
+  // Ищем максимум ширины после шеи в диапазоне neck..50%
+  let shoulderIdx = -1, shoulderVal = 0;
+  const shoulderStart = neckIdx + Math.round(bh * 0.02);
+  const shoulderEnd = Math.floor(bh * 0.45);
+  for (let i = shoulderStart; i < shoulderEnd; i++) {
+    if (sm[i] > shoulderVal) { shoulderVal = sm[i]; shoulderIdx = i; }
+  }
+  if (shoulderIdx < 0) shoulderIdx = Math.round(bh * 0.22);
 
-  // Сортируем
+  const shoulderValue = shoulderIdx / bh;
+
+  // ========== ПОИСК ТАЛИИ ==========
+  // Ищем минимум ширины между плечами и началом 60% высоты
+  let waistIdx = -1;
+  const waistStart = shoulderIdx + Math.round(bh * 0.05);
+  const waistEnd = Math.floor(bh * 0.60);
+  if (waistEnd > waistStart) {
+    let minW = Infinity, minI = -1;
+    for (let i = waistStart; i < waistEnd; i++) {
+      if (sm[i] > 0 && sm[i] < minW) { minW = sm[i]; minI = i; }
+    }
+    if (minI >= 0) waistIdx = minI;
+  }
+  const waistValue = waistIdx >= 0 ? waistIdx / bh : 0.40;
+
+  // ========== ПОИСК БЁДЕР ==========
+  // Второй пик ширины после талии в диапазоне waist..75%
+  let pelvisIdx = -1, pelvisVal = 0;
+  const pelvisStart = waistIdx >= 0 ? waistIdx : Math.round(bh * 0.40);
+  const pelvisEnd = Math.floor(bh * 0.75);
+  for (let i = pelvisStart; i < pelvisEnd; i++) {
+    if (sm[i] > pelvisVal) { pelvisVal = sm[i]; pelvisIdx = i; }
+  }
+  if (pelvisIdx < 0) pelvisIdx = Math.round(bh * 0.52);
+  const pelvisValue = pelvisIdx / bh;
+
+  // ========== ПОИСК КОЛЕН ==========
+  // Сужение в диапазоне pelvis..85%
+  let kneeIdx = -1;
+  const kneeStart = pelvisIdx + Math.round(bh * 0.05);
+  const kneeEnd = Math.floor(bh * 0.85);
+  if (kneeEnd > kneeStart) {
+    let minW = Infinity, minI = -1;
+    for (let i = kneeStart; i < kneeEnd; i++) {
+      if (sm[i] > 0 && sm[i] < minW) { minW = sm[i]; minI = i; }
+    }
+    // Проверяем, что это реальное сужение (меньше средней ширины вокруг)
+    if (minI >= 0 && minW < sm[pelvisIdx] * 0.95) {
+      kneeIdx = minI;
+    }
+  }
+  if (kneeIdx < 0) kneeIdx = Math.round(bh * 0.72);
+  const kneeValue = kneeIdx / bh;
+
+  // ========== ПОИСК ЛОДЫЖЕК ==========
+  // Сужение в диапазоне knee..98%
+  let ankleIdx = -1;
+  const ankleStart = kneeIdx + Math.round(bh * 0.03);
+  const ankleEnd = Math.floor(bh * 0.98);
+  if (ankleEnd > ankleStart) {
+    let minW = Infinity, minI = -1;
+    for (let i = ankleStart; i < ankleEnd; i++) {
+      if (sm[i] > 0 && sm[i] < minW) { minW = sm[i]; minI = i; }
+    }
+    if (minI >= 0) ankleIdx = minI;
+  }
+  if (ankleIdx < 0) ankleIdx = Math.round(bh * 0.93);
+  const ankleValue = ankleIdx / bh;
+
+  // ========== ПОИСК ГРУДИ ==========
+  // Середина между плечами и талией
+  const chestValue = (shoulderValue + waistValue) / 2;
+
+  // ========== ПРИМЕНЯЕМ ЗНАЧЕНИЯ К ДОЛЯМ ==========
+  // Обновляем только те, что не правились вручную
+  const applyIfNotManual = (id, value) => {
+    const f = fractions.find(f => f.id === id);
+    if (f && !f.manual) {
+      // Защита от нелепых значений
+      f.value = Math.max(0, Math.min(1, value));
+      f.fromAuto = true;
+    }
+  };
+
+  applyIfNotManual('neck', neckValue);
+  applyIfNotManual('shoulder', shoulderValue);
+  applyIfNotManual('chest', chestValue);
+  applyIfNotManual('pelvis', pelvisValue);
+  applyIfNotManual('knee', kneeValue);
+  applyIfNotManual('ankle', ankleValue);
+
+  // Сортируем доли
   fractions.sort((a, b) => a.value - b.value);
 
-  // Запоминаем авто-значение шеи
+  // Обновляем autoNeckValue
   const neckFrac = fractions.find(f => f.id === 'neck');
-  if (neckFrac && !neckFrac.manual) autoNeckValue = neckFrac.value;
-  else if (neckFrac) autoNeckValue = neckFrac.value;
+  if (neckFrac) autoNeckValue = neckFrac.value;
+
+  lastAutoMethod = methods.join(' + ') || 'smart';
 }
 
 // ========== ПРОПОРЦИИ ==========
@@ -1389,9 +1534,20 @@ function updateProportions() {
   const manualCount = fractions.filter(f => f.manual).length;
   propFractions.textContent = manualCount > 0 ? `${manualCount} ручных` : 'авто';
   propsSummary.textContent = `${bh}×${bw} · ${heads.toFixed(2)} голов`;
+
+  // Информация о авто-поиске
+  let methodLabel = lastAutoMethod;
+  if (lastAutoMethod.includes('neck-min')) methodLabel = 'мин. ширины (классический)';
+  else if (lastAutoMethod.includes('neck-drop')) methodLabel = 'скачок ширины (умный)';
+  else if (lastAutoMethod.includes('neck-global-min')) methodLabel = 'глобальный минимум';
+  else if (lastAutoMethod.includes('neck-default')) methodLabel = 'эвристика 16%';
+  else if (lastAutoMethod === '—') methodLabel = 'не выполнен';
+
+  let ignoreLabel = ignoreTailsEl.checked ? 'включено' : 'выключено';
+  autoInfo.innerHTML = `Авто-поиск: <b>${methodLabel}</b><br>Игнорирование отростков: <b>${ignoreLabel}</b> · ширина bbox = ${bw}px, высота = ${bh}px`;
 }
 
-// ========== ПЕРСПЕКТИВА (согласована с fractions) ==========
+// ========== ПЕРСПЕКТИВА ==========
 function computePerspective() {
   if (!charBBox) {
     perspMain.textContent = '—';
@@ -1488,7 +1644,6 @@ function computePerspective() {
   }
   contourResult = { leftSlope, rightSlope, avgAngleDeg, vanishing, ratio, vVerdict };
 
-  // Наклон плеч и бёдер — БЕРЁМ ИЗ fractions!
   const shFrac = fractions.find(f => f.id === 'shoulder');
   const plFrac = fractions.find(f => f.id === 'pelvis');
   const shoulderY = minY + Math.round(bh * (shFrac ? shFrac.value : 0.20));
@@ -1664,14 +1819,13 @@ function computeLink() {
   }
 }
 
-// ========== СИММЕТРИЯ (зоны = по долям shoulder и pelvis) ==========
+// ========== СИММЕТРИЯ ==========
 function computeSymmetry() {
   if (!charBBox) { symmetryResult = null; symmSummary.textContent = '—'; return; }
   const w = imgWidth, h = imgHeight;
   const { minX, minY, width: bw, height: bh } = charBBox;
   const cx = minX + bw / 2;
 
-  // Границы зон берём из долей
   const shFrac = fractions.find(f => f.id === 'shoulder');
   const plFrac = fractions.find(f => f.id === 'pelvis');
   const shVal = shFrac ? shFrac.value : 0.20;
@@ -1737,36 +1891,27 @@ function computeSymmetry() {
   symmSummary.textContent = pct(totalSymm);
 }
 
-// ========== СУСТАВЫ = ВИЗУАЛИЗАЦИЯ ДОЛЕЙ ==========
-// Каждая доля с флагом joint = true даёт точку сустава.
-// Точка сустава: центр силуэта на высоте доли.
+// ========== СУСТАВЫ ==========
 function computeJoints() {
   if (!charBBox) { jointsListRender([]); jointsSummary.textContent = '—'; return; }
-
   const w = imgWidth, h = imgHeight;
   const { minX, minY, width: bw, height: bh } = charBBox;
 
-  // Для каждой доли с joint=true ищем центр силуэта на её высоте
-  const joints = fractions
-    .filter(f => f.joint)
-    .map(f => {
-      const y = minY + Math.round(bh * f.value);
-      let xMin = -1, xMax = -1;
-      if (y >= 0 && y < h) {
-        for (let x = minX; x <= minX + bw - 1; x++) {
-          if (!isBg[y * w + x]) { if (xMin < 0) xMin = x; xMax = x; }
-        }
+  const joints = fractions.filter(f => f.joint).map(f => {
+    const y = minY + Math.round(bh * f.value);
+    let xMin = -1, xMax = -1;
+    if (y >= 0 && y < h) {
+      for (let x = minX; x <= minX + bw - 1; x++) {
+        if (!isBg[y * w + x]) { if (xMin < 0) xMin = x; xMax = x; }
       }
-      const cx = xMin >= 0 ? (xMin + xMax) / 2 : minX + bw / 2;
-      return {
-        id: f.id,
-        name: f.name,
-        x: cx,
-        yImg: y,
-        pctHeight: (f.value * 100).toFixed(1),
-        manual: !!f.manual,
-      };
-    });
+    }
+    const cx = xMin >= 0 ? (xMin + xMax) / 2 : minX + bw / 2;
+    return {
+      id: f.id, name: f.name, x: cx, yImg: y,
+      pctHeight: (f.value * 100).toFixed(1),
+      manual: !!f.manual,
+    };
+  });
 
   jointsListRender(joints);
 }
@@ -1879,7 +2024,6 @@ function drawOverlay() {
     overlayCtx.strokeRect(charBBox.minX, charBBox.minY, charBBox.width, charBBox.height);
     overlayCtx.setLineDash([]);
 
-    // Линии долей
     for (const frac of fractions) {
       const y = charBBox.minY + Math.round(charBBox.height * frac.value);
       if (y < 0 || y >= imgHeight) continue;
@@ -1893,7 +2037,6 @@ function drawOverlay() {
       overlayCtx.lineTo(charBBox.maxX + 1, y);
       overlayCtx.stroke();
       overlayCtx.globalAlpha = 1;
-      // Подпись
       if (frac.joint || editFractionsMode) {
         const fs = Math.max(11, Math.round(imgWidth / 70));
         overlayCtx.font = `bold ${fs}px system-ui`;
@@ -1907,7 +2050,6 @@ function drawOverlay() {
       }
     }
 
-    // Истинные доли
     if (showCorrectedEl.checked && linkResult) {
       overlayCtx.strokeStyle = 'rgba(185, 255, 128, 0.9)';
       overlayCtx.setLineDash([6, 5]);
@@ -1923,7 +2065,6 @@ function drawOverlay() {
       overlayCtx.setLineDash([]);
     }
 
-    // Ось симметрии
     if (showSymmEl.checked && symmetryResult) {
       const cx = charBBox.minX + charBBox.width / 2;
       overlayCtx.strokeStyle = 'rgba(185, 255, 128, 0.85)';
@@ -1937,7 +2078,6 @@ function drawOverlay() {
     }
   }
 
-  // Суставы = визуализация долей с joint=true
   if (showJointsEl.checked) {
     const w2 = imgWidth, h2 = imgHeight;
     const minX = charBBox ? charBBox.minX : 0;
@@ -1975,7 +2115,6 @@ function drawOverlay() {
     });
   }
 
-  // Точка схода
   if (contourResult && contourResult.vanishing && showPerspEl.checked) {
     const v = contourResult.vanishing;
     const isManual = v.manual === true;
@@ -2154,7 +2293,6 @@ function renderSamplesList() {
   });
 }
 
-// ========== Инфо ==========
 function updateInfo() {
   if (!lum) return;
   const N = imgWidth * imgHeight;
@@ -2202,7 +2340,7 @@ function rebuildAll() {
   if (!lum) return;
   buildMask();
   computeBBox();
-  autoFindAndSyncJoints();  // ← согласование авто-суставов с долями
+  if (useSmartAutoEl.checked) smartAutoDetect();
   updateProportions();
   computePerspective();
   computeLink();
@@ -2235,7 +2373,6 @@ function findFractionAtY(y) {
   return bestDist <= thresh ? best : null;
 }
 
-// Найти долю-сустав рядом с точкой
 function findJointAt(x, y) {
   if (!charBBox) return -1;
   const { minX, minY, width: bw, height: bh } = charBBox;
@@ -2285,11 +2422,9 @@ baseCanvas.addEventListener('mousedown', (e) => {
 window.addEventListener('mousemove', (e) => {
   if (!dragging) return;
   const p = clientToImage(e.clientX, e.clientY);
-
   if (dragging.type === 'fraction' && charBBox) {
     const dy = (p.y - dragging.startY) / charBBox.height;
     let newValue = dragging.startValue + dy;
-    // Соседи
     const curIdx = fractions.findIndex(f => f.id === dragging.id);
     const above = fractions[curIdx - 1];
     const below = fractions[curIdx + 1];
@@ -2298,7 +2433,6 @@ window.addEventListener('mousemove', (e) => {
     newValue = Math.max(minV, Math.min(maxV, newValue));
     const frac = fractions.find(f => f.id === dragging.id);
     if (frac) { frac.value = newValue; frac.manual = true; }
-    // Пересчитаем только связанные
     updateProportions();
     computePerspective();
     computeLink();
@@ -2336,7 +2470,6 @@ baseCanvas.addEventListener('mousemove', (e) => {
   baseCanvas.style.cursor = 'crosshair';
 });
 
-// Touch
 baseCanvas.addEventListener('touchstart', (e) => {
   if (!charBBox || !lum || e.touches.length !== 1) return;
   const t = e.touches[0];
@@ -2442,7 +2575,6 @@ resetEditBtn.addEventListener('click', () => {
 });
 resyncBtn.addEventListener('click', () => {
   if (!lum) return;
-  // Сбрасываем ручные пометки и пересчитываем
   fractions.forEach(f => { f.manual = false; });
   rebuildAll();
 });
@@ -2515,6 +2647,8 @@ invertEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 useWindowsEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 useHolesEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 useSmoothEl.addEventListener('change', () => { if (lum) rebuildAll(); });
+useSmartAutoEl.addEventListener('change', () => { if (lum) rebuildAll(); });
+ignoreTailsEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 maxHoleEl.addEventListener('input', () => { maxHoleVal.textContent = maxHoleEl.value; if (lum && useHolesEl.checked) rebuildAll(); });
 minWinEl.addEventListener('input', () => { minWinVal.textContent = minWinEl.value; if (lum && useWindowsEl.checked) rebuildAll(); });
 smoothIterEl.addEventListener('input', () => { smoothIterVal.textContent = smoothIterEl.value; if (lum && useSmoothEl.checked) rebuildAll(); });
