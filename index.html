@@ -44,8 +44,98 @@
     font-size: 12px; color: #8b93a1; max-width: 720px;
     text-align: center; line-height: 1.5;
   }
-  @media (max-width: 600px) {
-    .controls { flex-direction: column; align-items: stretch; }
+
+  /* ---------- Окно характеристик ---------- */
+  .info-panel {
+    width: min(92vw, 900px);
+    background: #1d2027;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: #b9c3d1;
+    line-height: 1.5;
+    display: none;
+  }
+  .info-panel.visible { display: block; }
+  .info-panel h3 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #e6e6e6;
+    font-weight: 600;
+  }
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 700px) {
+    .info-grid { grid-template-columns: 1fr; }
+  }
+  .info-block {
+    background: #14161a;
+    border: 1px solid #2b2f37;
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .info-block h4 {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    color: #ffcc00;
+    font-weight: 600;
+  }
+  .kv {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 3px 0;
+    border-bottom: 1px dashed #2b2f37;
+  }
+  .kv:last-child { border-bottom: none; }
+  .kv span:first-child { color: #8b93a1; }
+  .kv span:last-child { color: #e6e6e6; font-variant-numeric: tabular-nums; }
+
+  .point-list {
+    max-height: 200px;
+    overflow-y: auto;
+    font-size: 12px;
+  }
+  .point-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .point-item:hover { background: #232830; }
+  .point-item .dot {
+    display: inline-block; width: 8px; height: 8px;
+    border-radius: 50%; background: #ffcc00;
+    margin-right: 6px; vertical-align: middle;
+  }
+  .point-item .coords { color: #8b93a1; font-variant-numeric: tabular-nums; }
+
+  .swatch {
+    display: inline-block; width: 12px; height: 12px;
+    border-radius: 3px; border: 1px solid #555;
+    vertical-align: middle; margin-left: 6px;
+  }
+
+  .bar {
+    height: 6px;
+    background: #2b2f37;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 3px;
+  }
+  .bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #1e4a8a, #40a0ff);
+  }
+
+  button.small {
+    font-size: 12px;
+    padding: 3px 8px;
   }
 </style>
 </head>
@@ -60,6 +150,7 @@
   <button id="addPointBtn">🎯 Добавить точку фона</button>
   <button id="clearPointsBtn">✕ Очистить точки</button>
   <label><input id="hideImage" type="checkbox" /> Скрыть изображение</label>
+  <label><input id="showInfo" type="checkbox" checked /> Окно характеристик</label>
 </div>
 
 <div class="stage" id="stage">
@@ -70,8 +161,65 @@
 <p class="hint">
   По умолчанию фон ищется от рамки изображения.
   Нажми «Добавить точку фона» и кликни по картинке — поиск пойдёт от этой точки.
-  Можно поставить несколько точек. Если точек нет — снова работает рамка.
+  Если точек нет — снова работает рамка.
 </p>
+
+<!-- ============================================================
+     ОКНО ХАРАКТЕРИСТИК
+     ============================================================ -->
+<div class="info-panel visible" id="infoPanel">
+  <h3>Характеристики</h3>
+
+  <div class="info-grid">
+
+    <!-- ЛЕВАЯ КОЛОНКА: общая информация об изображении -->
+    <div class="info-block">
+      <h4>Изображение</h4>
+      <div class="kv"><span>Размер</span><span id="infoSize">—</span></div>
+      <div class="kv"><span>Всего пикселей</span><span id="infoTotalPx">—</span></div>
+      <div class="kv"><span>Порог яркости</span><span id="infoThreshold">—</span></div>
+      <div class="kv"><span>Фон</span><span id="infoBgPct">—</span></div>
+      <div class="kv"><span>Персонаж</span><span id="infoCharPct">—</span></div>
+      <div class="kv"><span>Режим заливки</span><span id="infoMode">—</span></div>
+    </div>
+
+    <!-- ПРАВАЯ КОЛОНКА: список точек -->
+    <div class="info-block">
+      <h4>Точки-источники <span id="infoPointsCount" style="color:#8b93a1;font-weight:normal;">(0)</span></h4>
+      <div class="point-list" id="pointList">
+        <div style="color:#8b93a1;font-size:12px;padding:4px 0;">
+          Точки не заданы — фон ищется от рамки.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Нижний блок: детальная информация по выбранной точке -->
+  <div class="info-block" id="pointDetailsBlock" style="margin-top:12px; display:none;">
+    <h4>Точка #<span id="pdIndex">—</span></h4>
+    <div class="info-grid">
+      <div>
+        <div class="kv"><span>Координаты</span><span id="pdCoords">—</span></div>
+        <div class="kv"><span>Цвет пикселя</span><span id="pdColor">—</span></div>
+        <div class="kv"><span>Яркость</span><span id="pdLum">—</span></div>
+        <div class="kv"><span>Порог</span><span id="pdThreshold">—</span></div>
+        <div class="kv"><span>Ярче порога?</span><span id="pdAbove">—</span></div>
+      </div>
+      <div>
+        <div class="kv"><span>Залито пикселей</span><span id="pdFilled">—</span></div>
+        <div class="kv"><span>Доля от фона</span><span id="pdShare">—</span></div>
+        <div class="kv"><span>Доля от изображения</span><span id="pdImgShare">—</span></div>
+        <div class="kv"><span>Соединено с рамкой?</span><span id="pdToFrame">—</span></div>
+        <div class="kv"><span>Ср. яркость залитого</span><span id="pdAvgLum">—</span></div>
+      </div>
+    </div>
+    <div class="bar" style="margin-top:8px;">
+      <div class="bar-fill" id="pdBar" style="width:0%"></div>
+    </div>
+  </div>
+
+</div>
 
 <script>
 const fileInput      = document.getElementById('file');
@@ -81,8 +229,33 @@ const stageEl        = document.getElementById('stage');
 const bgLumEl        = document.getElementById('bgLum');
 const bgLumVal       = document.getElementById('bgLumVal');
 const hideImageEl    = document.getElementById('hideImage');
+const showInfoEl     = document.getElementById('showInfo');
 const addPointBtn    = document.getElementById('addPointBtn');
 const clearPointsBtn = document.getElementById('clearPointsBtn');
+
+// Ссылки на элементы окна характеристик
+const infoPanel       = document.getElementById('infoPanel');
+const infoSize        = document.getElementById('infoSize');
+const infoTotalPx     = document.getElementById('infoTotalPx');
+const infoThreshold   = document.getElementById('infoThreshold');
+const infoBgPct       = document.getElementById('infoBgPct');
+const infoCharPct     = document.getElementById('infoCharPct');
+const infoMode        = document.getElementById('infoMode');
+const infoPointsCount = document.getElementById('infoPointsCount');
+const pointList       = document.getElementById('pointList');
+const pointDetailsBlock = document.getElementById('pointDetailsBlock');
+const pdIndex         = document.getElementById('pdIndex');
+const pdCoords        = document.getElementById('pdCoords');
+const pdColor         = document.getElementById('pdColor');
+const pdLum           = document.getElementById('pdLum');
+const pdThreshold     = document.getElementById('pdThreshold');
+const pdAbove         = document.getElementById('pdAbove');
+const pdFilled        = document.getElementById('pdFilled');
+const pdShare         = document.getElementById('pdShare');
+const pdImgShare      = document.getElementById('pdImgShare');
+const pdToFrame       = document.getElementById('pdToFrame');
+const pdAvgLum        = document.getElementById('pdAvgLum');
+const pdBar           = document.getElementById('pdBar');
 
 const baseCtx    = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
@@ -90,8 +263,10 @@ const overlayCtx = overlay.getContext('2d');
 let imgWidth = 0, imgHeight = 0;
 let lum = null;
 let isBg = null;
+let imgDataRef = null;   // ссылка на ImageData для чтения цвета
+let selectedPointIndex = -1;
 
-// Точки-источники фона (в координатах изображения)
+// Точки-источники фона
 let sourcePoints = [];
 let addPointMode = false;
 
@@ -108,17 +283,15 @@ fileInput.addEventListener('change', e => {
       c.width = imgWidth; c.height = imgHeight;
     });
 
-    // Включаем pointer-events для overlay, чтобы клики работали
-    overlay.style.pointerEvents = 'none';
-    baseCanvas.style.pointerEvents = 'auto';
-
     baseCtx.drawImage(img, 0, 0);
-    const data = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
-    computeLuminance(data);
+    imgDataRef = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
+    computeLuminance(imgDataRef);
 
-    sourcePoints = []; // сброс точек при новой картинке
+    sourcePoints = [];
+    selectedPointIndex = -1;
     buildMask();
     drawOverlay();
+    updateInfoPanel();
   };
   img.src = URL.createObjectURL(file);
 });
@@ -154,10 +327,8 @@ function buildMask() {
   };
 
   if (sourcePoints.length > 0) {
-    // Если есть точки-источники — заливка идёт от них
     for (const p of sourcePoints) push(p.x, p.y);
   } else {
-    // Иначе — от рамки изображения
     for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
     for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
   }
@@ -193,16 +364,17 @@ function drawOverlay() {
   }
   overlayCtx.putImageData(img, 0, 0);
 
-  // Рисуем точки-источники поверх
-  for (const p of sourcePoints) {
+  // Точки-источники
+  sourcePoints.forEach((p, i) => {
+    const isSelected = i === selectedPointIndex;
     overlayCtx.beginPath();
-    overlayCtx.arc(p.x, p.y, 8, 0, Math.PI * 2);
-    overlayCtx.fillStyle = '#ffcc00';
+    overlayCtx.arc(p.x, p.y, isSelected ? 10 : 8, 0, Math.PI * 2);
+    overlayCtx.fillStyle = isSelected ? '#ff5050' : '#ffcc00';
     overlayCtx.fill();
     overlayCtx.lineWidth = 2;
     overlayCtx.strokeStyle = '#000';
     overlayCtx.stroke();
-  }
+  });
 }
 
 // ---------- Режим добавления точек ----------
@@ -214,9 +386,11 @@ addPointBtn.addEventListener('click', () => {
 
 clearPointsBtn.addEventListener('click', () => {
   sourcePoints = [];
+  selectedPointIndex = -1;
   if (!lum) return;
   buildMask();
   drawOverlay();
+  updateInfoPanel();
 });
 
 baseCanvas.addEventListener('click', e => {
@@ -227,32 +401,165 @@ baseCanvas.addEventListener('click', e => {
   const scaleY = imgHeight / rect.height;
   const x = Math.floor((e.clientX - rect.left) * scaleX);
   const y = Math.floor((e.clientY - rect.top)  * scaleY);
-
   if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) return;
 
   if (addPointMode) {
-    // Добавляем новую точку
     sourcePoints.push({ x, y });
+    selectedPointIndex = sourcePoints.length - 1;
     buildMask();
     drawOverlay();
+    updateInfoPanel();
   } else {
-    // Проверяем клик рядом с существующей точкой — удаляем её
-    let removed = false;
+    // Клик рядом с существующей точкой — выбрать её.
+    // Клик прямо по выбранной точке — удалить.
+    let hitIndex = -1;
     for (let i = sourcePoints.length - 1; i >= 0; i--) {
       const p = sourcePoints[i];
       const dx = p.x - x, dy = p.y - y;
-      if (dx * dx + dy * dy < 15 * 15) {
-        sourcePoints.splice(i, 1);
-        removed = true;
-        break;
-      }
+      if (dx * dx + dy * dy < 15 * 15) { hitIndex = i; break; }
     }
-    if (removed) {
+
+    if (hitIndex === -1) {
+      selectedPointIndex = -1;
+    } else if (hitIndex === selectedPointIndex) {
+      // повторный клик по выбранной — удалить
+      sourcePoints.splice(hitIndex, 1);
+      selectedPointIndex = -1;
       buildMask();
       drawOverlay();
+    } else {
+      selectedPointIndex = hitIndex;
     }
+
+    drawOverlay();
+    updateInfoPanel();
   }
 });
+
+// ---------- Анализ одной точки ----------
+// Считаем: какой цвет в точке, её яркость, сколько пикселей
+// залилось именно от неё (без учёта других точек), соединена ли с рамкой.
+function analyzePoint(p) {
+  const w = imgWidth, h = imgHeight;
+  const threshold = +bgLumEl.value;
+  const idx = p.y * w + p.x;
+
+  // Цвет пикселя
+  const dp = idx * 4;
+  const r = imgDataRef.data[dp];
+  const g = imgDataRef.data[dp + 1];
+  const b = imgDataRef.data[dp + 2];
+
+  // Яркость
+  const L = lum[idx];
+
+  // Заливка ТОЛЬКО от этой точки (независимо от других)
+  const localIsBg = new Uint8Array(w * h);
+  const queue = [idx];
+  localIsBg[idx] = 1;
+  let touchesFrame = false;
+
+  let head = 0;
+  let sumLum = L;
+  while (head < queue.length) {
+    const ci = queue[head++];
+    const cx = ci % w;
+    const cy = (ci / w) | 0;
+
+    if (cx === 0 || cy === 0 || cx === w - 1 || cy === h - 1) {
+      touchesFrame = true;
+    }
+
+    const pushLocal = (nx, ny) => {
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
+      const ni = ny * w + nx;
+      if (localIsBg[ni]) return;
+      if (lum[ni] < threshold) return;
+      localIsBg[ni] = 1;
+      sumLum += lum[ni];
+      queue.push(ni);
+    };
+    pushLocal(cx + 1, cy);
+    pushLocal(cx - 1, cy);
+    pushLocal(cx, cy + 1);
+    pushLocal(cx, cy - 1);
+  }
+
+  const filled = queue.length;
+  const avgLum = sumLum / filled;
+
+  return { r, g, b, L, filled, touchesFrame, avgLum };
+}
+
+// ---------- Окно характеристик ----------
+function updateInfoPanel() {
+  // Видимость окна
+  infoPanel.classList.toggle('visible', showInfoEl.checked);
+
+  if (!lum) return;
+
+  const N = imgWidth * imgHeight;
+  let bg = 0, char_ = 0;
+  for (let i = 0; i < N; i++) { if (isBg[i]) bg++; else char_++; }
+
+  // Общая инфа
+  infoSize.textContent      = `${imgWidth} × ${imgHeight}`;
+  infoTotalPx.textContent   = N.toLocaleString('ru-RU');
+  infoThreshold.textContent = bgLumEl.value;
+  infoBgPct.textContent     = ((bg / N) * 100).toFixed(1) + '%';
+  infoCharPct.textContent   = ((char_ / N) * 100).toFixed(1) + '%';
+  infoMode.textContent      = sourcePoints.length > 0 ? 'от точек' : 'от рамки';
+
+  // Список точек
+  infoPointsCount.textContent = `(${sourcePoints.length})`;
+
+  if (sourcePoints.length === 0) {
+    pointList.innerHTML = '<div style="color:#8b93a1;font-size:12px;padding:4px 0;">Точки не заданы — фон ищется от рамки.</div>';
+  } else {
+    pointList.innerHTML = '';
+    sourcePoints.forEach((p, i) => {
+      const item = document.createElement('div');
+      item.className = 'point-item';
+      const dotColor = (i === selectedPointIndex) ? '#ff5050' : '#ffcc00';
+      item.innerHTML =
+        `<span><span class="dot" style="background:${dotColor}"></span>#${i + 1}</span>` +
+        `<span class="coords">x=${p.x}, y=${p.y}</span>`;
+      item.addEventListener('click', () => {
+        selectedPointIndex = i;
+        drawOverlay();
+        updateInfoPanel();
+      });
+      pointList.appendChild(item);
+    });
+  }
+
+  // Детали выбранной точки
+  if (selectedPointIndex >= 0 && selectedPointIndex < sourcePoints.length) {
+    const p = sourcePoints[selectedPointIndex];
+    const info = analyzePoint(p);
+
+    pointDetailsBlock.style.display = 'block';
+    pdIndex.textContent    = selectedPointIndex + 1;
+    pdCoords.textContent   = `x=${p.x}, y=${p.y}`;
+    pdColor.innerHTML      = `rgb(${info.r}, ${info.g}, ${info.b})<span class="swatch" style="background:rgb(${info.r},${info.g},${info.b})"></span>`;
+    pdLum.textContent      = info.L.toFixed(1);
+    pdThreshold.textContent = bgLumEl.value;
+    pdAbove.textContent    = info.L >= +bgLumEl.value ? 'да' : 'нет';
+    pdAbove.style.color    = info.L >= +bgLumEl.value ? '#40d080' : '#ff6060';
+    pdFilled.textContent   = info.filled.toLocaleString('ru-RU') + ' px';
+    pdShare.textContent    = bg > 0 ? ((info.filled / bg) * 100).toFixed(1) + '%' : '—';
+    pdImgShare.textContent = ((info.filled / N) * 100).toFixed(1) + '%';
+    pdToFrame.textContent  = info.touchesFrame ? 'да' : 'нет (изолированный)';
+    pdToFrame.style.color  = info.touchesFrame ? '#40d080' : '#ffcc00';
+    pdAvgLum.textContent   = info.avgLum.toFixed(1);
+
+    // Прогресс-бар: доля залитого от всего фона
+    const pct = bg > 0 ? Math.min(100, (info.filled / bg) * 100) : 0;
+    pdBar.style.width = pct + '%';
+  } else {
+    pointDetailsBlock.style.display = 'none';
+  }
+}
 
 // ---------- Реакции ----------
 bgLumEl.addEventListener('input', () => {
@@ -260,10 +567,15 @@ bgLumEl.addEventListener('input', () => {
   if (!lum) return;
   buildMask();
   drawOverlay();
+  updateInfoPanel();
 });
 
 hideImageEl.addEventListener('change', () => {
   stageEl.classList.toggle('hide', hideImageEl.checked);
+});
+
+showInfoEl.addEventListener('change', () => {
+  infoPanel.classList.toggle('visible', showInfoEl.checked);
 });
 </script>
 
