@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Анализ персонажа — полный</title>
+<title>Анализ персонажа — связанный</title>
 <style>
   :root {
     color-scheme: dark;
@@ -15,95 +15,55 @@
     --text: #e6e6e6;
     --muted: #8b93a1;
     --muted-2: #b9c3d1;
-    --tap: 44px;
   }
-
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
   html, body {
-    margin: 0;
-    padding: 0;
-    background: var(--bg);
-    color: var(--text);
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--text);
     font-family: system-ui, -apple-system, sans-serif;
     overscroll-behavior: none;
   }
-
   body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 8px 8px 96px 8px;
-    gap: 10px;
-    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 8px 8px 96px 8px; gap: 10px; min-height: 100vh;
   }
 
   /* ========== ВЕРХНЯЯ ПАНЕЛЬ ========== */
   .topbar {
-    width: 100%;
-    max-width: 960px;
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    background: var(--panel);
-    border-radius: 12px;
-    padding: 6px 8px;
-    overflow-x: auto;
+    width: 100%; max-width: 960px;
+    display: flex; gap: 6px; align-items: center;
+    background: var(--panel); border-radius: 12px;
+    padding: 6px 8px; overflow-x: auto;
     scrollbar-width: none;
   }
   .topbar::-webkit-scrollbar { display: none; }
   .topbar .file-label {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 0 12px;
-    height: 38px;
-    border-radius: 8px;
-    background: var(--accent);
-    color: #fff;
-    font-size: 13px;
-    font-weight: 500;
-    white-space: nowrap;
-    cursor: pointer;
+    flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px;
+    padding: 0 12px; height: 38px; border-radius: 8px;
+    background: var(--accent); color: #fff;
+    font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;
   }
   .topbar input[type="file"] { display: none; }
   .topbar button {
-    flex-shrink: 0;
-    height: 38px;
-    padding: 0 12px;
-    font-size: 13px;
-    white-space: nowrap;
-    border-radius: 8px;
-    border: 1px solid #333a44;
-    background: #232830;
-    color: var(--text);
-    cursor: pointer;
+    flex-shrink: 0; height: 38px; padding: 0 12px;
+    font-size: 13px; white-space: nowrap;
+    border-radius: 8px; border: 1px solid #333a44;
+    background: #232830; color: var(--text); cursor: pointer;
   }
-  .topbar button:hover,
-  .topbar button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .topbar button:hover, .topbar button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
   .topbar button.danger { background: #3a1a1a; border-color: #5a2a2a; color: #ff9090; }
 
-  /* ========== МЕНЮ (гамбургер) ========== */
   .menu-toggle {
-    flex-shrink: 0;
-    height: 38px;
-    width: 44px;
-    font-size: 18px;
-    border-radius: 8px;
-    border: 1px solid #333a44;
-    background: #232830;
-    color: var(--text);
-    cursor: pointer;
+    flex-shrink: 0; height: 38px; width: 44px;
+    font-size: 18px; border-radius: 8px;
+    border: 1px solid #333a44; background: #232830;
+    color: var(--text); cursor: pointer;
   }
   .menu-toggle.open { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-  /* Выдвижная панель меню */
+  /* ========== МЕНЮ-ЯЩИК ========== */
   .drawer {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
+    position: fixed; top: 0; left: 0; bottom: 0;
     width: min(340px, 88vw);
     background: var(--panel);
     border-right: 1px solid var(--border);
@@ -112,230 +72,131 @@
     z-index: 100;
     overflow-y: auto;
     padding: 12px 12px 100px 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+    display: flex; flex-direction: column; gap: 12px;
   }
   .drawer.open { transform: translateX(0); }
   .drawer-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 99;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.25s;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5); z-index: 99;
+    opacity: 0; pointer-events: none; transition: opacity 0.25s;
   }
   .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
 
   .drawer h3 {
-    margin: 0 0 6px 0;
-    font-size: 13px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    margin: 0 0 6px 0; font-size: 13px;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;
   }
   .drawer-section {
-    background: var(--panel-2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 12px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 12px;
   }
   .drawer-section .row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-    margin-bottom: 8px;
+    display: flex; flex-wrap: wrap; gap: 8px;
+    align-items: center; margin-bottom: 8px;
   }
   .drawer-section .row:last-child { margin-bottom: 0; }
   .drawer-section label {
-    font-size: 13px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--muted-2);
+    font-size: 13px; display: flex; align-items: center;
+    gap: 6px; color: var(--muted-2);
   }
   .drawer-section button {
-    min-height: 38px;
-    padding: 6px 12px;
-    font-size: 13px;
-    border-radius: 8px;
-    border: 1px solid #333a44;
-    background: #232830;
-    color: var(--text);
-    cursor: pointer;
+    min-height: 38px; padding: 6px 12px;
+    font-size: 13px; border-radius: 8px;
+    border: 1px solid #333a44; background: #232830;
+    color: var(--text); cursor: pointer;
   }
   .drawer-section button:hover,
   .drawer-section button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
   .drawer-section button.danger { background: #3a1a1a; border-color: #5a2a2a; color: #ff9090; }
   .drawer-close {
-    align-self: flex-end;
-    background: transparent;
-    border: none;
-    color: var(--text);
-    font-size: 22px;
-    cursor: pointer;
-    width: 40px;
-    height: 40px;
-    line-height: 1;
+    align-self: flex-end; background: transparent; border: none;
+    color: var(--text); font-size: 22px; cursor: pointer;
+    width: 40px; height: 40px; line-height: 1;
   }
 
-  /* Крупные ползунки для пальцев */
-  .slider-row {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 6px 0;
-  }
+  .slider-row { display: flex; flex-direction: column; gap: 2px; padding: 6px 0; }
   .slider-row .label-line {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-    color: var(--muted-2);
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: var(--muted-2);
   }
   input[type="range"] {
-    width: 100%;
-    height: 32px;
-    margin: 0;
-    background: transparent;
-    -webkit-appearance: none;
-    appearance: none;
+    width: 100%; height: 32px; margin: 0; background: transparent;
+    -webkit-appearance: none; appearance: none;
   }
   input[type="range"]::-webkit-slider-runnable-track {
-    height: 6px;
-    background: #2b2f37;
-    border-radius: 3px;
+    height: 6px; background: #2b2f37; border-radius: 3px;
   }
   input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: var(--accent);
-    border: 2px solid #fff;
-    margin-top: -9px;
-    cursor: pointer;
+    -webkit-appearance: none; appearance: none;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--accent); border: 2px solid #fff;
+    margin-top: -9px; cursor: pointer;
   }
   input[type="range"]::-moz-range-track {
-    height: 6px;
-    background: #2b2f37;
-    border-radius: 3px;
+    height: 6px; background: #2b2f37; border-radius: 3px;
   }
   input[type="range"]::-moz-range-thumb {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: var(--accent);
-    border: 2px solid #fff;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--accent); border: 2px solid #fff;
     cursor: pointer;
   }
 
   /* ========== КАНВАС ========== */
   .stage {
-    position: relative;
-    display: inline-block;
-    border: 1px solid var(--border);
-    background: #0b0c0f;
-    line-height: 0;
-    max-width: 100%;
-    border-radius: 8px;
-    overflow: hidden;
+    position: relative; display: inline-block;
+    border: 1px solid var(--border); background: #0b0c0f;
+    line-height: 0; max-width: 100%; border-radius: 8px; overflow: hidden;
   }
   .stage.hide canvas#base { opacity: 0; }
   .stage.hide { background: #fff; }
   .stage.fullscreen {
-    position: fixed;
-    inset: 0;
-    z-index: 90;
-    border-radius: 0;
-    background: #000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: fixed; inset: 0; z-index: 90;
+    border-radius: 0; background: #000;
+    display: flex; align-items: center; justify-content: center;
   }
   .stage.fullscreen canvas#base {
-    max-width: 100vw;
-    max-height: 100vh;
-    width: auto;
-    height: auto;
-    object-fit: contain;
+    max-width: 100vw; max-height: 100vh;
+    width: auto; height: auto; object-fit: contain;
   }
   .stage.fullscreen canvas#overlay {
-    position: absolute;
-    top: 50%;
-    left: 50%;
+    position: absolute; top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    max-width: 100vw;
-    max-height: 100vh;
-    width: auto;
-    height: auto;
+    max-width: 100vw; max-height: 100vh;
+    width: auto; height: auto;
   }
   .stage canvas {
-    display: block;
-    max-width: min(96vw, 960px);
-    height: auto;
+    display: block; max-width: min(96vw, 960px); height: auto;
   }
   .stage canvas#base {
-    transition: opacity 0.15s;
-    cursor: crosshair;
+    transition: opacity 0.15s; cursor: crosshair;
     touch-action: none;
   }
   .stage.edit-mode canvas#base { cursor: row-resize; }
   .stage.joints-mode canvas#base { cursor: grab; }
   .stage.vp-mode canvas#base { cursor: cell; }
-  .stage canvas#overlay {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-  }
+  .stage canvas#overlay { position: absolute; inset: 0; pointer-events: none; }
 
   .stage .fullscreen-btn {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
+    position: absolute; top: 8px; right: 8px;
+    width: 40px; height: 40px; border-radius: 8px;
     background: rgba(0,0,0,0.6);
     border: 1px solid rgba(255,255,255,0.15);
-    color: #fff;
-    font-size: 18px;
-    line-height: 1;
-    cursor: pointer;
-    z-index: 5;
-    pointer-events: auto;
-  }
-  .stage.fullscreen .fullscreen-btn {
-    top: 12px;
-    right: 12px;
-    width: 44px;
-    height: 44px;
+    color: #fff; font-size: 18px; line-height: 1;
+    cursor: pointer; z-index: 5; pointer-events: auto;
   }
 
   /* ========== ПАНЕЛИ АНАЛИЗА ========== */
   .panels {
-    width: 100%;
-    max-width: 960px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    width: 100%; max-width: 960px;
+    display: flex; flex-direction: column; gap: 8px;
   }
   .panel {
-    background: var(--panel);
-    border-radius: 12px;
-    overflow: hidden;
+    background: var(--panel); border-radius: 12px; overflow: hidden;
   }
   .panel-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 14px;
-    cursor: pointer;
-    user-select: none;
-    min-height: 48px;
-    background: var(--panel);
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; cursor: pointer; user-select: none;
+    min-height: 48px; background: var(--panel);
   }
   .panel-header .num {
     display: inline-flex; align-items: center; justify-content: center;
@@ -344,58 +205,34 @@
     font-size: 12px; font-weight: 700; flex-shrink: 0;
   }
   .panel-header .title {
-    font-size: 14px;
-    font-weight: 600;
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-size: 14px; font-weight: 600; flex: 1;
+    min-width: 0; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
   }
   .panel-header .summary {
-    font-size: 12px;
-    color: var(--muted);
-    flex-shrink: 0;
+    font-size: 12px; color: var(--muted); flex-shrink: 0;
   }
   .panel-header .chevron {
-    font-size: 14px;
-    color: var(--muted);
-    transition: transform 0.2s;
-    flex-shrink: 0;
+    font-size: 14px; color: var(--muted);
+    transition: transform 0.2s; flex-shrink: 0;
   }
   .panel.open .panel-header .chevron { transform: rotate(90deg); }
-  .panel-body {
-    display: none;
-    padding: 0 14px 14px 14px;
-  }
+  .panel-body { display: none; padding: 0 14px 14px 14px; }
   .panel.open .panel-body { display: block; }
 
-  .props-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
+  .props-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
   @media (min-width: 700px) { .props-grid { grid-template-columns: 1fr 1fr; } }
   .props-block-inner {
-    background: var(--panel-2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 12px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px;
   }
   .props-block-inner h4 {
-    margin: 0 0 8px 0;
-    font-size: 13px;
-    color: #ffcc00;
-    font-weight: 600;
+    margin: 0 0 8px 0; font-size: 13px;
+    color: #ffcc00; font-weight: 600;
   }
-
   .kv {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 5px 0;
-    border-bottom: 1px dashed var(--border);
-    font-size: 13px;
+    display: flex; justify-content: space-between; gap: 10px;
+    padding: 5px 0; border-bottom: 1px dashed var(--border); font-size: 13px;
   }
   .kv:last-child { border-bottom: none; }
   .kv span:first-child { color: var(--muted); }
@@ -403,15 +240,12 @@
 
   .histo-canvas-wrap { position: relative; width: 100%; height: 130px; }
   .histo-canvas {
-    width: 100%; height: 100%;
-    display: block;
-    background: var(--panel-2);
-    border-radius: 6px;
+    width: 100%; height: 100%; display: block;
+    background: var(--panel-2); border-radius: 6px;
     border: 1px solid var(--border);
   }
   .histo-info {
-    font-size: 12px; color: var(--muted);
-    margin-top: 6px;
+    font-size: 12px; color: var(--muted); margin-top: 6px;
     display: flex; justify-content: space-between;
     gap: 12px; flex-wrap: wrap;
   }
@@ -419,8 +253,7 @@
 
   .persp-badge, .link-badge {
     display: flex; align-items: center; justify-content: center;
-    gap: 12px; padding: 14px;
-    border-radius: 10px; margin-bottom: 10px;
+    gap: 12px; padding: 14px; border-radius: 10px; margin-bottom: 10px;
   }
   .persp-badge {
     background: linear-gradient(135deg, #3a1a4a, #6a2cb0);
@@ -465,28 +298,19 @@
   .palette-chip {
     border-radius: 8px; overflow: hidden;
     border: 1px solid var(--border);
-    background: var(--panel-2);
-    cursor: pointer;
+    background: var(--panel-2); cursor: pointer;
   }
   .palette-chip .color-block { height: 48px; width: 100%; }
-  .palette-chip .info-block {
-    padding: 5px 7px; font-size: 11px; line-height: 1.25;
-  }
+  .palette-chip .info-block { padding: 5px 7px; font-size: 11px; line-height: 1.25; }
   .palette-chip .hex { color: var(--text); font-weight: 600; }
   .palette-chip .pct { color: var(--muted); }
 
-  .joint-list {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 6px; font-size: 13px;
-  }
+  .joint-list { display: grid; grid-template-columns: 1fr; gap: 6px; font-size: 13px; }
   @media (min-width: 600px) { .joint-list { grid-template-columns: 1fr 1fr; } }
   .joint-item {
     display: flex; justify-content: space-between;
-    padding: 6px 10px;
-    background: var(--panel-2);
-    border-radius: 6px;
-    border: 1px solid var(--border);
+    padding: 6px 10px; background: var(--panel-2);
+    border-radius: 6px; border: 1px solid var(--border);
   }
   .joint-item .name { color: var(--muted-2); }
   .joint-item .coords { color: var(--text); font-variant-numeric: tabular-nums; font-size: 12px; }
@@ -536,62 +360,58 @@
     font-size: 12px; color: var(--text);
   }
   .prop-table th, .prop-table td {
-    padding: 6px 6px;
-    border-bottom: 1px solid var(--border);
+    padding: 6px 6px; border-bottom: 1px solid var(--border);
     text-align: left;
   }
   .prop-table th {
-    color: var(--muted); font-weight: 500; font-size: 11px;
-    text-transform: uppercase;
+    color: var(--muted); font-weight: 500;
+    font-size: 11px; text-transform: uppercase;
   }
-  .prop-table td.num {
-    text-align: right; font-variant-numeric: tabular-nums;
-  }
+  .prop-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .prop-table td.fixed { color: #b9ff80; }
+
+  /* Связка */
+  .link-info {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--muted-2);
+    line-height: 1.5;
+    margin-top: 8px;
+  }
+  .link-info b { color: #b9ff80; }
 
   /* ========== НИЖНЯЯ ПЛАВАЮЩАЯ ПАНЕЛЬ ========== */
   .bottom-bar {
-    position: fixed;
-    bottom: 12px;
-    left: 50%;
+    position: fixed; bottom: 12px; left: 50%;
     transform: translateX(-50%);
     background: rgba(29, 32, 39, 0.96);
     backdrop-filter: blur(12px);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 6px;
-    display: flex;
-    gap: 4px;
-    z-index: 50;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    border: 1px solid var(--border); border-radius: 16px;
+    padding: 6px; display: flex; gap: 4px;
+    z-index: 50; box-shadow: 0 4px 24px rgba(0,0,0,0.5);
   }
   .bottom-bar button {
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    min-width: 64px;
-    height: 52px;
-    padding: 4px 8px;
-    border: none;
-    background: transparent;
-    color: var(--muted-2);
-    font-size: 10px;
-    border-radius: 12px;
-    cursor: pointer;
-    gap: 2px;
-    line-height: 1;
+    min-width: 64px; height: 52px;
+    padding: 4px 8px; border: none;
+    background: transparent; color: var(--muted-2);
+    font-size: 10px; border-radius: 12px;
+    cursor: pointer; gap: 2px; line-height: 1;
   }
   .bottom-bar button .ico { font-size: 18px; }
   .bottom-bar button.active { background: var(--accent); color: #fff; }
   .bottom-bar button:hover { background: rgba(43, 108, 176, 0.3); color: #fff; }
 
-  /* ========== ПОДСКАЗКА ========== */
   .hint {
     font-size: 12px; color: var(--muted);
     max-width: 800px; text-align: center; line-height: 1.5;
     padding: 0 8px;
   }
 
-  /* ========== МОБИЛЬНЫЕ УЛУЧШЕНИЯ ========== */
   @media (max-width: 600px) {
     body { padding: 6px 6px 96px 6px; gap: 8px; }
     .topbar { padding: 5px 6px; gap: 4px; }
@@ -610,22 +430,17 @@
 </head>
 <body>
 
-<!-- ========== КОМПАКТНЫЙ ВЕРХ ========== -->
 <div class="topbar">
   <button class="menu-toggle" id="menuToggle">☰</button>
-  <label class="file-label">
-    📷 Файл
-    <input id="file" type="file" accept="image/*" />
-  </label>
+  <label class="file-label">📷 Файл <input id="file" type="file" accept="image/*" /></label>
   <button id="pickBgColorBtn">🎨 Цвет фона</button>
   <button id="addPointBtn">🎯 Точка</button>
   <button id="editFractionsBtn">✎ Доли</button>
   <button id="editJointsBtn">✎ Суставы</button>
   <button id="manualVPBtn">⌖ ТС</button>
-  <button id="hideImageToggle">👁 Скрыть</button>
 </div>
 
-<!-- ========== МЕНЮ-ЯЩИК ========== -->
+<!-- МЕНЮ -->
 <div class="drawer-backdrop" id="drawerBackdrop"></div>
 <div class="drawer" id="drawer">
   <button class="drawer-close" id="drawerClose">✕</button>
@@ -646,11 +461,10 @@
       <input id="bgDist" type="range" min="1" max="150" value="30" />
     </div>
     <div class="row" style="flex-wrap:wrap;">
-      <label><input id="invert" type="checkbox" /> Инвертировать</label>
-      <label><input id="useMulti" type="checkbox" /> Многомодовый</label>
+      <label><input id="invert" type="checkbox" /> Инверт</label>
       <label><input id="useHoles" type="checkbox" checked /> Дырки</label>
       <label><input id="useWindows" type="checkbox" /> Окна</label>
-      <label><input id="useSmooth" type="checkbox" checked /> Сглаживание</label>
+      <label><input id="useSmooth" type="checkbox" checked /> Сглаж.</label>
     </div>
   </div>
 
@@ -673,7 +487,7 @@
   <h3>Анализ</h3>
   <div class="drawer-section">
     <div class="slider-row">
-      <div class="label-line"><span>Порог сужения (суставы)</span><span id="jointTolVal">20</span></div>
+      <div class="label-line"><span>Согласование долей (порог)</span><span id="jointTolVal">20</span></div>
       <input id="jointTol" type="range" min="5" max="60" value="20" />
     </div>
     <div class="slider-row">
@@ -701,16 +515,17 @@
   <h3>Действия</h3>
   <div class="drawer-section">
     <div class="row">
+      <button id="resyncBtn">⇄ Согласовать доли и суставы</button>
+    </div>
+    <div class="row">
       <button id="resetVPBtn">↺ Авто-ТС</button>
       <button id="clearVPBtn" class="danger">✕ Убрать ТС</button>
       <button id="resetEditBtn">↺ Сброс правок</button>
       <button id="clearPointsBtn" class="danger">✕ Очистить точки</button>
-      <button id="clearMeasurementsBtn" class="danger">✕ Сбросить замеры</button>
     </div>
   </div>
 </div>
 
-<!-- ========== КАНВАС ========== -->
 <div class="stage" id="stage">
   <canvas id="base"></canvas>
   <canvas id="overlay"></canvas>
@@ -718,10 +533,9 @@
 </div>
 
 <p class="hint" id="hintText">
-  Тап на заголовок блока — развернуть/свернуть. Кнопка ☰ — меню.
+  Доли тела и суставы теперь связаны. Тапни заголовок блока — развернуть. ☰ — меню.
 </p>
 
-<!-- ========== ПАНЕЛИ АНАЛИЗА ========== -->
 <div class="panels" id="panels">
 
   <!-- ① ГИСТОГРАММА -->
@@ -867,12 +681,12 @@
           <div style="font-size:11px;color:#8b93a1;margin-top:6px;" id="symmVerdict">—</div>
         </div>
         <div class="props-block-inner">
-          <h4>5.2. По зонам</h4>
-          <div class="kv"><span>Верх</span><span id="symmTop">—</span></div>
+          <h4>5.2. По зонам (по долям)</h4>
+          <div class="kv"><span>Верх (до плеч)</span><span id="symmTop">—</span></div>
           <div class="scale"><div class="scale-fill" id="symmTopBar" style="width:0%"></div></div>
-          <div class="kv" style="margin-top:6px;"><span>Середина</span><span id="symmMid">—</span></div>
+          <div class="kv" style="margin-top:6px;"><span>Середина (плечи–бёдра)</span><span id="symmMid">—</span></div>
           <div class="scale"><div class="scale-fill" id="symmMidBar" style="width:0%"></div></div>
-          <div class="kv" style="margin-top:6px;"><span>Низ</span><span id="symmBot">—</span></div>
+          <div class="kv" style="margin-top:6px;"><span>Низ (после бёдер)</span><span id="symmBot">—</span></div>
           <div class="scale"><div class="scale-fill" id="symmBotBar" style="width:0%"></div></div>
         </div>
       </div>
@@ -883,12 +697,16 @@
   <div class="panel" id="jointsPanel" data-panel="joints">
     <div class="panel-header" data-toggle>
       <span class="num">6</span>
-      <span class="title">Суставы</span>
+      <span class="title">Суставы (= доли тела)</span>
       <span class="summary" id="jointsSummary">—</span>
       <span class="chevron">▶</span>
     </div>
     <div class="panel-body">
-      <div class="joint-list" id="jointList"></div>
+      <div class="link-info">
+        Суставы теперь <b>едины с долями тела</b>. Тянешь линию в блоке ② — двигается сустав. Тянешь сустав — двигается линия.
+        Каждая доля автоматически даёт точку сустава в центре силуэта на своей высоте.
+      </div>
+      <div class="joint-list" id="jointList" style="margin-top:10px;"></div>
     </div>
   </div>
 
@@ -951,28 +769,12 @@
 
 </div>
 
-<!-- ========== НИЖНЯЯ ПЛАВАЮЩАЯ ПАНЕЛЬ ========== -->
 <div class="bottom-bar">
-  <button id="bottomFile">
-    <span class="ico">📷</span>
-    <span>Файл</span>
-  </button>
-  <button id="bottomReset">
-    <span class="ico">↺</span>
-    <span>Вид</span>
-  </button>
-  <button id="bottomToggleOverlay">
-    <span class="ico">◐</span>
-    <span>Маска</span>
-  </button>
-  <button id="bottomHide">
-    <span class="ico">👁</span>
-    <span>Скрыть</span>
-  </button>
-  <button id="bottomMenu">
-    <span class="ico">☰</span>
-    <span>Меню</span>
-  </button>
+  <button id="bottomFile"><span class="ico">📷</span><span>Файл</span></button>
+  <button id="bottomReset"><span class="ico">↺</span><span>Вид</span></button>
+  <button id="bottomToggleOverlay"><span class="ico">◐</span><span>Маска</span></button>
+  <button id="bottomHide"><span class="ico">👁</span><span>Скрыть</span></button>
+  <button id="bottomMenu"><span class="ico">☰</span><span>Меню</span></button>
 </div>
 
 <script>
@@ -989,7 +791,6 @@ const invertEl = document.getElementById('invert');
 const useWindowsEl = document.getElementById('useWindows');
 const useHolesEl = document.getElementById('useHoles');
 const useSmoothEl = document.getElementById('useSmooth');
-const useMultiEl = document.getElementById('useMulti');
 const maxHoleEl = document.getElementById('maxHole');
 const maxHoleVal = document.getElementById('maxHoleVal');
 const minWinEl = document.getElementById('minWin');
@@ -1022,7 +823,7 @@ const manualVPBtn = document.getElementById('manualVPBtn');
 const resetVPBtn = document.getElementById('resetVPBtn');
 const clearVPBtn = document.getElementById('clearVPBtn');
 const resetEditBtn = document.getElementById('resetEditBtn');
-const clearMeasurementsBtn = document.getElementById('clearMeasurementsBtn');
+const resyncBtn = document.getElementById('resyncBtn');
 
 const modeLumBtn = document.getElementById('modeLum');
 const modeColorBtn = document.getElementById('modeColor');
@@ -1030,20 +831,17 @@ const lumSliderRow = document.getElementById('lumSliderRow');
 const colorSliderRow = document.getElementById('colorSliderRow');
 const hintText = document.getElementById('hintText');
 
-// Меню
 const menuToggle = document.getElementById('menuToggle');
 const drawer = document.getElementById('drawer');
 const drawerBackdrop = document.getElementById('drawerBackdrop');
 const drawerClose = document.getElementById('drawerClose');
 
-// Нижняя панель
 const bottomFile = document.getElementById('bottomFile');
 const bottomReset = document.getElementById('bottomReset');
 const bottomToggleOverlay = document.getElementById('bottomToggleOverlay');
 const bottomHide = document.getElementById('bottomHide');
 const bottomMenu = document.getElementById('bottomMenu');
 
-// Кнопка fullscreen
 const fullscreenBtn = document.getElementById('fullscreenBtn');
 
 // Пропорции
@@ -1158,23 +956,26 @@ let holesFilledCount = 0, windowsFoundCount = 0;
 let charBBox = null;
 
 let symmetryResult = null;
-let jointsResult = null;
 let paletteResult = null;
 let contourResult = null;
 let linkResult = null;
 let manualVP = null;
 let manualVPMode = false;
 
+// ДОЛИ ТЕЛА — ЕДИНСТВЕННЫЙ ИСТОЧНИК ПРАВДЫ
 const DEFAULT_FRACTIONS = [
-  { id: 'top',     name: 'Макушка', value: 0.00, color: '#8b93a1' },
-  { id: 'neck',    name: 'Шея', value: 0.13, color: '#ff00ff' },
-  { id: 'shoulder',name: 'Плечи', value: 0.20, color: '#ffaa00' },
-  { id: 'chest',   name: 'Грудь', value: 0.33, color: '#ffcc00' },
-  { id: 'pelvis',  name: 'Бёдра', value: 0.52, color: '#ffaa00' },
-  { id: 'knee',    name: 'Колени', value: 0.72, color: '#ffcc00' },
-  { id: 'ankle',   name: 'Лодыжки', value: 0.95, color: '#ffcc00' },
+  { id: 'top',     name: 'Макушка', value: 0.00, color: '#8b93a1', joint: false },
+  { id: 'neck',    name: 'Шея', value: 0.13, color: '#ff00ff', joint: true },
+  { id: 'shoulder',name: 'Плечи', value: 0.20, color: '#ffaa00', joint: true },
+  { id: 'chest',   name: 'Грудь', value: 0.33, color: '#ffcc00', joint: false },
+  { id: 'pelvis',  name: 'Бёдра', value: 0.52, color: '#ffaa00', joint: true },
+  { id: 'knee',    name: 'Колени', value: 0.72, color: '#ffcc00', joint: true },
+  { id: 'ankle',   name: 'Лодыжки', value: 0.95, color: '#ffcc00', joint: true },
 ];
 let fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
+
+// Промежуточный результат авто-поиска суставов
+let autoJointsRaw = [];
 let autoNeckValue = 0.13;
 
 let editFractionsMode = false;
@@ -1184,14 +985,12 @@ let dragging = null;
 // ========== Меню ==========
 function openDrawer() { drawer.classList.add('open'); drawerBackdrop.classList.add('open'); menuToggle.classList.add('open'); }
 function closeDrawer() { drawer.classList.remove('open'); drawerBackdrop.classList.remove('open'); menuToggle.classList.remove('open'); }
-menuToggle.addEventListener('click', () => {
-  if (drawer.classList.contains('open')) closeDrawer(); else openDrawer();
-});
+menuToggle.addEventListener('click', () => { drawer.classList.contains('open') ? closeDrawer() : openDrawer(); });
 drawerClose.addEventListener('click', closeDrawer);
 drawerBackdrop.addEventListener('click', closeDrawer);
 bottomMenu.addEventListener('click', openDrawer);
 
-// ========== Показ/скрытие панелей ==========
+// ========== Показ панелей ==========
 function applyPanelVisibility() {
   histoPanel.style.display = showHistoEl.checked ? '' : 'none';
   propsPanel.style.display = showPropsEl.checked ? '' : 'none';
@@ -1208,41 +1007,33 @@ function applyPanelVisibility() {
   el.addEventListener('change', applyPanelVisibility);
 });
 
-// ========== Сворачивание панелей ==========
+// ========== Сворачивание ==========
 document.querySelectorAll('.panel-header[data-toggle]').forEach(header => {
-  header.addEventListener('click', () => {
-    const panel = header.parentElement;
-    panel.classList.toggle('open');
-  });
+  header.addEventListener('click', () => header.parentElement.classList.toggle('open'));
 });
-
-// По умолчанию открываем первые две
 window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('propsPanel').classList.add('open');
   document.getElementById('perspPanel').classList.add('open');
+  document.getElementById('jointsPanel').classList.add('open');
 });
 
-// ========== Полноэкранный режим ==========
+// ========== Fullscreen ==========
 let isFullscreen = false;
 fullscreenBtn.addEventListener('click', () => {
   isFullscreen = !isFullscreen;
   stageEl.classList.toggle('fullscreen', isFullscreen);
   fullscreenBtn.textContent = isFullscreen ? '✕' : '⛶';
-  // Запрещаем скролл body
   document.body.style.overflow = isFullscreen ? 'hidden' : '';
 });
 
-// ========== Нижняя панель ==========
 bottomFile.addEventListener('click', () => fileInput.click());
 bottomReset.addEventListener('click', () => {
-  // Сброс «вид»: скрыть оверлей, вернуть обычный размер
   isFullscreen = false;
   stageEl.classList.remove('fullscreen');
   fullscreenBtn.textContent = '⛶';
   document.body.style.overflow = '';
 });
 bottomToggleOverlay.addEventListener('click', () => {
-  // Показ только маски (скрыть подложку)
   const willHide = !stageEl.classList.contains('hide');
   stageEl.classList.toggle('hide', willHide);
   bottomHide.classList.toggle('active', willHide);
@@ -1270,8 +1061,8 @@ fileInput.addEventListener('change', e => {
     selectedPointIndex = -1;
     colorSamples = [];
     fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
-    jointsResult = null;
     manualVP = null;
+    autoJointsRaw = [];
     if (mode === 'lum') autoPickThreshold();
     rebuildAll();
   };
@@ -1460,6 +1251,119 @@ function computeBBox() {
   charBBox = { minX, minY, maxX, maxY, width: maxX - minX + 1, height: maxY - minY + 1, charCount };
 }
 
+// ========== АВТО-ПОИСК СУСТАВОВ (согласование с fractions) ==========
+// Ищем сужения. Затем СОГЛАСУЕМ с долями:
+//  - Если найденное сужение близко к существующей доле — обновляем её (если она не правилась вручную).
+//  - Если сужение без пары и его нет среди долей — добавляем новую долю.
+function autoFindAndSyncJoints() {
+  if (!charBBox) return;
+  const w = imgWidth, h = imgHeight;
+  const { minX, minY, width: bw, height: bh } = charBBox;
+  const tol = +jointTolEl.value;
+
+  // Считаем ширины строк
+  const rowWidths = new Int32Array(bh);
+  for (let yy = 0; yy < bh; yy++) {
+    const y = minY + yy;
+    let rowMinX = -1, rowMaxX = -1;
+    for (let x = minX; x <= minX + bw - 1; x++) {
+      if (!isBg[y * w + x]) { if (rowMinX < 0) rowMinX = x; rowMaxX = x; }
+    }
+    rowWidths[yy] = rowMinX < 0 ? 0 : (rowMaxX - rowMinX + 1);
+  }
+  // Сглаживание
+  const sm = new Float32Array(bh);
+  for (let i = 0; i < bh; i++) {
+    let s = 0, c = 0;
+    for (let k = -3; k <= 3; k++) {
+      const ii = i + k;
+      if (ii < 0 || ii >= bh) continue;
+      s += rowWidths[ii]; c++;
+    }
+    sm[i] = s / c;
+  }
+
+  // Ищем сужения
+  const found = [];
+  for (let i = Math.floor(bh * 0.06); i < Math.floor(bh * 0.96); i++) {
+    if (i < 4 || i > bh - 5) continue;
+    const above = Math.max(sm[i-4], sm[i-3], sm[i-2]);
+    const below = Math.max(sm[i+2], sm[i+3], sm[i+4]);
+    if (sm[i] < above && sm[i] < below) {
+      const drop = Math.min(above - sm[i], below - sm[i]);
+      if (drop >= tol) {
+        found.push({ fracValue: i / bh, drop });
+      }
+    }
+  }
+
+  // Объединяем близкие
+  const merged = [];
+  for (const f of found) {
+    if (merged.length === 0) { merged.push(f); continue; }
+    const last = merged[merged.length - 1];
+    if (f.fracValue - last.fracValue < 0.02) {
+      if (f.drop > last.drop) merged[merged.length - 1] = f;
+    } else merged.push(f);
+  }
+
+  autoJointsRaw = merged;
+
+  // Согласование с fractions
+  const usedAuto = new Array(merged.length).fill(false);
+
+  // 1. Обновляем существующие доли, если они не manual
+  fractions.forEach(frac => {
+    if (frac.manual) return;
+    if (frac.id === 'top') return; // макушка = 0, не трогаем
+
+    // Ищем ближайшее авто-сужение
+    let bestIdx = -1, bestDist = Infinity;
+    merged.forEach((m, i) => {
+      if (usedAuto[i]) return;
+      const d = Math.abs(m.fracValue - frac.value);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    });
+    if (bestIdx >= 0 && bestDist < 0.06) {
+      frac.value = merged[bestIdx].fracValue;
+      frac.fromAuto = true;
+      usedAuto[bestIdx] = true;
+    }
+  });
+
+  // 2. Неиспользованные авто-сужения — добавляем как новые доли
+  //    (только если их нет в fractions)
+  const unused = [];
+  merged.forEach((m, i) => { if (!usedAuto[i]) unused.push(m); });
+
+  // Удаляем старые авто-добавленные доли (у которых fromAuto2 = true)
+  fractions = fractions.filter(f => !f.fromAuto2);
+
+  // Добавляем новые
+  unused.forEach((m, i) => {
+    const id = 'auto_' + Math.round(m.fracValue * 1000);
+    if (fractions.some(f => f.id === id)) return;
+    const names = ['авто-сустав 1', 'авто-сустав 2', 'авто-сустав 3'];
+    fractions.push({
+      id,
+      name: names[i] || `авто-сустав ${i + 1}`,
+      value: m.fracValue,
+      color: '#40d0d0',
+      joint: true,
+      fromAuto2: true,
+    });
+  });
+
+  // Сортируем
+  fractions.sort((a, b) => a.value - b.value);
+
+  // Запоминаем авто-значение шеи
+  const neckFrac = fractions.find(f => f.id === 'neck');
+  if (neckFrac && !neckFrac.manual) autoNeckValue = neckFrac.value;
+  else if (neckFrac) autoNeckValue = neckFrac.value;
+}
+
+// ========== ПРОПОРЦИИ ==========
 function updateProportions() {
   if (!charBBox) return;
   const { minX, minY, width: bw, height: bh, charCount } = charBBox;
@@ -1487,7 +1391,7 @@ function updateProportions() {
   propsSummary.textContent = `${bh}×${bw} · ${heads.toFixed(2)} голов`;
 }
 
-// ========== Перспектива ==========
+// ========== ПЕРСПЕКТИВА (согласована с fractions) ==========
 function computePerspective() {
   if (!charBBox) {
     perspMain.textContent = '—';
@@ -1584,10 +1488,12 @@ function computePerspective() {
   }
   contourResult = { leftSlope, rightSlope, avgAngleDeg, vanishing, ratio, vVerdict };
 
+  // Наклон плеч и бёдер — БЕРЁМ ИЗ fractions!
   const shFrac = fractions.find(f => f.id === 'shoulder');
   const plFrac = fractions.find(f => f.id === 'pelvis');
   const shoulderY = minY + Math.round(bh * (shFrac ? shFrac.value : 0.20));
   const pelvisY = minY + Math.round(bh * (plFrac ? plFrac.value : 0.52));
+
   const edgeAt = (y) => {
     let lx = -1, rx = -1;
     for (let x = minX; x <= maxX; x++) {
@@ -1674,7 +1580,7 @@ function findVanishingPoint(rowEdges) {
   return { x: vx, y: vy, insideImage, confidence, L, R };
 }
 
-// ========== Связь ==========
+// ========== СВЯЗЬ ==========
 function computeLink() {
   if (!charBBox || !contourResult) {
     linkMeasured.textContent = '—';
@@ -1758,14 +1664,20 @@ function computeLink() {
   }
 }
 
-// ========== Симметрия ==========
+// ========== СИММЕТРИЯ (зоны = по долям shoulder и pelvis) ==========
 function computeSymmetry() {
   if (!charBBox) { symmetryResult = null; symmSummary.textContent = '—'; return; }
   const w = imgWidth, h = imgHeight;
   const { minX, minY, width: bw, height: bh } = charBBox;
   const cx = minX + bw / 2;
-  const rowData = [];
 
+  // Границы зон берём из долей
+  const shFrac = fractions.find(f => f.id === 'shoulder');
+  const plFrac = fractions.find(f => f.id === 'pelvis');
+  const shVal = shFrac ? shFrac.value : 0.20;
+  const plVal = plFrac ? plFrac.value : 0.52;
+
+  const rowData = [];
   for (let yy = 0; yy < bh; yy++) {
     const y = minY + yy;
     let leftCount = 0, rightCount = 0;
@@ -1784,13 +1696,16 @@ function computeSymmetry() {
 
   const nonEmpty = rowData.filter(r => r.leftCount > 0 || r.rightCount > 0);
   const totalSymm = nonEmpty.length ? nonEmpty.reduce((s, r) => s + r.rowSymm, 0) / nonEmpty.length : 0;
+
   const zone = (a, b) => {
     const slice = rowData.filter(r => r.y >= a && r.y < b && (r.leftCount > 0 || r.rightCount > 0));
     return slice.length ? slice.reduce((s, r) => s + r.rowSymm, 0) / slice.length : 0;
   };
-  const zTop = zone(0, Math.floor(bh / 3));
-  const zMid = zone(Math.floor(bh / 3), Math.floor(bh * 2 / 3));
-  const zBot = zone(Math.floor(bh * 2 / 3), bh);
+  const topEnd = Math.floor(bh * shVal);
+  const midEnd = Math.floor(bh * plVal);
+  const zTop = zone(0, topEnd);
+  const zMid = zone(topEnd, midEnd);
+  const zBot = zone(midEnd, bh);
 
   symmetryResult = { total: totalSymm, top: zTop, mid: zMid, bot: zBot };
 
@@ -1822,85 +1737,45 @@ function computeSymmetry() {
   symmSummary.textContent = pct(totalSymm);
 }
 
-// ========== Суставы ==========
+// ========== СУСТАВЫ = ВИЗУАЛИЗАЦИЯ ДОЛЕЙ ==========
+// Каждая доля с флагом joint = true даёт точку сустава.
+// Точка сустава: центр силуэта на высоте доли.
 function computeJoints() {
-  if (!charBBox) { jointsResult = null; jointsListRender([]); jointsSummary.textContent = '—'; return; }
-  if (jointsResult && jointsResult.some(j => j.manual)) {
-    jointsListRender(jointsResult);
-    jointsSummary.textContent = `${jointsResult.length} (с правками)`;
-    return;
-  }
+  if (!charBBox) { jointsListRender([]); jointsSummary.textContent = '—'; return; }
 
   const w = imgWidth, h = imgHeight;
   const { minX, minY, width: bw, height: bh } = charBBox;
-  const tol = +jointTolEl.value;
 
-  const rowWidths = new Int32Array(bh);
-  for (let yy = 0; yy < bh; yy++) {
-    const y = minY + yy;
-    let rowMinX = -1, rowMaxX = -1;
-    for (let x = minX; x <= minX + bw - 1; x++) {
-      if (!isBg[y * w + x]) { if (rowMinX < 0) rowMinX = x; rowMaxX = x; }
-    }
-    rowWidths[yy] = rowMinX < 0 ? 0 : (rowMaxX - rowMinX + 1);
-  }
-  const sm = new Float32Array(bh);
-  for (let i = 0; i < bh; i++) {
-    let s = 0, c = 0;
-    for (let k = -3; k <= 3; k++) {
-      const ii = i + k;
-      if (ii < 0 || ii >= bh) continue;
-      s += rowWidths[ii]; c++;
-    }
-    sm[i] = s / c;
-  }
-
-  const found = [];
-  for (let i = Math.floor(bh * 0.08); i < Math.floor(bh * 0.95); i++) {
-    if (i < 4 || i > bh - 5) continue;
-    const above = Math.max(sm[i-4], sm[i-3], sm[i-2]);
-    const below = Math.max(sm[i+2], sm[i+3], sm[i+4]);
-    if (sm[i] < above && sm[i] < below) {
-      const drop = Math.min(above - sm[i], below - sm[i]);
-      if (drop >= tol) {
-        const y = minY + i;
-        let xMin = -1, xMax = -1;
+  // Для каждой доли с joint=true ищем центр силуэта на её высоте
+  const joints = fractions
+    .filter(f => f.joint)
+    .map(f => {
+      const y = minY + Math.round(bh * f.value);
+      let xMin = -1, xMax = -1;
+      if (y >= 0 && y < h) {
         for (let x = minX; x <= minX + bw - 1; x++) {
           if (!isBg[y * w + x]) { if (xMin < 0) xMin = x; xMax = x; }
         }
-        const cx = (xMin + xMax) / 2;
-        found.push({ y: i, x: cx, yImg: y, width: sm[i], drop });
       }
-    }
-  }
+      const cx = xMin >= 0 ? (xMin + xMax) / 2 : minX + bw / 2;
+      return {
+        id: f.id,
+        name: f.name,
+        x: cx,
+        yImg: y,
+        pctHeight: (f.value * 100).toFixed(1),
+        manual: !!f.manual,
+      };
+    });
 
-  const merged = [];
-  for (const f of found) {
-    if (merged.length === 0) { merged.push(f); continue; }
-    const last = merged[merged.length - 1];
-    if (f.y - last.y < 5) {
-      if (f.width < last.width) merged[merged.length - 1] = f;
-    } else merged.push(f);
-  }
-
-  const names = ['шея', 'плечи / локти', 'запястья / талия', 'бёдра', 'колени', 'лодыжки'];
-  const classified = merged.map((m, i) => ({
-    ...m,
-    name: names[i] || `сустав ${i + 1}`,
-    pctHeight: (m.y / bh * 100).toFixed(1),
-    manual: false,
-  }));
-
-  jointsResult = classified;
-  jointsListRender(classified);
-  jointsSummary.textContent = `${classified.length}`;
+  jointsListRender(joints);
 }
 
 function jointsListRender(arr) {
   jointList.innerHTML = '';
-  jointsSummary.textContent = `${arr.length}`;
+  jointsSummary.textContent = `${arr.length} (= долей)`;
   if (arr.length === 0) {
-    jointList.innerHTML = '<div class="joint-item"><span class="name">Суставы не найдены</span><span class="coords">уменьшите порог</span></div>';
+    jointList.innerHTML = '<div class="joint-item"><span class="name">Нет долей-суставов</span><span class="coords">—</span></div>';
     return;
   }
   arr.forEach((j, i) => {
@@ -1908,12 +1783,12 @@ function jointsListRender(arr) {
     el.className = 'joint-item';
     const mark = j.manual ? ' ✎' : '';
     el.innerHTML = `<span class="name">${i+1}. ${j.name}${mark}</span>`
-      + `<span class="coords">x=${j.x.toFixed(0)}, y=${j.yImg}</span>`;
+      + `<span class="coords">${j.pctHeight}% · x=${j.x.toFixed(0)}</span>`;
     jointList.appendChild(el);
   });
 }
 
-// ========== Палитра ==========
+// ========== ПАЛИТРА ==========
 function computePalette() {
   if (!charBBox) { paletteResult = null; paletteGrid.innerHTML = ''; paletteSummary.textContent = '—'; return; }
   const w = imgWidth, h = imgHeight;
@@ -2004,29 +1879,35 @@ function drawOverlay() {
     overlayCtx.strokeRect(charBBox.minX, charBBox.minY, charBBox.width, charBBox.height);
     overlayCtx.setLineDash([]);
 
+    // Линии долей
     for (const frac of fractions) {
       const y = charBBox.minY + Math.round(charBBox.height * frac.value);
       if (y < 0 || y >= imgHeight) continue;
-      const isKey = frac.id === 'neck' || frac.id === 'shoulder' || frac.id === 'pelvis';
       overlayCtx.strokeStyle = frac.color;
-      overlayCtx.globalAlpha = isKey ? 1 : 0.7;
-      overlayCtx.lineWidth = isKey ? Math.max(3, Math.round(imgWidth / 500)) : Math.max(1, Math.round(imgWidth / 800));
+      overlayCtx.globalAlpha = frac.joint ? 1 : 0.55;
+      overlayCtx.lineWidth = frac.joint
+        ? Math.max(3, Math.round(imgWidth / 500))
+        : Math.max(1, Math.round(imgWidth / 800));
       overlayCtx.beginPath();
       overlayCtx.moveTo(charBBox.minX, y);
       overlayCtx.lineTo(charBBox.maxX + 1, y);
       overlayCtx.stroke();
       overlayCtx.globalAlpha = 1;
-      if (isKey || editFractionsMode) {
+      // Подпись
+      if (frac.joint || editFractionsMode) {
         const fs = Math.max(11, Math.round(imgWidth / 70));
         overlayCtx.font = `bold ${fs}px system-ui`;
+        const mark = frac.manual ? ' ✎' : '';
+        const label = frac.name + mark;
+        const tw = overlayCtx.measureText(label).width;
         overlayCtx.fillStyle = 'rgba(0,0,0,0.7)';
-        const tw = overlayCtx.measureText(frac.name).width;
         overlayCtx.fillRect(charBBox.maxX + 6, y - fs, tw + 8, fs + 4);
         overlayCtx.fillStyle = frac.color;
-        overlayCtx.fillText(frac.name, charBBox.maxX + 10, y - 2);
+        overlayCtx.fillText(label, charBBox.maxX + 10, y - 2);
       }
     }
 
+    // Истинные доли
     if (showCorrectedEl.checked && linkResult) {
       overlayCtx.strokeStyle = 'rgba(185, 255, 128, 0.9)';
       overlayCtx.setLineDash([6, 5]);
@@ -2042,6 +1923,7 @@ function drawOverlay() {
       overlayCtx.setLineDash([]);
     }
 
+    // Ось симметрии
     if (showSymmEl.checked && symmetryResult) {
       const cx = charBBox.minX + charBBox.width / 2;
       overlayCtx.strokeStyle = 'rgba(185, 255, 128, 0.85)';
@@ -2055,28 +1937,45 @@ function drawOverlay() {
     }
   }
 
-  if (showJointsEl.checked && jointsResult) {
-    jointsResult.forEach(j => {
+  // Суставы = визуализация долей с joint=true
+  if (showJointsEl.checked) {
+    const w2 = imgWidth, h2 = imgHeight;
+    const minX = charBBox ? charBBox.minX : 0;
+    const minY = charBBox ? charBBox.minY : 0;
+    const bw = charBBox ? charBBox.width : w2;
+    const bh = charBBox ? charBBox.height : h2;
+    fractions.filter(f => f.joint).forEach(f => {
+      const y = minY + Math.round(bh * f.value);
+      let xMin = -1, xMax = -1;
+      if (y >= 0 && y < h2) {
+        for (let x = minX; x <= minX + bw - 1; x++) {
+          if (!isBg[y * w2 + x]) { if (xMin < 0) xMin = x; xMax = x; }
+        }
+      }
+      const cx = xMin >= 0 ? (xMin + xMax) / 2 : minX + bw / 2;
+
       overlayCtx.beginPath();
-      overlayCtx.arc(j.x, j.yImg, 8, 0, Math.PI * 2);
-      overlayCtx.fillStyle = j.manual ? '#ffcc00' : '#ff60ff';
+      overlayCtx.arc(cx, y, 8, 0, Math.PI * 2);
+      overlayCtx.fillStyle = f.manual ? '#ffcc00' : '#ff60ff';
       overlayCtx.fill();
       overlayCtx.lineWidth = 2;
       overlayCtx.strokeStyle = '#000';
       overlayCtx.stroke();
-      if (editJointsMode || j.manual) {
+
+      if (editJointsMode || f.manual) {
         const fs = Math.max(10, Math.round(imgWidth / 90));
         overlayCtx.font = `bold ${fs}px system-ui`;
-        const label = `${j.name}${j.manual ? ' ✎' : ''}`;
+        const label = f.name + (f.manual ? ' ✎' : '');
         const tw = overlayCtx.measureText(label).width;
         overlayCtx.fillStyle = 'rgba(0,0,0,0.7)';
-        overlayCtx.fillRect(j.x + 12, j.yImg - fs, tw + 8, fs + 4);
-        overlayCtx.fillStyle = j.manual ? '#ffcc00' : '#ff80ff';
-        overlayCtx.fillText(label, j.x + 16, j.yImg - 2);
+        overlayCtx.fillRect(cx + 12, y - fs, tw + 8, fs + 4);
+        overlayCtx.fillStyle = f.manual ? '#ffcc00' : '#ff80ff';
+        overlayCtx.fillText(label, cx + 16, y - 2);
       }
     });
   }
 
+  // Точка схода
   if (contourResult && contourResult.vanishing && showPerspEl.checked) {
     const v = contourResult.vanishing;
     const isManual = v.manual === true;
@@ -2298,11 +2197,12 @@ function removePoint(index) {
   rebuildAll();
 }
 
-// ========== Пересчёт ==========
+// ========== ПЕРЕСЧЁТ ==========
 function rebuildAll() {
   if (!lum) return;
   buildMask();
   computeBBox();
+  autoFindAndSyncJoints();  // ← согласование авто-суставов с долями
   updateProportions();
   computePerspective();
   computeLink();
@@ -2314,7 +2214,7 @@ function rebuildAll() {
   updateInfo();
 }
 
-// ========== Правка ==========
+// ========== ПРАВКА ==========
 function clientToImage(clientX, clientY) {
   const rect = baseCanvas.getBoundingClientRect();
   return {
@@ -2335,12 +2235,23 @@ function findFractionAtY(y) {
   return bestDist <= thresh ? best : null;
 }
 
+// Найти долю-сустав рядом с точкой
 function findJointAt(x, y) {
-  if (!jointsResult) return -1;
+  if (!charBBox) return -1;
+  const { minX, minY, width: bw, height: bh } = charBBox;
   let best = -1, bestDist = Infinity;
   const thresh = Math.max(20, imgWidth * 0.04);
-  jointsResult.forEach((j, i) => {
-    const dx = j.x - x, dy = j.yImg - y;
+  fractions.forEach((f, i) => {
+    if (!f.joint) return;
+    const fy = minY + Math.round(bh * f.value);
+    let xMin = -1, xMax = -1;
+    if (fy >= 0 && fy < imgHeight) {
+      for (let xx = minX; xx <= minX + bw - 1; xx++) {
+        if (!isBg[fy * imgWidth + xx]) { if (xMin < 0) xMin = xx; xMax = xx; }
+      }
+    }
+    const cx = xMin >= 0 ? (xMin + xMax) / 2 : minX + bw / 2;
+    const dx = cx - x, dy = fy - y;
     const d = Math.sqrt(dx * dx + dy * dy);
     if (d < bestDist) { bestDist = d; best = i; }
   });
@@ -2351,10 +2262,11 @@ baseCanvas.addEventListener('mousedown', (e) => {
   if (!charBBox || !lum) return;
   const p = clientToImage(e.clientX, e.clientY);
 
-  if (editJointsMode && jointsResult) {
+  if (editJointsMode) {
     const idx = findJointAt(p.x, p.y);
     if (idx >= 0) {
-      dragging = { type: 'joint', idx, offsetX: p.x - jointsResult[idx].x, offsetY: p.y - jointsResult[idx].yImg };
+      const frac = fractions[idx];
+      dragging = { type: 'fraction', id: frac.id, startY: p.y, startValue: frac.value };
       baseCanvas.style.cursor = 'grabbing';
       e.preventDefault();
       return;
@@ -2377,28 +2289,22 @@ window.addEventListener('mousemove', (e) => {
   if (dragging.type === 'fraction' && charBBox) {
     const dy = (p.y - dragging.startY) / charBBox.height;
     let newValue = dragging.startValue + dy;
-    const neighbors = fractions.filter(f => f.id !== dragging.id).map(f => f.value).sort((a, b) => a - b);
-    let minV = 0.01, maxV = 0.99;
-    for (const v of neighbors) {
-      if (v < dragging.startValue && v > minV) minV = v + 0.005;
-      if (v > dragging.startValue && v < maxV) maxV = v - 0.005;
-    }
+    // Соседи
+    const curIdx = fractions.findIndex(f => f.id === dragging.id);
+    const above = fractions[curIdx - 1];
+    const below = fractions[curIdx + 1];
+    const minV = above ? above.value + 0.01 : 0.01;
+    const maxV = below ? below.value - 0.01 : 0.99;
     newValue = Math.max(minV, Math.min(maxV, newValue));
     const frac = fractions.find(f => f.id === dragging.id);
     if (frac) { frac.value = newValue; frac.manual = true; }
-    updateProportions(); computePerspective(); computeLink(); drawOverlay();
-  }
-  if (dragging.type === 'joint' && jointsResult) {
-    const j = jointsResult[dragging.idx];
-    if (j) {
-      j.x = Math.max(0, Math.min(imgWidth - 1, p.x - dragging.offsetX));
-      j.yImg = Math.max(0, Math.min(imgHeight - 1, p.y - dragging.offsetY));
-      j.y = j.yImg - charBBox.minY;
-      j.manual = true;
-      j.pctHeight = (j.y / charBBox.height * 100).toFixed(1);
-      jointsListRender(jointsResult);
-      drawOverlay();
-    }
+    // Пересчитаем только связанные
+    updateProportions();
+    computePerspective();
+    computeLink();
+    computeSymmetry();
+    computeJoints();
+    drawOverlay();
   }
 });
 
@@ -2435,10 +2341,11 @@ baseCanvas.addEventListener('touchstart', (e) => {
   if (!charBBox || !lum || e.touches.length !== 1) return;
   const t = e.touches[0];
   const p = clientToImage(t.clientX, t.clientY);
-  if (editJointsMode && jointsResult) {
+  if (editJointsMode) {
     const idx = findJointAt(p.x, p.y);
     if (idx >= 0) {
-      dragging = { type: 'joint', idx, offsetX: p.x - jointsResult[idx].x, offsetY: p.y - jointsResult[idx].yImg };
+      const frac = fractions[idx];
+      dragging = { type: 'fraction', id: frac.id, startY: p.y, startValue: frac.value };
       e.preventDefault(); return;
     }
   }
@@ -2458,27 +2365,20 @@ baseCanvas.addEventListener('touchmove', (e) => {
   if (dragging.type === 'fraction' && charBBox) {
     const dy = (p.y - dragging.startY) / charBBox.height;
     let newValue = dragging.startValue + dy;
-    const neighbors = fractions.filter(f => f.id !== dragging.id).map(f => f.value).sort((a, b) => a - b);
-    let minV = 0.01, maxV = 0.99;
-    for (const v of neighbors) {
-      if (v < dragging.startValue && v > minV) minV = v + 0.005;
-      if (v > dragging.startValue && v < maxV) maxV = v - 0.005;
-    }
+    const curIdx = fractions.findIndex(f => f.id === dragging.id);
+    const above = fractions[curIdx - 1];
+    const below = fractions[curIdx + 1];
+    const minV = above ? above.value + 0.01 : 0.01;
+    const maxV = below ? below.value - 0.01 : 0.99;
     newValue = Math.max(minV, Math.min(maxV, newValue));
     const frac = fractions.find(f => f.id === dragging.id);
     if (frac) { frac.value = newValue; frac.manual = true; }
-    updateProportions(); computePerspective(); computeLink(); drawOverlay();
-  }
-  if (dragging.type === 'joint' && jointsResult) {
-    const j = jointsResult[dragging.idx];
-    if (j) {
-      j.x = Math.max(0, Math.min(imgWidth - 1, p.x - dragging.offsetX));
-      j.yImg = Math.max(0, Math.min(imgHeight - 1, p.y - dragging.offsetY));
-      j.y = j.yImg - charBBox.minY;
-      j.manual = true;
-      j.pctHeight = (j.y / charBBox.height * 100).toFixed(1);
-      jointsListRender(jointsResult); drawOverlay();
-    }
+    updateProportions();
+    computePerspective();
+    computeLink();
+    computeSymmetry();
+    computeJoints();
+    drawOverlay();
   }
   e.preventDefault();
 }, { passive: false });
@@ -2536,15 +2436,15 @@ clearPointsBtn.addEventListener('click', () => {
   sourcePoints = []; selectedPointIndex = -1;
   if (!lum) return; rebuildAll();
 });
-clearMeasurementsBtn.addEventListener('click', () => {
-  fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
-  jointsResult = null;
-  if (lum) rebuildAll();
-});
 resetEditBtn.addEventListener('click', () => {
   fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
-  jointsResult = null;
   if (lum) rebuildAll();
+});
+resyncBtn.addEventListener('click', () => {
+  if (!lum) return;
+  // Сбрасываем ручные пометки и пересчитываем
+  fractions.forEach(f => { f.manual = false; });
+  rebuildAll();
 });
 resetVPBtn.addEventListener('click', () => { manualVP = null; if (lum) rebuildAll(); });
 clearVPBtn.addEventListener('click', () => {
@@ -2615,14 +2515,13 @@ invertEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 useWindowsEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 useHolesEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 useSmoothEl.addEventListener('change', () => { if (lum) rebuildAll(); });
-useMultiEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 maxHoleEl.addEventListener('input', () => { maxHoleVal.textContent = maxHoleEl.value; if (lum && useHolesEl.checked) rebuildAll(); });
 minWinEl.addEventListener('input', () => { minWinVal.textContent = minWinEl.value; if (lum && useWindowsEl.checked) rebuildAll(); });
 smoothIterEl.addEventListener('input', () => { smoothIterVal.textContent = smoothIterEl.value; if (lum && useSmoothEl.checked) rebuildAll(); });
 paletteCountEl.addEventListener('input', () => { paletteCountVal.textContent = paletteCountEl.value; if (lum) computePalette(); });
 jointTolEl.addEventListener('input', () => {
   jointTolVal.textContent = jointTolEl.value;
-  if (!jointsResult || !jointsResult.some(j => j.manual)) { if (lum) computeJoints(); }
+  if (lum) rebuildAll();
 });
 showCorrectedEl.addEventListener('change', drawOverlay);
 autoThresholdBtn.addEventListener('click', () => { if (!histogram) return; autoPickThreshold(); if (mode === 'lum') rebuildAll(); });
@@ -2633,9 +2532,8 @@ histoCanvas.addEventListener('click', (e) => {
   const v = Math.max(0, Math.min(255, Math.round((x / rect.width) * 255)));
   bgLumEl.value = v; bgLumVal.textContent = v; rebuildAll();
 });
-
 window.addEventListener('resize', () => { if (showHistoEl.checked && histogram) drawHistogram(); });
 </script>
 
 </body>
-               </html>
+  </html>
