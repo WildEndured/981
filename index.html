@@ -2,123 +2,451 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>Анализ персонажа — полный</title>
 <style>
-  body {
+  :root {
+    color-scheme: dark;
+    --bg: #14161a;
+    --panel: #1d2027;
+    --panel-2: #14161a;
+    --border: #2b2f37;
+    --accent: #2b6cb0;
+    --text: #e6e6e6;
+    --muted: #8b93a1;
+    --muted-2: #b9c3d1;
+    --tap: 44px;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
     margin: 0;
-    font-family: system-ui, sans-serif;
-    background: #14161a;
-    color: #e6e6e6;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, sans-serif;
+    overscroll-behavior: none;
+  }
+
+  body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 16px;
-    gap: 12px;
+    padding: 8px 8px 96px 8px;
+    gap: 10px;
+    min-height: 100vh;
   }
-  .controls {
-    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
-    justify-content: center; padding: 10px 14px;
-    background: #1d2027; border-radius: 10px;
-    max-width: 96vw;
+
+  /* ========== ВЕРХНЯЯ ПАНЕЛЬ ========== */
+  .topbar {
+    width: 100%;
+    max-width: 960px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 6px 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
-  .controls label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
-  input[type="file"] { font-size: 13px; }
-  input[type="range"] { width: 130px; }
-  button {
-    font-size: 13px; padding: 6px 10px; border-radius: 8px;
-    border: 1px solid #333a44; background: #232830; color: #e6e6e6;
+  .topbar::-webkit-scrollbar { display: none; }
+  .topbar .file-label {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+    height: 38px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
     cursor: pointer;
   }
-  button:hover { background: #2c323c; }
-  button.active { background: #2b6cb0; border-color: #2b6cb0; }
-  button.danger { background: #3a1a1a; border-color: #5a2a2a; color: #ff9090; }
+  .topbar input[type="file"] { display: none; }
+  .topbar button {
+    flex-shrink: 0;
+    height: 38px;
+    padding: 0 12px;
+    font-size: 13px;
+    white-space: nowrap;
+    border-radius: 8px;
+    border: 1px solid #333a44;
+    background: #232830;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .topbar button:hover,
+  .topbar button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .topbar button.danger { background: #3a1a1a; border-color: #5a2a2a; color: #ff9090; }
+
+  /* ========== МЕНЮ (гамбургер) ========== */
+  .menu-toggle {
+    flex-shrink: 0;
+    height: 38px;
+    width: 44px;
+    font-size: 18px;
+    border-radius: 8px;
+    border: 1px solid #333a44;
+    background: #232830;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .menu-toggle.open { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* Выдвижная панель меню */
+  .drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(340px, 88vw);
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    transform: translateX(-105%);
+    transition: transform 0.25s ease;
+    z-index: 100;
+    overflow-y: auto;
+    padding: 12px 12px 100px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .drawer.open { transform: translateX(0); }
+  .drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 99;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+  }
+  .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+
+  .drawer h3 {
+    margin: 0 0 6px 0;
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .drawer-section {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .drawer-section .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .drawer-section .row:last-child { margin-bottom: 0; }
+  .drawer-section label {
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted-2);
+  }
+  .drawer-section button {
+    min-height: 38px;
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 8px;
+    border: 1px solid #333a44;
+    background: #232830;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .drawer-section button:hover,
+  .drawer-section button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .drawer-section button.danger { background: #3a1a1a; border-color: #5a2a2a; color: #ff9090; }
+  .drawer-close {
+    align-self: flex-end;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 22px;
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    line-height: 1;
+  }
+
+  /* Крупные ползунки для пальцев */
+  .slider-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 0;
+  }
+  .slider-row .label-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--muted-2);
+  }
+  input[type="range"] {
+    width: 100%;
+    height: 32px;
+    margin: 0;
+    background: transparent;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 6px;
+    background: #2b2f37;
+    border-radius: 3px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #fff;
+    margin-top: -9px;
+    cursor: pointer;
+  }
+  input[type="range"]::-moz-range-track {
+    height: 6px;
+    background: #2b2f37;
+    border-radius: 3px;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #fff;
+    cursor: pointer;
+  }
+
+  /* ========== КАНВАС ========== */
   .stage {
-    position: relative; display: inline-block;
-    border: 1px solid #2b2f37; background: #0b0c0f; line-height: 0;
+    position: relative;
+    display: inline-block;
+    border: 1px solid var(--border);
+    background: #0b0c0f;
+    line-height: 0;
+    max-width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
   }
   .stage.hide canvas#base { opacity: 0; }
   .stage.hide { background: #fff; }
-  .stage canvas { display: block; max-width: min(92vw, 900px); height: auto; }
-  .stage canvas#base { transition: opacity 0.15s; cursor: crosshair; }
+  .stage.fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    border-radius: 0;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .stage.fullscreen canvas#base {
+    max-width: 100vw;
+    max-height: 100vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+  }
+  .stage.fullscreen canvas#overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 100vw;
+    max-height: 100vh;
+    width: auto;
+    height: auto;
+  }
+  .stage canvas {
+    display: block;
+    max-width: min(96vw, 960px);
+    height: auto;
+  }
+  .stage canvas#base {
+    transition: opacity 0.15s;
+    cursor: crosshair;
+    touch-action: none;
+  }
   .stage.edit-mode canvas#base { cursor: row-resize; }
   .stage.joints-mode canvas#base { cursor: grab; }
-  .stage canvas#overlay { position: absolute; inset: 0; pointer-events: none; }
-  .hint {
-    font-size: 12px; color: #8b93a1; max-width: 800px;
-    text-align: center; line-height: 1.5;
+  .stage.vp-mode canvas#base { cursor: cell; }
+  .stage canvas#overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
   }
-  .mode-switch {
-    display: flex; gap: 4px;
-    background: #14161a; padding: 3px;
-    border-radius: 8px; border: 1px solid #2b2f37;
-  }
-  .mode-switch button {
-    padding: 5px 12px; border: none;
-    background: transparent; font-size: 12px;
-  }
-  .mode-switch button.active { background: #2b6cb0; }
 
-  .histo-block, .props-block, .samples-block, .info-panel {
-    width: min(92vw, 900px);
-    background: #1d2027; border-radius: 10px;
-    padding: 12px 14px; display: none;
+  .stage .fullscreen-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #fff;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 5;
+    pointer-events: auto;
   }
-  .histo-block.visible, .props-block.visible, .samples-block.visible, .info-panel.visible { display: block; }
+  .stage.fullscreen .fullscreen-btn {
+    top: 12px;
+    right: 12px;
+    width: 44px;
+    height: 44px;
+  }
 
-  .block-title {
-    margin: 0 0 10px 0; font-size: 13px;
-    color: #e6e6e6; font-weight: 600;
-    display: flex; align-items: center; gap: 8px;
-    flex-wrap: wrap;
+  /* ========== ПАНЕЛИ АНАЛИЗА ========== */
+  .panels {
+    width: 100%;
+    max-width: 960px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
-  .block-title .num {
+  .panel {
+    background: var(--panel);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    user-select: none;
+    min-height: 48px;
+    background: var(--panel);
+  }
+  .panel-header .num {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 22px; height: 22px; border-radius: 50%;
-    background: #2b6cb0; color: #fff;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--accent); color: #fff;
     font-size: 12px; font-weight: 700; flex-shrink: 0;
   }
-
-  .histo-canvas-wrap { position: relative; width: 100%; height: 120px; }
-  .histo-canvas {
-    width: 100%; height: 100%; display: block;
-    background: #14161a; border-radius: 6px;
-    border: 1px solid #2b2f37;
+  .panel-header .title {
+    font-size: 14px;
+    font-weight: 600;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .histo-info {
-    font-size: 12px; color: #8b93a1; margin-top: 6px;
-    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  .panel-header .summary {
+    font-size: 12px;
+    color: var(--muted);
+    flex-shrink: 0;
   }
-  .histo-info b { color: #e6e6e6; }
+  .panel-header .chevron {
+    font-size: 14px;
+    color: var(--muted);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  .panel.open .panel-header .chevron { transform: rotate(90deg); }
+  .panel-body {
+    display: none;
+    padding: 0 14px 14px 14px;
+  }
+  .panel.open .panel-body { display: block; }
 
   .props-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
-  @media (max-width: 700px) { .props-grid { grid-template-columns: 1fr; } }
+  @media (min-width: 700px) { .props-grid { grid-template-columns: 1fr 1fr; } }
   .props-block-inner {
-    background: #14161a; border: 1px solid #2b2f37;
-    border-radius: 8px; padding: 10px 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
   }
   .props-block-inner h4 {
-    margin: 0 0 8px 0; font-size: 13px;
-    color: #ffcc00; font-weight: 600;
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    color: #ffcc00;
+    font-weight: 600;
   }
 
   .kv {
-    display: flex; justify-content: space-between; gap: 10px;
-    padding: 3px 0; border-bottom: 1px dashed #2b2f37;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px dashed var(--border);
+    font-size: 13px;
   }
   .kv:last-child { border-bottom: none; }
-  .kv span:first-child { color: #8b93a1; }
-  .kv span:last-child { color: #e6e6e6; font-variant-numeric: tabular-nums; }
+  .kv span:first-child { color: var(--muted); }
+  .kv span:last-child { color: var(--text); font-variant-numeric: tabular-nums; }
+
+  .histo-canvas-wrap { position: relative; width: 100%; height: 130px; }
+  .histo-canvas {
+    width: 100%; height: 100%;
+    display: block;
+    background: var(--panel-2);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .histo-info {
+    font-size: 12px; color: var(--muted);
+    margin-top: 6px;
+    display: flex; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap;
+  }
+  .histo-info b { color: var(--text); }
+
+  .persp-badge, .link-badge {
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px; padding: 14px;
+    border-radius: 10px; margin-bottom: 10px;
+  }
+  .persp-badge {
+    background: linear-gradient(135deg, #3a1a4a, #6a2cb0);
+    border: 1px solid #6a2cb0;
+  }
+  .persp-badge .icon { font-size: 28px; }
+  .persp-badge .info { font-size: 13px; color: #ddc5ff; line-height: 1.3; }
+  .persp-badge .info b { color: #fff; font-size: 18px; display: block; margin-bottom: 2px; }
+
+  .link-badge {
+    background: linear-gradient(135deg, #2a4a1a, #6ab02c);
+    border: 1px solid #6ab02c;
+  }
+  .link-badge .col { text-align: center; }
+  .link-badge .num {
+    font-size: 26px; font-weight: 800; color: #fff;
+    line-height: 1; font-variant-numeric: tabular-nums;
+  }
+  .link-badge .lbl { font-size: 11px; color: #c5e8a8; margin-top: 2px; }
+  .link-badge .arrow { font-size: 22px; color: #b9ff80; }
+  .link-badge .col.fixed .num { color: #b9ff80; }
 
   .scale {
-    height: 12px;
-    background: #2b2f37;
-    border-radius: 6px;
-    overflow: hidden;
-    position: relative;
-    margin-top: 4px;
+    height: 12px; background: var(--border);
+    border-radius: 6px; overflow: hidden;
+    position: relative; margin-top: 4px;
   }
   .scale-fill {
     height: 100%;
@@ -127,7 +455,7 @@
   }
   .scale-fill.good { background: linear-gradient(90deg, #1e6a3a, #40d080); }
   .scale-fill.warn { background: linear-gradient(90deg, #6a5a1a, #ffcc00); }
-  .scale-fill.bad { background: linear-gradient(90deg, #6a1a1a, #ff4040); }
+  .scale-fill.bad  { background: linear-gradient(90deg, #6a1a1a, #ff4040); }
 
   .palette-grid {
     display: grid;
@@ -135,316 +463,588 @@
     gap: 8px;
   }
   .palette-chip {
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid #2b2f37;
-    background: #14161a;
+    border-radius: 8px; overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
     cursor: pointer;
-    transition: transform 0.1s;
   }
-  .palette-chip:hover { transform: scale(1.03); border-color: #40a0ff; }
-  .palette-chip .color-block {
-    height: 48px;
-    width: 100%;
-  }
+  .palette-chip .color-block { height: 48px; width: 100%; }
   .palette-chip .info-block {
-    padding: 5px 7px;
-    font-size: 11px;
-    line-height: 1.25;
-    background: #14161a;
+    padding: 5px 7px; font-size: 11px; line-height: 1.25;
   }
-  .palette-chip .hex { color: #e6e6e6; font-weight: 600; }
-  .palette-chip .pct { color: #8b93a1; }
+  .palette-chip .hex { color: var(--text); font-weight: 600; }
+  .palette-chip .pct { color: var(--muted); }
 
   .joint-list {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-    font-size: 12px;
+    grid-template-columns: 1fr;
+    gap: 6px; font-size: 13px;
   }
-  @media (max-width: 600px) { .joint-list { grid-template-columns: 1fr; } }
+  @media (min-width: 600px) { .joint-list { grid-template-columns: 1fr 1fr; } }
   .joint-item {
     display: flex; justify-content: space-between;
-    padding: 4px 8px;
-    background: #14161a;
-    border-radius: 5px;
-    border: 1px solid #2b2f37;
+    padding: 6px 10px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    border: 1px solid var(--border);
   }
-  .joint-item .name { color: #b9c3d1; }
-  .joint-item .coords { color: #e6e6e6; font-variant-numeric: tabular-nums; font-size: 11px; }
+  .joint-item .name { color: var(--muted-2); }
+  .joint-item .coords { color: var(--text); font-variant-numeric: tabular-nums; font-size: 12px; }
 
-  .point-list { max-height: 240px; overflow-y: auto; font-size: 12px; }
+  .point-list { max-height: 240px; overflow-y: auto; font-size: 13px; }
   .point-item {
     display: flex; justify-content: space-between; align-items: center;
-    gap: 8px; padding: 4px 6px; border-radius: 4px;
+    gap: 8px; padding: 6px 8px; border-radius: 6px;
   }
   .point-item:hover { background: #232830; }
-  .point-item.selected { background: #232830; outline: 1px solid #2b6cb0; }
+  .point-item.selected { background: #232830; outline: 1px solid var(--accent); }
   .point-item .left {
     display: flex; align-items: center; gap: 6px;
     cursor: pointer; flex: 1; min-width: 0;
   }
   .point-item .dot {
-    display: inline-block; width: 8px; height: 8px;
+    display: inline-block; width: 10px; height: 10px;
     border-radius: 50%; background: #ffcc00; flex-shrink: 0;
   }
-  .point-item .coords { color: #8b93a1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .point-item .coords {
+    color: var(--muted); font-variant-numeric: tabular-nums;
+    white-space: nowrap; font-size: 12px;
+  }
   .point-item .remove {
     background: transparent; border: none; color: #ff6060;
-    font-size: 15px; padding: 0 6px; cursor: pointer;
-    line-height: 1; border-radius: 4px;
+    font-size: 18px; padding: 6px 10px; cursor: pointer;
+    line-height: 1; border-radius: 6px;
+    min-width: 36px; min-height: 36px;
+  }
+
+  .sample-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .sample-chip {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 10px; border-radius: 8px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .sample-chip button.remove {
+    background: transparent; border: none; color: #ff6060;
+    font-size: 16px; padding: 4px 8px; cursor: pointer; line-height: 1;
+    min-width: 32px; min-height: 32px;
+  }
+  .sample-empty { color: var(--muted); font-size: 12px; }
+
+  .prop-table {
+    width: 100%; border-collapse: collapse;
+    font-size: 12px; color: var(--text);
+  }
+  .prop-table th, .prop-table td {
+    padding: 6px 6px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+  }
+  .prop-table th {
+    color: var(--muted); font-weight: 500; font-size: 11px;
+    text-transform: uppercase;
+  }
+  .prop-table td.num {
+    text-align: right; font-variant-numeric: tabular-nums;
+  }
+  .prop-table td.fixed { color: #b9ff80; }
+
+  /* ========== НИЖНЯЯ ПЛАВАЮЩАЯ ПАНЕЛЬ ========== */
+  .bottom-bar {
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(29, 32, 39, 0.96);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 6px;
+    display: flex;
+    gap: 4px;
+    z-index: 50;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  }
+  .bottom-bar button {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    min-width: 64px;
+    height: 52px;
+    padding: 4px 8px;
+    border: none;
+    background: transparent;
+    color: var(--muted-2);
+    font-size: 10px;
+    border-radius: 12px;
+    cursor: pointer;
+    gap: 2px;
+    line-height: 1;
+  }
+  .bottom-bar button .ico { font-size: 18px; }
+  .bottom-bar button.active { background: var(--accent); color: #fff; }
+  .bottom-bar button:hover { background: rgba(43, 108, 176, 0.3); color: #fff; }
+
+  /* ========== ПОДСКАЗКА ========== */
+  .hint {
+    font-size: 12px; color: var(--muted);
+    max-width: 800px; text-align: center; line-height: 1.5;
+    padding: 0 8px;
+  }
+
+  /* ========== МОБИЛЬНЫЕ УЛУЧШЕНИЯ ========== */
+  @media (max-width: 600px) {
+    body { padding: 6px 6px 96px 6px; gap: 8px; }
+    .topbar { padding: 5px 6px; gap: 4px; }
+    .topbar button, .topbar .file-label { height: 36px; padding: 0 10px; font-size: 12px; }
+    .panel-header { padding: 10px 12px; }
+    .panel-header .title { font-size: 13px; }
+    .panel-body { padding: 0 10px 12px 10px; }
+    .kv { font-size: 12px; padding: 4px 0; }
+    .props-block-inner { padding: 8px 10px; }
+    .joint-item { font-size: 12px; padding: 5px 8px; }
+    .point-item { padding: 8px; }
+    .palette-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); }
+    .bottom-bar button { min-width: 56px; height: 50px; }
   }
 </style>
 </head>
 <body>
 
-<div class="controls">
-  <label>Изображение: <input id="file" type="file" accept="image/*" /></label>
-  <button id="autoThresholdBtn">⚡ Авто-подбор</button>
+<!-- ========== КОМПАКТНЫЙ ВЕРХ ========== -->
+<div class="topbar">
+  <button class="menu-toggle" id="menuToggle">☰</button>
+  <label class="file-label">
+    📷 Файл
+    <input id="file" type="file" accept="image/*" />
+  </label>
   <button id="pickBgColorBtn">🎨 Цвет фона</button>
-  <button id="addPointBtn">🎯 Точка заливки</button>
-  <button id="clearPointsBtn" class="danger">✕ Очистить точки</button>
-  <label><input id="hideImage" type="checkbox" /> Скрыть</label>
+  <button id="addPointBtn">🎯 Точка</button>
+  <button id="editFractionsBtn">✎ Доли</button>
+  <button id="editJointsBtn">✎ Суставы</button>
+  <button id="manualVPBtn">⌖ ТС</button>
+  <button id="hideImageToggle">👁 Скрыть</button>
 </div>
 
-<div class="controls">
-  <label><input id="showHisto" type="checkbox" checked /> Гистограмма</label>
-  <label><input id="showProps" type="checkbox" checked /> Пропорции</label>
-  <label><input id="showSymm" type="checkbox" checked /> Симметрия</label>
-  <label><input id="showJoints" type="checkbox" checked /> Суставы</label>
-  <label><input id="showPalette" type="checkbox" checked /> Палитра</label>
-  <label><input id="showInfo" type="checkbox" checked /> Характеристики</label>
-</div>
+<!-- ========== МЕНЮ-ЯЩИК ========== -->
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<div class="drawer" id="drawer">
+  <button class="drawer-close" id="drawerClose">✕</button>
 
-<div class="controls">
-  <div class="mode-switch">
-    <button id="modeLum" class="active">Яркость</button>
-    <button id="modeColor">Цвет</button>
-  </div>
-  <label><input id="invert" type="checkbox" /> Инвертировать</label>
-  <label><input id="useWindows" type="checkbox" /> Внутренние окна</label>
-  <label><input id="useHoles" type="checkbox" checked /> Закрывать дырки</label>
-  <label><input id="useSmooth" type="checkbox" checked /> Сглаживание</label>
-  <div id="lumControls">
-    <label>Порог:
+  <h3>Маска фона</h3>
+  <div class="drawer-section">
+    <div class="row">
+      <button id="modeLum" class="active">Яркость</button>
+      <button id="modeColor">Цвет</button>
+      <button id="autoThresholdBtn">⚡ Авто</button>
+    </div>
+    <div class="slider-row" id="lumSliderRow">
+      <div class="label-line"><span>Порог яркости</span><span id="bgLumVal">200</span></div>
       <input id="bgLum" type="range" min="0" max="255" value="200" />
-      <span id="bgLumVal">200</span>
-    </label>
-  </div>
-  <div id="colorControls" style="display:none;">
-    <label>Порог цвета:
+    </div>
+    <div class="slider-row" id="colorSliderRow" style="display:none;">
+      <div class="label-line"><span>Порог цвета</span><span id="bgDistVal">30</span></div>
       <input id="bgDist" type="range" min="1" max="150" value="30" />
-      <span id="bgDistVal">30</span>
-    </label>
+    </div>
+    <div class="row" style="flex-wrap:wrap;">
+      <label><input id="invert" type="checkbox" /> Инвертировать</label>
+      <label><input id="useMulti" type="checkbox" /> Многомодовый</label>
+      <label><input id="useHoles" type="checkbox" checked /> Дырки</label>
+      <label><input id="useWindows" type="checkbox" /> Окна</label>
+      <label><input id="useSmooth" type="checkbox" checked /> Сглаживание</label>
+    </div>
+  </div>
+
+  <h3>Тонкая настройка</h3>
+  <div class="drawer-section">
+    <div class="slider-row">
+      <div class="label-line"><span>Макс. дырка</span><span id="maxHoleVal">80</span></div>
+      <input id="maxHole" type="range" min="0" max="500" value="80" />
+    </div>
+    <div class="slider-row">
+      <div class="label-line"><span>Мин. окно</span><span id="minWinVal">300</span></div>
+      <input id="minWin" type="range" min="10" max="3000" value="300" />
+    </div>
+    <div class="slider-row">
+      <div class="label-line"><span>Сглаживание</span><span id="smoothIterVal">1</span></div>
+      <input id="smoothIter" type="range" min="0" max="4" value="1" />
+    </div>
+  </div>
+
+  <h3>Анализ</h3>
+  <div class="drawer-section">
+    <div class="slider-row">
+      <div class="label-line"><span>Порог сужения (суставы)</span><span id="jointTolVal">20</span></div>
+      <input id="jointTol" type="range" min="5" max="60" value="20" />
+    </div>
+    <div class="slider-row">
+      <div class="label-line"><span>Цветов в палитре</span><span id="paletteCountVal">8</span></div>
+      <input id="paletteCount" type="range" min="3" max="16" value="8" />
+    </div>
+  </div>
+
+  <h3>Показ блоков</h3>
+  <div class="drawer-section">
+    <div class="row" style="flex-wrap:wrap;">
+      <label><input id="showHisto" type="checkbox" checked /> ① Гистограмма</label>
+      <label><input id="showProps" type="checkbox" checked /> ② Пропорции</label>
+      <label><input id="showPersp" type="checkbox" checked /> ③ Перспектива</label>
+      <label><input id="showLink" type="checkbox" checked /> ④ Связь</label>
+      <label><input id="showSymm" type="checkbox" checked /> ⑤ Симметрия</label>
+      <label><input id="showJoints" type="checkbox" checked /> ⑥ Суставы</label>
+      <label><input id="showPalette" type="checkbox" checked /> ⑦ Палитра</label>
+      <label><input id="showSamples" type="checkbox" /> ⑧ Образцы</label>
+      <label><input id="showInfo" type="checkbox" checked /> ⑨ Инфо</label>
+      <label><input id="showCorrected" type="checkbox" checked /> Истинные доли</label>
+    </div>
+  </div>
+
+  <h3>Действия</h3>
+  <div class="drawer-section">
+    <div class="row">
+      <button id="resetVPBtn">↺ Авто-ТС</button>
+      <button id="clearVPBtn" class="danger">✕ Убрать ТС</button>
+      <button id="resetEditBtn">↺ Сброс правок</button>
+      <button id="clearPointsBtn" class="danger">✕ Очистить точки</button>
+      <button id="clearMeasurementsBtn" class="danger">✕ Сбросить замеры</button>
+    </div>
   </div>
 </div>
 
-<div class="controls">
-  <button id="editFractionsBtn">✎ Правка линий долей</button>
-  <button id="editJointsBtn">✎ Правка точек суставов</button>
-  <button id="resetEditBtn">↺ Сбросить правки</button>
-  <label>Макс. дырка:
-    <input id="maxHole" type="range" min="0" max="500" value="80" />
-    <span id="maxHoleVal">80</span>
-  </label>
-  <label>Мин. окно:
-    <input id="minWin" type="range" min="10" max="3000" value="300" />
-    <span id="minWinVal">300</span>
-  </label>
-  <label>Сглаживание:
-    <input id="smoothIter" type="range" min="0" max="4" value="1" />
-    <span id="smoothIterVal">1</span>
-  </label>
-  <label>Цветов в палитре:
-    <input id="paletteCount" type="range" min="3" max="16" value="8" />
-    <span id="paletteCountVal">8</span>
-  </label>
-</div>
-
+<!-- ========== КАНВАС ========== -->
 <div class="stage" id="stage">
   <canvas id="base"></canvas>
   <canvas id="overlay"></canvas>
+  <button class="fullscreen-btn" id="fullscreenBtn" title="Развернуть">⛶</button>
 </div>
 
 <p class="hint" id="hintText">
-  Блоки: ① Гистограмма ② Пропорции ③ Симметрия ④ Суставы ⑤ Палитра ⑥ Характеристики.
-  Кнопки «Правка линий долей» и «Правка точек суставов» включают перетаскивание.
-  Сбросить все ручные правки — кнопка «↺ Сбросить правки».
+  Тап на заголовок блока — развернуть/свернуть. Кнопка ☰ — меню.
 </p>
 
-<!-- ② ПРОПОРЦИИ -->
-<div class="props-block visible" id="propsPanel">
-  <h3 class="block-title">
-    <span class="num">2</span>
-    <span>Пропорции персонажа</span>
-    <span id="editStatus" style="margin-left:auto;font-size:12px;color:#8b93a1;">авто</span>
-  </h3>
-  <div class="props-grid">
-    <div class="props-block-inner">
-      <h4>2.1. Габариты</h4>
-      <div class="kv"><span>Высота</span><span id="propHeight">—</span></div>
-      <div class="kv"><span>Ширина</span><span id="propWidth">—</span></div>
-      <div class="kv"><span>Соотношение</span><span id="propAspect">—</span></div>
-      <div class="kv"><span>Заполнение</span><span id="propFill">—</span></div>
-      <div class="kv"><span>Рост в головах</span><span id="propHeads">—</span></div>
-    </div>
-    <div class="props-block-inner">
-      <h4>2.2. Смещение центра</h4>
-      <div class="kv"><span>Смещение X</span><span id="propOffsetX">—</span></div>
-      <div class="kv"><span>Смещение Y</span><span id="propOffsetY">—</span></div>
-      <div class="kv"><span>Центр X</span><span id="propCx">—</span></div>
-      <div class="kv"><span>Центр Y</span><span id="propCy">—</span></div>
-      <div class="kv"><span>Доли (линии)</span><span id="propFractions">—</span></div>
-    </div>
-  </div>
-</div>
+<!-- ========== ПАНЕЛИ АНАЛИЗА ========== -->
+<div class="panels" id="panels">
 
-<!-- ③ СИММЕТРИЯ -->
-<div class="props-block visible" id="symmPanel">
-  <h3 class="block-title">
-    <span class="num">3</span>
-    <span>Симметрия силуэта</span>
-    <span id="symmVerdict" style="margin-left:auto;font-size:12px;color:#8b93a1;">—</span>
-  </h3>
-  <div class="props-grid">
-    <div class="props-block-inner">
-      <h4>3.1. Общий коэффициент</h4>
-      <div class="kv"><span>Симметрия</span><span id="symmScore">—</span></div>
-      <div class="scale"><div class="scale-fill" id="symmBar" style="width:0%"></div></div>
-      <div style="font-size:11px;color:#8b93a1;margin-top:6px;">
-        100% — идеальная симметрия.
+  <!-- ① ГИСТОГРАММА -->
+  <div class="panel" id="histoPanel" data-panel="histo">
+    <div class="panel-header" data-toggle>
+      <span class="num">1</span>
+      <span class="title">Гистограмма яркости</span>
+      <span class="summary" id="histoSummary">—</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="panel-body">
+      <div class="histo-canvas-wrap">
+        <canvas class="histo-canvas" id="histoCanvas"></canvas>
       </div>
-    </div>
-    <div class="props-block-inner">
-      <h4>3.2. По зонам</h4>
-      <div class="kv"><span>Верх</span><span id="symmTop">—</span></div>
-      <div class="scale"><div class="scale-fill" id="symmTopBar" style="width:0%"></div></div>
-      <div class="kv" style="margin-top:6px;"><span>Середина</span><span id="symmMid">—</span></div>
-      <div class="scale"><div class="scale-fill" id="symmMidBar" style="width:0%"></div></div>
-      <div class="kv" style="margin-top:6px;"><span>Низ</span><span id="symmBot">—</span></div>
-      <div class="scale"><div class="scale-fill" id="symmBotBar" style="width:0%"></div></div>
-    </div>
-  </div>
-</div>
-
-<!-- ④ СУСТАВЫ -->
-<div class="props-block visible" id="jointsPanel">
-  <h3 class="block-title">
-    <span class="num">4</span>
-    <span>Суставы</span>
-    <span style="margin-left:auto;font-size:12px;color:#8b93a1;" id="jointsCount">—</span>
-  </h3>
-  <div class="joint-list" id="jointList">
-    <div class="joint-item"><span class="name">—</span><span class="coords">—</span></div>
-  </div>
-  <div style="font-size:11px;color:#8b93a1;margin-top:8px;">
-    Перетаскивай кружки на картинке, если авто-определение промахнулось.
-    Включи «Правка точек суставов».
-  </div>
-  <label style="display:flex;gap:6px;align-items:center;font-size:12px;margin-top:8px;color:#b9c3d1;">
-    Порог сужения:
-    <input id="jointTol" type="range" min="5" max="60" value="20" />
-    <span id="jointTolVal">20</span>
-  </label>
-</div>
-
-<!-- ⑤ ПАЛИТРА -->
-<div class="props-block visible" id="palettePanel">
-  <h3 class="block-title">
-    <span class="num">5</span>
-    <span>Палитра персонажа</span>
-    <span style="margin-left:auto;font-size:12px;color:#8b93a1;" id="paletteCountDisplay">—</span>
-  </h3>
-  <div class="palette-grid" id="paletteGrid"></div>
-</div>
-
-<!-- ① ГИСТОГРАММА -->
-<div class="histo-block visible" id="histoPanel">
-  <h3 class="block-title">
-    <span class="num">1</span>
-    <span>Гистограмма яркости</span>
-    <span id="histoThresholdLabel" style="margin-left:auto;color:#8b93a1;font-weight:normal;font-size:12px;">—</span>
-  </h3>
-  <div class="histo-canvas-wrap">
-    <canvas class="histo-canvas" id="histoCanvas"></canvas>
-  </div>
-  <div class="histo-info">
-    <span>Тёмное <b>◀</b></span>
-    <span>Провал: <b id="histoValley">—</b></span>
-    <span><b>▶</b> Светлое</span>
-  </div>
-</div>
-
-<!-- ⑥ ХАРАКТЕРИСТИКИ -->
-<div class="info-panel visible" id="infoPanel">
-  <h3 class="block-title">
-    <span class="num">6</span>
-    <span>Характеристики</span>
-  </h3>
-  <div class="props-grid">
-    <div class="props-block-inner">
-      <h4>6.1. Изображение</h4>
-      <div class="kv"><span>Размер</span><span id="infoSize">—</span></div>
-      <div class="kv"><span>Режим</span><span id="infoModeMode">—</span></div>
-      <div class="kv"><span>Фон</span><span id="infoBgPct">—</span></div>
-      <div class="kv"><span>Персонаж</span><span id="infoCharPct">—</span></div>
-      <div class="kv"><span>Дырок закрыто</span><span id="infoHoles">—</span></div>
-      <div class="kv"><span>Окон найдено</span><span id="infoWindows">—</span></div>
-    </div>
-    <div class="props-block-inner">
-      <h4>6.2. Точки-источники <span id="infoPointsCount" style="color:#8b93a1;font-weight:normal;">(0)</span></h4>
-      <div class="point-list" id="pointList">
-        <div style="color:#8b93a1;font-size:12px;padding:4px 0;">Точки не заданы.</div>
+      <div class="histo-info">
+        <span>Тёмное ◀</span>
+        <span>Провал: <b id="histoValley">—</b></span>
+        <span>▶ Светлое</span>
       </div>
     </div>
   </div>
+
+  <!-- ② ПРОПОРЦИИ -->
+  <div class="panel" id="propsPanel" data-panel="props">
+    <div class="panel-header" data-toggle>
+      <span class="num">2</span>
+      <span class="title">Пропорции персонажа</span>
+      <span class="summary" id="propsSummary">—</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="panel-body">
+      <div class="props-grid">
+        <div class="props-block-inner">
+          <h4>2.1. Габариты</h4>
+          <div class="kv"><span>Высота</span><span id="propHeight">—</span></div>
+          <div class="kv"><span>Ширина</span><span id="propWidth">—</span></div>
+          <div class="kv"><span>Соотношение</span><span id="propAspect">—</span></div>
+          <div class="kv"><span>Заполнение</span><span id="propFill">—</span></div>
+          <div class="kv"><span>Рост в головах</span><span id="propHeads">—</span></div>
+        </div>
+        <div class="props-block-inner">
+          <h4>2.2. Смещение центра</h4>
+          <div class="kv"><span>Смещение X</span><span id="propOffsetX">—</span></div>
+          <div class="kv"><span>Смещение Y</span><span id="propOffsetY">—</span></div>
+          <div class="kv"><span>Центр X</span><span id="propCx">—</span></div>
+          <div class="kv"><span>Центр Y</span><span id="propCy">—</span></div>
+          <div class="kv"><span>Доли (линии)</span><span id="propFractions">—</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ ПЕРСПЕКТИВА -->
+  <div class="panel" id="perspPanel" data-panel="persp">
+    <div class="panel-header" data-toggle>
+      <span class="num">3</span>
+      <span class="title">Перспектива</span>
+      <span class="summary" id="perspSummary">—</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="panel-body">
+      <div class="persp-badge">
+        <span class="icon" id="perspIcon">○</span>
+        <span class="info">
+          <b id="perspMain">—</b>
+          <span id="perspSub">—</span>
+        </span>
+      </div>
+      <div class="props-grid">
+        <div class="props-block-inner">
+          <h4>3.1. Ракурс</h4>
+          <div class="kv"><span>Верхняя треть</span><span id="perspTopW">—</span></div>
+          <div class="kv"><span>Средняя треть</span><span id="perspMidW">—</span></div>
+          <div class="kv"><span>Нижняя треть</span><span id="perspBotW">—</span></div>
+          <div class="kv"><span>Верх ÷ низ</span><span id="perspTopBot">—</span></div>
+          <div class="kv"><span>Вердикт</span><span id="perspVerdict">—</span></div>
+        </div>
+        <div class="props-block-inner">
+          <h4>3.2. Наклон и ТС</h4>
+          <div class="kv"><span>Наклон плеч</span><span id="perspShoulder">—</span></div>
+          <div class="kv"><span>Наклон бёдер</span><span id="perspPelvis">—</span></div>
+          <div class="kv"><span>Разница наклонов</span><span id="perspDiff">—</span></div>
+          <div class="kv"><span>Угол контура</span><span id="perspContourAngle">—</span></div>
+          <div class="kv"><span>Средний наклон границ</span><span id="perspEdgeSlope">—</span></div>
+          <div class="kv"><span>Точка схода</span><span id="perspVanishing">—</span></div>
+          <div class="kv"><span>Расстояние до ТС</span><span id="perspVPDist">—</span></div>
+          <div class="kv"><span>Уверенность</span><span id="perspConfidence">—</span></div>
+          <div class="kv"><span>Вердикт</span><span id="perspTilt">—</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ СВЯЗЬ -->
+  <div class="panel" id="linkPanel" data-panel="link">
+    <div class="panel-header" data-toggle>
+      <span class="num">4</span>
+      <span class="title">Связь пропорций и перспективы</span>
+      <span class="summary" id="linkSummary">—</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="panel-body">
+      <div class="link-badge">
+        <div class="col"><div class="num" id="linkMeasured">—</div><div class="lbl">измеренный рост</div></div>
+        <div class="arrow">→</div>
+        <div class="col fixed"><div class="num" id="linkCorrected">—</div><div class="lbl">истинный рост</div></div>
+      </div>
+      <div class="props-grid">
+        <div class="props-block-inner">
+          <h4>4.1. Поправка</h4>
+          <div class="kv"><span>Ракурс</span><span id="linkAspect">—</span></div>
+          <div class="kv"><span>Коэф. искажения</span><span id="linkFactor">—</span></div>
+          <div class="kv"><span>Метод</span><span id="linkMethodUsed">—</span></div>
+          <div class="kv"><span>Поправка верх</span><span id="linkTopFix">—</span></div>
+          <div class="kv"><span>Поправка низ</span><span id="linkBotFix">—</span></div>
+          <div class="kv"><span>ТС в кадре</span><span id="linkVPInFrame">—</span></div>
+        </div>
+        <div class="props-block-inner">
+          <h4>4.2. Доли: измер. vs истин.</h4>
+          <table class="prop-table">
+            <thead><tr><th>Уровень</th><th class="num">Измер.</th><th class="num">Истин.</th><th class="num">Δ</th></tr></thead>
+            <tbody id="linkTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑤ СИММЕТРИЯ -->
+  <div class="panel" id="symmPanel" data-panel="symm">
+    <div class="panel-header" data-toggle>
+      <span class="num">5</span>
+      <span class="title">Симметрия силуэта</span>
+      <span class="summary" id="symmSummary">—</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="panel-body">
+      <div class="props-grid">
+        <div class="props-block-inner">
+          <h4>5.1. Общий</h4>
+          <div class="kv"><span>Симметрия</span><span id="symmScore">—</span></div>
+          <div class="scale"><div class="scale-fill" id="symmBar" style="width:0%"></div></div>
+          <div style="font-size:11px;color:#8b93a1;margin-top:6px;" id="symmVerdict">—</div>
+        </div>
+        <div class="props-block-inner">
+          <h4>5.2. По зонам</h4>
+          <div class="kv"><span>Верх</span><span id="symmTop">—</span></div>
+          <div class="scale"><div class="scale-fill" id="symmTopBar" style="width:0%"></div></div>
+          <div class="kv" style="margin-top:6px;"><span>Середина</span><span id="symmMid">—</span></div>
+          <div class="scale"><div class="scale-fill" id="symmMidBar" style="width:0%"></div></div>
+          <div class="kv" style="margin-top:6px;"><span>Низ</span><span id="symmBot">—</span></div>
+          <div class="scale"><div class="scale-fill" id="symmBotBar" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑥ СУСТАВЫ -->
+  <div class="panel" id="jointsPanel" data-panel="joints">
+    <div class="panel-header" data-toggle>
+      <span class="num">6</span>
+      <span class="title">Суставы</span>
+      <span class="summary" id="jointsSummary">—</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="panel-body">
+      <div class="joint-list" id="jointList"></div>
+    </div>
+  </div>
+
+  <!-- ⑦ ПАЛИТРА -->
+  <div class="panel" id="palettePanel" data-panel="palette">
+    <div class="panel-header" data-toggle>
+      <span class="num">7</span>
+      <span class="title">Палитра персонажа</span>
+      <span class="summary" id="paletteSummary">—</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="panel-body">
+      <div class="palette-grid" id="paletteGrid"></div>
+    </div>
+  </div>
+
+  <!-- ⑧ ОБРАЗЦЫ -->
+  <div class="panel" id="samplesPanel" data-panel="samples">
+    <div class="panel-header" data-toggle>
+      <span class="num">8</span>
+      <span class="title">Цветовые образцы фона</span>
+      <span class="summary" id="samplesSummary">(0)</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="panel-body">
+      <div class="sample-list" id="samplesList">
+        <span class="sample-empty">Образцы не заданы.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑨ ИНФО -->
+  <div class="panel" id="infoPanel" data-panel="info">
+    <div class="panel-header" data-toggle>
+      <span class="num">9</span>
+      <span class="title">Характеристики</span>
+      <span class="summary" id="infoSummary">—</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="panel-body">
+      <div class="props-grid">
+        <div class="props-block-inner">
+          <h4>9.1. Изображение</h4>
+          <div class="kv"><span>Размер</span><span id="infoSize">—</span></div>
+          <div class="kv"><span>Режим</span><span id="infoModeMode">—</span></div>
+          <div class="kv"><span>Фон</span><span id="infoBgPct">—</span></div>
+          <div class="kv"><span>Персонаж</span><span id="infoCharPct">—</span></div>
+          <div class="kv"><span>Дырок закрыто</span><span id="infoHoles">—</span></div>
+          <div class="kv"><span>Окон найдено</span><span id="infoWindows">—</span></div>
+        </div>
+        <div class="props-block-inner">
+          <h4>9.2. Точки-источники <span id="infoPointsCount" style="color:#8b93a1;font-weight:normal;">(0)</span></h4>
+          <div class="point-list" id="pointList">
+            <div style="color:#8b93a1;font-size:12px;padding:4px 0;">Точки не заданы.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ========== НИЖНЯЯ ПЛАВАЮЩАЯ ПАНЕЛЬ ========== -->
+<div class="bottom-bar">
+  <button id="bottomFile">
+    <span class="ico">📷</span>
+    <span>Файл</span>
+  </button>
+  <button id="bottomReset">
+    <span class="ico">↺</span>
+    <span>Вид</span>
+  </button>
+  <button id="bottomToggleOverlay">
+    <span class="ico">◐</span>
+    <span>Маска</span>
+  </button>
+  <button id="bottomHide">
+    <span class="ico">👁</span>
+    <span>Скрыть</span>
+  </button>
+  <button id="bottomMenu">
+    <span class="ico">☰</span>
+    <span>Меню</span>
+  </button>
 </div>
 
 <script>
 // ========== DOM ==========
-const fileInput      = document.getElementById('file');
-const baseCanvas     = document.getElementById('base');
-const overlay        = document.getElementById('overlay');
-const stageEl        = document.getElementById('stage');
-const bgLumEl        = document.getElementById('bgLum');
-const bgLumVal       = document.getElementById('bgLumVal');
-const bgDistEl       = document.getElementById('bgDist');
-const bgDistVal      = document.getElementById('bgDistVal');
-const invertEl       = document.getElementById('invert');
-const useWindowsEl   = document.getElementById('useWindows');
-const useHolesEl     = document.getElementById('useHoles');
-const useSmoothEl    = document.getElementById('useSmooth');
-const maxHoleEl      = document.getElementById('maxHole');
-const maxHoleVal     = document.getElementById('maxHoleVal');
-const minWinEl       = document.getElementById('minWin');
-const minWinVal      = document.getElementById('minWinVal');
-const smoothIterEl   = document.getElementById('smoothIter');
-const smoothIterVal  = document.getElementById('smoothIterVal');
+const fileInput = document.getElementById('file');
+const baseCanvas = document.getElementById('base');
+const overlay = document.getElementById('overlay');
+const stageEl = document.getElementById('stage');
+const bgLumEl = document.getElementById('bgLum');
+const bgLumVal = document.getElementById('bgLumVal');
+const bgDistEl = document.getElementById('bgDist');
+const bgDistVal = document.getElementById('bgDistVal');
+const invertEl = document.getElementById('invert');
+const useWindowsEl = document.getElementById('useWindows');
+const useHolesEl = document.getElementById('useHoles');
+const useSmoothEl = document.getElementById('useSmooth');
+const useMultiEl = document.getElementById('useMulti');
+const maxHoleEl = document.getElementById('maxHole');
+const maxHoleVal = document.getElementById('maxHoleVal');
+const minWinEl = document.getElementById('minWin');
+const minWinVal = document.getElementById('minWinVal');
+const smoothIterEl = document.getElementById('smoothIter');
+const smoothIterVal = document.getElementById('smoothIterVal');
 const paletteCountEl = document.getElementById('paletteCount');
-const paletteCountVal= document.getElementById('paletteCountVal');
-const jointTolEl     = document.getElementById('jointTol');
-const jointTolVal    = document.getElementById('jointTolVal');
-const hideImageEl    = document.getElementById('hideImage');
-const showHistoEl    = document.getElementById('showHisto');
-const showPropsEl    = document.getElementById('showProps');
-const showSymmEl     = document.getElementById('showSymm');
-const showJointsEl   = document.getElementById('showJoints');
-const showPaletteEl  = document.getElementById('showPalette');
-const showInfoEl     = document.getElementById('showInfo');
-const addPointBtn    = document.getElementById('addPointBtn');
+const paletteCountVal = document.getElementById('paletteCountVal');
+const jointTolEl = document.getElementById('jointTol');
+const jointTolVal = document.getElementById('jointTolVal');
+
+const showHistoEl = document.getElementById('showHisto');
+const showPropsEl = document.getElementById('showProps');
+const showPerspEl = document.getElementById('showPersp');
+const showLinkEl = document.getElementById('showLink');
+const showSymmEl = document.getElementById('showSymm');
+const showJointsEl = document.getElementById('showJoints');
+const showPaletteEl = document.getElementById('showPalette');
+const showSamplesEl = document.getElementById('showSamples');
+const showInfoEl = document.getElementById('showInfo');
+const showCorrectedEl = document.getElementById('showCorrected');
+
+const addPointBtn = document.getElementById('addPointBtn');
 const clearPointsBtn = document.getElementById('clearPointsBtn');
 const autoThresholdBtn = document.getElementById('autoThresholdBtn');
 const pickBgColorBtn = document.getElementById('pickBgColorBtn');
 const editFractionsBtn = document.getElementById('editFractionsBtn');
-const editJointsBtn  = document.getElementById('editJointsBtn');
-const resetEditBtn   = document.getElementById('resetEditBtn');
+const editJointsBtn = document.getElementById('editJointsBtn');
+const manualVPBtn = document.getElementById('manualVPBtn');
+const resetVPBtn = document.getElementById('resetVPBtn');
+const clearVPBtn = document.getElementById('clearVPBtn');
+const resetEditBtn = document.getElementById('resetEditBtn');
+const clearMeasurementsBtn = document.getElementById('clearMeasurementsBtn');
 
-const modeLumBtn   = document.getElementById('modeLum');
+const modeLumBtn = document.getElementById('modeLum');
 const modeColorBtn = document.getElementById('modeColor');
-const lumControls   = document.getElementById('lumControls');
-const colorControls = document.getElementById('colorControls');
-const hintText      = document.getElementById('hintText');
-const editStatus    = document.getElementById('editStatus');
+const lumSliderRow = document.getElementById('lumSliderRow');
+const colorSliderRow = document.getElementById('colorSliderRow');
+const hintText = document.getElementById('hintText');
+
+// Меню
+const menuToggle = document.getElementById('menuToggle');
+const drawer = document.getElementById('drawer');
+const drawerBackdrop = document.getElementById('drawerBackdrop');
+const drawerClose = document.getElementById('drawerClose');
+
+// Нижняя панель
+const bottomFile = document.getElementById('bottomFile');
+const bottomReset = document.getElementById('bottomReset');
+const bottomToggleOverlay = document.getElementById('bottomToggleOverlay');
+const bottomHide = document.getElementById('bottomHide');
+const bottomMenu = document.getElementById('bottomMenu');
+
+// Кнопка fullscreen
+const fullscreenBtn = document.getElementById('fullscreenBtn');
 
 // Пропорции
 const propHeight = document.getElementById('propHeight');
@@ -457,6 +1057,39 @@ const propOffsetY = document.getElementById('propOffsetY');
 const propCx = document.getElementById('propCx');
 const propCy = document.getElementById('propCy');
 const propFractions = document.getElementById('propFractions');
+const propsSummary = document.getElementById('propsSummary');
+
+// Перспектива
+const perspIcon = document.getElementById('perspIcon');
+const perspMain = document.getElementById('perspMain');
+const perspSub = document.getElementById('perspSub');
+const perspTopW = document.getElementById('perspTopW');
+const perspMidW = document.getElementById('perspMidW');
+const perspBotW = document.getElementById('perspBotW');
+const perspTopBot = document.getElementById('perspTopBot');
+const perspVerdict = document.getElementById('perspVerdict');
+const perspShoulder = document.getElementById('perspShoulder');
+const perspPelvis = document.getElementById('perspPelvis');
+const perspDiff = document.getElementById('perspDiff');
+const perspContourAngle = document.getElementById('perspContourAngle');
+const perspEdgeSlope = document.getElementById('perspEdgeSlope');
+const perspVanishing = document.getElementById('perspVanishing');
+const perspVPDist = document.getElementById('perspVPDist');
+const perspConfidence = document.getElementById('perspConfidence');
+const perspTilt = document.getElementById('perspTilt');
+const perspSummary = document.getElementById('perspSummary');
+
+// Связь
+const linkMeasured = document.getElementById('linkMeasured');
+const linkCorrected = document.getElementById('linkCorrected');
+const linkAspect = document.getElementById('linkAspect');
+const linkFactor = document.getElementById('linkFactor');
+const linkMethodUsed = document.getElementById('linkMethodUsed');
+const linkTopFix = document.getElementById('linkTopFix');
+const linkBotFix = document.getElementById('linkBotFix');
+const linkVPInFrame = document.getElementById('linkVPInFrame');
+const linkTableBody = document.getElementById('linkTableBody');
+const linkSummary = document.getElementById('linkSummary');
 
 // Симметрия
 const symmVerdict = document.getElementById('symmVerdict');
@@ -468,22 +1101,19 @@ const symmMid = document.getElementById('symmMid');
 const symmMidBar = document.getElementById('symmMidBar');
 const symmBot = document.getElementById('symmBot');
 const symmBotBar = document.getElementById('symmBotBar');
+const symmSummary = document.getElementById('symmSummary');
 
 // Суставы
-const jointsCount = document.getElementById('jointsCount');
 const jointList = document.getElementById('jointList');
+const jointsSummary = document.getElementById('jointsSummary');
 
 // Палитра
 const paletteGrid = document.getElementById('paletteGrid');
-const paletteCountDisplay = document.getElementById('paletteCountDisplay');
+const paletteSummary = document.getElementById('paletteSummary');
 
-// Панели
-const propsPanel = document.getElementById('propsPanel');
-const symmPanel = document.getElementById('symmPanel');
-const jointsPanel = document.getElementById('jointsPanel');
-const palettePanel = document.getElementById('palettePanel');
-const histoPanel = document.getElementById('histoPanel');
-const infoPanel = document.getElementById('infoPanel');
+// Образцы
+const samplesList = document.getElementById('samplesList');
+const samplesSummary = document.getElementById('samplesSummary');
 
 // Инфо
 const infoSize = document.getElementById('infoSize');
@@ -494,43 +1124,52 @@ const infoHoles = document.getElementById('infoHoles');
 const infoWindows = document.getElementById('infoWindows');
 const infoPointsCount = document.getElementById('infoPointsCount');
 const pointList = document.getElementById('pointList');
+const infoSummary = document.getElementById('infoSummary');
 
 // Гистограмма
 const histoCanvas = document.getElementById('histoCanvas');
-const histoThresholdLabel = document.getElementById('histoThresholdLabel');
 const histoValley = document.getElementById('histoValley');
+const histoSummary = document.getElementById('histoSummary');
 const histoCtx = histoCanvas.getContext('2d');
+
+// Панели
+const histoPanel = document.getElementById('histoPanel');
+const propsPanel = document.getElementById('propsPanel');
+const perspPanel = document.getElementById('perspPanel');
+const linkPanel = document.getElementById('linkPanel');
+const symmPanel = document.getElementById('symmPanel');
+const jointsPanel = document.getElementById('jointsPanel');
+const palettePanel = document.getElementById('palettePanel');
+const samplesPanel = document.getElementById('samplesPanel');
+const infoPanel = document.getElementById('infoPanel');
 
 const baseCtx = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
 
 // ========== Состояние ==========
 let imgWidth = 0, imgHeight = 0;
-let lum = null;
-let isBg = null;
-let imgDataRef = null;
-let histogram = null;
+let lum = null, isBg = null, imgDataRef = null, histogram = null;
 let selectedPointIndex = -1;
-
 let mode = 'lum';
 let colorSamples = [];
-let bgColorMode = false;
-let addPointMode = false;
+let bgColorMode = false, addPointMode = false;
 let sourcePoints = [];
-let holesFilledCount = 0;
-let windowsFoundCount = 0;
+let holesFilledCount = 0, windowsFoundCount = 0;
 let charBBox = null;
 
 let symmetryResult = null;
 let jointsResult = null;
 let paletteResult = null;
+let contourResult = null;
+let linkResult = null;
+let manualVP = null;
+let manualVPMode = false;
 
-// ========== ДОЛИ ТЕЛА (редактируемые) ==========
 const DEFAULT_FRACTIONS = [
   { id: 'top',     name: 'Макушка', value: 0.00, color: '#8b93a1' },
   { id: 'neck',    name: 'Шея', value: 0.13, color: '#ff00ff' },
   { id: 'shoulder',name: 'Плечи', value: 0.20, color: '#ffaa00' },
-  { id: 'chest',   name: 'Грудь / локти', value: 0.33, color: '#ffcc00' },
+  { id: 'chest',   name: 'Грудь', value: 0.33, color: '#ffcc00' },
   { id: 'pelvis',  name: 'Бёдра', value: 0.52, color: '#ffaa00' },
   { id: 'knee',    name: 'Колени', value: 0.72, color: '#ffcc00' },
   { id: 'ankle',   name: 'Лодыжки', value: 0.95, color: '#ffcc00' },
@@ -538,10 +1177,81 @@ const DEFAULT_FRACTIONS = [
 let fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
 let autoNeckValue = 0.13;
 
-// ========== Режимы правки ==========
-let editFractionsMode = false;   // правка линий долей
-let editJointsMode    = false;   // правка точек суставов
-let dragging = null;             // { type: 'fraction'|'joint', id/index, startY, startValue } / startX/Y
+let editFractionsMode = false;
+let editJointsMode = false;
+let dragging = null;
+
+// ========== Меню ==========
+function openDrawer() { drawer.classList.add('open'); drawerBackdrop.classList.add('open'); menuToggle.classList.add('open'); }
+function closeDrawer() { drawer.classList.remove('open'); drawerBackdrop.classList.remove('open'); menuToggle.classList.remove('open'); }
+menuToggle.addEventListener('click', () => {
+  if (drawer.classList.contains('open')) closeDrawer(); else openDrawer();
+});
+drawerClose.addEventListener('click', closeDrawer);
+drawerBackdrop.addEventListener('click', closeDrawer);
+bottomMenu.addEventListener('click', openDrawer);
+
+// ========== Показ/скрытие панелей ==========
+function applyPanelVisibility() {
+  histoPanel.style.display = showHistoEl.checked ? '' : 'none';
+  propsPanel.style.display = showPropsEl.checked ? '' : 'none';
+  perspPanel.style.display = showPerspEl.checked ? '' : 'none';
+  linkPanel.style.display = showLinkEl.checked ? '' : 'none';
+  symmPanel.style.display = showSymmEl.checked ? '' : 'none';
+  jointsPanel.style.display = showJointsEl.checked ? '' : 'none';
+  palettePanel.style.display = showPaletteEl.checked ? '' : 'none';
+  samplesPanel.style.display = showSamplesEl.checked ? '' : 'none';
+  infoPanel.style.display = showInfoEl.checked ? '' : 'none';
+  if (showHistoEl.checked) drawHistogram();
+}
+[showHistoEl, showPropsEl, showPerspEl, showLinkEl, showSymmEl, showJointsEl, showPaletteEl, showSamplesEl, showInfoEl].forEach(el => {
+  el.addEventListener('change', applyPanelVisibility);
+});
+
+// ========== Сворачивание панелей ==========
+document.querySelectorAll('.panel-header[data-toggle]').forEach(header => {
+  header.addEventListener('click', () => {
+    const panel = header.parentElement;
+    panel.classList.toggle('open');
+  });
+});
+
+// По умолчанию открываем первые две
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('propsPanel').classList.add('open');
+  document.getElementById('perspPanel').classList.add('open');
+});
+
+// ========== Полноэкранный режим ==========
+let isFullscreen = false;
+fullscreenBtn.addEventListener('click', () => {
+  isFullscreen = !isFullscreen;
+  stageEl.classList.toggle('fullscreen', isFullscreen);
+  fullscreenBtn.textContent = isFullscreen ? '✕' : '⛶';
+  // Запрещаем скролл body
+  document.body.style.overflow = isFullscreen ? 'hidden' : '';
+});
+
+// ========== Нижняя панель ==========
+bottomFile.addEventListener('click', () => fileInput.click());
+bottomReset.addEventListener('click', () => {
+  // Сброс «вид»: скрыть оверлей, вернуть обычный размер
+  isFullscreen = false;
+  stageEl.classList.remove('fullscreen');
+  fullscreenBtn.textContent = '⛶';
+  document.body.style.overflow = '';
+});
+bottomToggleOverlay.addEventListener('click', () => {
+  // Показ только маски (скрыть подложку)
+  const willHide = !stageEl.classList.contains('hide');
+  stageEl.classList.toggle('hide', willHide);
+  bottomHide.classList.toggle('active', willHide);
+});
+bottomHide.addEventListener('click', () => {
+  const willHide = !stageEl.classList.contains('hide');
+  stageEl.classList.toggle('hide', willHide);
+  bottomHide.classList.toggle('active', willHide);
+});
 
 // ========== Загрузка ==========
 fileInput.addEventListener('change', e => {
@@ -559,9 +1269,9 @@ fileInput.addEventListener('change', e => {
     sourcePoints = [];
     selectedPointIndex = -1;
     colorSamples = [];
-    // Сбрасываем ручные правки при новой картинке
     fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
     jointsResult = null;
+    manualVP = null;
     if (mode === 'lum') autoPickThreshold();
     rebuildAll();
   };
@@ -734,7 +1444,6 @@ function smoothOnce(isBg, w, h) {
   }
 }
 
-// ========== BBOX ==========
 function computeBBox() {
   const w = imgWidth, h = imgHeight;
   let minX = w, minY = h, maxX = -1, maxY = -1, charCount = 0;
@@ -751,23 +1460,21 @@ function computeBBox() {
   charBBox = { minX, minY, maxX, maxY, width: maxX - minX + 1, height: maxY - minY + 1, charCount };
 }
 
-// ========== ПРОПОРЦИИ ==========
 function updateProportions() {
   if (!charBBox) return;
   const { minX, minY, width: bw, height: bh, charCount } = charBBox;
   const w = imgWidth, h = imgHeight;
 
-  propWidth.textContent   = `${bw} px`;
-  propHeight.textContent  = `${bh} px`;
-  propAspect.textContent  = (bh / bw).toFixed(3);
-  propFill.textContent    = `${((charCount / (bw * bh)) * 100).toFixed(1)}%`;
+  propWidth.textContent = `${bw} px`;
+  propHeight.textContent = `${bh} px`;
+  propAspect.textContent = (bh / bw).toFixed(3);
+  propFill.textContent = `${((charCount / (bw * bh)) * 100).toFixed(1)}%`;
 
-  // Рост в головах — используем значение доли 'neck'
   const neckFrac = fractions.find(f => f.id === 'neck');
   const neckVal = neckFrac ? neckFrac.value : autoNeckValue;
   const headPx = Math.max(1, Math.round(bh * neckVal));
   const heads = bh / headPx;
-  propHeads.textContent = `${heads.toFixed(2)} (${headPx} px голова)`;
+  propHeads.textContent = `${heads.toFixed(2)} (${headPx} px)`;
 
   const cx = minX + bw / 2, cy = minY + bh / 2;
   propCx.textContent = `${cx.toFixed(0)} px`;
@@ -776,13 +1483,284 @@ function updateProportions() {
   propOffsetY.textContent = `${((cy - h/2) / h * 100) >= 0 ? '+' : ''}${(((cy - h/2) / h) * 100).toFixed(1)}%`;
 
   const manualCount = fractions.filter(f => f.manual).length;
-  propFractions.textContent = manualCount > 0 ? `${manualCount} изменено вручную` : 'авто';
-  editStatus.textContent = (editFractionsMode || editJointsMode) ? 'правка' : (manualCount > 0 ? 'есть правки' : 'авто');
+  propFractions.textContent = manualCount > 0 ? `${manualCount} ручных` : 'авто';
+  propsSummary.textContent = `${bh}×${bw} · ${heads.toFixed(2)} голов`;
 }
 
-// ========== СИММЕТРИЯ ==========
+// ========== Перспектива ==========
+function computePerspective() {
+  if (!charBBox) {
+    perspMain.textContent = '—';
+    perspSub.textContent = 'персонаж не определён';
+    perspIcon.textContent = '○';
+    contourResult = null;
+    perspSummary.textContent = '—';
+    return;
+  }
+
+  const w = imgWidth, h = imgHeight;
+  const { minX, minY, maxX, maxY, width: bw, height: bh } = charBBox;
+
+  const thirdH = Math.floor(bh / 3);
+  const widths = [[], [], []];
+  const rowEdges = [];
+  for (let yy = 0; yy < bh; yy++) {
+    const y = minY + yy;
+    let rowMinX = -1, rowMaxX = -1;
+    for (let x = minX; x <= maxX; x++) {
+      if (!isBg[y * w + x]) { if (rowMinX < 0) rowMinX = x; rowMaxX = x; }
+    }
+    const ww = rowMinX < 0 ? 0 : (rowMaxX - rowMinX + 1);
+    rowEdges.push({ y, lx: rowMinX, rx: rowMaxX, width: ww });
+    if (yy < thirdH) widths[0].push(ww);
+    else if (yy < thirdH * 2) widths[1].push(ww);
+    else widths[2].push(ww);
+  }
+
+  const avg = arr => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0;
+  const topW = avg(widths[0]);
+  const midW = avg(widths[1]);
+  const botW = avg(widths[2]);
+  perspTopW.textContent = `${topW.toFixed(1)} px`;
+  perspMidW.textContent = `${midW.toFixed(1)} px`;
+  perspBotW.textContent = `${botW.toFixed(1)} px`;
+  const ratio = botW > 0 ? topW / botW : 0;
+  perspTopBot.textContent = ratio.toFixed(3);
+
+  let vVerdict = '';
+  if (ratio > 1.15) vVerdict = 'ракурс снизу';
+  else if (ratio < 0.87) vVerdict = 'ракурс сверху';
+  else vVerdict = 'фронтально';
+  perspVerdict.textContent = vVerdict;
+
+  let leftSlopes = [], rightSlopes = [];
+  for (let i = 1; i < rowEdges.length; i++) {
+    const a = rowEdges[i - 1], b = rowEdges[i];
+    if (a.lx < 0 || b.lx < 0 || a.rx < 0 || b.rx < 0) continue;
+    const dy = b.y - a.y;
+    if (dy === 0) continue;
+    const dlx = b.lx - a.lx, drx = b.rx - a.rx;
+    if (Math.abs(dlx) > 6 || Math.abs(drx) > 6) continue;
+    leftSlopes.push(dlx / dy);
+    rightSlopes.push(drx / dy);
+  }
+  const median = arr => {
+    if (!arr.length) return 0;
+    const s = arr.slice().sort((a, b) => a - b);
+    return s[s.length >> 1];
+  };
+  const leftSlope = median(leftSlopes);
+  const rightSlope = median(rightSlopes);
+  const leftAngleDeg = Math.atan(Math.abs(leftSlope)) * 180 / Math.PI;
+  const rightAngleDeg = Math.atan(Math.abs(rightSlope)) * 180 / Math.PI;
+  const avgAngleDeg = (leftAngleDeg + rightAngleDeg) / 2;
+  perspContourAngle.textContent = `${avgAngleDeg.toFixed(2)}°`;
+  perspEdgeSlope.textContent = `L: ${leftSlope.toFixed(3)}, R: ${rightSlope.toFixed(3)}`;
+
+  let vanishing = null;
+  let isManual = false;
+  if (manualVP) {
+    vanishing = { x: manualVP.x, y: manualVP.y, insideImage: true, confidence: 1, manual: true };
+    isManual = true;
+  } else {
+    vanishing = findVanishingPoint(rowEdges);
+    if (vanishing) vanishing.manual = false;
+  }
+
+  if (vanishing) {
+    const inside = vanishing.x >= 0 && vanishing.x < w && vanishing.y >= 0 && vanishing.y < h;
+    vanishing.insideImage = inside;
+    const distX = Math.max(0, Math.max(-vanishing.x, vanishing.x - w));
+    const distY = Math.max(0, Math.max(-vanishing.y, vanishing.y - h));
+    const dist = Math.sqrt(distX * distX + distY * distY);
+    perspVanishing.textContent = `x=${vanishing.x.toFixed(0)}, y=${vanishing.y.toFixed(0)}`
+      + (inside ? ' (в кадре)' : ' (вне)') + (isManual ? ' · ручная' : '');
+    perspVPDist.textContent = inside ? '0' : `${dist.toFixed(0)} px от края`;
+    perspConfidence.textContent = isManual ? '100% (ручная)' : `${(vanishing.confidence * 100).toFixed(0)}%`;
+  } else {
+    perspVanishing.textContent = '—';
+    perspVPDist.textContent = '—';
+    perspConfidence.textContent = 'не найдена';
+  }
+  contourResult = { leftSlope, rightSlope, avgAngleDeg, vanishing, ratio, vVerdict };
+
+  const shFrac = fractions.find(f => f.id === 'shoulder');
+  const plFrac = fractions.find(f => f.id === 'pelvis');
+  const shoulderY = minY + Math.round(bh * (shFrac ? shFrac.value : 0.20));
+  const pelvisY = minY + Math.round(bh * (plFrac ? plFrac.value : 0.52));
+  const edgeAt = (y) => {
+    let lx = -1, rx = -1;
+    for (let x = minX; x <= maxX; x++) {
+      if (!isBg[y * w + x]) { if (lx < 0) lx = x; rx = x; }
+    }
+    return { lx, rx };
+  };
+  const avgCenterAround = (y) => {
+    let sx = 0, n = 0;
+    for (let dy = -4; dy <= 4; dy++) {
+      const e = edgeAt(y + dy);
+      if (e.lx < 0) continue;
+      sx += (e.lx + e.rx) / 2;
+      n++;
+    }
+    return n ? sx / n : 0;
+  };
+  const shCenterX = avgCenterAround(shoulderY);
+  const plCenterX = avgCenterAround(pelvisY);
+  const shOffset = shCenterX - (minX + bw / 2);
+  const plOffset = plCenterX - (minX + bw / 2);
+  perspShoulder.textContent = `${shOffset >= 0 ? '+' : ''}${shOffset.toFixed(1)} px`;
+  perspPelvis.textContent = `${plOffset >= 0 ? '+' : ''}${plOffset.toFixed(1)} px`;
+  const diff = shOffset - plOffset;
+  perspDiff.textContent = `${diff >= 0 ? '+' : ''}${diff.toFixed(1)} px`;
+
+  let tiltVerdict = '';
+  if (Math.abs(diff) < 4) tiltVerdict = 'вертикально';
+  else if (diff > 0) tiltVerdict = 'наклон вправо';
+  else tiltVerdict = 'наклон влево';
+  perspTilt.textContent = tiltVerdict;
+
+  let main = '';
+  let icon = '○';
+  if (vVerdict.includes('снизу')) { main = 'Ракурс снизу'; icon = '▲'; }
+  else if (vVerdict.includes('сверху')) { main = 'Ракурс сверху'; icon = '▼'; }
+  else { main = 'Фронтально'; icon = '○'; }
+  if (tiltVerdict.includes('вправо')) main += ' · вправо';
+  else if (tiltVerdict.includes('влево')) main += ' · влево';
+  perspMain.textContent = main;
+  perspIcon.textContent = icon;
+
+  let sub = `верх/низ = ${ratio.toFixed(2)} · контур ${avgAngleDeg.toFixed(1)}°`;
+  if (vanishing) sub += ` · ТС ${isManual ? 'ручная' : (vanishing.confidence * 100).toFixed(0) + '%'}`;
+  perspSub.textContent = sub;
+  perspSummary.textContent = vVerdict;
+}
+
+function findVanishingPoint(rowEdges) {
+  const valid = rowEdges.filter(e => e.lx >= 0 && e.rx >= 0);
+  if (valid.length < 20) return null;
+  const linReg = (points) => {
+    const n = points.length;
+    let sy = 0, sx = 0, syy = 0, sxy = 0;
+    for (const p of points) {
+      sy += p.y; sx += p.x;
+      syy += p.y * p.y; sxy += p.y * p.x;
+    }
+    const denom = n * syy - sy * sy;
+    if (Math.abs(denom) < 1e-6) return null;
+    const a = (n * sxy - sy * sx) / denom;
+    const b = (sx - a * sy) / n;
+    return { a, b };
+  };
+  const leftPts = valid.map(e => ({ y: e.y, x: e.lx }));
+  const rightPts = valid.map(e => ({ y: e.y, x: e.rx }));
+  const L = linReg(leftPts), R = linReg(rightPts);
+  if (!L || !R) return null;
+  const dA = L.a - R.a;
+  if (Math.abs(dA) < 0.001) return null;
+  const vy = (R.b - L.b) / dA;
+  const vx = L.a * vy + L.b;
+  const insideImage = (vx >= 0 && vx < imgWidth && vy >= 0 && vy < imgHeight);
+  const angleL = Math.abs(L.a), angleR = Math.abs(R.a);
+  const tiltScore = Math.min(1, (angleL + angleR) / 1.2);
+  let distScore = 1;
+  if (!insideImage) {
+    const dx = Math.max(0, Math.max(-vx, vx - imgWidth));
+    const dy = Math.max(0, Math.max(-vy, vy - imgHeight));
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    distScore = Math.max(0, 1 - dist / (imgWidth + imgHeight));
+  }
+  const confidence = Math.max(0, Math.min(1, tiltScore * distScore));
+  return { x: vx, y: vy, insideImage, confidence, L, R };
+}
+
+// ========== Связь ==========
+function computeLink() {
+  if (!charBBox || !contourResult) {
+    linkMeasured.textContent = '—';
+    linkCorrected.textContent = '—';
+    linkTableBody.innerHTML = '';
+    linkResult = null;
+    linkSummary.textContent = '—';
+    return;
+  }
+  const bh = charBBox.height;
+  const ratio = contourResult.ratio || 1;
+  const vanishing = contourResult.vanishing;
+  const hasVP = vanishing && (vanishing.manual || vanishing.confidence > 0.25);
+
+  const neckFrac = fractions.find(f => f.id === 'neck');
+  const neckVal = neckFrac ? neckFrac.value : autoNeckValue;
+  const headPx = Math.max(1, Math.round(bh * neckVal));
+  const measuredHeads = bh / headPx;
+  const factor = ratio;
+
+  let correctedHeads, methodUsed, topFix, botFix;
+
+  if (hasVP) {
+    const cx = charBBox.minX + charBBox.width / 2;
+    const cy = charBBox.minY + charBBox.height / 2;
+    const vpDist = Math.sqrt((vanishing.x - cx) ** 2 + (vanishing.y - cy) ** 2);
+    const refDist = Math.max(bh, vpDist);
+    const perspK = Math.max(0.6, Math.min(1.6, refDist / Math.max(1, vpDist)));
+    correctedHeads = measuredHeads / Math.sqrt(perspK);
+    methodUsed = `по ТС (k=${perspK.toFixed(2)})`;
+    topFix = (1 / Math.sqrt(perspK)).toFixed(3);
+    botFix = Math.sqrt(perspK).toFixed(3);
+  } else {
+    correctedHeads = measuredHeads / Math.sqrt(factor);
+    methodUsed = `линейная (k=${factor.toFixed(2)})`;
+    topFix = (1 / Math.sqrt(factor)).toFixed(3);
+    botFix = Math.sqrt(factor).toFixed(3);
+  }
+
+  const tF = parseFloat(topFix), bF = parseFloat(botFix);
+  const correctedFractions = fractions.map(frac => {
+    const t = frac.value;
+    const k = tF * (1 - t) + bF * t;
+    return { ...frac, correctedRaw: t / k };
+  });
+  const maxRaw = Math.max(...correctedFractions.map(f => f.correctedRaw));
+  const normScale = maxRaw > 0 ? 0.95 / maxRaw : 1;
+  correctedFractions.forEach(f => {
+    f.correctedValue = Math.max(0, Math.min(0.98, f.correctedRaw * normScale));
+  });
+  correctedFractions.sort((a, b) => a.correctedValue - b.correctedValue);
+  for (let i = 1; i < correctedFractions.length; i++) {
+    if (correctedFractions[i].correctedValue <= correctedFractions[i-1].correctedValue) {
+      correctedFractions[i].correctedValue = correctedFractions[i-1].correctedValue + 0.005;
+    }
+  }
+
+  linkResult = { measuredHeads, correctedHeads, factor, methodUsed, topFix, botFix, hasVP, correctedFractions };
+
+  linkMeasured.textContent = measuredHeads.toFixed(2);
+  linkCorrected.textContent = correctedHeads.toFixed(2);
+  linkAspect.textContent = contourResult.vVerdict;
+  linkFactor.textContent = factor.toFixed(3);
+  linkMethodUsed.textContent = methodUsed;
+  linkTopFix.textContent = topFix;
+  linkBotFix.textContent = botFix;
+  linkVPInFrame.textContent = hasVP ? 'да' : 'нет';
+  linkSummary.textContent = `${measuredHeads.toFixed(2)} → ${correctedHeads.toFixed(2)}`;
+
+  linkTableBody.innerHTML = '';
+  for (const f of correctedFractions) {
+    const tr = document.createElement('tr');
+    const delta = (f.correctedValue - f.value) * 100;
+    const sign = delta >= 0 ? '+' : '';
+    tr.innerHTML = `
+      <td>${f.name}</td>
+      <td class="num">${(f.value * 100).toFixed(1)}%</td>
+      <td class="num fixed">${(f.correctedValue * 100).toFixed(1)}%</td>
+      <td class="num">${sign}${delta.toFixed(1)}</td>`;
+    linkTableBody.appendChild(tr);
+  }
+}
+
+// ========== Симметрия ==========
 function computeSymmetry() {
-  if (!charBBox) { symmetryResult = null; return; }
+  if (!charBBox) { symmetryResult = null; symmSummary.textContent = '—'; return; }
   const w = imgWidth, h = imgHeight;
   const { minX, minY, width: bw, height: bh } = charBBox;
   const cx = minX + bw / 2;
@@ -806,7 +1784,6 @@ function computeSymmetry() {
 
   const nonEmpty = rowData.filter(r => r.leftCount > 0 || r.rightCount > 0);
   const totalSymm = nonEmpty.length ? nonEmpty.reduce((s, r) => s + r.rowSymm, 0) / nonEmpty.length : 0;
-
   const zone = (a, b) => {
     const slice = rowData.filter(r => r.y >= a && r.y < b && (r.leftCount > 0 || r.rightCount > 0));
     return slice.length ? slice.reduce((s, r) => s + r.rowSymm, 0) / slice.length : 0;
@@ -822,7 +1799,6 @@ function computeSymmetry() {
   const cls = totalSymm > 0.9 ? 'good' : totalSymm > 0.75 ? '' : totalSymm > 0.6 ? 'warn' : 'bad';
   symmBar.className = 'scale-fill ' + cls;
   symmBar.style.width = (totalSymm * 100) + '%';
-
   symmTop.textContent = pct(zTop);
   symmMid.textContent = pct(zMid);
   symmBot.textContent = pct(zBot);
@@ -843,17 +1819,15 @@ function computeSymmetry() {
   else if (totalSymm > 0.55) verdict = 'заметная асимметрия';
   else verdict = 'сильная асимметрия';
   symmVerdict.textContent = verdict;
+  symmSummary.textContent = pct(totalSymm);
 }
 
-// ========== СУСТАВЫ ==========
-// Если пользователь уже правил вручную — не пересчитываем из маски,
-// сохраняем его точки.
+// ========== Суставы ==========
 function computeJoints() {
-  if (!charBBox) { jointsResult = null; jointsListRender([]); return; }
-
-  // Если есть ручные правки — сохраняем их
+  if (!charBBox) { jointsResult = null; jointsListRender([]); jointsSummary.textContent = '—'; return; }
   if (jointsResult && jointsResult.some(j => j.manual)) {
     jointsListRender(jointsResult);
+    jointsSummary.textContent = `${jointsResult.length} (с правками)`;
     return;
   }
 
@@ -919,11 +1893,12 @@ function computeJoints() {
 
   jointsResult = classified;
   jointsListRender(classified);
+  jointsSummary.textContent = `${classified.length}`;
 }
 
 function jointsListRender(arr) {
   jointList.innerHTML = '';
-  jointsCount.textContent = `${arr.length}`;
+  jointsSummary.textContent = `${arr.length}`;
   if (arr.length === 0) {
     jointList.innerHTML = '<div class="joint-item"><span class="name">Суставы не найдены</span><span class="coords">уменьшите порог</span></div>';
     return;
@@ -938,9 +1913,9 @@ function jointsListRender(arr) {
   });
 }
 
-// ========== ПАЛИТРА ==========
+// ========== Палитра ==========
 function computePalette() {
-  if (!charBBox) { paletteResult = null; paletteGrid.innerHTML = ''; return; }
+  if (!charBBox) { paletteResult = null; paletteGrid.innerHTML = ''; paletteSummary.textContent = '—'; return; }
   const w = imgWidth, h = imgHeight;
   const { minX, minY, width: bw, height: bh } = charBBox;
   const d = imgDataRef.data;
@@ -973,11 +1948,11 @@ function computePalette() {
   const top = arr.slice(0, count);
   paletteResult = { colors: top, total };
   renderPalette(top, total);
+  paletteSummary.textContent = `${top.length} цветов`;
 }
 
 function renderPalette(colors, total) {
   paletteGrid.innerHTML = '';
-  paletteCountDisplay.textContent = `${colors.length} цветов`;
   if (colors.length === 0) {
     paletteGrid.innerHTML = '<div style="color:#8b93a1;font-size:12px;">Цвета не найдены.</div>';
     return;
@@ -1007,13 +1982,12 @@ function rgbToHex(r, g, b) {
   return '#' + h(r) + h(g) + h(b);
 }
 
-// ========== ОТРИСОВКА OVERLAY ==========
+// ========== Отрисовка ==========
 function drawOverlay() {
   const w = imgWidth, h = imgHeight;
   if (!w) return;
   overlayCtx.clearRect(0, 0, w, h);
 
-  // Заливка персонажа
   const img = overlayCtx.createImageData(w, h);
   const data = img.data;
   for (let i = 0, j = 0; i < w * h; i++, j += 4) {
@@ -1023,7 +1997,6 @@ function drawOverlay() {
   }
   overlayCtx.putImageData(img, 0, 0);
 
-  // BBox
   if (charBBox) {
     overlayCtx.strokeStyle = 'rgba(0, 200, 255, 0.9)';
     overlayCtx.lineWidth = Math.max(2, Math.round(imgWidth / 400));
@@ -1031,7 +2004,6 @@ function drawOverlay() {
     overlayCtx.strokeRect(charBBox.minX, charBBox.minY, charBBox.width, charBBox.height);
     overlayCtx.setLineDash([]);
 
-    // Линии долей
     for (const frac of fractions) {
       const y = charBBox.minY + Math.round(charBBox.height * frac.value);
       if (y < 0 || y >= imgHeight) continue;
@@ -1040,16 +2012,10 @@ function drawOverlay() {
       overlayCtx.globalAlpha = isKey ? 1 : 0.7;
       overlayCtx.lineWidth = isKey ? Math.max(3, Math.round(imgWidth / 500)) : Math.max(1, Math.round(imgWidth / 800));
       overlayCtx.beginPath();
-      overlayCtx.moveTo(charBBox.minX - 20, y);
-      overlayCtx.lineTo(charCBox_0(charBBox), y); // заменим ниже
-      // проще — просто рисуем линию от minX до maxX
-      overlayCtx.beginPath();
       overlayCtx.moveTo(charBBox.minX, y);
       overlayCtx.lineTo(charBBox.maxX + 1, y);
       overlayCtx.stroke();
       overlayCtx.globalAlpha = 1;
-
-      // Подпись у ключевых или в режиме правки
       if (isKey || editFractionsMode) {
         const fs = Math.max(11, Math.round(imgWidth / 70));
         overlayCtx.font = `bold ${fs}px system-ui`;
@@ -1061,7 +2027,21 @@ function drawOverlay() {
       }
     }
 
-    // Ось симметрии
+    if (showCorrectedEl.checked && linkResult) {
+      overlayCtx.strokeStyle = 'rgba(185, 255, 128, 0.9)';
+      overlayCtx.setLineDash([6, 5]);
+      overlayCtx.lineWidth = Math.max(1.5, Math.round(imgWidth / 700));
+      for (const f of linkResult.correctedFractions) {
+        const y = charBBox.minY + Math.round(charBBox.height * f.correctedValue);
+        if (y < 0 || y >= imgHeight) continue;
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(charBBox.minX - 20, y);
+        overlayCtx.lineTo(charBBox.maxX + 20, y);
+        overlayCtx.stroke();
+      }
+      overlayCtx.setLineDash([]);
+    }
+
     if (showSymmEl.checked && symmetryResult) {
       const cx = charBBox.minX + charBBox.width / 2;
       overlayCtx.strokeStyle = 'rgba(185, 255, 128, 0.85)';
@@ -1072,19 +2052,9 @@ function drawOverlay() {
       overlayCtx.lineTo(cx, charBBox.maxY + 1);
       overlayCtx.stroke();
       overlayCtx.setLineDash([]);
-
-      const fs = Math.max(11, Math.round(imgWidth / 75));
-      overlayCtx.font = `bold ${fs}px system-ui`;
-      const label = `Симметрия: ${(symmetryResult.total * 100).toFixed(0)}%`;
-      const tw = overlayCtx.measureText(label).width;
-      overlayCtx.fillStyle = 'rgba(0,0,0,0.7)';
-      overlayCtx.fillRect(charBBox.minX, charBBox.minY - fs - 8, tw + 12, fs + 6);
-      overlayCtx.fillStyle = '#b9ff80';
-      overlayCtx.fillText(label, charBBox.minX + 6, charBBox.minY - 4);
     }
   }
 
-  // Суставы
   if (showJointsEl.checked && jointsResult) {
     jointsResult.forEach(j => {
       overlayCtx.beginPath();
@@ -1094,8 +2064,6 @@ function drawOverlay() {
       overlayCtx.lineWidth = 2;
       overlayCtx.strokeStyle = '#000';
       overlayCtx.stroke();
-
-      // В режиме правки — подпись рядом
       if (editJointsMode || j.manual) {
         const fs = Math.max(10, Math.round(imgWidth / 90));
         overlayCtx.font = `bold ${fs}px system-ui`;
@@ -1109,7 +2077,40 @@ function drawOverlay() {
     });
   }
 
-  // Точки-источники
+  if (contourResult && contourResult.vanishing && showPerspEl.checked) {
+    const v = contourResult.vanishing;
+    const isManual = v.manual === true;
+    if (charBBox) {
+      const corners = [
+        { x: charBBox.minX, y: charBBox.minY },
+        { x: charBBox.maxX, y: charBBox.minY },
+        { x: charBBox.minX, y: charBBox.maxY },
+        { x: charBBox.maxX, y: charBBox.maxY },
+      ];
+      overlayCtx.strokeStyle = isManual ? 'rgba(120, 255, 120, 0.85)' : 'rgba(255, 120, 255, 0.7)';
+      overlayCtx.lineWidth = 1.5;
+      overlayCtx.setLineDash([6, 4]);
+      for (const c of corners) {
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(c.x, c.y);
+        overlayCtx.lineTo(v.x, v.y);
+        overlayCtx.stroke();
+      }
+      overlayCtx.setLineDash([]);
+    }
+    if (v.insideImage) {
+      overlayCtx.beginPath();
+      overlayCtx.arc(v.x, v.y, 9, 0, Math.PI * 2);
+      overlayCtx.fillStyle = isManual ? '#60ff60' : '#ff60ff';
+      overlayCtx.fill();
+      overlayCtx.lineWidth = 2;
+      overlayCtx.strokeStyle = '#000';
+      overlayCtx.stroke();
+    } else {
+      drawVanishingArrow(v);
+    }
+  }
+
   sourcePoints.forEach((p, i) => {
     const isSelected = i === selectedPointIndex;
     overlayCtx.beginPath();
@@ -1122,13 +2123,63 @@ function drawOverlay() {
   });
 }
 
-// Заглушка, чтобы не сломать предыдущий код
-function charCBox_0(b) { return b.maxX + 1; }
+function drawVanishingArrow(v) {
+  const w = imgWidth, h = imgHeight;
+  const cx = w / 2, cy = h / 2;
+  const dx = v.x - cx, dy = v.y - cy;
+  if (dx === 0 && dy === 0) return;
+  let tMin = Infinity;
+  if (dx !== 0) {
+    const t1 = (0 - cx) / dx, t2 = (w - cx) / dx;
+    if (t1 > 0) tMin = Math.min(tMin, t1);
+    if (t2 > 0) tMin = Math.min(tMin, t2);
+  }
+  if (dy !== 0) {
+    const t1 = (0 - cy) / dy, t2 = (h - cy) / dy;
+    if (t1 > 0) tMin = Math.min(tMin, t1);
+    if (t2 > 0) tMin = Math.min(tMin, t2);
+  }
+  if (!isFinite(tMin)) return;
+  const edgeX = cx + dx * tMin;
+  const edgeY = cy + dy * tMin;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  const ux = dx / len, uy = dy / len;
+  const arrowLen = Math.max(20, Math.round(imgWidth / 25));
+  const arrowWidth = Math.max(8, Math.round(imgWidth / 60));
+  const baseX = edgeX - ux * arrowLen * 0.6;
+  const baseY = edgeY - uy * arrowLen * 0.6;
+  overlayCtx.fillStyle = 'rgba(255, 100, 255, 0.9)';
+  overlayCtx.strokeStyle = 'rgba(0,0,0,0.9)';
+  overlayCtx.lineWidth = 2;
+  overlayCtx.beginPath();
+  overlayCtx.moveTo(edgeX, edgeY);
+  overlayCtx.lineTo(baseX - uy * arrowWidth, baseY + ux * arrowWidth);
+  overlayCtx.lineTo(baseX + uy * arrowWidth, baseY - ux * arrowWidth);
+  overlayCtx.closePath();
+  overlayCtx.fill();
+  overlayCtx.stroke();
+  const dist = Math.sqrt((v.x - cx) ** 2 + (v.y - cy) ** 2);
+  const label = `ТС ${dist.toFixed(0)} px →`;
+  const fs = Math.max(12, Math.round(imgWidth / 60));
+  overlayCtx.font = `bold ${fs}px system-ui`;
+  const tw = overlayCtx.measureText(label).width;
+  const pad = 6;
+  let lx = baseX - tw / 2;
+  let ly = baseY - fs - 8;
+  if (lx < 4) lx = 4;
+  if (lx + tw + pad * 2 > w - 4) lx = w - tw - pad * 2 - 4;
+  if (ly < 4) ly = baseY + 6;
+  overlayCtx.fillStyle = 'rgba(0,0,0,0.75)';
+  overlayCtx.fillRect(lx - pad, ly - fs - pad, tw + pad * 2, fs + pad * 2);
+  overlayCtx.fillStyle = '#ff80ff';
+  overlayCtx.fillText(label, lx, ly - 1);
+}
 
-// ========== ГИСТОГРАММА ==========
+// ========== Гистограмма ==========
 function drawHistogram() {
   if (!histogram) return;
   const rect = histoCanvas.getBoundingClientRect();
+  if (rect.width === 0) return;
   const dpr = window.devicePixelRatio || 1;
   histoCanvas.width = Math.max(100, Math.round(rect.width * dpr));
   histoCanvas.height = Math.max(60, Math.round(rect.height * dpr));
@@ -1162,12 +2213,11 @@ function drawHistogram() {
     const px = threshold * barW;
     histoCtx.strokeStyle = '#ffcc00'; histoCtx.lineWidth = 2;
     histoCtx.beginPath(); histoCtx.moveTo(px, 0); histoCtx.lineTo(px, H); histoCtx.stroke();
-    histoCtx.fillStyle = '#ffcc00'; histoCtx.font = '11px system-ui'; histoCtx.textAlign = 'left';
-    histoCtx.fillText(`→ ${threshold}${inv ? ' (инв)' : ''}`, px + 4, 12);
   }
   histoCtx.fillStyle = '#8b93a1'; histoCtx.font = '10px system-ui';
   histoCtx.textAlign = 'left'; histoCtx.fillText('0', 4, H - 4);
   histoCtx.textAlign = 'right'; histoCtx.fillText('255', W - 4, H - 4);
+
   const sm = new Float32Array(256);
   for (let v = 0; v < 256; v++) {
     let s = 0;
@@ -1180,12 +2230,32 @@ function drawHistogram() {
   let valleyV = -1, valleyScore = Infinity;
   for (let v = 50; v <= 250; v++) if (sm[v] < valleyScore) { valleyScore = sm[v]; valleyV = v; }
   histoValley.textContent = valleyV >= 0 ? `${valleyV}` : '—';
-  histoThresholdLabel.textContent = mode === 'lum'
-    ? `Порог: ${bgLumEl.value}${invertEl.checked ? ' (инв)' : ''}`
-    : `Цвет-образцов: ${colorSamples.length}`;
+  histoSummary.textContent = mode === 'lum' ? `порог ${bgLumEl.value}` : `${colorSamples.length} цв.`;
 }
 
-// ========== ИНФО ==========
+function renderSamplesList() {
+  samplesSummary.textContent = `(${colorSamples.length})`;
+  samplesList.innerHTML = '';
+  if (colorSamples.length === 0) {
+    samplesList.innerHTML = '<span class="sample-empty">Образцы не заданы.</span>';
+    return;
+  }
+  colorSamples.forEach((s, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'sample-chip';
+    chip.innerHTML = `
+      <span style="display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid #555;background:rgb(${s.r},${s.g},${s.b})"></span>
+      <span>rgb(${s.r}, ${s.g}, ${s.b})</span>
+      <button class="remove" title="Удалить">✕</button>`;
+    chip.querySelector('.remove').addEventListener('click', () => {
+      colorSamples.splice(i, 1); renderSamplesList();
+      if (lum) rebuildAll();
+    });
+    samplesList.appendChild(chip);
+  });
+}
+
+// ========== Инфо ==========
 function updateInfo() {
   if (!lum) return;
   const N = imgWidth * imgHeight;
@@ -1198,6 +2268,7 @@ function updateInfo() {
   infoHoles.textContent = holesFilledCount.toLocaleString('ru-RU') + ' px';
   infoWindows.textContent = windowsFoundCount.toLocaleString('ru-RU') + ' px';
   infoPointsCount.textContent = `(${sourcePoints.length})`;
+  infoSummary.textContent = `${imgWidth}×${imgHeight}`;
 
   if (sourcePoints.length === 0) {
     pointList.innerHTML = '<div style="color:#8b93a1;font-size:12px;padding:4px 0;">Точки не заданы.</div>';
@@ -1227,12 +2298,14 @@ function removePoint(index) {
   rebuildAll();
 }
 
-// ========== ПЕРЕСЧЁТ ==========
+// ========== Пересчёт ==========
 function rebuildAll() {
   if (!lum) return;
   buildMask();
   computeBBox();
   updateProportions();
+  computePerspective();
+  computeLink();
   computeSymmetry();
   computeJoints();
   computePalette();
@@ -1241,7 +2314,7 @@ function rebuildAll() {
   updateInfo();
 }
 
-// ========== РУЧНАЯ ПРАВКА ==========
+// ========== Правка ==========
 function clientToImage(clientX, clientY) {
   const rect = baseCanvas.getBoundingClientRect();
   return {
@@ -1253,7 +2326,7 @@ function clientToImage(clientX, clientY) {
 function findFractionAtY(y) {
   if (!charBBox) return null;
   let best = null, bestDist = Infinity;
-  const thresh = Math.max(8, imgHeight * 0.02);
+  const thresh = Math.max(12, imgHeight * 0.025);
   for (const frac of fractions) {
     const lineY = charBBox.minY + charBBox.height * frac.value;
     const d = Math.abs(lineY - y);
@@ -1265,7 +2338,7 @@ function findFractionAtY(y) {
 function findJointAt(x, y) {
   if (!jointsResult) return -1;
   let best = -1, bestDist = Infinity;
-  const thresh = Math.max(15, imgWidth * 0.03);
+  const thresh = Math.max(20, imgWidth * 0.04);
   jointsResult.forEach((j, i) => {
     const dx = j.x - x, dy = j.yImg - y;
     const d = Math.sqrt(dx * dx + dy * dy);
@@ -1274,13 +2347,10 @@ function findJointAt(x, y) {
   return bestDist <= thresh ? best : -1;
 }
 
-// ---------- mousedown ----------
 baseCanvas.addEventListener('mousedown', (e) => {
   if (!charBBox || !lum) return;
-
   const p = clientToImage(e.clientX, e.clientY);
 
-  // Режим правки суставов
   if (editJointsMode && jointsResult) {
     const idx = findJointAt(p.x, p.y);
     if (idx >= 0) {
@@ -1290,20 +2360,16 @@ baseCanvas.addEventListener('mousedown', (e) => {
       return;
     }
   }
-
-  // Режим правки долей
   if (editFractionsMode) {
     const frac = findFractionAtY(p.y);
     if (frac) {
       dragging = { type: 'fraction', id: frac.id, startY: p.y, startValue: frac.value };
       baseCanvas.style.cursor = 'grabbing';
       e.preventDefault();
-      return;
     }
   }
 });
 
-// ---------- mousemove ----------
 window.addEventListener('mousemove', (e) => {
   if (!dragging) return;
   const p = clientToImage(e.clientX, e.clientY);
@@ -1311,10 +2377,7 @@ window.addEventListener('mousemove', (e) => {
   if (dragging.type === 'fraction' && charBBox) {
     const dy = (p.y - dragging.startY) / charBBox.height;
     let newValue = dragging.startValue + dy;
-    // Ограничения — не пересекать соседние
-    const neighbors = fractions
-      .filter(f => f.id !== dragging.id)
-      .map(f => f.value).sort((a, b) => a - b);
+    const neighbors = fractions.filter(f => f.id !== dragging.id).map(f => f.value).sort((a, b) => a - b);
     let minV = 0.01, maxV = 0.99;
     for (const v of neighbors) {
       if (v < dragging.startValue && v > minV) minV = v + 0.005;
@@ -1323,10 +2386,8 @@ window.addEventListener('mousemove', (e) => {
     newValue = Math.max(minV, Math.min(maxV, newValue));
     const frac = fractions.find(f => f.id === dragging.id);
     if (frac) { frac.value = newValue; frac.manual = true; }
-    updateProportions();
-    drawOverlay();
+    updateProportions(); computePerspective(); computeLink(); drawOverlay();
   }
-
   if (dragging.type === 'joint' && jointsResult) {
     const j = jointsResult[dragging.idx];
     if (j) {
@@ -1346,15 +2407,15 @@ window.addEventListener('mouseup', () => {
     dragging = null;
     if (editJointsMode) baseCanvas.style.cursor = 'grab';
     else if (editFractionsMode) baseCanvas.style.cursor = 'row-resize';
+    else if (manualVPMode) baseCanvas.style.cursor = 'cell';
     else baseCanvas.style.cursor = 'crosshair';
   }
 });
 
-// ---------- Курсор при наведении ----------
 baseCanvas.addEventListener('mousemove', (e) => {
   if (dragging) return;
   if (!lum) return;
-
+  if (manualVPMode) { baseCanvas.style.cursor = 'cell'; return; }
   if (editJointsMode) {
     const p = clientToImage(e.clientX, e.clientY);
     const idx = findJointAt(p.x, p.y);
@@ -1369,19 +2430,16 @@ baseCanvas.addEventListener('mousemove', (e) => {
   baseCanvas.style.cursor = 'crosshair';
 });
 
-// ---------- Touch (мобильные) ----------
+// Touch
 baseCanvas.addEventListener('touchstart', (e) => {
-  if (!charBBox || !lum) return;
-  if (e.touches.length !== 1) return;
+  if (!charBBox || !lum || e.touches.length !== 1) return;
   const t = e.touches[0];
   const p = clientToImage(t.clientX, t.clientY);
-
   if (editJointsMode && jointsResult) {
     const idx = findJointAt(p.x, p.y);
     if (idx >= 0) {
       dragging = { type: 'joint', idx, offsetX: p.x - jointsResult[idx].x, offsetY: p.y - jointsResult[idx].yImg };
-      e.preventDefault();
-      return;
+      e.preventDefault(); return;
     }
   }
   if (editFractionsMode) {
@@ -1394,11 +2452,9 @@ baseCanvas.addEventListener('touchstart', (e) => {
 }, { passive: false });
 
 baseCanvas.addEventListener('touchmove', (e) => {
-  if (!dragging) return;
-  if (e.touches.length !== 1) return;
+  if (!dragging || e.touches.length !== 1) return;
   const t = e.touches[0];
   const p = clientToImage(t.clientX, t.clientY);
-
   if (dragging.type === 'fraction' && charBBox) {
     const dy = (p.y - dragging.startY) / charBBox.height;
     let newValue = dragging.startValue + dy;
@@ -1411,8 +2467,7 @@ baseCanvas.addEventListener('touchmove', (e) => {
     newValue = Math.max(minV, Math.min(maxV, newValue));
     const frac = fractions.find(f => f.id === dragging.id);
     if (frac) { frac.value = newValue; frac.manual = true; }
-    updateProportions();
-    drawOverlay();
+    updateProportions(); computePerspective(); computeLink(); drawOverlay();
   }
   if (dragging.type === 'joint' && jointsResult) {
     const j = jointsResult[dragging.idx];
@@ -1422,105 +2477,106 @@ baseCanvas.addEventListener('touchmove', (e) => {
       j.y = j.yImg - charBBox.minY;
       j.manual = true;
       j.pctHeight = (j.y / charBBox.height * 100).toFixed(1);
-      jointsListRender(jointsResult);
-      drawOverlay();
+      jointsListRender(jointsResult); drawOverlay();
     }
   }
   e.preventDefault();
 }, { passive: false });
-
 baseCanvas.addEventListener('touchend', () => { dragging = null; });
 
-// ---------- Кнопки режимов правки ----------
+// ========== Кнопки ==========
+function resetOtherModes(except) {
+  if (except !== 'fractions') { editFractionsMode = false; editFractionsBtn.classList.remove('active'); }
+  if (except !== 'joints') { editJointsMode = false; editJointsBtn.classList.remove('active'); }
+  if (except !== 'vp') { manualVPMode = false; manualVPBtn.classList.remove('active'); }
+  if (except !== 'bgcolor') { bgColorMode = false; pickBgColorBtn.classList.remove('active'); }
+  if (except !== 'point') { addPointMode = false; addPointBtn.classList.remove('active'); }
+  stageEl.classList.remove('edit-mode', 'joints-mode', 'vp-mode');
+  if (except === 'fractions') stageEl.classList.add('edit-mode');
+  if (except === 'joints') stageEl.classList.add('joints-mode');
+  if (except === 'vp') stageEl.classList.add('vp-mode');
+}
+
 editFractionsBtn.addEventListener('click', () => {
   editFractionsMode = !editFractionsMode;
+  if (editFractionsMode) resetOtherModes('fractions');
+  else stageEl.classList.remove('edit-mode');
   editFractionsBtn.classList.toggle('active', editFractionsMode);
-  stageEl.classList.toggle('edit-mode', editFractionsMode);
-  if (editFractionsMode) {
-    // Выключаем другие режимы
-    editJointsMode = false; editJointsBtn.classList.remove('active');
-    stageEl.classList.remove('joints-mode');
-    bgColorMode = false; pickBgColorBtn.classList.remove('active');
-    addPointMode = false; addPointBtn.classList.remove('active');
-  }
-  hintText.textContent = editFractionsMode
-    ? 'Тяни линии долей (шея, плечи, бёдра, колени). Обновляется рост в головах.'
-    : 'Правка линий долей отключена.';
+  if (editFractionsMode) closeDrawer();
   drawOverlay();
 });
-
 editJointsBtn.addEventListener('click', () => {
   editJointsMode = !editJointsMode;
+  if (editJointsMode) resetOtherModes('joints');
+  else stageEl.classList.remove('joints-mode');
   editJointsBtn.classList.toggle('active', editJointsMode);
-  stageEl.classList.toggle('joints-mode', editJointsMode);
-  if (editJointsMode) {
-    editFractionsMode = false; editFractionsBtn.classList.remove('active');
-    stageEl.classList.remove('edit-mode');
-    bgColorMode = false; pickBgColorBtn.classList.remove('active');
-    addPointMode = false; addPointBtn.classList.remove('active');
-    baseCanvas.style.cursor = 'grab';
-  } else {
-    baseCanvas.style.cursor = 'crosshair';
-  }
-  hintText.textContent = editJointsMode
-    ? 'Тяни кружки суставов — они сохраняются вручную и помечаются ✎.'
-    : 'Правка точек суставов отключена.';
+  if (editJointsMode) closeDrawer();
   drawOverlay();
 });
-
-resetEditBtn.addEventListener('click', () => {
-  fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
-  jointsResult = null;   // заставит пересчитать из маски
-  if (lum) rebuildAll();
-  editStatus.textContent = 'авто';
-});
-
-// ---------- Режимы ----------
-modeLumBtn.addEventListener('click', () => {
-  mode = 'lum';
-  modeLumBtn.classList.add('active'); modeColorBtn.classList.remove('active');
-  lumControls.style.display = ''; colorControls.style.display = 'none';
-  if (lum) rebuildAll();
-});
-modeColorBtn.addEventListener('click', () => {
-  mode = 'color';
-  modeColorBtn.classList.add('active'); modeLumBtn.classList.remove('active');
-  lumControls.style.display = 'none'; colorControls.style.display = '';
-  if (lum) rebuildAll();
+manualVPBtn.addEventListener('click', () => {
+  manualVPMode = !manualVPMode;
+  if (manualVPMode) resetOtherModes('vp');
+  else stageEl.classList.remove('vp-mode');
+  manualVPBtn.classList.toggle('active', manualVPMode);
+  if (manualVPMode) closeDrawer();
 });
 pickBgColorBtn.addEventListener('click', () => {
   bgColorMode = !bgColorMode;
+  if (bgColorMode) resetOtherModes('bgcolor');
   pickBgColorBtn.classList.toggle('active', bgColorMode);
-  addPointBtn.classList.remove('active'); addPointMode = false;
-  editFractionsMode = false; editFractionsBtn.classList.remove('active');
-  editJointsMode = false; editJointsBtn.classList.remove('active');
-  stageEl.classList.remove('edit-mode', 'joints-mode');
-  baseCanvas.style.cursor = bgColorMode ? 'copy' : 'default';
+  if (bgColorMode) closeDrawer();
 });
 addPointBtn.addEventListener('click', () => {
   addPointMode = !addPointMode;
+  if (addPointMode) resetOtherModes('point');
   addPointBtn.classList.toggle('active', addPointMode);
-  pickBgColorBtn.classList.remove('active'); bgColorMode = false;
-  editFractionsMode = false; editFractionsBtn.classList.remove('active');
-  editJointsMode = false; editJointsBtn.classList.remove('active');
-  stageEl.classList.remove('edit-mode', 'joints-mode');
-  baseCanvas.style.cursor = addPointMode ? 'crosshair' : 'default';
+  if (addPointMode) closeDrawer();
 });
 clearPointsBtn.addEventListener('click', () => {
   sourcePoints = []; selectedPointIndex = -1;
   if (!lum) return; rebuildAll();
 });
+clearMeasurementsBtn.addEventListener('click', () => {
+  fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
+  jointsResult = null;
+  if (lum) rebuildAll();
+});
+resetEditBtn.addEventListener('click', () => {
+  fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
+  jointsResult = null;
+  if (lum) rebuildAll();
+});
+resetVPBtn.addEventListener('click', () => { manualVP = null; if (lum) rebuildAll(); });
+clearVPBtn.addEventListener('click', () => {
+  manualVP = null; contourResult = null;
+  perspVanishing.textContent = '—';
+  perspVPDist.textContent = '—';
+  perspConfidence.textContent = '—';
+  if (lum) drawOverlay();
+});
 
-// ---------- Click (только если не в режиме правки) ----------
+modeLumBtn.addEventListener('click', () => {
+  mode = 'lum';
+  modeLumBtn.classList.add('active'); modeColorBtn.classList.remove('active');
+  lumSliderRow.style.display = ''; colorSliderRow.style.display = 'none';
+  if (lum) rebuildAll();
+});
+modeColorBtn.addEventListener('click', () => {
+  mode = 'color';
+  modeColorBtn.classList.add('active'); modeLumBtn.classList.remove('active');
+  lumSliderRow.style.display = 'none'; colorSliderRow.style.display = '';
+  if (lum) rebuildAll();
+});
+
 baseCanvas.addEventListener('click', e => {
   if (!lum) return;
   if (editFractionsMode || editJointsMode) return;
-
   const rect = baseCanvas.getBoundingClientRect();
   const x = Math.floor((e.clientX - rect.left) * (imgWidth / rect.width));
   const y = Math.floor((e.clientY - rect.top) * (imgHeight / rect.height));
   if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) return;
 
+  if (manualVPMode) { manualVP = { x, y }; rebuildAll(); return; }
   if (bgColorMode) {
     const idx = y * imgWidth + x;
     const dp = idx * 4;
@@ -1529,10 +2585,11 @@ baseCanvas.addEventListener('click', e => {
     if (mode !== 'color') {
       mode = 'color';
       modeColorBtn.classList.add('active'); modeLumBtn.classList.remove('active');
-      lumControls.style.display = 'none'; colorControls.style.display = '';
+      lumSliderRow.style.display = 'none'; colorSliderRow.style.display = '';
     }
+    renderSamplesList();
     bgColorMode = false; pickBgColorBtn.classList.remove('active');
-    baseCanvas.style.cursor = 'default'; rebuildAll(); return;
+    rebuildAll(); return;
   }
   if (addPointMode) {
     sourcePoints.push({ x, y });
@@ -1551,25 +2608,23 @@ baseCanvas.addEventListener('click', e => {
   rebuildAll();
 });
 
-// ---------- Слушатели ----------
+// ========== Слушатели ==========
 bgLumEl.addEventListener('input', () => { bgLumVal.textContent = bgLumEl.value; if (mode === 'lum') rebuildAll(); });
 bgDistEl.addEventListener('input', () => { bgDistVal.textContent = bgDistEl.value; if (mode === 'color') rebuildAll(); });
 invertEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 useWindowsEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 useHolesEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 useSmoothEl.addEventListener('change', () => { if (lum) rebuildAll(); });
+useMultiEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 maxHoleEl.addEventListener('input', () => { maxHoleVal.textContent = maxHoleEl.value; if (lum && useHolesEl.checked) rebuildAll(); });
 minWinEl.addEventListener('input', () => { minWinVal.textContent = minWinEl.value; if (lum && useWindowsEl.checked) rebuildAll(); });
 smoothIterEl.addEventListener('input', () => { smoothIterVal.textContent = smoothIterEl.value; if (lum && useSmoothEl.checked) rebuildAll(); });
 paletteCountEl.addEventListener('input', () => { paletteCountVal.textContent = paletteCountEl.value; if (lum) computePalette(); });
 jointTolEl.addEventListener('input', () => {
   jointTolVal.textContent = jointTolEl.value;
-  // Если была ручная правка — сохраняем, иначе пересчитываем
-  if (!jointsResult || !jointsResult.some(j => j.manual)) {
-    if (lum) computeJoints();
-  }
+  if (!jointsResult || !jointsResult.some(j => j.manual)) { if (lum) computeJoints(); }
 });
-
+showCorrectedEl.addEventListener('change', drawOverlay);
 autoThresholdBtn.addEventListener('click', () => { if (!histogram) return; autoPickThreshold(); if (mode === 'lum') rebuildAll(); });
 histoCanvas.addEventListener('click', (e) => {
   if (!histogram || mode !== 'lum') return;
@@ -1579,16 +2634,8 @@ histoCanvas.addEventListener('click', (e) => {
   bgLumEl.value = v; bgLumVal.textContent = v; rebuildAll();
 });
 
-hideImageEl.addEventListener('change', () => { stageEl.classList.toggle('hide', hideImageEl.checked); });
-showHistoEl.addEventListener('change', () => { histoPanel.classList.toggle('visible', showHistoEl.checked); if (showHistoEl.checked) drawHistogram(); });
-showPropsEl.addEventListener('change', () => { propsPanel.classList.toggle('visible', showPropsEl.checked); });
-showSymmEl.addEventListener('change', () => { symmPanel.classList.toggle('visible', showSymmEl.checked); drawOverlay(); });
-showJointsEl.addEventListener('change', () => { jointsPanel.classList.toggle('visible', showJointsEl.checked); drawOverlay(); });
-showPaletteEl.addEventListener('change', () => { palettePanel.classList.toggle('visible', showPaletteEl.checked); });
-showInfoEl.addEventListener('change', () => { infoPanel.classList.toggle('visible', showInfoEl.checked); });
-
-window.addEventListener('resize', () => { if (histoPanel.classList.contains('visible') && histogram) drawHistogram(); });
+window.addEventListener('resize', () => { if (showHistoEl.checked && histogram) drawHistogram(); });
 </script>
 
 </body>
-  </html>
+               </html>
