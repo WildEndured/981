@@ -42,7 +42,7 @@
   .stage canvas { display: block; max-width: min(92vw, 900px); height: auto; }
   .stage canvas#base { transition: opacity 0.15s; cursor: crosshair; }
   .stage.edit-mode canvas#base { cursor: row-resize; }
-  .stage.vp-mode canvas#base { cursor: cell; }
+  .stage.joints-mode canvas#base { cursor: grab; }
   .stage canvas#overlay { position: absolute; inset: 0; pointer-events: none; }
   .hint {
     font-size: 12px; color: #8b93a1; max-width: 800px;
@@ -112,7 +112,6 @@
   .kv span:first-child { color: #8b93a1; }
   .kv span:last-child { color: #e6e6e6; font-variant-numeric: tabular-nums; }
 
-  /* Шкалы */
   .scale {
     height: 12px;
     background: #2b2f37;
@@ -130,7 +129,6 @@
   .scale-fill.warn { background: linear-gradient(90deg, #6a5a1a, #ffcc00); }
   .scale-fill.bad { background: linear-gradient(90deg, #6a1a1a, #ff4040); }
 
-  /* Палитра */
   .palette-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
@@ -158,16 +156,13 @@
   .palette-chip .hex { color: #e6e6e6; font-weight: 600; }
   .palette-chip .pct { color: #8b93a1; }
 
-  /* Суставы — список */
   .joint-list {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 6px;
     font-size: 12px;
   }
-  @media (max-width: 600px) {
-    .joint-list { grid-template-columns: 1fr; }
-  }
+  @media (max-width: 600px) { .joint-list { grid-template-columns: 1fr; } }
   .joint-item {
     display: flex; justify-content: space-between;
     padding: 4px 8px;
@@ -245,6 +240,9 @@
 </div>
 
 <div class="controls">
+  <button id="editFractionsBtn">✎ Правка линий долей</button>
+  <button id="editJointsBtn">✎ Правка точек суставов</button>
+  <button id="resetEditBtn">↺ Сбросить правки</button>
   <label>Макс. дырка:
     <input id="maxHole" type="range" min="0" max="500" value="80" />
     <span id="maxHoleVal">80</span>
@@ -270,8 +268,8 @@
 
 <p class="hint" id="hintText">
   Блоки: ① Гистограмма ② Пропорции ③ Симметрия ④ Суставы ⑤ Палитра ⑥ Характеристики.
-  Симметрия показывает зеркальное сходство половин. Суставы определяются
-  по локальным сужениям силуэта. Палитра — доминирующие цвета.
+  Кнопки «Правка линий долей» и «Правка точек суставов» включают перетаскивание.
+  Сбросить все ручные правки — кнопка «↺ Сбросить правки».
 </p>
 
 <!-- ② ПРОПОРЦИИ -->
@@ -279,6 +277,7 @@
   <h3 class="block-title">
     <span class="num">2</span>
     <span>Пропорции персонажа</span>
+    <span id="editStatus" style="margin-left:auto;font-size:12px;color:#8b93a1;">авто</span>
   </h3>
   <div class="props-grid">
     <div class="props-block-inner">
@@ -295,6 +294,7 @@
       <div class="kv"><span>Смещение Y</span><span id="propOffsetY">—</span></div>
       <div class="kv"><span>Центр X</span><span id="propCx">—</span></div>
       <div class="kv"><span>Центр Y</span><span id="propCy">—</span></div>
+      <div class="kv"><span>Доли (линии)</span><span id="propFractions">—</span></div>
     </div>
   </div>
 </div>
@@ -312,16 +312,16 @@
       <div class="kv"><span>Симметрия</span><span id="symmScore">—</span></div>
       <div class="scale"><div class="scale-fill" id="symmBar" style="width:0%"></div></div>
       <div style="font-size:11px;color:#8b93a1;margin-top:6px;">
-        100% — идеальная симметрия, 0% — полная асимметрия.
+        100% — идеальная симметрия.
       </div>
     </div>
     <div class="props-block-inner">
       <h4>3.2. По зонам</h4>
-      <div class="kv"><span>Верх (голова + плечи)</span><span id="symmTop">—</span></div>
+      <div class="kv"><span>Верх</span><span id="symmTop">—</span></div>
       <div class="scale"><div class="scale-fill" id="symmTopBar" style="width:0%"></div></div>
-      <div class="kv" style="margin-top:6px;"><span>Середина (торс)</span><span id="symmMid">—</span></div>
+      <div class="kv" style="margin-top:6px;"><span>Середина</span><span id="symmMid">—</span></div>
       <div class="scale"><div class="scale-fill" id="symmMidBar" style="width:0%"></div></div>
-      <div class="kv" style="margin-top:6px;"><span>Низ (ноги)</span><span id="symmBot">—</span></div>
+      <div class="kv" style="margin-top:6px;"><span>Низ</span><span id="symmBot">—</span></div>
       <div class="scale"><div class="scale-fill" id="symmBotBar" style="width:0%"></div></div>
     </div>
   </div>
@@ -331,15 +331,15 @@
 <div class="props-block visible" id="jointsPanel">
   <h3 class="block-title">
     <span class="num">4</span>
-    <span>Суставы (по сужениям силуэта)</span>
+    <span>Суставы</span>
     <span style="margin-left:auto;font-size:12px;color:#8b93a1;" id="jointsCount">—</span>
   </h3>
   <div class="joint-list" id="jointList">
     <div class="joint-item"><span class="name">—</span><span class="coords">—</span></div>
   </div>
   <div style="font-size:11px;color:#8b93a1;margin-top:8px;">
-    Суставы определяются по локальным сужениям силуэта. Чем больше порог сужения,
-    тем строже отбор.
+    Перетаскивай кружки на картинке, если авто-определение промахнулось.
+    Включи «Правка точек суставов».
   </div>
   <label style="display:flex;gap:6px;align-items:center;font-size:12px;margin-top:8px;color:#b9c3d1;">
     Порог сужения:
@@ -356,9 +356,6 @@
     <span style="margin-left:auto;font-size:12px;color:#8b93a1;" id="paletteCountDisplay">—</span>
   </h3>
   <div class="palette-grid" id="paletteGrid"></div>
-  <div style="font-size:11px;color:#8b93a1;margin-top:8px;">
-    Топ цветов по частоте. Клик по образцу — копирует HEX в буфер.
-  </div>
 </div>
 
 <!-- ① ГИСТОГРАММА -->
@@ -404,7 +401,7 @@
 </div>
 
 <script>
-// ---------- Ссылки на DOM ----------
+// ========== DOM ==========
 const fileInput      = document.getElementById('file');
 const baseCanvas     = document.getElementById('base');
 const overlay        = document.getElementById('overlay');
@@ -438,12 +435,16 @@ const addPointBtn    = document.getElementById('addPointBtn');
 const clearPointsBtn = document.getElementById('clearPointsBtn');
 const autoThresholdBtn = document.getElementById('autoThresholdBtn');
 const pickBgColorBtn = document.getElementById('pickBgColorBtn');
+const editFractionsBtn = document.getElementById('editFractionsBtn');
+const editJointsBtn  = document.getElementById('editJointsBtn');
+const resetEditBtn   = document.getElementById('resetEditBtn');
 
 const modeLumBtn   = document.getElementById('modeLum');
 const modeColorBtn = document.getElementById('modeColor');
 const lumControls   = document.getElementById('lumControls');
 const colorControls = document.getElementById('colorControls');
 const hintText      = document.getElementById('hintText');
+const editStatus    = document.getElementById('editStatus');
 
 // Пропорции
 const propHeight = document.getElementById('propHeight');
@@ -455,6 +456,7 @@ const propOffsetX = document.getElementById('propOffsetX');
 const propOffsetY = document.getElementById('propOffsetY');
 const propCx = document.getElementById('propCx');
 const propCy = document.getElementById('propCy');
+const propFractions = document.getElementById('propFractions');
 
 // Симметрия
 const symmVerdict = document.getElementById('symmVerdict');
@@ -502,7 +504,7 @@ const histoCtx = histoCanvas.getContext('2d');
 const baseCtx = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
 
-// ---------- Состояние ----------
+// ========== Состояние ==========
 let imgWidth = 0, imgHeight = 0;
 let lum = null;
 let isBg = null;
@@ -519,12 +521,29 @@ let holesFilledCount = 0;
 let windowsFoundCount = 0;
 let charBBox = null;
 
-// Результаты анализов
 let symmetryResult = null;
 let jointsResult = null;
 let paletteResult = null;
 
-// ---------- Загрузка ----------
+// ========== ДОЛИ ТЕЛА (редактируемые) ==========
+const DEFAULT_FRACTIONS = [
+  { id: 'top',     name: 'Макушка', value: 0.00, color: '#8b93a1' },
+  { id: 'neck',    name: 'Шея', value: 0.13, color: '#ff00ff' },
+  { id: 'shoulder',name: 'Плечи', value: 0.20, color: '#ffaa00' },
+  { id: 'chest',   name: 'Грудь / локти', value: 0.33, color: '#ffcc00' },
+  { id: 'pelvis',  name: 'Бёдра', value: 0.52, color: '#ffaa00' },
+  { id: 'knee',    name: 'Колени', value: 0.72, color: '#ffcc00' },
+  { id: 'ankle',   name: 'Лодыжки', value: 0.95, color: '#ffcc00' },
+];
+let fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
+let autoNeckValue = 0.13;
+
+// ========== Режимы правки ==========
+let editFractionsMode = false;   // правка линий долей
+let editJointsMode    = false;   // правка точек суставов
+let dragging = null;             // { type: 'fraction'|'joint', id/index, startY, startValue } / startX/Y
+
+// ========== Загрузка ==========
 fileInput.addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
@@ -540,6 +559,9 @@ fileInput.addEventListener('change', e => {
     sourcePoints = [];
     selectedPointIndex = -1;
     colorSamples = [];
+    // Сбрасываем ручные правки при новой картинке
+    fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
+    jointsResult = null;
     if (mode === 'lum') autoPickThreshold();
     rebuildAll();
   };
@@ -712,9 +734,7 @@ function smoothOnce(isBg, w, h) {
   }
 }
 
-// ============================================================
-//  BBOX + ПРОПОРЦИИ
-// ============================================================
+// ========== BBOX ==========
 function computeBBox() {
   const w = imgWidth, h = imgHeight;
   let minX = w, minY = h, maxX = -1, maxY = -1, charCount = 0;
@@ -731,6 +751,7 @@ function computeBBox() {
   charBBox = { minX, minY, maxX, maxY, width: maxX - minX + 1, height: maxY - minY + 1, charCount };
 }
 
+// ========== ПРОПОРЦИИ ==========
 function updateProportions() {
   if (!charBBox) return;
   const { minX, minY, width: bw, height: bh, charCount } = charBBox;
@@ -741,100 +762,51 @@ function updateProportions() {
   propAspect.textContent  = (bh / bw).toFixed(3);
   propFill.textContent    = `${((charCount / (bw * bh)) * 100).toFixed(1)}%`;
 
-  // Рост в головах — быстрая оценка по высоте головы
-  const rowWidths = new Int32Array(bh);
-  for (let yy = 0; yy < bh; yy++) {
-    const y = minY + yy;
-    let rowMinX = -1, rowMaxX = -1;
-    for (let x = minX; x <= minX + bw - 1; x++) {
-      if (!isBg[y * w + x]) { if (rowMinX < 0) rowMinX = x; rowMaxX = x; }
-    }
-    rowWidths[yy] = rowMinX < 0 ? 0 : (rowMaxX - rowMinX + 1);
-  }
-  const smoothW = new Float32Array(bh);
-  for (let i = 0; i < bh; i++) {
-    let s = 0, c = 0;
-    for (let k = -3; k <= 3; k++) {
-      const ii = i + k;
-      if (ii < 0 || ii >= bh) continue;
-      s += rowWidths[ii]; c++;
-    }
-    smoothW[i] = s / c;
-  }
-  let neckIdx = -1, minVal = Infinity;
-  for (let i = Math.floor(bh * 0.10); i <= Math.floor(bh * 0.30); i++) {
-    if (i < 3 || i > bh - 3) continue;
-    if (smoothW[i] < smoothW[i-3] && smoothW[i] < smoothW[i+3] && smoothW[i] < minVal) {
-      minVal = smoothW[i]; neckIdx = i;
-    }
-  }
-  if (neckIdx < 0) neckIdx = Math.max(1, Math.round(bh * 0.12));
-  const heads = bh / neckIdx;
-  propHeads.textContent = `${heads.toFixed(2)} (${neckIdx} px голова)`;
+  // Рост в головах — используем значение доли 'neck'
+  const neckFrac = fractions.find(f => f.id === 'neck');
+  const neckVal = neckFrac ? neckFrac.value : autoNeckValue;
+  const headPx = Math.max(1, Math.round(bh * neckVal));
+  const heads = bh / headPx;
+  propHeads.textContent = `${heads.toFixed(2)} (${headPx} px голова)`;
 
-  const cx = minX + bw / 2;
-  const cy = minY + bh / 2;
+  const cx = minX + bw / 2, cy = minY + bh / 2;
   propCx.textContent = `${cx.toFixed(0)} px`;
   propCy.textContent = `${cy.toFixed(0)} px`;
   propOffsetX.textContent = `${((cx - w/2) / w * 100) >= 0 ? '+' : ''}${(((cx - w/2) / w) * 100).toFixed(1)}%`;
   propOffsetY.textContent = `${((cy - h/2) / h * 100) >= 0 ? '+' : ''}${(((cy - h/2) / h) * 100).toFixed(1)}%`;
+
+  const manualCount = fractions.filter(f => f.manual).length;
+  propFractions.textContent = manualCount > 0 ? `${manualCount} изменено вручную` : 'авто';
+  editStatus.textContent = (editFractionsMode || editJointsMode) ? 'правка' : (manualCount > 0 ? 'есть правки' : 'авто');
 }
 
-// ============================================================
-//  СИММЕТРИЯ
-// ============================================================
-// Сравниваем левую и правую половины относительно вертикальной
-// оси, проходящей через центр bbox.
-// Для каждой строки: ширина слева, ширина справа, разница.
+// ========== СИММЕТРИЯ ==========
 function computeSymmetry() {
   if (!charBBox) { symmetryResult = null; return; }
   const w = imgWidth, h = imgHeight;
   const { minX, minY, width: bw, height: bh } = charBBox;
-
   const cx = minX + bw / 2;
   const rowData = [];
 
   for (let yy = 0; yy < bh; yy++) {
     const y = minY + yy;
     let leftCount = 0, rightCount = 0;
-    let leftMinX = -1, leftMaxX = -1;
-    let rightMinX = -1, rightMaxX = -1;
-
     for (let x = minX; x <= minX + bw - 1; x++) {
-      const isChar = !isBg[y * w + x];
-      if (isChar) {
-        if (x < cx) {
-          leftCount++;
-          if (leftMinX < 0) leftMinX = x;
-          leftMaxX = x;
-        } else {
-          rightCount++;
-          if (rightMinX < 0) rightMinX = x;
-          rightMaxX = x;
-        }
+      if (!isBg[y * w + x]) {
+        if (x < cx) leftCount++;
+        else rightCount++;
       }
     }
-
-    // Симметрия строки: сравниваем ширины слева и справа от центра.
-    // Если обе пустые — считаем симметричной.
-    // Если одна пустая, другая нет — асимметрия.
     let rowSymm = 0;
     if (leftCount === 0 && rightCount === 0) rowSymm = 1;
     else if (leftCount === 0 || rightCount === 0) rowSymm = 0;
-    else {
-      const maxCount = Math.max(leftCount, rightCount);
-      rowSymm = Math.min(leftCount, rightCount) / maxCount;
-    }
+    else rowSymm = Math.min(leftCount, rightCount) / Math.max(leftCount, rightCount);
     rowData.push({ y: yy, leftCount, rightCount, rowSymm });
   }
 
-  // Общая симметрия — среднее по всем непустым строкам
   const nonEmpty = rowData.filter(r => r.leftCount > 0 || r.rightCount > 0);
-  const totalSymm = nonEmpty.length
-    ? nonEmpty.reduce((s, r) => s + r.rowSymm, 0) / nonEmpty.length
-    : 0;
+  const totalSymm = nonEmpty.length ? nonEmpty.reduce((s, r) => s + r.rowSymm, 0) / nonEmpty.length : 0;
 
-  // По зонам
   const zone = (a, b) => {
     const slice = rowData.filter(r => r.y >= a && r.y < b && (r.leftCount > 0 || r.rightCount > 0));
     return slice.length ? slice.reduce((s, r) => s + r.rowSymm, 0) / slice.length : 0;
@@ -843,14 +815,9 @@ function computeSymmetry() {
   const zMid = zone(Math.floor(bh / 3), Math.floor(bh * 2 / 3));
   const zBot = zone(Math.floor(bh * 2 / 3), bh);
 
-  symmetryResult = {
-    total: totalSymm,
-    top: zTop, mid: zMid, bot: zBot,
-  };
+  symmetryResult = { total: totalSymm, top: zTop, mid: zMid, bot: zBot };
 
-  // Обновление UI
   const pct = v => (v * 100).toFixed(1) + '%';
-
   symmScore.textContent = pct(totalSymm);
   const cls = totalSymm > 0.9 ? 'good' : totalSymm > 0.75 ? '' : totalSymm > 0.6 ? 'warn' : 'bad';
   symmBar.className = 'scale-fill ' + cls;
@@ -859,7 +826,6 @@ function computeSymmetry() {
   symmTop.textContent = pct(zTop);
   symmMid.textContent = pct(zMid);
   symmBot.textContent = pct(zBot);
-
   const clsT = zTop > 0.9 ? 'good' : zTop > 0.75 ? '' : zTop > 0.6 ? 'warn' : 'bad';
   const clsM = zMid > 0.9 ? 'good' : zMid > 0.75 ? '' : zMid > 0.6 ? 'warn' : 'bad';
   const clsB = zBot > 0.9 ? 'good' : zBot > 0.75 ? '' : zBot > 0.6 ? 'warn' : 'bad';
@@ -871,7 +837,7 @@ function computeSymmetry() {
   symmBotBar.style.width = (zBot * 100) + '%';
 
   let verdict = '';
-  if (totalSymm > 0.95) verdict = 'идеальная симметрия';
+  if (totalSymm > 0.95) verdict = 'идеальная';
   else if (totalSymm > 0.85) verdict = 'почти симметрично';
   else if (totalSymm > 0.7) verdict = 'лёгкая асимметрия';
   else if (totalSymm > 0.55) verdict = 'заметная асимметрия';
@@ -879,15 +845,18 @@ function computeSymmetry() {
   symmVerdict.textContent = verdict;
 }
 
-// ============================================================
-//  СУСТАВЫ
-// ============================================================
-// Идея: суставы — локальные сужения силуэта.
-// Идём по строкам, считаем ширину. Ищем локальные минимумы
-// ширины (где силуэт узкий) — это шея, локти, запястья, колени,
-// лодыжки, талия.
+// ========== СУСТАВЫ ==========
+// Если пользователь уже правил вручную — не пересчитываем из маски,
+// сохраняем его точки.
 function computeJoints() {
   if (!charBBox) { jointsResult = null; jointsListRender([]); return; }
+
+  // Если есть ручные правки — сохраняем их
+  if (jointsResult && jointsResult.some(j => j.manual)) {
+    jointsListRender(jointsResult);
+    return;
+  }
+
   const w = imgWidth, h = imgHeight;
   const { minX, minY, width: bw, height: bh } = charBBox;
   const tol = +jointTolEl.value;
@@ -901,7 +870,6 @@ function computeJoints() {
     }
     rowWidths[yy] = rowMinX < 0 ? 0 : (rowMaxX - rowMinX + 1);
   }
-  // Сглаживание
   const sm = new Float32Array(bh);
   for (let i = 0; i < bh; i++) {
     let s = 0, c = 0;
@@ -913,7 +881,6 @@ function computeJoints() {
     sm[i] = s / c;
   }
 
-  // Ищем локальные минимумы в диапазоне [8%, 95%] высоты
   const found = [];
   for (let i = Math.floor(bh * 0.08); i < Math.floor(bh * 0.95); i++) {
     if (i < 4 || i > bh - 5) continue;
@@ -922,7 +889,6 @@ function computeJoints() {
     if (sm[i] < above && sm[i] < below) {
       const drop = Math.min(above - sm[i], below - sm[i]);
       if (drop >= tol) {
-        // Точка сустава по центру силуэта
         const y = minY + i;
         let xMin = -1, xMax = -1;
         for (let x = minX; x <= minX + bw - 1; x++) {
@@ -934,24 +900,21 @@ function computeJoints() {
     }
   }
 
-  // Убираем слишком близкие (объединяем)
   const merged = [];
   for (const f of found) {
     if (merged.length === 0) { merged.push(f); continue; }
     const last = merged[merged.length - 1];
     if (f.y - last.y < 5) {
       if (f.width < last.width) merged[merged.length - 1] = f;
-    } else {
-      merged.push(f);
-    }
+    } else merged.push(f);
   }
 
-  // Классифицируем по положению (сверху вниз)
   const names = ['шея', 'плечи / локти', 'запястья / талия', 'бёдра', 'колени', 'лодыжки'];
   const classified = merged.map((m, i) => ({
     ...m,
     name: names[i] || `сустав ${i + 1}`,
     pctHeight: (m.y / bh * 100).toFixed(1),
+    manual: false,
   }));
 
   jointsResult = classified;
@@ -968,15 +931,14 @@ function jointsListRender(arr) {
   arr.forEach((j, i) => {
     const el = document.createElement('div');
     el.className = 'joint-item';
-    el.innerHTML = `<span class="name">${i+1}. ${j.name} (${j.pctHeight}%)</span>`
+    const mark = j.manual ? ' ✎' : '';
+    el.innerHTML = `<span class="name">${i+1}. ${j.name}${mark}</span>`
       + `<span class="coords">x=${j.x.toFixed(0)}, y=${j.yImg}</span>`;
     jointList.appendChild(el);
   });
 }
 
-// ============================================================
-//  ПАЛИТРА
-// ============================================================
+// ========== ПАЛИТРА ==========
 function computePalette() {
   if (!charBBox) { paletteResult = null; paletteGrid.innerHTML = ''; return; }
   const w = imgWidth, h = imgHeight;
@@ -984,7 +946,6 @@ function computePalette() {
   const d = imgDataRef.data;
   const count = +paletteCountEl.value;
 
-  // Квантование: 5 бит на канал = 32×32×32
   const SHIFT = 3;
   const buckets = new Map();
   let total = 0;
@@ -994,8 +955,7 @@ function computePalette() {
       const idx = y * w + x;
       if (isBg[idx]) continue;
       const p = idx * 4;
-      const a = d[p + 3];
-      if (a < 20) continue;
+      if (d[p + 3] < 20) continue;
       const r = d[p], g = d[p + 1], b = d[p + 2];
       const key = ((r >> SHIFT) << 10) | ((g >> SHIFT) << 5) | (b >> SHIFT);
       let e = buckets.get(key);
@@ -1007,16 +967,10 @@ function computePalette() {
 
   const arr = [];
   for (const e of buckets.values()) {
-    arr.push({
-      r: Math.round(e.r / e.n),
-      g: Math.round(e.g / e.n),
-      b: Math.round(e.b / e.n),
-      n: e.n,
-    });
+    arr.push({ r: Math.round(e.r / e.n), g: Math.round(e.g / e.n), b: Math.round(e.b / e.n), n: e.n });
   }
   arr.sort((a, b) => b.n - a.n);
   const top = arr.slice(0, count);
-
   paletteResult = { colors: top, total };
   renderPalette(top, total);
 }
@@ -1053,9 +1007,7 @@ function rgbToHex(r, g, b) {
   return '#' + h(r) + h(g) + h(b);
 }
 
-// ============================================================
-//  ОТРИСОВКА OVERLAY
-// ============================================================
+// ========== ОТРИСОВКА OVERLAY ==========
 function drawOverlay() {
   const w = imgWidth, h = imgHeight;
   if (!w) return;
@@ -1071,69 +1023,89 @@ function drawOverlay() {
   }
   overlayCtx.putImageData(img, 0, 0);
 
-  // Bounding box
+  // BBox
   if (charBBox) {
     overlayCtx.strokeStyle = 'rgba(0, 200, 255, 0.9)';
     overlayCtx.lineWidth = Math.max(2, Math.round(imgWidth / 400));
     overlayCtx.setLineDash([10, 6]);
     overlayCtx.strokeRect(charBBox.minX, charBBox.minY, charBBox.width, charBBox.height);
     overlayCtx.setLineDash([]);
+
+    // Линии долей
+    for (const frac of fractions) {
+      const y = charBBox.minY + Math.round(charBBox.height * frac.value);
+      if (y < 0 || y >= imgHeight) continue;
+      const isKey = frac.id === 'neck' || frac.id === 'shoulder' || frac.id === 'pelvis';
+      overlayCtx.strokeStyle = frac.color;
+      overlayCtx.globalAlpha = isKey ? 1 : 0.7;
+      overlayCtx.lineWidth = isKey ? Math.max(3, Math.round(imgWidth / 500)) : Math.max(1, Math.round(imgWidth / 800));
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(charBBox.minX - 20, y);
+      overlayCtx.lineTo(charCBox_0(charBBox), y); // заменим ниже
+      // проще — просто рисуем линию от minX до maxX
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(charBBox.minX, y);
+      overlayCtx.lineTo(charBBox.maxX + 1, y);
+      overlayCtx.stroke();
+      overlayCtx.globalAlpha = 1;
+
+      // Подпись у ключевых или в режиме правки
+      if (isKey || editFractionsMode) {
+        const fs = Math.max(11, Math.round(imgWidth / 70));
+        overlayCtx.font = `bold ${fs}px system-ui`;
+        overlayCtx.fillStyle = 'rgba(0,0,0,0.7)';
+        const tw = overlayCtx.measureText(frac.name).width;
+        overlayCtx.fillRect(charBBox.maxX + 6, y - fs, tw + 8, fs + 4);
+        overlayCtx.fillStyle = frac.color;
+        overlayCtx.fillText(frac.name, charBBox.maxX + 10, y - 2);
+      }
+    }
+
+    // Ось симметрии
+    if (showSymmEl.checked && symmetryResult) {
+      const cx = charBBox.minX + charBBox.width / 2;
+      overlayCtx.strokeStyle = 'rgba(185, 255, 128, 0.85)';
+      overlayCtx.lineWidth = Math.max(2, Math.round(imgWidth / 500));
+      overlayCtx.setLineDash([8, 6]);
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(cx, charBBox.minY);
+      overlayCtx.lineTo(cx, charBBox.maxY + 1);
+      overlayCtx.stroke();
+      overlayCtx.setLineDash([]);
+
+      const fs = Math.max(11, Math.round(imgWidth / 75));
+      overlayCtx.font = `bold ${fs}px system-ui`;
+      const label = `Симметрия: ${(symmetryResult.total * 100).toFixed(0)}%`;
+      const tw = overlayCtx.measureText(label).width;
+      overlayCtx.fillStyle = 'rgba(0,0,0,0.7)';
+      overlayCtx.fillRect(charBBox.minX, charBBox.minY - fs - 8, tw + 12, fs + 6);
+      overlayCtx.fillStyle = '#b9ff80';
+      overlayCtx.fillText(label, charBBox.minX + 6, charBBox.minY - 4);
+    }
   }
 
-  // Симметрия — ось
-  if (showSymmEl.checked && symmetryResult && charBBox) {
-    const cx = charBBox.minX + charBBox.width / 2;
-    overlayCtx.strokeStyle = 'rgba(185, 255, 128, 0.85)';
-    overlayCtx.lineWidth = Math.max(2, Math.round(imgWidth / 500));
-    overlayCtx.setLineDash([8, 6]);
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(cx, charBBox.minY);
-    overlayCtx.lineTo(cx, charBBox.maxY + 1);
-    overlayCtx.stroke();
-    overlayCtx.setLineDash([]);
-
-    // Подписи симметрии по зонам
-    const fs = Math.max(11, Math.round(imgWidth / 75));
-    overlayCtx.font = `bold ${fs}px system-ui`;
-    const label = `Симметрия: ${(symmetryResult.total * 100).toFixed(0)}%`;
-    const tw = overlayCtx.measureText(label).width;
-    overlayCtx.fillStyle = 'rgba(0,0,0,0.7)';
-    overlayCtx.fillRect(charBBox.minX, charBBox.minY - fs - 8, tw + 12, fs + 6);
-    overlayCtx.fillStyle = '#b9ff80';
-    overlayCtx.fillText(label, charBBox.minX + 6, charBBox.minY - 4);
-  }
-
-  // Суставы — точки
+  // Суставы
   if (showJointsEl.checked && jointsResult) {
     jointsResult.forEach(j => {
-      // Круг
       overlayCtx.beginPath();
-      overlayCtx.arc(j.x, j.yImg, 7, 0, Math.PI * 2);
-      overlayCtx.fillStyle = '#ff60ff';
+      overlayCtx.arc(j.x, j.yImg, 8, 0, Math.PI * 2);
+      overlayCtx.fillStyle = j.manual ? '#ffcc00' : '#ff60ff';
       overlayCtx.fill();
       overlayCtx.lineWidth = 2;
       overlayCtx.strokeStyle = '#000';
       overlayCtx.stroke();
 
-      // Горизонтальная черта на уровне сустава
-      overlayCtx.strokeStyle = 'rgba(255, 96, 255, 0.5)';
-      overlayCtx.lineWidth = 1;
-      overlayCtx.setLineDash([4, 4]);
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(charBBox.minX, j.yImg);
-      overlayCtx.lineTo(charBBox.maxX + 1, j.yImg);
-      overlayCtx.stroke();
-      overlayCtx.setLineDash([]);
-
-      // Подпись
-      const fs = Math.max(10, Math.round(imgWidth / 90));
-      overlayCtx.font = `bold ${fs}px system-ui`;
-      const label = `${j.name} (${j.pctHeight}%)`;
-      const tw = overlayCtx.measureText(label).width;
-      overlayCtx.fillStyle = 'rgba(0,0,0,0.7)';
-      overlayCtx.fillRect(charBBox.maxX + 4, j.yImg - fs, tw + 8, fs + 4);
-      overlayCtx.fillStyle = '#ff80ff';
-      overlayCtx.fillText(label, charBBox.maxX + 8, j.yImg - 2);
+      // В режиме правки — подпись рядом
+      if (editJointsMode || j.manual) {
+        const fs = Math.max(10, Math.round(imgWidth / 90));
+        overlayCtx.font = `bold ${fs}px system-ui`;
+        const label = `${j.name}${j.manual ? ' ✎' : ''}`;
+        const tw = overlayCtx.measureText(label).width;
+        overlayCtx.fillStyle = 'rgba(0,0,0,0.7)';
+        overlayCtx.fillRect(j.x + 12, j.yImg - fs, tw + 8, fs + 4);
+        overlayCtx.fillStyle = j.manual ? '#ffcc00' : '#ff80ff';
+        overlayCtx.fillText(label, j.x + 16, j.yImg - 2);
+      }
     });
   }
 
@@ -1150,7 +1122,10 @@ function drawOverlay() {
   });
 }
 
-// ---------- Гистограмма ----------
+// Заглушка, чтобы не сломать предыдущий код
+function charCBox_0(b) { return b.maxX + 1; }
+
+// ========== ГИСТОГРАММА ==========
 function drawHistogram() {
   if (!histogram) return;
   const rect = histoCanvas.getBoundingClientRect();
@@ -1210,7 +1185,7 @@ function drawHistogram() {
     : `Цвет-образцов: ${colorSamples.length}`;
 }
 
-// ---------- Инфо ----------
+// ========== ИНФО ==========
 function updateInfo() {
   if (!lum) return;
   const N = imgWidth * imgHeight;
@@ -1252,7 +1227,7 @@ function removePoint(index) {
   rebuildAll();
 }
 
-// ---------- Полный пересчёт ----------
+// ========== ПЕРЕСЧЁТ ==========
 function rebuildAll() {
   if (!lum) return;
   buildMask();
@@ -1266,7 +1241,241 @@ function rebuildAll() {
   updateInfo();
 }
 
-// ---------- Управление режимами ----------
+// ========== РУЧНАЯ ПРАВКА ==========
+function clientToImage(clientX, clientY) {
+  const rect = baseCanvas.getBoundingClientRect();
+  return {
+    x: (clientX - rect.left) * (imgWidth / rect.width),
+    y: (clientY - rect.top) * (imgHeight / rect.height),
+  };
+}
+
+function findFractionAtY(y) {
+  if (!charBBox) return null;
+  let best = null, bestDist = Infinity;
+  const thresh = Math.max(8, imgHeight * 0.02);
+  for (const frac of fractions) {
+    const lineY = charBBox.minY + charBBox.height * frac.value;
+    const d = Math.abs(lineY - y);
+    if (d < bestDist) { bestDist = d; best = frac; }
+  }
+  return bestDist <= thresh ? best : null;
+}
+
+function findJointAt(x, y) {
+  if (!jointsResult) return -1;
+  let best = -1, bestDist = Infinity;
+  const thresh = Math.max(15, imgWidth * 0.03);
+  jointsResult.forEach((j, i) => {
+    const dx = j.x - x, dy = j.yImg - y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d < bestDist) { bestDist = d; best = i; }
+  });
+  return bestDist <= thresh ? best : -1;
+}
+
+// ---------- mousedown ----------
+baseCanvas.addEventListener('mousedown', (e) => {
+  if (!charBBox || !lum) return;
+
+  const p = clientToImage(e.clientX, e.clientY);
+
+  // Режим правки суставов
+  if (editJointsMode && jointsResult) {
+    const idx = findJointAt(p.x, p.y);
+    if (idx >= 0) {
+      dragging = { type: 'joint', idx, offsetX: p.x - jointsResult[idx].x, offsetY: p.y - jointsResult[idx].yImg };
+      baseCanvas.style.cursor = 'grabbing';
+      e.preventDefault();
+      return;
+    }
+  }
+
+  // Режим правки долей
+  if (editFractionsMode) {
+    const frac = findFractionAtY(p.y);
+    if (frac) {
+      dragging = { type: 'fraction', id: frac.id, startY: p.y, startValue: frac.value };
+      baseCanvas.style.cursor = 'grabbing';
+      e.preventDefault();
+      return;
+    }
+  }
+});
+
+// ---------- mousemove ----------
+window.addEventListener('mousemove', (e) => {
+  if (!dragging) return;
+  const p = clientToImage(e.clientX, e.clientY);
+
+  if (dragging.type === 'fraction' && charBBox) {
+    const dy = (p.y - dragging.startY) / charBBox.height;
+    let newValue = dragging.startValue + dy;
+    // Ограничения — не пересекать соседние
+    const neighbors = fractions
+      .filter(f => f.id !== dragging.id)
+      .map(f => f.value).sort((a, b) => a - b);
+    let minV = 0.01, maxV = 0.99;
+    for (const v of neighbors) {
+      if (v < dragging.startValue && v > minV) minV = v + 0.005;
+      if (v > dragging.startValue && v < maxV) maxV = v - 0.005;
+    }
+    newValue = Math.max(minV, Math.min(maxV, newValue));
+    const frac = fractions.find(f => f.id === dragging.id);
+    if (frac) { frac.value = newValue; frac.manual = true; }
+    updateProportions();
+    drawOverlay();
+  }
+
+  if (dragging.type === 'joint' && jointsResult) {
+    const j = jointsResult[dragging.idx];
+    if (j) {
+      j.x = Math.max(0, Math.min(imgWidth - 1, p.x - dragging.offsetX));
+      j.yImg = Math.max(0, Math.min(imgHeight - 1, p.y - dragging.offsetY));
+      j.y = j.yImg - charBBox.minY;
+      j.manual = true;
+      j.pctHeight = (j.y / charBBox.height * 100).toFixed(1);
+      jointsListRender(jointsResult);
+      drawOverlay();
+    }
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  if (dragging) {
+    dragging = null;
+    if (editJointsMode) baseCanvas.style.cursor = 'grab';
+    else if (editFractionsMode) baseCanvas.style.cursor = 'row-resize';
+    else baseCanvas.style.cursor = 'crosshair';
+  }
+});
+
+// ---------- Курсор при наведении ----------
+baseCanvas.addEventListener('mousemove', (e) => {
+  if (dragging) return;
+  if (!lum) return;
+
+  if (editJointsMode) {
+    const p = clientToImage(e.clientX, e.clientY);
+    const idx = findJointAt(p.x, p.y);
+    baseCanvas.style.cursor = idx >= 0 ? 'grab' : 'crosshair';
+    return;
+  }
+  if (editFractionsMode && charBBox) {
+    const p = clientToImage(e.clientX, e.clientY);
+    baseCanvas.style.cursor = findFractionAtY(p.y) ? 'row-resize' : 'crosshair';
+    return;
+  }
+  baseCanvas.style.cursor = 'crosshair';
+});
+
+// ---------- Touch (мобильные) ----------
+baseCanvas.addEventListener('touchstart', (e) => {
+  if (!charBBox || !lum) return;
+  if (e.touches.length !== 1) return;
+  const t = e.touches[0];
+  const p = clientToImage(t.clientX, t.clientY);
+
+  if (editJointsMode && jointsResult) {
+    const idx = findJointAt(p.x, p.y);
+    if (idx >= 0) {
+      dragging = { type: 'joint', idx, offsetX: p.x - jointsResult[idx].x, offsetY: p.y - jointsResult[idx].yImg };
+      e.preventDefault();
+      return;
+    }
+  }
+  if (editFractionsMode) {
+    const frac = findFractionAtY(p.y);
+    if (frac) {
+      dragging = { type: 'fraction', id: frac.id, startY: p.y, startValue: frac.value };
+      e.preventDefault();
+    }
+  }
+}, { passive: false });
+
+baseCanvas.addEventListener('touchmove', (e) => {
+  if (!dragging) return;
+  if (e.touches.length !== 1) return;
+  const t = e.touches[0];
+  const p = clientToImage(t.clientX, t.clientY);
+
+  if (dragging.type === 'fraction' && charBBox) {
+    const dy = (p.y - dragging.startY) / charBBox.height;
+    let newValue = dragging.startValue + dy;
+    const neighbors = fractions.filter(f => f.id !== dragging.id).map(f => f.value).sort((a, b) => a - b);
+    let minV = 0.01, maxV = 0.99;
+    for (const v of neighbors) {
+      if (v < dragging.startValue && v > minV) minV = v + 0.005;
+      if (v > dragging.startValue && v < maxV) maxV = v - 0.005;
+    }
+    newValue = Math.max(minV, Math.min(maxV, newValue));
+    const frac = fractions.find(f => f.id === dragging.id);
+    if (frac) { frac.value = newValue; frac.manual = true; }
+    updateProportions();
+    drawOverlay();
+  }
+  if (dragging.type === 'joint' && jointsResult) {
+    const j = jointsResult[dragging.idx];
+    if (j) {
+      j.x = Math.max(0, Math.min(imgWidth - 1, p.x - dragging.offsetX));
+      j.yImg = Math.max(0, Math.min(imgHeight - 1, p.y - dragging.offsetY));
+      j.y = j.yImg - charBBox.minY;
+      j.manual = true;
+      j.pctHeight = (j.y / charBBox.height * 100).toFixed(1);
+      jointsListRender(jointsResult);
+      drawOverlay();
+    }
+  }
+  e.preventDefault();
+}, { passive: false });
+
+baseCanvas.addEventListener('touchend', () => { dragging = null; });
+
+// ---------- Кнопки режимов правки ----------
+editFractionsBtn.addEventListener('click', () => {
+  editFractionsMode = !editFractionsMode;
+  editFractionsBtn.classList.toggle('active', editFractionsMode);
+  stageEl.classList.toggle('edit-mode', editFractionsMode);
+  if (editFractionsMode) {
+    // Выключаем другие режимы
+    editJointsMode = false; editJointsBtn.classList.remove('active');
+    stageEl.classList.remove('joints-mode');
+    bgColorMode = false; pickBgColorBtn.classList.remove('active');
+    addPointMode = false; addPointBtn.classList.remove('active');
+  }
+  hintText.textContent = editFractionsMode
+    ? 'Тяни линии долей (шея, плечи, бёдра, колени). Обновляется рост в головах.'
+    : 'Правка линий долей отключена.';
+  drawOverlay();
+});
+
+editJointsBtn.addEventListener('click', () => {
+  editJointsMode = !editJointsMode;
+  editJointsBtn.classList.toggle('active', editJointsMode);
+  stageEl.classList.toggle('joints-mode', editJointsMode);
+  if (editJointsMode) {
+    editFractionsMode = false; editFractionsBtn.classList.remove('active');
+    stageEl.classList.remove('edit-mode');
+    bgColorMode = false; pickBgColorBtn.classList.remove('active');
+    addPointMode = false; addPointBtn.classList.remove('active');
+    baseCanvas.style.cursor = 'grab';
+  } else {
+    baseCanvas.style.cursor = 'crosshair';
+  }
+  hintText.textContent = editJointsMode
+    ? 'Тяни кружки суставов — они сохраняются вручную и помечаются ✎.'
+    : 'Правка точек суставов отключена.';
+  drawOverlay();
+});
+
+resetEditBtn.addEventListener('click', () => {
+  fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
+  jointsResult = null;   // заставит пересчитать из маски
+  if (lum) rebuildAll();
+  editStatus.textContent = 'авто';
+});
+
+// ---------- Режимы ----------
 modeLumBtn.addEventListener('click', () => {
   mode = 'lum';
   modeLumBtn.classList.add('active'); modeColorBtn.classList.remove('active');
@@ -1283,12 +1492,18 @@ pickBgColorBtn.addEventListener('click', () => {
   bgColorMode = !bgColorMode;
   pickBgColorBtn.classList.toggle('active', bgColorMode);
   addPointBtn.classList.remove('active'); addPointMode = false;
+  editFractionsMode = false; editFractionsBtn.classList.remove('active');
+  editJointsMode = false; editJointsBtn.classList.remove('active');
+  stageEl.classList.remove('edit-mode', 'joints-mode');
   baseCanvas.style.cursor = bgColorMode ? 'copy' : 'default';
 });
 addPointBtn.addEventListener('click', () => {
   addPointMode = !addPointMode;
   addPointBtn.classList.toggle('active', addPointMode);
   pickBgColorBtn.classList.remove('active'); bgColorMode = false;
+  editFractionsMode = false; editFractionsBtn.classList.remove('active');
+  editJointsMode = false; editJointsBtn.classList.remove('active');
+  stageEl.classList.remove('edit-mode', 'joints-mode');
   baseCanvas.style.cursor = addPointMode ? 'crosshair' : 'default';
 });
 clearPointsBtn.addEventListener('click', () => {
@@ -1296,8 +1511,11 @@ clearPointsBtn.addEventListener('click', () => {
   if (!lum) return; rebuildAll();
 });
 
+// ---------- Click (только если не в режиме правки) ----------
 baseCanvas.addEventListener('click', e => {
   if (!lum) return;
+  if (editFractionsMode || editJointsMode) return;
+
   const rect = baseCanvas.getBoundingClientRect();
   const x = Math.floor((e.clientX - rect.left) * (imgWidth / rect.width));
   const y = Math.floor((e.clientY - rect.top) * (imgHeight / rect.height));
@@ -1344,7 +1562,13 @@ maxHoleEl.addEventListener('input', () => { maxHoleVal.textContent = maxHoleEl.v
 minWinEl.addEventListener('input', () => { minWinVal.textContent = minWinEl.value; if (lum && useWindowsEl.checked) rebuildAll(); });
 smoothIterEl.addEventListener('input', () => { smoothIterVal.textContent = smoothIterEl.value; if (lum && useSmoothEl.checked) rebuildAll(); });
 paletteCountEl.addEventListener('input', () => { paletteCountVal.textContent = paletteCountEl.value; if (lum) computePalette(); });
-jointTolEl.addEventListener('input', () => { jointTolVal.textContent = jointTolEl.value; if (lum) computeJoints(); });
+jointTolEl.addEventListener('input', () => {
+  jointTolVal.textContent = jointTolEl.value;
+  // Если была ручная правка — сохраняем, иначе пересчитываем
+  if (!jointsResult || !jointsResult.some(j => j.manual)) {
+    if (lum) computeJoints();
+  }
+});
 
 autoThresholdBtn.addEventListener('click', () => { if (!histogram) return; autoPickThreshold(); if (mode === 'lum') rebuildAll(); });
 histoCanvas.addEventListener('click', (e) => {
@@ -1367,4 +1591,4 @@ window.addEventListener('resize', () => { if (histoPanel.classList.contains('vis
 </script>
 
 </body>
-</html>
+  </html>
