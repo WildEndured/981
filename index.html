@@ -24,6 +24,13 @@
   .controls label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
   input[type="file"] { font-size: 13px; }
   input[type="range"] { width: 160px; }
+  button {
+    font-size: 13px; padding: 6px 10px; border-radius: 8px;
+    border: 1px solid #333a44; background: #232830; color: #e6e6e6;
+    cursor: pointer;
+  }
+  button:hover { background: #2c323c; }
+  button.active { background: #2b6cb0; border-color: #2b6cb0; }
   .stage {
     position: relative; display: inline-block;
     border: 1px solid #2b2f37; background: #0b0c0f; line-height: 0;
@@ -31,8 +38,12 @@
   .stage.hide canvas#base { opacity: 0; }
   .stage.hide { background: #fff; }
   .stage canvas { display: block; max-width: min(92vw, 900px); height: auto; }
-  .stage canvas#base { transition: opacity 0.15s; }
+  .stage canvas#base { transition: opacity 0.15s; cursor: crosshair; }
   .stage canvas#overlay { position: absolute; inset: 0; pointer-events: none; }
+  .hint {
+    font-size: 12px; color: #8b93a1; max-width: 720px;
+    text-align: center; line-height: 1.5;
+  }
   @media (max-width: 600px) {
     .controls { flex-direction: column; align-items: stretch; }
   }
@@ -46,6 +57,8 @@
     <input id="bgLum" type="range" min="200" max="255" value="200" />
     <span id="bgLumVal">200</span>
   </label>
+  <button id="addPointBtn">🎯 Добавить точку фона</button>
+  <button id="clearPointsBtn">✕ Очистить точки</button>
   <label><input id="hideImage" type="checkbox" /> Скрыть изображение</label>
 </div>
 
@@ -54,14 +67,22 @@
   <canvas id="overlay"></canvas>
 </div>
 
+<p class="hint">
+  По умолчанию фон ищется от рамки изображения.
+  Нажми «Добавить точку фона» и кликни по картинке — поиск пойдёт от этой точки.
+  Можно поставить несколько точек. Если точек нет — снова работает рамка.
+</p>
+
 <script>
-const fileInput   = document.getElementById('file');
-const baseCanvas  = document.getElementById('base');
-const overlay     = document.getElementById('overlay');
-const stageEl     = document.getElementById('stage');
-const bgLumEl     = document.getElementById('bgLum');
-const bgLumVal    = document.getElementById('bgLumVal');
-const hideImageEl = document.getElementById('hideImage');
+const fileInput      = document.getElementById('file');
+const baseCanvas     = document.getElementById('base');
+const overlay        = document.getElementById('overlay');
+const stageEl        = document.getElementById('stage');
+const bgLumEl        = document.getElementById('bgLum');
+const bgLumVal       = document.getElementById('bgLumVal');
+const hideImageEl    = document.getElementById('hideImage');
+const addPointBtn    = document.getElementById('addPointBtn');
+const clearPointsBtn = document.getElementById('clearPointsBtn');
 
 const baseCtx    = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
@@ -69,6 +90,10 @@ const overlayCtx = overlay.getContext('2d');
 let imgWidth = 0, imgHeight = 0;
 let lum = null;
 let isBg = null;
+
+// Точки-источники фона (в координатах изображения)
+let sourcePoints = [];
+let addPointMode = false;
 
 // ---------- Загрузка ----------
 fileInput.addEventListener('change', e => {
@@ -83,9 +108,15 @@ fileInput.addEventListener('change', e => {
       c.width = imgWidth; c.height = imgHeight;
     });
 
+    // Включаем pointer-events для overlay, чтобы клики работали
+    overlay.style.pointerEvents = 'none';
+    baseCanvas.style.pointerEvents = 'auto';
+
     baseCtx.drawImage(img, 0, 0);
     const data = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
     computeLuminance(data);
+
+    sourcePoints = []; // сброс точек при новой картинке
     buildMask();
     drawOverlay();
   };
@@ -122,16 +153,24 @@ function buildMask() {
     queue.push(idx);
   };
 
-  for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
-  for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+  if (sourcePoints.length > 0) {
+    // Если есть точки-источники — заливка идёт от них
+    for (const p of sourcePoints) push(p.x, p.y);
+  } else {
+    // Иначе — от рамки изображения
+    for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
+    for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+  }
 
   let head = 0;
   while (head < queue.length) {
     const idx = queue[head++];
-    push(idx % w + 1, (idx / w) | 0);
-    push(idx % w - 1, (idx / w) | 0);
-    push(idx % w, (idx / w | 0) + 1);
-    push(idx % w, (idx / w | 0) - 1);
+    const x = idx % w;
+    const y = (idx / w) | 0;
+    push(x + 1, y);
+    push(x - 1, y);
+    push(x, y + 1);
+    push(x, y - 1);
   }
 }
 
@@ -140,6 +179,7 @@ function drawOverlay() {
   const w = imgWidth, h = imgHeight;
   if (!w) return;
   overlayCtx.clearRect(0, 0, w, h);
+
   const img = overlayCtx.createImageData(w, h);
   const data = img.data;
 
@@ -152,7 +192,67 @@ function drawOverlay() {
     }
   }
   overlayCtx.putImageData(img, 0, 0);
+
+  // Рисуем точки-источники поверх
+  for (const p of sourcePoints) {
+    overlayCtx.beginPath();
+    overlayCtx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+    overlayCtx.fillStyle = '#ffcc00';
+    overlayCtx.fill();
+    overlayCtx.lineWidth = 2;
+    overlayCtx.strokeStyle = '#000';
+    overlayCtx.stroke();
+  }
 }
+
+// ---------- Режим добавления точек ----------
+addPointBtn.addEventListener('click', () => {
+  addPointMode = !addPointMode;
+  addPointBtn.classList.toggle('active', addPointMode);
+  baseCanvas.style.cursor = addPointMode ? 'crosshair' : 'default';
+});
+
+clearPointsBtn.addEventListener('click', () => {
+  sourcePoints = [];
+  if (!lum) return;
+  buildMask();
+  drawOverlay();
+});
+
+baseCanvas.addEventListener('click', e => {
+  if (!lum) return;
+
+  const rect = baseCanvas.getBoundingClientRect();
+  const scaleX = imgWidth / rect.width;
+  const scaleY = imgHeight / rect.height;
+  const x = Math.floor((e.clientX - rect.left) * scaleX);
+  const y = Math.floor((e.clientY - rect.top)  * scaleY);
+
+  if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) return;
+
+  if (addPointMode) {
+    // Добавляем новую точку
+    sourcePoints.push({ x, y });
+    buildMask();
+    drawOverlay();
+  } else {
+    // Проверяем клик рядом с существующей точкой — удаляем её
+    let removed = false;
+    for (let i = sourcePoints.length - 1; i >= 0; i--) {
+      const p = sourcePoints[i];
+      const dx = p.x - x, dy = p.y - y;
+      if (dx * dx + dy * dy < 15 * 15) {
+        sourcePoints.splice(i, 1);
+        removed = true;
+        break;
+      }
+    }
+    if (removed) {
+      buildMask();
+      drawOverlay();
+    }
+  }
+});
 
 // ---------- Реакции ----------
 bgLumEl.addEventListener('input', () => {
