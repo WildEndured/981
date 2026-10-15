@@ -48,7 +48,7 @@
   }
   .loader-top {
     display: flex; justify-content: space-between; align-items: baseline;
-    font-size: 13px;
+    font-size: 13px; gap: 12px;
   }
   .loader-top .label { opacity: 0.85; }
   .loader-top .pct { font-variant-numeric: tabular-nums; font-weight: 600; }
@@ -68,6 +68,10 @@
   }
   .loader-meta { font-size: 11px; opacity: 0.55; }
   .loader.hidden { display: none; }
+  .loader-meta .reset {
+    color: #7ab6ff; cursor: pointer; text-decoration: underline;
+    margin-left: 8px;
+  }
 
   @media (max-width: 600px) {
     .controls { flex-direction: column; align-items: stretch; }
@@ -83,7 +87,10 @@
     <span class="pct" id="loaderPct">0%</span>
   </div>
   <div class="bar"><div class="bar-fill" id="loaderBar"></div></div>
-  <div class="loader-meta" id="loaderMeta">0.0 / 0.0 МБ</div>
+  <div class="loader-meta" id="loaderMeta">
+    <span id="loaderMetaText">0.0 / 0.0 МБ</span>
+    <span class="reset" id="resetCache" title="Удалить кэш и перезагрузить">сбросить кэш</span>
+  </div>
 </div>
 
 <div class="controls">
@@ -107,34 +114,77 @@
 
 <script>
 /* =========================================================
- * 1. Загрузка OpenCV.js с прогрессом
+ * 0. Константы
  * =======================================================*/
 
-const OPENCV_URL = './lib/opencv.js';
+const OPENCV_URL     = './lib/opencv.js';
+const OPENCV_EXPECTED = 13 * 1024 * 1024;   // ~13 МБ, для честного прогресса
+const CACHE_NAME     = 'opencv-cache-v1';
+const CACHE_KEY      = OPENCV_URL;
 
-const loaderEl   = document.getElementById('loader');
-const loaderBar  = document.getElementById('loaderBar');
-const loaderPct  = document.getElementById('loaderPct');
-const loaderMeta = document.getElementById('loaderMeta');
-const loaderLbl  = document.getElementById('loaderLabel');
-const statusEl   = document.getElementById('status');
+const loaderEl       = document.getElementById('loader');
+const loaderBar      = document.getElementById('loaderBar');
+const loaderPct      = document.getElementById('loaderPct');
+const loaderMetaText = document.getElementById('loaderMetaText');
+const loaderLbl      = document.getElementById('loaderLabel');
+const resetCacheBtn  = document.getElementById('resetCache');
+const statusEl       = document.getElementById('status');
 
-function fmtMB(bytes) {
-  return (bytes / 1024 / 1024).toFixed(1);
+function fmtMB(bytes) { return (bytes / 1024 / 1024).toFixed(1); }
+
+/* =========================================================
+ * 1. Кэш OpenCV.js через Cache API
+ * =======================================================*/
+
+async function getCachedBlob() {
+  if (!('caches' in window)) return null;
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const resp = await cache.match(CACHE_KEY);
+    if (!resp) return null;
+    const blob = await resp.blob();
+    return blob;
+  } catch (e) {
+    console.warn('[opencv] cache read failed:', e);
+    return null;
+  }
 }
 
-async function fetchWithProgress(url) {
-  const resp = await fetch(url);
+async function putCachedBlob(blob) {
+  if (!('caches' in window)) return;
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    // Кэшируем с корректным Content-Type — важно для blob-скрипта
+    const resp = new Response(blob, {
+      headers: { 'Content-Type': 'application/javascript' }
+    });
+    await cache.put(CACHE_KEY, resp);
+  } catch (e) {
+    console.warn('[opencv] cache write failed:', e);
+  }
+}
+
+async function clearCache() {
+  if (!('caches' in window)) return;
+  try {
+    await caches.delete(CACHE_NAME);
+    console.log('[opencv] cache cleared');
+  } catch (e) {
+    console.warn('[opencv] cache clear failed:', e);
+  }
+}
+
+/* =========================================================
+ * 2. Загрузка с прогрессом
+ *    Content-Length врёт при gzip (GitHub Pages) — поэтому
+ *    ориентируемся на expectedBytes и «loaded > total».
+ * =======================================================*/
+
+async function fetchWithProgress(url, expectedBytes) {
+  const resp = await fetch(url, { cache: 'no-store' });
   if (!resp.ok) throw new Error(`HTTP ${resp.status} при загрузке ${url}`);
 
-  const totalHeader = resp.headers.get('Content-Length');
-  const total = totalHeader ? parseInt(totalHeader, 10) : 0;
-
-  // если нет Content-Length — покажем «неизвестно»
-  if (!total) {
-    loaderMeta.textContent = 'размер неизвестен';
-  }
-
+  let total = expectedBytes || 0;
   const reader = resp.body.getReader();
   const chunks = [];
   let loaded = 0;
@@ -145,20 +195,31 @@ async function fetchWithProgress(url) {
     chunks.push(value);
     loaded += value.length;
 
-    if (total) {
+    // если скачали больше ожидаемого — доверяем реальности
+    if (loaded > total) total = loaded;
+
+    if (total > 0) {
       const pct = Math.min(100, Math.round((loaded / total) * 100));
       loaderBar.style.width = pct + '%';
       loaderPct.textContent = pct + '%';
-      loaderMeta.textContent = `${fmtMB(loaded)} / ${fmtMB(total)} МБ`;
+      loaderMetaText.textContent = `${fmtMB(loaded)} / ${fmtMB(total)} МБ`;
     } else {
-      loaderMeta.textContent = `${fmtMB(loaded)} МБ`;
+      loaderBar.style.width = '100%';
+      loaderPct.textContent = '';
+      loaderMetaText.textContent = `${fmtMB(loaded)} МБ`;
     }
   }
 
-  // склеиваем чанки в один Uint8Array
-  const blob = new Blob(chunks, { type: 'application/javascript' });
-  return blob;
+  loaderBar.style.width = '100%';
+  loaderPct.textContent = '100%';
+  loaderMetaText.textContent = `${fmtMB(loaded)} МБ`;
+
+  return new Blob(chunks, { type: 'application/javascript' });
 }
+
+/* =========================================================
+ * 3. Инжект blob-скрипта + ожидание cv.Mat
+ * =======================================================*/
 
 function loadScriptFromBlob(blob) {
   return new Promise((resolve, reject) => {
@@ -172,20 +233,24 @@ function loadScriptFromBlob(blob) {
   });
 }
 
-/* ждём, пока window.cv.Mat станет доступен */
-function waitForCvMat() {
-  return new Promise((resolve) => {
+function waitForCvMat(timeoutMs = 60000) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
     const check = () => {
       if (window.cv && window.cv.Mat) { resolve(); return true; }
+      if (Date.now() - start > timeoutMs) {
+        reject(new Error('OpenCV не инициализировался за ' + timeoutMs + ' мс'));
+        return true;
+      }
       return false;
     };
     if (check()) return;
-    const t = setInterval(() => { if (check()) clearInterval(t); }, 30);
+    const t = setInterval(() => { if (check()) clearInterval(t); }, 50);
   });
 }
 
 /* =========================================================
- * 2. Инициализация: fetch → blob → script → ждём cv.Mat
+ * 4. Инициализация
  * =======================================================*/
 
 let cvReady = false;
@@ -193,36 +258,61 @@ let lastImage = null;
 
 async function initOpenCV() {
   try {
-    loaderLbl.textContent = 'Загрузка OpenCV.js…';
-    const blob = await fetchWithProgress(OPENCV_URL);
+    // 4.1. Пробуем кэш
+    loaderLbl.textContent = 'Проверка кэша…';
+    let blob = await getCachedBlob();
 
+    if (blob) {
+      loaderLbl.textContent = 'Загрузка из кэша…';
+      loaderBar.style.width = '100%';
+      loaderPct.textContent = '100%';
+      loaderMetaText.textContent = `${fmtMB(blob.size)} МБ (кэш)`;
+      console.log('[opencv] loaded from cache, size:', blob.size);
+    } else {
+      // 4.2. Качаем с сети
+      loaderLbl.textContent = 'Загрузка OpenCV.js…';
+      blob = await fetchWithProgress(OPENCV_URL, OPENCV_EXPECTED);
+      console.log('[opencv] downloaded, size:', blob.size);
+
+      // 4.3. Кладём в кэш на будущее (не блокируем UI)
+      putCachedBlob(blob);
+    }
+
+    // 4.4. Инжектим скрипт
     loaderLbl.textContent = 'Инициализация OpenCV…';
-    loaderBar.style.width = '100%';
-    loaderPct.textContent = '100%';
-
     await loadScriptFromBlob(blob);
-    await waitForCvMat();
+    console.log('[opencv] script injected, waiting for cv.Mat…');
+
+    // 4.5. Ждём готовности
+    await waitForCvMat(90000);
+    console.log('[opencv] cv.Mat ready');
 
     cvReady = true;
     statusEl.textContent = 'OpenCV готов';
-
-    // скрываем полосу через небольшую задержку, чтобы пользователь увидел 100%
     setTimeout(() => loaderEl.classList.add('hidden'), 400);
 
     if (lastImage) processImage(lastImage);
+
   } catch (err) {
+    console.error('[opencv] error:', err);
     loaderLbl.textContent = 'Ошибка загрузки OpenCV';
     loaderBar.style.background = '#a03030';
-    loaderMeta.textContent = String(err && err.message || err);
+    loaderMetaText.textContent = String(err && err.message || err);
     statusEl.textContent = 'OpenCV не загрузился';
-    console.error(err);
   }
 }
+
+/* Кнопка «сбросить кэш» */
+resetCacheBtn.addEventListener('click', async (e) => {
+  e.preventDefault();
+  await clearCache();
+  location.reload();
+});
 
 initOpenCV();
 
 /* =========================================================
- * 3. Работа с изображением
+ * 5. Работа с изображением
  * =======================================================*/
 
 const fileInput   = document.getElementById('file');
