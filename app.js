@@ -1,5 +1,5 @@
 // ============================================================
-//  DOM ССЫЛКИ
+//  DOM
 // ============================================================
 const fileInput = document.getElementById('file');
 const baseCanvas = document.getElementById('base');
@@ -13,7 +13,7 @@ const invertEl = document.getElementById('invert');
 const useWindowsEl = document.getElementById('useWindows');
 const useHolesEl = document.getElementById('useHoles');
 const useSmoothEl = document.getElementById('useSmooth');
-const useTableEl = document.getElementById('useTable');
+const useSegmentationEl = document.getElementById('useSegmentation');
 const useTailsFilterEl = document.getElementById('useTailsFilter');
 const maxHoleEl = document.getElementById('maxHole');
 const maxHoleVal = document.getElementById('maxHoleVal');
@@ -23,6 +23,8 @@ const smoothIterEl = document.getElementById('smoothIter');
 const smoothIterVal = document.getElementById('smoothIterVal');
 const coreThreshEl = document.getElementById('coreThresh');
 const coreThreshVal = document.getElementById('coreThreshVal');
+const skinTolEl = document.getElementById('skinTol');
+const skinTolVal = document.getElementById('skinTolVal');
 const paletteCountEl = document.getElementById('paletteCount');
 const paletteCountVal = document.getElementById('paletteCountVal');
 
@@ -36,6 +38,7 @@ const showPaletteEl = document.getElementById('showPalette');
 const showSamplesEl = document.getElementById('showSamples');
 const showInfoEl = document.getElementById('showInfo');
 const showCorrectedEl = document.getElementById('showCorrected');
+const showSkinMaskEl = document.getElementById('showSkinMask');
 
 const addPointBtn = document.getElementById('addPointBtn');
 const clearPointsBtn = document.getElementById('clearPointsBtn');
@@ -57,7 +60,6 @@ const modeLumBtn = document.getElementById('modeLum');
 const modeColorBtn = document.getElementById('modeColor');
 const lumSliderRow = document.getElementById('lumSliderRow');
 const colorSliderRow = document.getElementById('colorSliderRow');
-const hintText = document.getElementById('hintText');
 
 const menuToggle = document.getElementById('menuToggle');
 const drawer = document.getElementById('drawer');
@@ -69,7 +71,6 @@ const bottomReset = document.getElementById('bottomReset');
 const bottomToggleOverlay = document.getElementById('bottomToggleOverlay');
 const bottomHide = document.getElementById('bottomHide');
 const bottomMenu = document.getElementById('bottomMenu');
-
 const fullscreenBtn = document.getElementById('fullscreenBtn');
 
 const propHeight = document.getElementById('propHeight');
@@ -78,10 +79,11 @@ const propAspect = document.getElementById('propAspect');
 const propFill = document.getElementById('propFill');
 const propHeads = document.getElementById('propHeads');
 const propStyle = document.getElementById('propStyle');
-const propOffsetX = document.getElementById('propOffsetX');
-const propOffsetY = document.getElementById('propOffsetY');
-const propCx = document.getElementById('propCx');
-const propCy = document.getElementById('propCy');
+const propSkinFound = document.getElementById('propSkinFound');
+const propSkinColor = document.getElementById('propSkinColor');
+const propSkinArea = document.getElementById('propSkinArea');
+const propHeadMethod = document.getElementById('propHeadMethod');
+const propNeckMethod = document.getElementById('propNeckMethod');
 const propFractions = document.getElementById('propFractions');
 const propsSummary = document.getElementById('propsSummary');
 const autoInfo = document.getElementById('autoInfo');
@@ -98,7 +100,6 @@ const perspShoulder = document.getElementById('perspShoulder');
 const perspPelvis = document.getElementById('perspPelvis');
 const perspDiff = document.getElementById('perspDiff');
 const perspContourAngle = document.getElementById('perspContourAngle');
-const perspEdgeSlope = document.getElementById('perspEdgeSlope');
 const perspVanishing = document.getElementById('perspVanishing');
 const perspVPDist = document.getElementById('perspVPDist');
 const perspConfidence = document.getElementById('perspConfidence');
@@ -132,7 +133,6 @@ const jointsSummary = document.getElementById('jointsSummary');
 
 const paletteGrid = document.getElementById('paletteGrid');
 const paletteSummary = document.getElementById('paletteSummary');
-
 const samplesList = document.getElementById('samplesList');
 const samplesSummary = document.getElementById('samplesSummary');
 
@@ -140,6 +140,8 @@ const infoSize = document.getElementById('infoSize');
 const infoModeMode = document.getElementById('infoModeMode');
 const infoBgPct = document.getElementById('infoBgPct');
 const infoCharPct = document.getElementById('infoCharPct');
+const infoSkinPct = document.getElementById('infoSkinPct');
+const infoNonSkinPct = document.getElementById('infoNonSkinPct');
 const infoHoles = document.getElementById('infoHoles');
 const infoWindows = document.getElementById('infoWindows');
 const infoPointsCount = document.getElementById('infoPointsCount');
@@ -169,6 +171,9 @@ const overlayCtx = overlay.getContext('2d');
 // ============================================================
 let imgWidth = 0, imgHeight = 0;
 let lum = null, isBg = null, imgDataRef = null, histogram = null;
+let skinMask = null;         // 1 = кожа, 0 = не кожа
+let skinColor = null;        // { r, g, b }
+let skinFound = false;
 let selectedPointIndex = -1;
 let mode = 'lum';
 let colorSamples = [];
@@ -178,6 +183,8 @@ let holesFilledCount = 0, windowsFoundCount = 0;
 let charBBox = null;
 let figStyle = '—';
 let currentPreset = 'anime';
+let headMethod = '—';
+let neckMethod = '—';
 
 let symmetryResult = null;
 let paletteResult = null;
@@ -186,7 +193,6 @@ let linkResult = null;
 let manualVP = null;
 let manualVPMode = false;
 
-// ТАБЛИЦЫ ПРОПОРЦИЙ
 const PROP_TABLES = {
   chibi:    { neck: 0.22, shoulder: 0.28, chest: 0.42, pelvis: 0.56, knee: 0.76, ankle: 0.95 },
   anime:    { neck: 0.13, shoulder: 0.20, chest: 0.33, pelvis: 0.48, knee: 0.70, ankle: 0.95 },
@@ -213,24 +219,13 @@ let dragging = null;
 // ============================================================
 //  МЕНЮ
 // ============================================================
-function openDrawer() {
-  drawer.classList.add('open');
-  drawerBackdrop.classList.add('open');
-  menuToggle.classList.add('open');
-}
-function closeDrawer() {
-  drawer.classList.remove('open');
-  drawerBackdrop.classList.remove('open');
-  menuToggle.classList.remove('open');
-}
-menuToggle.addEventListener('click', () => {
-  drawer.classList.contains('open') ? closeDrawer() : openDrawer();
-});
+function openDrawer() { drawer.classList.add('open'); drawerBackdrop.classList.add('open'); menuToggle.classList.add('open'); }
+function closeDrawer() { drawer.classList.remove('open'); drawerBackdrop.classList.remove('open'); menuToggle.classList.remove('open'); }
+menuToggle.addEventListener('click', () => { drawer.classList.contains('open') ? closeDrawer() : openDrawer(); });
 drawerClose.addEventListener('click', closeDrawer);
 drawerBackdrop.addEventListener('click', closeDrawer);
 bottomMenu.addEventListener('click', openDrawer);
 
-// ПОКАЗ ПАНЕЛЕЙ
 function applyPanelVisibility() {
   histoPanel.style.display = showHistoEl.checked ? '' : 'none';
   propsPanel.style.display = showPropsEl.checked ? '' : 'none';
@@ -246,12 +241,10 @@ function applyPanelVisibility() {
 [showHistoEl, showPropsEl, showPerspEl, showLinkEl, showSymmEl, showJointsEl, showPaletteEl, showSamplesEl, showInfoEl]
   .forEach(el => el.addEventListener('change', applyPanelVisibility));
 
-// СВОРАЧИВАНИЕ
 document.querySelectorAll('.panel-header[data-toggle]').forEach(header => {
   header.addEventListener('click', () => header.parentElement.classList.toggle('open'));
 });
 
-// FULLSCREEN
 let isFullscreen = false;
 fullscreenBtn.addEventListener('click', () => {
   isFullscreen = !isFullscreen;
@@ -278,7 +271,7 @@ bottomHide.addEventListener('click', () => {
 });
 
 // ============================================================
-//  ЗАГРУЗКА ИЗОБРАЖЕНИЯ
+//  ЗАГРУЗКА
 // ============================================================
 fileInput.addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
@@ -366,7 +359,7 @@ function isPixelBg(idx) {
 }
 
 // ============================================================
-//  МАСКА ФОНА
+//  ЭТАП 1 — МАСКА ПЕРСОНАЖА
 // ============================================================
 function buildMask() {
   const w = imgWidth, h = imgHeight;
@@ -473,7 +466,7 @@ function smoothOnce(isBg, w, h) {
 }
 
 // ============================================================
-//  BBOX ПО ПЛОТНОСТИ
+//  ЭТАП 2 — BBOX ПО ПЛОТНОСТИ
 // ============================================================
 function computeBBox() {
   const w = imgWidth, h = imgHeight;
@@ -528,7 +521,349 @@ function computeBBox() {
 }
 
 // ============================================================
-//  ПРЕСЕТЫ ПРОПОРЦИЙ
+//  ЭТАП 4+5+6 — ПОИСК КОЖИ И МАСКА ГОЛОГО ТЕЛА
+// ============================================================
+// 1. Берём цвет кожи лица (медиана в центральной верхней области).
+// 2. Берём цвет кожи тела (медиана в боковых областях средней трети).
+// 3. Строим маску "кожа" — все пиксели персонажа, близкие к цвету кожи.
+// 4. skinMask: 1 = кожа, 0 = не кожа.
+function detectSkin() {
+  if (!charBBox) {
+    skinMask = null; skinFound = false; skinColor = null;
+    return;
+  }
+  const w = imgWidth, h = imgHeight;
+  const { minX, minY, width: bw, height: bh } = charBBox;
+  const d = imgDataRef.data;
+
+  // Цвет лица: центральная верхняя область
+  const faceStartY = minY + Math.round(bh * 0.05);
+  const faceEndY = minY + Math.round(bh * 0.13);
+  const faceStartX = minX + Math.round(bw * 0.35);
+  const faceEndX = minX + Math.round(bw * 0.65);
+
+  // Цвет рук: боковые области средней трети
+  const armStartY = minY + Math.round(bh * 0.30);
+  const armEndY = minY + Math.round(bh * 0.55);
+  const armLeftStartX = minX + Math.round(bw * 0.05);
+  const armLeftEndX = minX + Math.round(bw * 0.15);
+  const armRightStartX = minX + Math.round(bw * 0.85);
+  const armRightEndX = minX + Math.round(bw * 0.95);
+
+  const samples = [];
+  const collect = (x0, y0, x1, y1) => {
+    for (let y = y0; y < y1; y++) {
+      if (y < 0 || y >= h) continue;
+      for (let x = x0; x < x1; x++) {
+        if (x < 0 || x >= w) continue;
+        const idx = y * w + x;
+        if (isBg[idx]) continue;
+        const p = idx * 4;
+        if (d[p + 3] < 20) continue;
+        const r = d[p], g = d[p + 1], b = d[p + 2];
+        // Отсекаем тёмные пиксели (одежда) и очень светлые (блики)
+        const L = 0.299 * r + 0.587 * g + 0.114 * b;
+        if (L < 40 || L > 240) continue;
+        // Отсекаем сильно насыщенные (одежда/волосы)
+        const maxC = Math.max(r, g, b), minC = Math.min(r, g, b);
+        const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
+        if (sat > 0.55) continue;
+        samples.push({ r, g, b });
+      }
+    }
+  };
+  collect(faceStartX, faceStartY, faceEndX, faceEndY);
+  collect(armLeftStartX, armStartY, armLeftEndX, armEndY);
+  collect(armRightStartX, armStartY, armRightEndX, armEndY);
+
+  if (samples.length < 100) {
+    skinMask = null; skinFound = false; skinColor = null;
+    return;
+  }
+
+  // Медиана по каждому каналу
+  const rs = samples.map(s => s.r).sort((a, b) => a - b);
+  const gs = samples.map(s => s.g).sort((a, b) => a - b);
+  const bs = samples.map(s => s.b).sort((a, b) => a - b);
+  const medR = rs[rs.length >> 1];
+  const medG = gs[gs.length >> 1];
+  const medB = bs[bs.length >> 1];
+
+  skinColor = { r: medR, g: medG, b: medB };
+  skinFound = true;
+
+  // Маска кожи
+  skinMask = new Uint8Array(w * h);
+  const tol = +skinTolEl.value;
+  const tol2 = tol * tol * 3;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = y * w + x;
+      if (isBg[idx]) continue;
+      const p = idx * 4;
+      if (d[p + 3] < 20) continue;
+      const dr = d[p]     - medR;
+      const dg = d[p + 1] - medG;
+      const db = d[p + 2] - medB;
+      if (dr * dr + dg * dg + db * db < tol2) skinMask[idx] = 1;
+    }
+  }
+
+  // Дилатация маски кожи — восстанавливаем границы, съеденные антиалиасингом
+  skinMask = dilate(skinMask, w, h, 2);
+}
+
+function dilate(mask, w, h, radius) {
+  const out = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = y * w + x;
+      if (mask[idx]) { out[idx] = 1; continue; }
+      let hit = false;
+      for (let dy = -radius; dy <= radius && !hit; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          if (mask[ny * w + nx]) { hit = true; break; }
+        }
+      }
+      if (hit) out[idx] = 1;
+    }
+  }
+  return out;
+}
+
+// ============================================================
+//  ЭТАП 3+7+8+9 — ПОИСК ПРОПОРЦИЙ
+// ============================================================
+// Используем маску кожи если она есть, иначе маску персонажа.
+function getSilhouetteMask() {
+  const N = imgWidth * imgHeight;
+  if (useSegmentationEl.checked && skinMask && skinFound) {
+    // Используем маску кожи — тело без волос и одежды
+    const out = new Uint8Array(N);
+    for (let i = 0; i < N; i++) out[i] = skinMask[i];
+    return out;
+  }
+  // Fallback — маска персонажа
+  const out = new Uint8Array(N);
+  for (let i = 0; i < N; i++) out[i] = isBg[i] ? 0 : 1;
+  return out;
+}
+
+function computeFractions() {
+  if (!charBBox) return;
+
+  const w = imgWidth, h = imgHeight;
+  const { minX, minY, width: bw, height: bh } = charBBox;
+  const silhou = getSilhouetteMask();
+  const useSkin = useSegmentationEl.checked && skinMask && skinFound;
+
+  // --- Профиль ширины по силуэту (коже или персонажу) ---
+  const rowWidths = new Int32Array(bh);
+  for (let yy = 0; yy < bh; yy++) {
+    const y = minY + yy;
+    let count = 0;
+    let rowMinX = -1, rowMaxX = -1;
+    for (let x = minX; x <= minX + bw - 1; x++) {
+      if (silhou[y * w + x]) {
+        count++;
+        if (rowMinX < 0) rowMinX = x;
+        rowMaxX = x;
+      }
+    }
+    rowWidths[yy] = count > 0 ? rowMaxX - rowMinX + 1 : 0;
+  }
+  const sm = new Float32Array(bh);
+  for (let i = 0; i < bh; i++) {
+    let s = 0, c = 0;
+    for (let k = -3; k <= 3; k++) {
+      const ii = i + k;
+      if (ii < 0 || ii >= bh) continue;
+      s += rowWidths[ii]; c++;
+    }
+    sm[i] = s / c;
+  }
+
+  let maxWidth = 0;
+  for (let i = 0; i < bh; i++) if (sm[i] > maxWidth) maxWidth = sm[i];
+
+  // ========== ЭТАП 3+7: ПОИСК ГОЛОВЫ И ШЕИ ==========
+  // Дихотомия: верхняя четверть → восьмые
+  let neckIdx = -1;
+  let method = '—';
+
+  // Ищем первое существенное сужение в верхней четверти (0..25%)
+  const q1End = Math.floor(bh * 0.25);
+  const q2End = Math.floor(bh * 0.50);
+
+  // Делим верхнюю четверть на 4 восьмых
+  const eighths = [0, 0.0625, 0.125, 0.1875, 0.25].map(v => Math.floor(bh * v));
+
+  // Средняя ширина в каждой восьмой
+  const eighthWidths = [];
+  for (let i = 0; i < 4; i++) {
+    const a = eighths[i], b = eighths[i + 1];
+    let sum = 0, cnt = 0;
+    for (let y = a; y < b; y++) { sum += sm[y]; cnt++; }
+    eighthWidths.push(cnt > 0 ? sum / cnt : 0);
+  }
+
+  // Ищем первое падение ширины на 15%+ относительно предыдущей восьмой
+  for (let i = 1; i < 4; i++) {
+    if (eighthWidths[i - 1] > 0 && eighthWidths[i] < eighthWidths[i - 1] * 0.85) {
+      neckIdx = eighths[i];
+      method = 'дихотомия';
+      break;
+    }
+  }
+
+  // Если не нашли в восьмых — ищем минимум ширины в Q1
+  if (neckIdx < 0) {
+    let bestMin = Infinity, bestI = -1;
+    for (let i = 4; i < q1End; i++) {
+      if (sm[i] > 0 && sm[i] < bestMin) { bestMin = sm[i]; bestI = i; }
+    }
+    if (bestI >= 0 && bestMin < maxWidth * 0.80) {
+      neckIdx = bestI;
+      method = 'Q1-минимум';
+    }
+  }
+
+  // Если всё ещё не нашли — ищем минимум в Q2
+  if (neckIdx < 0) {
+    let bestMin = Infinity, bestI = -1;
+    for (let i = q1End; i < q2End; i++) {
+      if (sm[i] > 0 && sm[i] < bestMin) { bestMin = sm[i]; bestI = i; }
+    }
+    if (bestI >= 0 && bestMin < maxWidth * 0.80) {
+      neckIdx = bestI;
+      method = 'Q2-минимум';
+    }
+  }
+
+  // Валидация пропорции головы: должна быть 12–22% высоты
+  let neckValue;
+  if (neckIdx >= 0) {
+    const headFrac = neckIdx / bh;
+    if (headFrac >= 0.12 && headFrac <= 0.22) {
+      neckValue = headFrac;
+    } else {
+      // Вне диапазона — берём табличное
+      neckValue = PROP_TABLES[currentPreset].neck;
+      method = 'таблица (вне 12–22%)';
+    }
+  } else {
+    neckValue = PROP_TABLES[currentPreset].neck;
+    method = 'таблица';
+  }
+
+  neckMethod = method;
+
+  // ========== ЭТАП 8: РОСТ В ГОЛОВАХ ==========
+  const headPx = Math.max(1, Math.round(bh * neckValue));
+  const heads = bh / headPx;
+
+  // Определяем тип фигуры по росту в головах
+  let presetKey;
+  if (heads < 4.5) presetKey = 'chibi';
+  else if (heads < 6.5) presetKey = 'anime';
+  else if (heads < 7.5) presetKey = 'stylized';
+  else presetKey = 'realism';
+  const table = PROP_TABLES[presetKey];
+
+  // ========== ЭТАП 9: СВЯЗАННЫЕ ДОЛИ ==========
+  // Используем табличные значения как основу, но привязываем к найденной шее
+  const shouldersOffsetByType = {
+    chibi: 0.06, anime: 0.07, stylized: 0.06, realism: 0.05,
+  };
+  const pelvisOffsetByType = {
+    chibi: 0.34, anime: 0.35, stylized: 0.36, realism: 0.37,
+  };
+
+  let shoulderValue = neckValue + shouldersOffsetByType[presetKey];
+  let chestValue    = neckValue + (table.chest - table.neck);
+  let pelvisValue   = neckValue + pelvisOffsetByType[presetKey];
+  let kneeValue     = (pelvisValue + table.ankle) / 2;
+  let ankleValue    = table.ankle;
+
+  // ========== ЭТАП 10: ВАЛИДАЦИЯ ==========
+  const validate = (val, id) => {
+    const v = fractions.find(f => f.id === id);
+    const base = table[id];
+    // Если значение вне ±20% от табличного — берём табличное
+    if (Math.abs(val - base) > 0.20) return base;
+    return val;
+  };
+  shoulderValue = validate(shoulderValue, 'shoulder');
+  chestValue    = validate(chestValue, 'chest');
+  pelvisValue   = validate(pelvisValue, 'pelvis');
+  kneeValue     = validate(kneeValue, 'knee');
+  ankleValue    = validate(ankleValue, 'ankle');
+
+  // ========== ЭТАП 11: ОГРАНИЧЕННОЕ УТОЧНЕНИЕ ±1% ==========
+  const refineWin = Math.max(3, Math.round(bh * 0.01));
+  const refineTargets = {
+    neck: 'min', shoulder: 'max', chest: 'min',
+    pelvis: 'max', knee: 'min', ankle: 'min',
+  };
+  const refineOne = (val, id) => {
+    const target = refineTargets[id];
+    if (!target) return val;
+    const centerIdx = Math.round(bh * val);
+    const from = Math.max(3, centerIdx - refineWin);
+    const to = Math.min(bh - 4, centerIdx + refineWin);
+    if (to - from < 3) return val;
+    let bestI = -1, bestV = target === 'min' ? Infinity : -Infinity;
+    for (let i = from; i <= to; i++) {
+      const v = sm[i];
+      if (target === 'min') {
+        if (v > 0 && v < bestV) { bestV = v; bestI = i; }
+      } else {
+        if (v > bestV) { bestV = v; bestI = i; }
+      }
+    }
+    if (bestI < 0) return val;
+    // Проверка выраженности
+    let sum = 0, cnt = 0;
+    for (let i = from; i <= to; i++) { sum += sm[i]; cnt++; }
+    const avg = sum / Math.max(1, cnt);
+    const expr = target === 'min' ? (avg - bestV) / avg : (bestV - avg) / avg;
+    if (expr < 0.05) return val;
+    const refined = bestI / bh;
+    // Возвращаем, если отклонение от исходного <= 1.5%
+    if (Math.abs(refined - val) <= 0.015) return refined;
+    return val;
+  };
+
+  const finalValues = {
+    neck:     neckValue,
+    shoulder: refineOne(shoulderValue, 'shoulder'),
+    chest:    refineOne(chestValue, 'chest'),
+    pelvis:   refineOne(pelvisValue, 'pelvis'),
+    knee:     refineOne(kneeValue, 'knee'),
+    ankle:    refineOne(ankleValue, 'ankle'),
+  };
+
+  // Применяем, не трогая ручные правки
+  fractions.forEach(f => {
+    if (f.id === 'top') return;
+    if (f.manual) return;
+    if (finalValues[f.id] !== undefined) {
+      f.value = Math.max(0, Math.min(1, finalValues[f.id]));
+    }
+  });
+  fractions.sort((a, b) => a.value - b.value);
+
+  const neckFrac = fractions.find(f => f.id === 'neck');
+  if (neckFrac && !neckFrac.manual) autoNeckValue = neckFrac.value;
+
+  // Сохраняем метод в autoInfo
+  headMethod = method;
+}
+
+// ============================================================
+//  ПРЕСЕТЫ
 // ============================================================
 function applyPreset(key) {
   currentPreset = key;
@@ -543,77 +878,11 @@ function applyPreset(key) {
   else if (key === 'stylized') presetStylizedBtn.classList.add('active');
   else if (key === 'realism') presetRealismBtn.classList.add('active');
   else if (key === 'chibi') presetChibiBtn.classList.add('active');
-  const t = PROP_TABLES[key];
   const label =
-    key === 'anime' ? 'аниме (5.5 голов)' :
+    key === 'anime' ? 'аниме' :
     key === 'stylized' ? 'стилизованный' :
-    key === 'realism' ? 'реализм (7.5 голов)' :
-    'чиби (4 головы)';
-  autoInfo.innerHTML =
-    `Таблица: <b>${label}</b><br>` +
-    `шея ${(t.neck*100).toFixed(0)}% · плечи ${(t.shoulder*100).toFixed(0)}% · талия ${(t.chest*100).toFixed(0)}% · ` +
-    `бёдра ${(t.pelvis*100).toFixed(0)}% · колени ${(t.knee*100).toFixed(0)}% · лодыжки ${(t.ankle*100).toFixed(0)}%`;
-}
-
-// ============================================================
-//  УТОЧНЕНИЕ ДОЛЕЙ ПО ПРОФИЛЮ ШИРИНЫ
-// ============================================================
-function refineFractionsFromProfile() {
-  if (!charBBox) return;
-  const w = imgWidth, h = imgHeight;
-  const { minX, minY, width: bw, height: bh } = charBBox;
-  const rowWidths = new Int32Array(bh);
-  for (let yy = 0; yy < bh; yy++) {
-    const y = minY + yy;
-    let rowMinX = -1, rowMaxX = -1;
-    for (let x = minX; x <= minX + bw - 1; x++) {
-      if (!isBg[y * w + x]) { if (rowMinX < 0) rowMinX = x; rowMaxX = x; }
-    }
-    rowWidths[yy] = rowMinX < 0 ? 0 : (rowMaxX - rowMinX + 1);
-  }
-  const sm = new Float32Array(bh);
-  for (let i = 0; i < bh; i++) {
-    let s = 0, c = 0;
-    for (let k = -3; k <= 3; k++) {
-      const ii = i + k;
-      if (ii < 0 || ii >= bh) continue;
-      s += rowWidths[ii]; c++;
-    }
-    sm[i] = s / c;
-  }
-  const win = Math.max(4, Math.round(bh * 0.02));
-  const refineTargets = {
-    neck: 'min', shoulder: 'max', chest: 'min',
-    pelvis: 'max', knee: 'min', ankle: 'min',
-  };
-  fractions.forEach(frac => {
-    if (frac.manual) return;
-    const target = refineTargets[frac.id];
-    if (!target) return;
-    const centerIdx = Math.round(bh * frac.value);
-    const from = Math.max(4, centerIdx - win);
-    const to = Math.min(bh - 5, centerIdx + win);
-    if (to - from < 4) return;
-    let bestI = -1, bestV = target === 'min' ? Infinity : -Infinity;
-    for (let i = from; i <= to; i++) {
-      const v = sm[i];
-      if (target === 'min') {
-        if (v > 0 && v < bestV) { bestV = v; bestI = i; }
-      } else {
-        if (v > bestV) { bestV = v; bestI = i; }
-      }
-    }
-    if (bestI < 0) return;
-    let sum = 0, cnt = 0;
-    for (let i = from; i <= to; i++) { sum += sm[i]; cnt++; }
-    const avg = sum / Math.max(1, cnt);
-    const expr = target === 'min' ? (avg - bestV) / avg : (bestV - avg) / avg;
-    if (expr > 0.05) {
-      const newVal = bestI / bh;
-      if (Math.abs(newVal - frac.value) < 0.03) frac.value = newVal;
-    }
-  });
-  fractions.sort((a, b) => a.value - b.value);
+    key === 'realism' ? 'реализм' : 'чиби';
+  autoInfo.innerHTML = `Таблица: <b>${label}</b> · шея ${(table.neck*100).toFixed(0)}% · плечи ${(table.shoulder*100).toFixed(0)}% · талия ${(table.chest*100).toFixed(0)}% · бёдра ${(table.pelvis*100).toFixed(0)}% · колени ${(table.knee*100).toFixed(0)}% · лодыжки ${(table.ankle*100).toFixed(0)}%`;
 }
 
 // ============================================================
@@ -636,28 +905,43 @@ function detectFigStyle() {
 }
 
 // ============================================================
-//  ПРОПОРЦИИ
+//  ПРОПОРЦИИ — UI
 // ============================================================
 function updateProportions() {
   if (!charBBox) return;
   const { minX, minY, width: bw, height: bh, charCount } = charBBox;
   const w = imgWidth, h = imgHeight;
+
   propWidth.textContent = `${bw} px`;
   propHeight.textContent = `${bh} px`;
   propAspect.textContent = (bh / bw).toFixed(3);
   propFill.textContent = `${((charCount / (bw * bh)) * 100).toFixed(1)}%`;
+
   const neckFrac = fractions.find(f => f.id === 'neck');
   const neckVal = neckFrac ? neckFrac.value : 0.13;
   const headPx = Math.max(1, Math.round(bh * neckVal));
   const heads = bh / headPx;
   propHeads.textContent = `${heads.toFixed(2)} (${headPx} px)`;
-  const cx = minX + bw / 2, cy = minY + bh / 2;
-  propCx.textContent = `${cx.toFixed(0)} px`;
-  propCy.textContent = `${cy.toFixed(0)} px`;
-  propOffsetX.textContent = `${((cx - w/2) / w * 100) >= 0 ? '+' : ''}${(((cx - w/2) / w) * 100).toFixed(1)}%`;
-  propOffsetY.textContent = `${((cy - h/2) / h * 100) >= 0 ? '+' : ''}${(((cy - h/2) / h) * 100).toFixed(1)}%`;
+
+  // Сегментация
+  if (skinFound && skinColor) {
+    propSkinFound.textContent = 'да';
+    propSkinColor.innerHTML = `rgb(${skinColor.r},${skinColor.g},${skinColor.b})`;
+    let skinCount = 0;
+    const N = w * h;
+    if (skinMask) for (let i = 0; i < N; i++) if (skinMask[i]) skinCount++;
+    propSkinArea.textContent = skinCount.toLocaleString('ru-RU') + ' px';
+  } else {
+    propSkinFound.textContent = 'нет';
+    propSkinColor.textContent = '—';
+    propSkinArea.textContent = '—';
+  }
+  propHeadMethod.textContent = headMethod;
+  propNeckMethod.textContent = neckMethod;
+
   const manualCount = fractions.filter(f => f.manual).length;
-  propFractions.textContent = manualCount > 0 ? `${manualCount} ручных` : 'по таблице';
+  propFractions.textContent = manualCount > 0 ? `${manualCount} ручных` : 'авто';
+
   propsSummary.textContent = `${bh}×${bw} · ${heads.toFixed(2)} голов`;
 }
 
@@ -698,9 +982,10 @@ function computePerspective() {
   const ratio = botW > 0 ? topW / botW : 0;
   perspTopBot.textContent = ratio.toFixed(3);
   let vVerdict = '';
-  if (ratio > 1.15) vVerdict = 'ракурс снизу';
-  else if (ratio < 0.87) vVerdict = 'ракурс сверху';
-  else vVerdict = 'фронтально';
+  // Ужесточённые пороги
+  if (ratio > 1.20) vVerdict = 'ракурс снизу';
+  else if (ratio < 0.83) vVerdict = 'ракурс сверху';
+  else vVerdict = 'фронтально, без перспективы';
   perspVerdict.textContent = vVerdict;
 
   let leftSlopes = [], rightSlopes = [];
@@ -723,7 +1008,6 @@ function computePerspective() {
   const rightSlope = median(rightSlopes);
   const avgAngleDeg = (Math.atan(Math.abs(leftSlope)) + Math.atan(Math.abs(rightSlope))) / 2 * 180 / Math.PI;
   perspContourAngle.textContent = `${avgAngleDeg.toFixed(2)}°`;
-  perspEdgeSlope.textContent = `L: ${leftSlope.toFixed(3)}, R: ${rightSlope.toFixed(3)}`;
 
   let vanishing = null;
   let isManual = false;
@@ -734,20 +1018,33 @@ function computePerspective() {
     vanishing = findVanishingPoint(rowEdges);
     if (vanishing) vanishing.manual = false;
   }
+
+  // Показываем ТС, только если уверенность > 30% И расстояние < 15000
   if (vanishing) {
     const inside = vanishing.x >= 0 && vanishing.x < w && vanishing.y >= 0 && vanishing.y < h;
+    const distCenter = Math.sqrt((vanishing.x - w/2) ** 2 + (vanishing.y - h/2) ** 2);
     vanishing.insideImage = inside;
     const distX = Math.max(0, Math.max(-vanishing.x, vanishing.x - w));
     const distY = Math.max(0, Math.max(-vanishing.y, vanishing.y - h));
     const dist = Math.sqrt(distX * distX + distY * distY);
-    perspVanishing.textContent = `x=${vanishing.x.toFixed(0)}, y=${vanishing.y.toFixed(0)}`
-      + (inside ? ' (в кадре)' : ' (вне)') + (isManual ? ' · ручная' : '');
-    perspVPDist.textContent = inside ? '0' : `${dist.toFixed(0)} px от края`;
-    perspConfidence.textContent = isManual ? '100% (ручная)' : `${(vanishing.confidence * 100).toFixed(0)}%`;
+
+    const showArrow = isManual || (vanishing.confidence > 0.30 && distCenter < 15000);
+    vanishing.showArrow = showArrow;
+
+    if (showArrow) {
+      perspVanishing.textContent = `x=${vanishing.x.toFixed(0)}, y=${vanishing.y.toFixed(0)}`
+        + (inside ? ' (в кадре)' : ' (вне)') + (isManual ? ' · ручная' : '');
+      perspVPDist.textContent = inside ? '0' : `${dist.toFixed(0)} px от края`;
+      perspConfidence.textContent = isManual ? '100% (ручная)' : `${(vanishing.confidence * 100).toFixed(0)}%`;
+    } else {
+      perspVanishing.textContent = 'не определена';
+      perspVPDist.textContent = '—';
+      perspConfidence.textContent = `${(vanishing.confidence * 100).toFixed(0)}% (низкая)`;
+    }
   } else {
-    perspVanishing.textContent = '—';
+    perspVanishing.textContent = 'не определена';
     perspVPDist.textContent = '—';
-    perspConfidence.textContent = 'не найдена';
+    perspConfidence.textContent = 'параллельные границы';
   }
   contourResult = { leftSlope, rightSlope, avgAngleDeg, vanishing, ratio, vVerdict };
 
@@ -793,7 +1090,6 @@ function computePerspective() {
   perspMain.textContent = main;
   perspIcon.textContent = icon;
   let sub = `верх/низ = ${ratio.toFixed(2)} · контур ${avgAngleDeg.toFixed(1)}°`;
-  if (vanishing) sub += ` · ТС ${isManual ? 'ручная' : (vanishing.confidence * 100).toFixed(0) + '%'}`;
   perspSub.textContent = sub;
   perspSummary.textContent = vVerdict;
 }
@@ -835,7 +1131,7 @@ function findVanishingPoint(rowEdges) {
 }
 
 // ============================================================
-//  СВЯЗЬ ПРОПОРЦИЙ И ПЕРСПЕКТИВЫ
+//  СВЯЗЬ
 // ============================================================
 function computeLink() {
   if (!charBBox || !contourResult) {
@@ -849,7 +1145,7 @@ function computeLink() {
   const bh = charBBox.height;
   const ratio = contourResult.ratio || 1;
   const vanishing = contourResult.vanishing;
-  const hasVP = vanishing && (vanishing.manual || vanishing.confidence > 0.25);
+  const hasVP = vanishing && (vanishing.manual || vanishing.confidence > 0.30);
   const neckFrac = fractions.find(f => f.id === 'neck');
   const neckVal = neckFrac ? neckFrac.value : 0.13;
   const headPx = Math.max(1, Math.round(bh * neckVal));
@@ -863,12 +1159,12 @@ function computeLink() {
     const refDist = Math.max(bh, vpDist);
     const perspK = Math.max(0.6, Math.min(1.6, refDist / Math.max(1, vpDist)));
     correctedHeads = measuredHeads / Math.sqrt(perspK);
-    methodUsed = `по ТС (k=${perspK.toFixed(2)})`;
+    methodUsed = `по ТС`;
     topFix = (1 / Math.sqrt(perspK)).toFixed(3);
     botFix = Math.sqrt(perspK).toFixed(3);
   } else {
     correctedHeads = measuredHeads / Math.sqrt(factor);
-    methodUsed = `линейная (k=${factor.toFixed(2)})`;
+    methodUsed = `линейная`;
     topFix = (1 / Math.sqrt(factor)).toFixed(3);
     botFix = Math.sqrt(factor).toFixed(3);
   }
@@ -989,11 +1285,7 @@ function computeJoints() {
       }
     }
     const cx = xMin >= 0 ? (xMin + xMax) / 2 : minX + bw / 2;
-    return {
-      id: f.id, name: f.name, x: cx, yImg: y,
-      pctHeight: (f.value * 100).toFixed(1),
-      manual: !!f.manual,
-    };
+    return { id: f.id, name: f.name, x: cx, yImg: y, pctHeight: (f.value * 100).toFixed(1), manual: !!f.manual };
   });
   jointsListRender(joints);
 }
@@ -1090,11 +1382,24 @@ function drawOverlay() {
   const w = imgWidth, h = imgHeight;
   if (!w) return;
   overlayCtx.clearRect(0, 0, w, h);
+
   const img = overlayCtx.createImageData(w, h);
   const data = img.data;
-  for (let i = 0, j = 0; i < w * h; i++, j += 4) {
-    if (!isBg[i]) {
-      data[j] = 255; data[j+1] = 60; data[j+2] = 60; data[j+3] = 100;
+
+  // Маска кожи (если включено отображение)
+  if (showSkinMaskEl.checked && skinMask) {
+    for (let i = 0, j = 0; i < w * h; i++, j += 4) {
+      if (skinMask[i]) {
+        data[j] = 60; data[j+1] = 220; data[j+2] = 120; data[j+3] = 140;
+      } else if (!isBg[i]) {
+        data[j] = 80; data[j+1] = 80; data[j+2] = 80; data[j+3] = 90;
+      }
+    }
+  } else {
+    for (let i = 0, j = 0; i < w * h; i++, j += 4) {
+      if (!isBg[i]) {
+        data[j] = 255; data[j+1] = 60; data[j+2] = 60; data[j+3] = 100;
+      }
     }
   }
   overlayCtx.putImageData(img, 0, 0);
@@ -1195,7 +1500,8 @@ function drawOverlay() {
     });
   }
 
-  if (contourResult && contourResult.vanishing && showPerspEl.checked) {
+  // ТС — рисуем только если showArrow
+  if (contourResult && contourResult.vanishing && contourResult.vanishing.showArrow && showPerspEl.checked) {
     const v = contourResult.vanishing;
     const isManual = v.manual === true;
     if (charBBox) {
@@ -1270,24 +1576,6 @@ function drawVanishingArrow(v) {
   overlayCtx.closePath();
   overlayCtx.fill();
   overlayCtx.stroke();
-
-  const dist = Math.sqrt((v.x - w/2) ** 2 + (v.y - h/2) ** 2);
-  let distLabel;
-  if (dist > 50000) distLabel = 'ТС очень далеко →';
-  else distLabel = `ТС ${dist.toFixed(0)} px →`;
-  const fs = Math.max(12, Math.round(imgWidth / 60));
-  overlayCtx.font = `bold ${fs}px system-ui`;
-  const tw = overlayCtx.measureText(distLabel).width;
-  const pad = 6;
-  let lx = ex - tw / 2 - nx * 20;
-  let ly = ey - fs - 8 - ny * 20;
-  if (lx < 4) lx = 4;
-  if (lx + tw + pad * 2 > w - 4) lx = w - tw - pad * 2 - 4;
-  if (ly - fs - pad < 4) ly = ey + ny * 20 + fs + 8 + pad;
-  overlayCtx.fillStyle = 'rgba(0,0,0,0.8)';
-  overlayCtx.fillRect(lx - pad, ly - fs - pad, tw + pad * 2, fs + pad * 2);
-  overlayCtx.fillStyle = '#ff80ff';
-  overlayCtx.fillText(distLabel, lx, ly - 1);
 }
 
 function drawHistogram() {
@@ -1371,12 +1659,20 @@ function renderSamplesList() {
 function updateInfo() {
   if (!lum) return;
   const N = imgWidth * imgHeight;
-  let bg = 0, char_ = 0;
-  for (let i = 0; i < N; i++) { if (isBg[i]) bg++; else char_++; }
+  let bg = 0, char_ = 0, skin = 0;
+  for (let i = 0; i < N; i++) {
+    if (isBg[i]) bg++;
+    else {
+      char_++;
+      if (skinMask && skinMask[i]) skin++;
+    }
+  }
   infoSize.textContent = `${imgWidth} × ${imgHeight}`;
   infoModeMode.textContent = mode === 'lum' ? 'яркость' : 'цвет';
   infoBgPct.textContent = ((bg / N) * 100).toFixed(1) + '%';
   infoCharPct.textContent = ((char_ / N) * 100).toFixed(1) + '%';
+  infoSkinPct.textContent = skinMask ? ((skin / N) * 100).toFixed(1) + '%' : '—';
+  infoNonSkinPct.textContent = skinMask ? (((char_ - skin) / N) * 100).toFixed(1) + '%' : '—';
   infoHoles.textContent = holesFilledCount.toLocaleString('ru-RU') + ' px';
   infoWindows.textContent = windowsFoundCount.toLocaleString('ru-RU') + ' px';
   infoPointsCount.textContent = `(${sourcePoints.length})`;
@@ -1410,13 +1706,18 @@ function removePoint(index) {
 }
 
 // ============================================================
-//  ПЕРЕСЧЁТ
+//  ПОЛНЫЙ ПЕРЕСЧЁТ
 // ============================================================
 function rebuildAll() {
   if (!lum) return;
-  buildMask();
-  computeBBox();
-  if (useTableEl.checked) refineFractionsFromProfile();
+  buildMask();              // Этап 1
+  computeBBox();            // Этап 2
+  if (useSegmentationEl.checked) {
+    detectSkin();           // Этапы 4+5 — цвет кожи и маска
+  } else {
+    skinMask = null; skinFound = false; skinColor = null;
+  }
+  computeFractions();       // Этапы 3+6+7+8+9+10+11
   detectFigStyle();
   updateProportions();
   computePerspective();
@@ -1546,7 +1847,6 @@ baseCanvas.addEventListener('mousemove', (e) => {
   baseCanvas.style.cursor = 'crosshair';
 });
 
-// TOUCH
 baseCanvas.addEventListener('touchstart', (e) => {
   if (!charBBox || !lum || e.touches.length !== 1) return;
   const t = e.touches[0];
@@ -1576,7 +1876,7 @@ baseCanvas.addEventListener('touchmove', (e) => {
 baseCanvas.addEventListener('touchend', () => { dragging = null; });
 
 // ============================================================
-//  РЕЖИМЫ И КНОПКИ
+//  РЕЖИМЫ
 // ============================================================
 function resetOtherModes(except) {
   if (except !== 'fractions') { editFractionsMode = false; editFractionsBtn.classList.remove('active'); }
@@ -1643,17 +1943,11 @@ clearVPBtn.addEventListener('click', () => {
   if (lum) drawOverlay();
 });
 
-// ============================================================
-//  ПРЕСЕТЫ
-// ============================================================
 presetAnimeBtn.addEventListener('click', () => { applyPreset('anime'); if (lum) rebuildAll(); });
 presetStylizedBtn.addEventListener('click', () => { applyPreset('stylized'); if (lum) rebuildAll(); });
 presetRealismBtn.addEventListener('click', () => { applyPreset('realism'); if (lum) rebuildAll(); });
 presetChibiBtn.addEventListener('click', () => { applyPreset('chibi'); if (lum) rebuildAll(); });
 
-// ============================================================
-//  РЕЖИМЫ ЦВЕТА
-// ============================================================
 modeLumBtn.addEventListener('click', () => {
   mode = 'lum';
   modeLumBtn.classList.add('active'); modeColorBtn.classList.remove('active');
@@ -1667,9 +1961,6 @@ modeColorBtn.addEventListener('click', () => {
   if (lum) rebuildAll();
 });
 
-// ============================================================
-//  КЛИК ПО КАНВАСУ
-// ============================================================
 baseCanvas.addEventListener('click', e => {
   if (!lum) return;
   if (editFractionsMode || editJointsMode) return;
@@ -1677,9 +1968,7 @@ baseCanvas.addEventListener('click', e => {
   const x = Math.floor((e.clientX - rect.left) * (imgWidth / rect.width));
   const y = Math.floor((e.clientY - rect.top) * (imgHeight / rect.height));
   if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) return;
-
   if (manualVPMode) { manualVP = { x, y }; rebuildAll(); return; }
-
   if (bgColorMode) {
     const idx = y * imgWidth + x;
     const dp = idx * 4;
@@ -1694,7 +1983,6 @@ baseCanvas.addEventListener('click', e => {
     bgColorMode = false; pickBgColorBtn.classList.remove('active');
     rebuildAll(); return;
   }
-
   if (addPointMode) {
     sourcePoints.push({ x, y });
     selectedPointIndex = sourcePoints.length - 1;
@@ -1713,7 +2001,7 @@ baseCanvas.addEventListener('click', e => {
 });
 
 // ============================================================
-//  СЛУШАТЕЛИ КОНТРОЛОВ
+//  СЛУШАТЕЛИ
 // ============================================================
 bgLumEl.addEventListener('input', () => { bgLumVal.textContent = bgLumEl.value; if (mode === 'lum') rebuildAll(); });
 bgDistEl.addEventListener('input', () => { bgDistVal.textContent = bgDistEl.value; if (mode === 'color') rebuildAll(); });
@@ -1721,7 +2009,7 @@ invertEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 useWindowsEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 useHolesEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 useSmoothEl.addEventListener('change', () => { if (lum) rebuildAll(); });
-useTableEl.addEventListener('change', () => { if (lum) rebuildAll(); });
+useSegmentationEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 useTailsFilterEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 maxHoleEl.addEventListener('input', () => { maxHoleVal.textContent = maxHoleEl.value; if (lum && useHolesEl.checked) rebuildAll(); });
 minWinEl.addEventListener('input', () => { minWinVal.textContent = minWinEl.value; if (lum && useWindowsEl.checked) rebuildAll(); });
@@ -1730,8 +2018,13 @@ coreThreshEl.addEventListener('input', () => {
   coreThreshVal.textContent = coreThreshEl.value;
   if (lum) rebuildAll();
 });
+skinTolEl.addEventListener('input', () => {
+  skinTolVal.textContent = skinTolEl.value;
+  if (lum && useSegmentationEl.checked) rebuildAll();
+});
 paletteCountEl.addEventListener('input', () => { paletteCountVal.textContent = paletteCountEl.value; if (lum) computePalette(); });
 showCorrectedEl.addEventListener('change', drawOverlay);
+showSkinMaskEl.addEventListener('change', drawOverlay);
 autoThresholdBtn.addEventListener('click', () => {
   if (!histogram) return;
   autoPickThreshold();
