@@ -10,11 +10,8 @@
     font-family: system-ui, sans-serif;
     background: #14161a;
     color: #e6e6e6;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 16px;
-    gap: 12px;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 16px; gap: 12px;
   }
   .controls {
     display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
@@ -35,63 +32,12 @@
   .stage canvas { display: block; max-width: min(92vw, 900px); height: auto; }
   .stage canvas#base { transition: opacity 0.15s; }
   .stage canvas#overlay { position: absolute; inset: 0; pointer-events: none; }
-
-  /* ---------- Прогресс-бар ---------- */
-  .loader {
-    width: min(92vw, 900px);
-    background: #1d2027;
-    border-radius: 10px;
-    padding: 12px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .loader-top {
-    display: flex; justify-content: space-between; align-items: baseline;
-    font-size: 13px; gap: 12px;
-  }
-  .loader-top .label { opacity: 0.85; }
-  .loader-top .pct { font-variant-numeric: tabular-nums; font-weight: 600; }
-  .bar {
-    position: relative;
-    height: 10px;
-    background: #2b2f37;
-    border-radius: 6px;
-    overflow: hidden;
-  }
-  .bar-fill {
-    height: 100%;
-    width: 0%;
-    background: linear-gradient(90deg, #4f8cff, #7ab6ff);
-    border-radius: 6px;
-    transition: width 0.12s linear;
-  }
-  .loader-meta { font-size: 11px; opacity: 0.55; }
-  .loader.hidden { display: none; }
-  .loader-meta .reset {
-    color: #7ab6ff; cursor: pointer; text-decoration: underline;
-    margin-left: 8px;
-  }
-
   @media (max-width: 600px) {
     .controls { flex-direction: column; align-items: stretch; }
   }
 </style>
 </head>
 <body>
-
-<!-- ---------- Полоса загрузки ---------- -->
-<div class="loader" id="loader">
-  <div class="loader-top">
-    <span class="label" id="loaderLabel">Загрузка OpenCV.js…</span>
-    <span class="pct" id="loaderPct">0%</span>
-  </div>
-  <div class="bar"><div class="bar-fill" id="loaderBar"></div></div>
-  <div class="loader-meta" id="loaderMeta">
-    <span id="loaderMetaText">0.0 / 0.0 МБ</span>
-    <span class="reset" id="resetCache" title="Удалить кэш и перезагрузить">сбросить кэш</span>
-  </div>
-</div>
 
 <div class="controls">
   <label>Изображение: <input id="file" type="file" accept="image/*" /></label>
@@ -104,7 +50,7 @@
     <span id="morphVal">2</span>
   </label>
   <label><input id="hideImage" type="checkbox" /> Скрыть изображение</label>
-  <span class="status" id="status">ожидание OpenCV…</span>
+  <span class="status" id="status">готов</span>
 </div>
 
 <div class="stage" id="stage">
@@ -114,207 +60,78 @@
 
 <script>
 /* =========================================================
- * 0. Константы
+ * 1. Алгоритмы: Otsu, erode, dilate — чистый JS
  * =======================================================*/
 
-const OPENCV_URL     = './lib/opencv.js';
-const OPENCV_EXPECTED = 13 * 1024 * 1024;   // ~13 МБ, для честного прогресса
-const CACHE_NAME     = 'opencv-cache-v1';
-const CACHE_KEY      = OPENCV_URL;
+/** Гистограмма яркости + порог Оцу */
+function otsuThreshold(lum) {
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < lum.length; i++) hist[lum[i]]++;
 
-const loaderEl       = document.getElementById('loader');
-const loaderBar      = document.getElementById('loaderBar');
-const loaderPct      = document.getElementById('loaderPct');
-const loaderMetaText = document.getElementById('loaderMetaText');
-const loaderLbl      = document.getElementById('loaderLabel');
-const resetCacheBtn  = document.getElementById('resetCache');
-const statusEl       = document.getElementById('status');
+  const total = lum.length;
+  let sum = 0;
+  for (let i = 0; i < 256; i++) sum += i * hist[i];
 
-function fmtMB(bytes) { return (bytes / 1024 / 1024).toFixed(1); }
-
-/* =========================================================
- * 1. Кэш OpenCV.js через Cache API
- * =======================================================*/
-
-async function getCachedBlob() {
-  if (!('caches' in window)) return null;
-  try {
-    const cache = await caches.open(CACHE_NAME);
-    const resp = await cache.match(CACHE_KEY);
-    if (!resp) return null;
-    const blob = await resp.blob();
-    return blob;
-  } catch (e) {
-    console.warn('[opencv] cache read failed:', e);
-    return null;
+  let sumB = 0, wB = 0, maxVar = -1, threshold = 0;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t];
+    if (wB === 0) continue;
+    const wF = total - wB;
+    if (wF === 0) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB;
+    const mF = (sum - sumB) / wF;
+    const between = wB * wF * (mB - mF) * (mB - mF);
+    if (between > maxVar) { maxVar = between; threshold = t; }
   }
+  return threshold;
 }
 
-async function putCachedBlob(blob) {
-  if (!('caches' in window)) return;
-  try {
-    const cache = await caches.open(CACHE_NAME);
-    // Кэшируем с корректным Content-Type — важно для blob-скрипта
-    const resp = new Response(blob, {
-      headers: { 'Content-Type': 'application/javascript' }
-    });
-    await cache.put(CACHE_KEY, resp);
-  } catch (e) {
-    console.warn('[opencv] cache write failed:', e);
-  }
-}
-
-async function clearCache() {
-  if (!('caches' in window)) return;
-  try {
-    await caches.delete(CACHE_NAME);
-    console.log('[opencv] cache cleared');
-  } catch (e) {
-    console.warn('[opencv] cache clear failed:', e);
-  }
-}
-
-/* =========================================================
- * 2. Загрузка с прогрессом
- *    Content-Length врёт при gzip (GitHub Pages) — поэтому
- *    ориентируемся на expectedBytes и «loaded > total».
- * =======================================================*/
-
-async function fetchWithProgress(url, expectedBytes) {
-  const resp = await fetch(url, { cache: 'no-store' });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status} при загрузке ${url}`);
-
-  let total = expectedBytes || 0;
-  const reader = resp.body.getReader();
-  const chunks = [];
-  let loaded = 0;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    loaded += value.length;
-
-    // если скачали больше ожидаемого — доверяем реальности
-    if (loaded > total) total = loaded;
-
-    if (total > 0) {
-      const pct = Math.min(100, Math.round((loaded / total) * 100));
-      loaderBar.style.width = pct + '%';
-      loaderPct.textContent = pct + '%';
-      loaderMetaText.textContent = `${fmtMB(loaded)} / ${fmtMB(total)} МБ`;
-    } else {
-      loaderBar.style.width = '100%';
-      loaderPct.textContent = '';
-      loaderMetaText.textContent = `${fmtMB(loaded)} МБ`;
-    }
-  }
-
-  loaderBar.style.width = '100%';
-  loaderPct.textContent = '100%';
-  loaderMetaText.textContent = `${fmtMB(loaded)} МБ`;
-
-  return new Blob(chunks, { type: 'application/javascript' });
-}
-
-/* =========================================================
- * 3. Инжект blob-скрипта + ожидание cv.Mat
- * =======================================================*/
-
-function loadScriptFromBlob(blob) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(blob);
-    const s = document.createElement('script');
-    s.src = url;
-    s.async = true;
-    s.onload = () => { URL.revokeObjectURL(url); resolve(); };
-    s.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
-    document.head.appendChild(s);
-  });
-}
-
-function waitForCvMat(timeoutMs = 60000) {
-  return new Promise((resolve, reject) => {
-    const start = Date.now();
-    const check = () => {
-      if (window.cv && window.cv.Mat) { resolve(); return true; }
-      if (Date.now() - start > timeoutMs) {
-        reject(new Error('OpenCV не инициализировался за ' + timeoutMs + ' мс'));
-        return true;
+/** Erode: пиксель остаётся 1, если все соседи в квадрате r — 1 */
+function erode(mask, w, h, r) {
+  const out = new Uint8Array(mask.length);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let all = 1;
+      for (let dy = -r; dy <= r && all; dy++) {
+        const ny = y + dy;
+        if (ny < 0 || ny >= h) continue;
+        for (let dx = -r; dx <= r; dx++) {
+          const nx = x + dx;
+          if (nx < 0 || nx >= w) continue;
+          if (!mask[ny * w + nx]) { all = 0; break; }
+        }
       }
-      return false;
-    };
-    if (check()) return;
-    const t = setInterval(() => { if (check()) clearInterval(t); }, 50);
-  });
-}
-
-/* =========================================================
- * 4. Инициализация
- * =======================================================*/
-
-let cvReady = false;
-let lastImage = null;
-
-async function initOpenCV() {
-  try {
-    // 4.1. Пробуем кэш
-    loaderLbl.textContent = 'Проверка кэша…';
-    let blob = await getCachedBlob();
-
-    if (blob) {
-      loaderLbl.textContent = 'Загрузка из кэша…';
-      loaderBar.style.width = '100%';
-      loaderPct.textContent = '100%';
-      loaderMetaText.textContent = `${fmtMB(blob.size)} МБ (кэш)`;
-      console.log('[opencv] loaded from cache, size:', blob.size);
-    } else {
-      // 4.2. Качаем с сети
-      loaderLbl.textContent = 'Загрузка OpenCV.js…';
-      blob = await fetchWithProgress(OPENCV_URL, OPENCV_EXPECTED);
-      console.log('[opencv] downloaded, size:', blob.size);
-
-      // 4.3. Кладём в кэш на будущее (не блокируем UI)
-      putCachedBlob(blob);
+      out[y * w + x] = all;
     }
-
-    // 4.4. Инжектим скрипт
-    loaderLbl.textContent = 'Инициализация OpenCV…';
-    await loadScriptFromBlob(blob);
-    console.log('[opencv] script injected, waiting for cv.Mat…');
-
-    // 4.5. Ждём готовности
-    await waitForCvMat(90000);
-    console.log('[opencv] cv.Mat ready');
-
-    cvReady = true;
-    statusEl.textContent = 'OpenCV готов';
-    setTimeout(() => loaderEl.classList.add('hidden'), 400);
-
-    if (lastImage) processImage(lastImage);
-
-  } catch (err) {
-    console.error('[opencv] error:', err);
-    loaderLbl.textContent = 'Ошибка загрузки OpenCV';
-    loaderBar.style.background = '#a03030';
-    loaderMetaText.textContent = String(err && err.message || err);
-    statusEl.textContent = 'OpenCV не загрузился';
   }
+  return out;
 }
 
-/* Кнопка «сбросить кэш» */
-resetCacheBtn.addEventListener('click', async (e) => {
-  e.preventDefault();
-  await clearCache();
-  location.reload();
-});
-
-initOpenCV();
+/** Dilate: пиксель 1, если хотя бы один сосед в квадрате r — 1 */
+function dilate(mask, w, h, r) {
+  const out = new Uint8Array(mask.length);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let any = 0;
+      for (let dy = -r; dy <= r && !any; dy++) {
+        const ny = y + dy;
+        if (ny < 0 || ny >= h) continue;
+        for (let dx = -r; dx <= r; dx++) {
+          const nx = x + dx;
+          if (nx < 0 || nx >= w) continue;
+          if (mask[ny * w + nx]) { any = 1; break; }
+        }
+      }
+      out[y * w + x] = any;
+    }
+  }
+  return out;
+}
 
 /* =========================================================
- * 5. Работа с изображением
+ * 2. Состояние
  * =======================================================*/
-
 const fileInput   = document.getElementById('file');
 const baseCanvas  = document.getElementById('base');
 const overlay     = document.getElementById('overlay');
@@ -324,92 +141,96 @@ const bgLumVal    = document.getElementById('bgLumVal');
 const morphEl     = document.getElementById('morph');
 const morphVal    = document.getElementById('morphVal');
 const hideImageEl = document.getElementById('hideImage');
+const statusEl    = document.getElementById('status');
 
-const baseCtx    = baseCanvas.getContext('2d');
+const baseCtx    = baseCanvas.getContext('2d', { willReadFrequently: true });
 const overlayCtx = overlay.getContext('2d');
 
 let imgWidth = 0, imgHeight = 0;
-let isBg = null;
-let cvSrc = null;
+let lum = null;       // Uint8Array яркостей
+let baseMask = null;  // после Otsu, до морфологии
+let isBg = null;      // финальная маска фона
 
+/* =========================================================
+ * 3. Загрузка изображения
+ * =======================================================*/
 fileInput.addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
   const img = new Image();
   img.onload = () => {
-    lastImage = img;
-    processImage(img);
+    imgWidth  = img.naturalWidth;
+    imgHeight = img.naturalHeight;
+
+    baseCanvas.width  = imgWidth;
+    baseCanvas.height = imgHeight;
+    overlay.width     = imgWidth;
+    overlay.height    = imgHeight;
+
+    baseCtx.drawImage(img, 0, 0);
+    computeLuminance();
+    rebuild();
   };
   img.src = URL.createObjectURL(file);
 });
 
-function processImage(img) {
-  imgWidth  = img.naturalWidth;
-  imgHeight = img.naturalHeight;
-
-  [baseCanvas, overlay].forEach(c => {
-    c.width = imgWidth; c.height = imgHeight;
-  });
-
-  baseCtx.drawImage(img, 0, 0);
-
-  if (!cvReady) {
-    statusEl.textContent = 'OpenCV ещё загружается, подождите…';
-    return;
+function computeLuminance() {
+  const data = baseCtx.getImageData(0, 0, imgWidth, imgHeight).data;
+  const N = imgWidth * imgHeight;
+  lum = new Uint8Array(N);
+  for (let i = 0, p = 0; i < N; i++, p += 4) {
+    if (data[p + 3] < 20) { lum[i] = 255; continue; } // прозрачное = фон
+    lum[i] = (0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2]) | 0;
   }
-
-  if (cvSrc) cvSrc.delete();
-  cvSrc = cv.imread(baseCanvas);
-
-  rebuild();
 }
 
+/* =========================================================
+ * 4. Основная обработка
+ * =======================================================*/
 function rebuild() {
-  if (!cvReady || !cvSrc) return;
+  if (!lum) return;
+  const t0 = performance.now();
 
   const w = imgWidth, h = imgHeight;
   const offset = +bgLumEl.value;
   const morphK = +morphEl.value;
 
-  const gray = new cv.Mat();
-  cv.cvtColor(cvSrc, gray, cv.COLOR_RGBA2GRAY);
+  // 4.1. Otsu
+  const otsu = otsuThreshold(lum);
+  const thresh = Math.max(0, Math.min(255, otsu + offset));
 
-  const binary = new cv.Mat();
-  const otsuThresh = cv.threshold(gray, binary, 0, 255,
-                                  cv.THRESH_BINARY + cv.THRESH_OTSU);
-
-  const t = Math.max(0, Math.min(255, otsuThresh + offset));
-  cv.threshold(gray, binary, t, 255, cv.THRESH_BINARY);
-
-  if (morphK > 0) {
-    const k = 2 * morphK + 1;
-    const kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(k, k));
-    cv.morphologyEx(binary, binary, cv.MORPH_OPEN, kernel);
-    cv.morphologyEx(binary, binary, cv.MORPH_CLOSE, kernel);
-    kernel.delete();
+  // 4.2. Бинарная маска: 1 = яркий (потенциальный фон)
+  baseMask = new Uint8Array(lum.length);
+  for (let i = 0; i < lum.length; i++) {
+    baseMask[i] = lum[i] >= thresh ? 1 : 0;
   }
 
-  const N = w * h;
-  isBg = new Uint8Array(N);
+  // 4.3. Морфология: close (dilate→erode) + open (erode→dilate)
+  let mask = baseMask;
+  if (morphK > 0) {
+    mask = dilate(mask, w, h, morphK);
+    mask = erode(mask, w, h, morphK);
+    mask = erode(mask, w, h, morphK);
+    mask = dilate(mask, w, h, morphK);
+  }
 
-  const binData = binary.data;
-  const isBright = i => binData[i] > 0;
+  // 4.4. Flood fill от краёв — фон = яркий И связанный с границей
+  isBg = new Uint8Array(w * h);
+  const queue = new Int32Array(w * h);
+  let head = 0, tail = 0;
 
-  const queue = [];
   const push = (x, y) => {
     if (x < 0 || y < 0 || x >= w || y >= h) return;
     const idx = y * w + x;
-    if (isBg[idx]) return;
-    if (!isBright(idx)) return;
+    if (isBg[idx] || !mask[idx]) return;
     isBg[idx] = 1;
-    queue.push(idx);
+    queue[tail++] = idx;
   };
 
   for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
   for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
 
-  let head = 0;
-  while (head < queue.length) {
+  while (head < tail) {
     const idx = queue[head++];
     const x = idx % w;
     const y = (idx / w) | 0;
@@ -419,39 +240,54 @@ function rebuild() {
     push(x, y - 1);
   }
 
-  gray.delete();
-  binary.delete();
-
   drawOverlay();
-  statusEl.textContent = `Otsu=${otsuThresh}, порог=${t}, морфология=${morphK}`;
+
+  const dt = (performance.now() - t0).toFixed(0);
+  statusEl.textContent = `Otsu=${otsu}, порог=${thresh}, морф=${morphK}, ${dt} мс`;
 }
 
+/* =========================================================
+ * 5. Отрисовка
+ * =======================================================*/
 function drawOverlay() {
+  if (!isBg) return;
   const w = imgWidth, h = imgHeight;
-  if (!w || !isBg) return;
   overlayCtx.clearRect(0, 0, w, h);
-  const img = overlayCtx.createImageData(w, h);
-  const data = img.data;
+  const imgData = overlayCtx.createImageData(w, h);
+  const d = imgData.data;
 
   for (let i = 0, j = 0; i < w * h; i++, j += 4) {
     if (!isBg[i]) {
-      data[j]     = 255;
-      data[j + 1] = 60;
-      data[j + 2] = 60;
-      data[j + 3] = 140;
+      d[j]     = 255;
+      d[j + 1] = 60;
+      d[j + 2] = 60;
+      d[j + 3] = 140;
     }
   }
-  overlayCtx.putImageData(img, 0, 0);
+  overlayCtx.putImageData(imgData, 0, 0);
+}
+
+/* =========================================================
+ * 6. UI + throttling через requestAnimationFrame
+ * =======================================================*/
+let rafPending = false;
+function scheduleRebuild() {
+  if (rafPending) return;
+  rafPending = true;
+  requestAnimationFrame(() => {
+    rafPending = false;
+    rebuild();
+  });
 }
 
 bgLumEl.addEventListener('input', () => {
   bgLumVal.textContent = bgLumEl.value;
-  rebuild();
+  scheduleRebuild();
 });
 
 morphEl.addEventListener('input', () => {
   morphVal.textContent = morphEl.value;
-  rebuild();
+  scheduleRebuild();
 });
 
 hideImageEl.addEventListener('change', () => {
