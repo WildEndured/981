@@ -61,6 +61,9 @@
   <canvas id="overlay"></canvas>
 </div>
 
+<!-- Локальный OpenCV.js -->
+<script async src="./lib/openCV.js"></script>
+
 <script>
 const fileInput   = document.getElementById('file');
 const baseCanvas  = document.getElementById('base');
@@ -79,20 +82,31 @@ const overlayCtx = overlay.getContext('2d');
 let cvReady = false;
 let imgWidth = 0, imgHeight = 0;
 let isBg = null;
-let cvSrc = null;      // cv.Mat с исходным изображением (RGBA)
-let lastImage = null;  // исходный Image, чтобы пересчитать при смене параметров
+let cvSrc = null;
+let lastImage = null;
 
 // ---------- Ожидание OpenCV.js ----------
-function waitForCv() {
-  if (window.cv && window.cv.Mat) {
-    cvReady = true;
-    statusEl.textContent = 'OpenCV готов';
-    return;
-  }
-  statusEl.textContent = 'загрузка OpenCV…';
-  setTimeout(waitForCv, 100);
+function initOpenCV() {
+  return new Promise((resolve) => {
+    const check = () => {
+      if (window.cv && window.cv.Mat) {
+        cvReady = true;
+        statusEl.textContent = 'OpenCV готов';
+        resolve();
+        return true;
+      }
+      return false;
+    };
+    if (check()) return;
+    const timer = setInterval(() => {
+      if (check()) clearInterval(timer);
+    }, 50);
+  });
 }
-waitForCv();
+
+initOpenCV().then(() => {
+  if (lastImage) processImage(lastImage);
+});
 
 // ---------- Загрузка изображения ----------
 fileInput.addEventListener('change', e => {
@@ -117,12 +131,10 @@ function processImage(img) {
   baseCtx.drawImage(img, 0, 0);
 
   if (!cvReady) {
-    statusEl.textContent = 'OpenCV ещё не загружен, подождите…';
-    setTimeout(() => processImage(img), 200);
-    return;
+    statusEl.textContent = 'OpenCV ещё загружается, подождите…';
+    return; // initOpenCV().then() сам вызовет processImage(lastImage)
   }
 
-  // Сохраняем копию в cv.Mat
   if (cvSrc) cvSrc.delete();
   cvSrc = cv.imread(baseCanvas);
 
@@ -134,37 +146,32 @@ function rebuild() {
   if (!cvReady || !cvSrc) return;
 
   const w = imgWidth, h = imgHeight;
-  const offset = +bgLumEl.value;      // смещение к порогу Otsu
-  const morphK = +morphEl.value;      // размер ядра морфологии
+  const offset = +bgLumEl.value;
+  const morphK = +morphEl.value;
 
   // 1. Grayscale
   const gray = new cv.Mat();
   cv.cvtColor(cvSrc, gray, cv.COLOR_RGBA2GRAY);
 
-  // 2. Otsu threshold — получаем авто-порог
+  // 2. Otsu — получить авто-порог
   const binary = new cv.Mat();
   const otsuThresh = cv.threshold(gray, binary, 0, 255,
                                   cv.THRESH_BINARY + cv.THRESH_OTSU);
 
   // 3. Ручная коррекция порога (± offset)
-  //    пересчитываем бинарь с thresh = otsuThresh + offset
   const t = Math.max(0, Math.min(255, otsuThresh + offset));
   cv.threshold(gray, binary, t, 255, cv.THRESH_BINARY);
 
-  // 4. Морфология: убираем шум и закрываем дырки
+  // 4. Морфология
   if (morphK > 0) {
-    const k = 2 * morphK + 1; // нечётное ядро
-    const kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE,
-                                            new cv.Size(k, k));
-    // open — убирает мелкие яркие пятна
+    const k = 2 * morphK + 1;
+    const kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(k, k));
     cv.morphologyEx(binary, binary, cv.MORPH_OPEN, kernel);
-    // close — заливает дырки в фоне
     cv.morphologyEx(binary, binary, cv.MORPH_CLOSE, kernel);
     kernel.delete();
   }
 
-  // 5. Flood fill от краёв: фон = светлое И связанное с границей
-  //    binary: 255 = яркое. Скопируем в isBg[] только связанное с краями.
+  // 5. Flood fill от краёв
   const N = w * h;
   isBg = new Uint8Array(N);
 
@@ -236,9 +243,6 @@ hideImageEl.addEventListener('change', () => {
   stageEl.classList.toggle('hide', hideImageEl.checked);
 });
 </script>
-
-<!-- OpenCV.js -->
-<script async src="https://docs.opencv.org/4.10.0/opencv.js" onload="onCvLoaded && onCvLoaded()"></script>
 
 </body>
 </html>
