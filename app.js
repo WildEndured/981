@@ -39,6 +39,8 @@ const showSamplesEl = document.getElementById('showSamples');
 const showInfoEl = document.getElementById('showInfo');
 const showCorrectedEl = document.getElementById('showCorrected');
 const showSkinMaskEl = document.getElementById('showSkinMask');
+const showHairMaskEl = document.getElementById('showHairMask');
+const showClothMaskEl = document.getElementById('showClothMask');
 
 const addPointBtn = document.getElementById('addPointBtn');
 const clearPointsBtn = document.getElementById('clearPointsBtn');
@@ -51,6 +53,7 @@ const resetVPBtn = document.getElementById('resetVPBtn');
 const clearVPBtn = document.getElementById('clearVPBtn');
 const resyncBtn = document.getElementById('resyncBtn');
 
+const presetReferenceBtn = document.getElementById('presetReference');
 const presetAnimeBtn = document.getElementById('presetAnime');
 const presetStylizedBtn = document.getElementById('presetStylized');
 const presetRealismBtn = document.getElementById('presetRealism');
@@ -171,8 +174,10 @@ const overlayCtx = overlay.getContext('2d');
 // ============================================================
 let imgWidth = 0, imgHeight = 0;
 let lum = null, isBg = null, imgDataRef = null, histogram = null;
-let skinMask = null;         // 1 = кожа, 0 = не кожа
-let skinColor = null;        // { r, g, b }
+let skinMask = null;
+let hairMask = null;
+let clothMask = null;
+let skinColor = null;
 let skinFound = false;
 let selectedPointIndex = -1;
 let mode = 'lum';
@@ -182,7 +187,7 @@ let sourcePoints = [];
 let holesFilledCount = 0, windowsFoundCount = 0;
 let charBBox = null;
 let figStyle = '—';
-let currentPreset = 'anime';
+let currentPreset = 'reference';
 let headMethod = '—';
 let neckMethod = '—';
 
@@ -193,24 +198,29 @@ let linkResult = null;
 let manualVP = null;
 let manualVPMode = false;
 
+// ============================================================
+//  ТАБЛИЦЫ ПРОПОРЦИЙ
+// ============================================================
 const PROP_TABLES = {
-  chibi:    { neck: 0.22, shoulder: 0.28, chest: 0.42, pelvis: 0.56, knee: 0.76, ankle: 0.95 },
-  anime:    { neck: 0.13, shoulder: 0.20, chest: 0.33, pelvis: 0.48, knee: 0.70, ankle: 0.95 },
-  stylized: { neck: 0.14, shoulder: 0.19, chest: 0.33, pelvis: 0.50, knee: 0.71, ankle: 0.94 },
-  realism:  { neck: 0.13, shoulder: 0.18, chest: 0.32, pelvis: 0.50, knee: 0.72, ankle: 0.95 },
+  // Из референса пользователя: шея 15, плечи 18, талия 33, бёдра 48, колени 75, лодыжки 95
+  reference: { neck: 0.15, shoulder: 0.18, chest: 0.33, pelvis: 0.48, knee: 0.75, ankle: 0.95 },
+  chibi:     { neck: 0.22, shoulder: 0.28, chest: 0.42, pelvis: 0.56, knee: 0.76, ankle: 0.95 },
+  anime:     { neck: 0.13, shoulder: 0.20, chest: 0.33, pelvis: 0.48, knee: 0.70, ankle: 0.95 },
+  stylized:  { neck: 0.14, shoulder: 0.19, chest: 0.33, pelvis: 0.50, knee: 0.71, ankle: 0.94 },
+  realism:   { neck: 0.13, shoulder: 0.18, chest: 0.32, pelvis: 0.50, knee: 0.72, ankle: 0.95 },
 };
 
 const DEFAULT_FRACTIONS = [
   { id: 'top',     name: 'Макушка', value: 0.00, color: '#8b93a1', joint: false },
-  { id: 'neck',    name: 'Шея', value: 0.13, color: '#ff00ff', joint: true },
-  { id: 'shoulder',name: 'Плечи', value: 0.20, color: '#ffaa00', joint: true },
+  { id: 'neck',    name: 'Шея', value: 0.15, color: '#ff00ff', joint: true },
+  { id: 'shoulder',name: 'Плечи', value: 0.18, color: '#ffaa00', joint: true },
   { id: 'chest',   name: 'Талия', value: 0.33, color: '#ffcc00', joint: false },
   { id: 'pelvis',  name: 'Бёдра', value: 0.48, color: '#ffaa00', joint: true },
-  { id: 'knee',    name: 'Колени', value: 0.70, color: '#ffcc00', joint: true },
+  { id: 'knee',    name: 'Колени', value: 0.75, color: '#ffcc00', joint: true },
   { id: 'ankle',   name: 'Лодыжки', value: 0.95, color: '#ffcc00', joint: true },
 ];
 let fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
-let autoNeckValue = 0.13;
+let autoNeckValue = 0.15;
 
 let editFractionsMode = false;
 let editJointsMode = false;
@@ -466,7 +476,7 @@ function smoothOnce(isBg, w, h) {
 }
 
 // ============================================================
-//  ЭТАП 2 — BBOX ПО ПЛОТНОСТИ
+//  ЭТАП 2 — BBOX С ОБРЕЗКОЙ ПО МАКУШКЕ
 // ============================================================
 function computeBBox() {
   const w = imgWidth, h = imgHeight;
@@ -483,6 +493,7 @@ function computeBBox() {
   if (maxX < 0) { charBBox = null; return; }
 
   if (useTailsFilterEl.checked && maxX > minX && maxY > minY) {
+    // Плотность по столбцам/строкам
     const colCounts = new Int32Array(w);
     const rowCounts = new Int32Array(h);
     for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
@@ -517,38 +528,57 @@ function computeBBox() {
     }
   }
 
+  // Обрезка сверху по макушке: если верхние 3% bbox имеют очень малую
+  // ширину (рога, антенны), сдвигаем minY вниз.
+  const bh0 = maxY - minY + 1;
+  const bw0 = maxX - minX + 1;
+  const topZone = Math.round(bh0 * 0.05);
+  let newMinY = minY;
+  for (let y = minY; y < minY + topZone; y++) {
+    let rowMinX = -1, rowMaxX = -1;
+    for (let x = minX; x <= maxX; x++) {
+      if (!isBg[y * w + x]) { if (rowMinX < 0) rowMinX = x; rowMaxX = x; }
+    }
+    const rowW = rowMinX < 0 ? 0 : (rowMaxX - rowMinX + 1);
+    // Если ширина строки меньше 20% от ширины bbox — это рога/антенны
+    if (rowW >= bw0 * 0.20) {
+      newMinY = y;
+      break;
+    }
+  }
+  if (newMinY > minY && newMinY < minY + topZone) {
+    minY = newMinY;
+  }
+
   charBBox = { minX, minY, maxX, maxY, width: maxX - minX + 1, height: maxY - minY + 1, charCount };
 }
 
 // ============================================================
-//  ЭТАП 4+5+6 — ПОИСК КОЖИ И МАСКА ГОЛОГО ТЕЛА
+//  ЭТАП 4+5+6 — ПОИСК КОЖИ, ВОЛОС, ОДЕЖДЫ
 // ============================================================
-// 1. Берём цвет кожи лица (медиана в центральной верхней области).
-// 2. Берём цвет кожи тела (медиана в боковых областях средней трети).
-// 3. Строим маску "кожа" — все пиксели персонажа, близкие к цвету кожи.
-// 4. skinMask: 1 = кожа, 0 = не кожа.
 function detectSkin() {
   if (!charBBox) {
-    skinMask = null; skinFound = false; skinColor = null;
+    skinMask = null; hairMask = null; clothMask = null;
+    skinFound = false; skinColor = null;
     return;
   }
   const w = imgWidth, h = imgHeight;
   const { minX, minY, width: bw, height: bh } = charBBox;
   const d = imgDataRef.data;
 
-  // Цвет лица: центральная верхняя область
-  const faceStartY = minY + Math.round(bh * 0.05);
-  const faceEndY = minY + Math.round(bh * 0.13);
+  // Цвет лица — центральная верхняя область
+  const faceStartY = minY + Math.round(bh * 0.03);
+  const faceEndY   = minY + Math.round(bh * 0.12);
   const faceStartX = minX + Math.round(bw * 0.35);
-  const faceEndX = minX + Math.round(bw * 0.65);
+  const faceEndX   = minX + Math.round(bw * 0.65);
 
-  // Цвет рук: боковые области средней трети
+  // Цвет рук — боковые области средней трети
   const armStartY = minY + Math.round(bh * 0.30);
-  const armEndY = minY + Math.round(bh * 0.55);
-  const armLeftStartX = minX + Math.round(bw * 0.05);
-  const armLeftEndX = minX + Math.round(bw * 0.15);
-  const armRightStartX = minX + Math.round(bw * 0.85);
-  const armRightEndX = minX + Math.round(bw * 0.95);
+  const armEndY   = minY + Math.round(bh * 0.55);
+  const armLStartX = minX + Math.round(bw * 0.03);
+  const armLEndX   = minX + Math.round(bw * 0.15);
+  const armRStartX = minX + Math.round(bw * 0.85);
+  const armREndX   = minX + Math.round(bw * 0.97);
 
   const samples = [];
   const collect = (x0, y0, x1, y1) => {
@@ -561,27 +591,27 @@ function detectSkin() {
         const p = idx * 4;
         if (d[p + 3] < 20) continue;
         const r = d[p], g = d[p + 1], b = d[p + 2];
-        // Отсекаем тёмные пиксели (одежда) и очень светлые (блики)
         const L = 0.299 * r + 0.587 * g + 0.114 * b;
-        if (L < 40 || L > 240) continue;
-        // Отсекаем сильно насыщенные (одежда/волосы)
+        if (L < 40 || L > 245) continue;
+        // Отсекаем насыщенные (одежда)
         const maxC = Math.max(r, g, b), minC = Math.min(r, g, b);
         const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
-        if (sat > 0.55) continue;
+        if (sat > 0.50) continue;
         samples.push({ r, g, b });
       }
     }
   };
   collect(faceStartX, faceStartY, faceEndX, faceEndY);
-  collect(armLeftStartX, armStartY, armLeftEndX, armEndY);
-  collect(armRightStartX, armStartY, armRightEndX, armEndY);
+  collect(armLStartX, armStartY, armLEndX, armEndY);
+  collect(armRStartX, armStartY, armREndX, armEndY);
 
-  if (samples.length < 100) {
-    skinMask = null; skinFound = false; skinColor = null;
+  if (samples.length < 80) {
+    skinMask = null; hairMask = null; clothMask = null;
+    skinFound = false; skinColor = null;
     return;
   }
 
-  // Медиана по каждому каналу
+  // Медиана
   const rs = samples.map(s => s.r).sort((a, b) => a - b);
   const gs = samples.map(s => s.g).sort((a, b) => a - b);
   const bs = samples.map(s => s.b).sort((a, b) => a - b);
@@ -608,9 +638,30 @@ function detectSkin() {
       if (dr * dr + dg * dg + db * db < tol2) skinMask[idx] = 1;
     }
   }
-
-  // Дилатация маски кожи — восстанавливаем границы, съеденные антиалиасингом
   skinMask = dilate(skinMask, w, h, 2);
+
+  // Маска "не-кожа" = персонаж минус кожа
+  const nonSkin = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    if (!isBg[i] && !skinMask[i]) nonSkin[i] = 1;
+  }
+
+  // Разделяем "не-кожа" на волосы и одежду по высоте:
+  // уровень плеч = fraction shoulder
+  const shFrac = fractions.find(f => f.id === 'shoulder');
+  const shVal = shFrac ? shFrac.value : 0.20;
+  const shoulderY = minY + Math.round(bh * shVal);
+
+  hairMask = new Uint8Array(w * h);
+  clothMask = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = y * w + x;
+      if (!nonSkin[idx]) continue;
+      if (y < shoulderY) hairMask[idx] = 1;
+      else clothMask[idx] = 1;
+    }
+  }
 }
 
 function dilate(mask, w, h, radius) {
@@ -634,18 +685,15 @@ function dilate(mask, w, h, radius) {
 }
 
 // ============================================================
-//  ЭТАП 3+7+8+9 — ПОИСК ПРОПОРЦИЙ
+//  ЭТАП 3+7+8+9+10+11 — ПОИСК ДОЛЕЙ
 // ============================================================
-// Используем маску кожи если она есть, иначе маску персонажа.
 function getSilhouetteMask() {
   const N = imgWidth * imgHeight;
   if (useSegmentationEl.checked && skinMask && skinFound) {
-    // Используем маску кожи — тело без волос и одежды
     const out = new Uint8Array(N);
     for (let i = 0; i < N; i++) out[i] = skinMask[i];
     return out;
   }
-  // Fallback — маска персонажа
   const out = new Uint8Array(N);
   for (let i = 0; i < N; i++) out[i] = isBg[i] ? 0 : 1;
   return out;
@@ -653,26 +701,22 @@ function getSilhouetteMask() {
 
 function computeFractions() {
   if (!charBBox) return;
-
   const w = imgWidth, h = imgHeight;
   const { minX, minY, width: bw, height: bh } = charBBox;
   const silhou = getSilhouetteMask();
-  const useSkin = useSegmentationEl.checked && skinMask && skinFound;
 
-  // --- Профиль ширины по силуэту (коже или персонажу) ---
+  // Профиль ширины
   const rowWidths = new Int32Array(bh);
   for (let yy = 0; yy < bh; yy++) {
     const y = minY + yy;
-    let count = 0;
     let rowMinX = -1, rowMaxX = -1;
     for (let x = minX; x <= minX + bw - 1; x++) {
       if (silhou[y * w + x]) {
-        count++;
         if (rowMinX < 0) rowMinX = x;
         rowMaxX = x;
       }
     }
-    rowWidths[yy] = count > 0 ? rowMaxX - rowMinX + 1 : 0;
+    rowWidths[yy] = rowMinX < 0 ? 0 : (rowMaxX - rowMinX + 1);
   }
   const sm = new Float32Array(bh);
   for (let i = 0; i < bh; i++) {
@@ -688,19 +732,11 @@ function computeFractions() {
   let maxWidth = 0;
   for (let i = 0; i < bh; i++) if (sm[i] > maxWidth) maxWidth = sm[i];
 
-  // ========== ЭТАП 3+7: ПОИСК ГОЛОВЫ И ШЕИ ==========
-  // Дихотомия: верхняя четверть → восьмые
+  // ===== Поиск головы: дихотомия по четвертям и восьмым =====
   let neckIdx = -1;
   let method = '—';
 
-  // Ищем первое существенное сужение в верхней четверти (0..25%)
-  const q1End = Math.floor(bh * 0.25);
-  const q2End = Math.floor(bh * 0.50);
-
-  // Делим верхнюю четверть на 4 восьмых
   const eighths = [0, 0.0625, 0.125, 0.1875, 0.25].map(v => Math.floor(bh * v));
-
-  // Средняя ширина в каждой восьмой
   const eighthWidths = [];
   for (let i = 0; i < 4; i++) {
     const a = eighths[i], b = eighths[i + 1];
@@ -709,7 +745,6 @@ function computeFractions() {
     eighthWidths.push(cnt > 0 ? sum / cnt : 0);
   }
 
-  // Ищем первое падение ширины на 15%+ относительно предыдущей восьмой
   for (let i = 1; i < 4; i++) {
     if (eighthWidths[i - 1] > 0 && eighthWidths[i] < eighthWidths[i - 1] * 0.85) {
       neckIdx = eighths[i];
@@ -718,38 +753,24 @@ function computeFractions() {
     }
   }
 
-  // Если не нашли в восьмых — ищем минимум ширины в Q1
   if (neckIdx < 0) {
     let bestMin = Infinity, bestI = -1;
+    const q1End = Math.floor(bh * 0.30);
     for (let i = 4; i < q1End; i++) {
       if (sm[i] > 0 && sm[i] < bestMin) { bestMin = sm[i]; bestI = i; }
     }
     if (bestI >= 0 && bestMin < maxWidth * 0.80) {
       neckIdx = bestI;
-      method = 'Q1-минимум';
+      method = 'минимум Q1';
     }
   }
 
-  // Если всё ещё не нашли — ищем минимум в Q2
-  if (neckIdx < 0) {
-    let bestMin = Infinity, bestI = -1;
-    for (let i = q1End; i < q2End; i++) {
-      if (sm[i] > 0 && sm[i] < bestMin) { bestMin = sm[i]; bestI = i; }
-    }
-    if (bestI >= 0 && bestMin < maxWidth * 0.80) {
-      neckIdx = bestI;
-      method = 'Q2-минимум';
-    }
-  }
-
-  // Валидация пропорции головы: должна быть 12–22% высоты
   let neckValue;
   if (neckIdx >= 0) {
     const headFrac = neckIdx / bh;
     if (headFrac >= 0.12 && headFrac <= 0.22) {
       neckValue = headFrac;
     } else {
-      // Вне диапазона — берём табличное
       neckValue = PROP_TABLES[currentPreset].neck;
       method = 'таблица (вне 12–22%)';
     }
@@ -757,51 +778,27 @@ function computeFractions() {
     neckValue = PROP_TABLES[currentPreset].neck;
     method = 'таблица';
   }
-
   neckMethod = method;
 
-  // ========== ЭТАП 8: РОСТ В ГОЛОВАХ ==========
+  // ===== Рост в головах =====
   const headPx = Math.max(1, Math.round(bh * neckValue));
   const heads = bh / headPx;
 
-  // Определяем тип фигуры по росту в головах
-  let presetKey;
-  if (heads < 4.5) presetKey = 'chibi';
-  else if (heads < 6.5) presetKey = 'anime';
-  else if (heads < 7.5) presetKey = 'stylized';
-  else presetKey = 'realism';
-  const table = PROP_TABLES[presetKey];
+  // ===== Связанные доли =====
+  const table = PROP_TABLES[currentPreset];
 
-  // ========== ЭТАП 9: СВЯЗАННЫЕ ДОЛИ ==========
-  // Используем табличные значения как основу, но привязываем к найденной шее
-  const shouldersOffsetByType = {
-    chibi: 0.06, anime: 0.07, stylized: 0.06, realism: 0.05,
+  // Плечи — фиксированный отступ от шеи
+  const shoulderOffsets = {
+    reference: 0.03, anime: 0.05, stylized: 0.05, realism: 0.05, chibi: 0.06,
   };
-  const pelvisOffsetByType = {
-    chibi: 0.34, anime: 0.35, stylized: 0.36, realism: 0.37,
-  };
+  let shoulderValue = neckValue + (shoulderOffsets[currentPreset] || 0.04);
 
-  let shoulderValue = neckValue + shouldersOffsetByType[presetKey];
-  let chestValue    = neckValue + (table.chest - table.neck);
-  let pelvisValue   = neckValue + pelvisOffsetByType[presetKey];
-  let kneeValue     = (pelvisValue + table.ankle) / 2;
-  let ankleValue    = table.ankle;
+  let chestValue = table.chest;
+  let pelvisValue = table.pelvis;
+  let kneeValue = table.knee;
+  let ankleValue = table.ankle;
 
-  // ========== ЭТАП 10: ВАЛИДАЦИЯ ==========
-  const validate = (val, id) => {
-    const v = fractions.find(f => f.id === id);
-    const base = table[id];
-    // Если значение вне ±20% от табличного — берём табличное
-    if (Math.abs(val - base) > 0.20) return base;
-    return val;
-  };
-  shoulderValue = validate(shoulderValue, 'shoulder');
-  chestValue    = validate(chestValue, 'chest');
-  pelvisValue   = validate(pelvisValue, 'pelvis');
-  kneeValue     = validate(kneeValue, 'knee');
-  ankleValue    = validate(ankleValue, 'ankle');
-
-  // ========== ЭТАП 11: ОГРАНИЧЕННОЕ УТОЧНЕНИЕ ±1% ==========
+  // ===== Уточнение ±1% по ширине =====
   const refineWin = Math.max(3, Math.round(bh * 0.01));
   const refineTargets = {
     neck: 'min', shoulder: 'max', chest: 'min',
@@ -824,14 +821,12 @@ function computeFractions() {
       }
     }
     if (bestI < 0) return val;
-    // Проверка выраженности
     let sum = 0, cnt = 0;
     for (let i = from; i <= to; i++) { sum += sm[i]; cnt++; }
     const avg = sum / Math.max(1, cnt);
     const expr = target === 'min' ? (avg - bestV) / avg : (bestV - avg) / avg;
     if (expr < 0.05) return val;
     const refined = bestI / bh;
-    // Возвращаем, если отклонение от исходного <= 1.5%
     if (Math.abs(refined - val) <= 0.015) return refined;
     return val;
   };
@@ -845,7 +840,6 @@ function computeFractions() {
     ankle:    refineOne(ankleValue, 'ankle'),
   };
 
-  // Применяем, не трогая ручные правки
   fractions.forEach(f => {
     if (f.id === 'top') return;
     if (f.manual) return;
@@ -858,7 +852,6 @@ function computeFractions() {
   const neckFrac = fractions.find(f => f.id === 'neck');
   if (neckFrac && !neckFrac.manual) autoNeckValue = neckFrac.value;
 
-  // Сохраняем метод в autoInfo
   headMethod = method;
 }
 
@@ -872,13 +865,15 @@ function applyPreset(key) {
     if (f.id === 'top') return { ...f };
     return { ...f, value: table[f.id], manual: false };
   });
-  [presetAnimeBtn, presetStylizedBtn, presetRealismBtn, presetChibiBtn]
-    .forEach(b => b.classList.remove('active'));
-  if (key === 'anime') presetAnimeBtn.classList.add('active');
-  else if (key === 'stylized') presetStylizedBtn.classList.add('active');
-  else if (key === 'realism') presetRealismBtn.classList.add('active');
-  else if (key === 'chibi') presetChibiBtn.classList.add('active');
+  [presetReferenceBtn, presetAnimeBtn, presetStylizedBtn, presetRealismBtn, presetChibiBtn]
+    .forEach(b => { if (b) b.classList.remove('active'); });
+  if (key === 'reference' && presetReferenceBtn) presetReferenceBtn.classList.add('active');
+  else if (key === 'anime' && presetAnimeBtn) presetAnimeBtn.classList.add('active');
+  else if (key === 'stylized' && presetStylizedBtn) presetStylizedBtn.classList.add('active');
+  else if (key === 'realism' && presetRealismBtn) presetRealismBtn.classList.add('active');
+  else if (key === 'chibi' && presetChibiBtn) presetChibiBtn.classList.add('active');
   const label =
+    key === 'reference' ? 'референс 5.5 голов' :
     key === 'anime' ? 'аниме' :
     key === 'stylized' ? 'стилизованный' :
     key === 'realism' ? 'реализм' : 'чиби';
@@ -886,13 +881,13 @@ function applyPreset(key) {
 }
 
 // ============================================================
-//  ОПРЕДЕЛЕНИЕ ТИПА ФИГУРЫ
+//  ТИП ФИГУРЫ
 // ============================================================
 function detectFigStyle() {
   if (!charBBox) { figStyle = '—'; propStyle.textContent = '—'; return; }
   const bh = charBBox.height;
   const neckFrac = fractions.find(f => f.id === 'neck');
-  const neckVal = neckFrac ? neckFrac.value : 0.13;
+  const neckVal = neckFrac ? neckFrac.value : 0.15;
   const headPx = Math.max(1, Math.round(bh * neckVal));
   const heads = bh / headPx;
   let label = '';
@@ -918,15 +913,14 @@ function updateProportions() {
   propFill.textContent = `${((charCount / (bw * bh)) * 100).toFixed(1)}%`;
 
   const neckFrac = fractions.find(f => f.id === 'neck');
-  const neckVal = neckFrac ? neckFrac.value : 0.13;
+  const neckVal = neckFrac ? neckFrac.value : 0.15;
   const headPx = Math.max(1, Math.round(bh * neckVal));
   const heads = bh / headPx;
   propHeads.textContent = `${heads.toFixed(2)} (${headPx} px)`;
 
-  // Сегментация
   if (skinFound && skinColor) {
     propSkinFound.textContent = 'да';
-    propSkinColor.innerHTML = `rgb(${skinColor.r},${skinColor.g},${skinColor.b})`;
+    propSkinColor.textContent = `rgb(${skinColor.r},${skinColor.g},${skinColor.b})`;
     let skinCount = 0;
     const N = w * h;
     if (skinMask) for (let i = 0; i < N; i++) if (skinMask[i]) skinCount++;
@@ -941,7 +935,6 @@ function updateProportions() {
 
   const manualCount = fractions.filter(f => f.manual).length;
   propFractions.textContent = manualCount > 0 ? `${manualCount} ручных` : 'авто';
-
   propsSummary.textContent = `${bh}×${bw} · ${heads.toFixed(2)} голов`;
 }
 
@@ -982,7 +975,6 @@ function computePerspective() {
   const ratio = botW > 0 ? topW / botW : 0;
   perspTopBot.textContent = ratio.toFixed(3);
   let vVerdict = '';
-  // Ужесточённые пороги
   if (ratio > 1.20) vVerdict = 'ракурс снизу';
   else if (ratio < 0.83) vVerdict = 'ракурс сверху';
   else vVerdict = 'фронтально, без перспективы';
@@ -1019,7 +1011,6 @@ function computePerspective() {
     if (vanishing) vanishing.manual = false;
   }
 
-  // Показываем ТС, только если уверенность > 30% И расстояние < 15000
   if (vanishing) {
     const inside = vanishing.x >= 0 && vanishing.x < w && vanishing.y >= 0 && vanishing.y < h;
     const distCenter = Math.sqrt((vanishing.x - w/2) ** 2 + (vanishing.y - h/2) ** 2);
@@ -1027,7 +1018,6 @@ function computePerspective() {
     const distX = Math.max(0, Math.max(-vanishing.x, vanishing.x - w));
     const distY = Math.max(0, Math.max(-vanishing.y, vanishing.y - h));
     const dist = Math.sqrt(distX * distX + distY * distY);
-
     const showArrow = isManual || (vanishing.confidence > 0.30 && distCenter < 15000);
     vanishing.showArrow = showArrow;
 
@@ -1147,7 +1137,7 @@ function computeLink() {
   const vanishing = contourResult.vanishing;
   const hasVP = vanishing && (vanishing.manual || vanishing.confidence > 0.30);
   const neckFrac = fractions.find(f => f.id === 'neck');
-  const neckVal = neckFrac ? neckFrac.value : 0.13;
+  const neckVal = neckFrac ? neckFrac.value : 0.15;
   const headPx = Math.max(1, Math.round(bh * neckVal));
   const measuredHeads = bh / headPx;
   const factor = ratio;
@@ -1386,13 +1376,21 @@ function drawOverlay() {
   const img = overlayCtx.createImageData(w, h);
   const data = img.data;
 
-  // Маска кожи (если включено отображение)
-  if (showSkinMaskEl.checked && skinMask) {
+  const showSkin = showSkinMaskEl.checked;
+  const showHair = showHairMaskEl.checked;
+  const showCloth = showClothMaskEl.checked;
+
+  if (showSkin || showHair || showCloth) {
     for (let i = 0, j = 0; i < w * h; i++, j += 4) {
-      if (skinMask[i]) {
-        data[j] = 60; data[j+1] = 220; data[j+2] = 120; data[j+3] = 140;
-      } else if (!isBg[i]) {
-        data[j] = 80; data[j+1] = 80; data[j+2] = 80; data[j+3] = 90;
+      if (isBg[i]) continue;
+      if (showSkin && skinMask && skinMask[i]) {
+        data[j] = 60; data[j+1] = 220; data[j+2] = 120; data[j+3] = 160;
+      } else if (showHair && hairMask && hairMask[i]) {
+        data[j] = 255; data[j+1] = 60; data[j+2] = 60; data[j+3] = 160;
+      } else if (showCloth && clothMask && clothMask[i]) {
+        data[j] = 60; data[j+1] = 120; data[j+2] = 255; data[j+3] = 160;
+      } else {
+        data[j] = 255; data[j+1] = 60; data[j+2] = 60; data[j+3] = 60;
       }
     }
   } else {
@@ -1500,7 +1498,6 @@ function drawOverlay() {
     });
   }
 
-  // ТС — рисуем только если showArrow
   if (contourResult && contourResult.vanishing && contourResult.vanishing.showArrow && showPerspEl.checked) {
     const v = contourResult.vanishing;
     const isManual = v.manual === true;
@@ -1710,14 +1707,15 @@ function removePoint(index) {
 // ============================================================
 function rebuildAll() {
   if (!lum) return;
-  buildMask();              // Этап 1
-  computeBBox();            // Этап 2
+  buildMask();
+  computeBBox();
   if (useSegmentationEl.checked) {
-    detectSkin();           // Этапы 4+5 — цвет кожи и маска
+    detectSkin();
   } else {
-    skinMask = null; skinFound = false; skinColor = null;
+    skinMask = null; hairMask = null; clothMask = null;
+    skinFound = false; skinColor = null;
   }
-  computeFractions();       // Этапы 3+6+7+8+9+10+11
+  computeFractions();
   detectFigStyle();
   updateProportions();
   computePerspective();
@@ -1943,10 +1941,11 @@ clearVPBtn.addEventListener('click', () => {
   if (lum) drawOverlay();
 });
 
-presetAnimeBtn.addEventListener('click', () => { applyPreset('anime'); if (lum) rebuildAll(); });
-presetStylizedBtn.addEventListener('click', () => { applyPreset('stylized'); if (lum) rebuildAll(); });
-presetRealismBtn.addEventListener('click', () => { applyPreset('realism'); if (lum) rebuildAll(); });
-presetChibiBtn.addEventListener('click', () => { applyPreset('chibi'); if (lum) rebuildAll(); });
+if (presetReferenceBtn) presetReferenceBtn.addEventListener('click', () => { applyPreset('reference'); if (lum) rebuildAll(); });
+if (presetAnimeBtn) presetAnimeBtn.addEventListener('click', () => { applyPreset('anime'); if (lum) rebuildAll(); });
+if (presetStylizedBtn) presetStylizedBtn.addEventListener('click', () => { applyPreset('stylized'); if (lum) rebuildAll(); });
+if (presetRealismBtn) presetRealismBtn.addEventListener('click', () => { applyPreset('realism'); if (lum) rebuildAll(); });
+if (presetChibiBtn) presetChibiBtn.addEventListener('click', () => { applyPreset('chibi'); if (lum) rebuildAll(); });
 
 modeLumBtn.addEventListener('click', () => {
   mode = 'lum';
@@ -2025,6 +2024,8 @@ skinTolEl.addEventListener('input', () => {
 paletteCountEl.addEventListener('input', () => { paletteCountVal.textContent = paletteCountEl.value; if (lum) computePalette(); });
 showCorrectedEl.addEventListener('change', drawOverlay);
 showSkinMaskEl.addEventListener('change', drawOverlay);
+showHairMaskEl.addEventListener('change', drawOverlay);
+showClothMaskEl.addEventListener('change', drawOverlay);
 autoThresholdBtn.addEventListener('click', () => {
   if (!histogram) return;
   autoPickThreshold();
