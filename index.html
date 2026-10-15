@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Фон, персонаж, пропорции, перспектива</title>
+<title>Анализ персонажа — полный</title>
 <style>
   body {
     margin: 0;
@@ -33,7 +33,6 @@
   button:hover { background: #2c323c; }
   button.active { background: #2b6cb0; border-color: #2b6cb0; }
   button.danger { background: #3a1a1a; border-color: #5a2a2a; color: #ff9090; }
-  button.danger:hover { background: #4a2020; }
   .stage {
     position: relative; display: inline-block;
     border: 1px solid #2b2f37; background: #0b0c0f; line-height: 0;
@@ -59,16 +58,19 @@
     background: transparent; font-size: 12px;
   }
   .mode-switch button.active { background: #2b6cb0; }
-  .histo-block {
+
+  .histo-block, .props-block, .samples-block, .info-panel {
     width: min(92vw, 900px);
     background: #1d2027; border-radius: 10px;
     padding: 12px 14px; display: none;
   }
-  .histo-block.visible { display: block; }
+  .histo-block.visible, .props-block.visible, .samples-block.visible, .info-panel.visible { display: block; }
+
   .block-title {
     margin: 0 0 10px 0; font-size: 13px;
     color: #e6e6e6; font-weight: 600;
     display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap;
   }
   .block-title .num {
     display: inline-flex; align-items: center; justify-content: center;
@@ -76,6 +78,7 @@
     background: #2b6cb0; color: #fff;
     font-size: 12px; font-weight: 700; flex-shrink: 0;
   }
+
   .histo-canvas-wrap { position: relative; width: 100%; height: 120px; }
   .histo-canvas {
     width: 100%; height: 100%; display: block;
@@ -87,30 +90,7 @@
     display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   }
   .histo-info b { color: #e6e6e6; }
-  .samples-block {
-    width: min(92vw, 900px);
-    background: #1d2027; border-radius: 10px;
-    padding: 12px 14px; display: none;
-  }
-  .samples-block.visible { display: block; }
-  .sample-list { display: flex; flex-wrap: wrap; gap: 8px; }
-  .sample-chip {
-    display: flex; align-items: center; gap: 6px;
-    padding: 5px 10px; border-radius: 8px;
-    background: #14161a; border: 1px solid #2b2f37;
-    font-size: 12px;
-  }
-  .sample-chip button.remove {
-    background: transparent; border: none; color: #ff6060;
-    font-size: 14px; padding: 0 3px; cursor: pointer; line-height: 1;
-  }
-  .sample-empty { color: #8b93a1; font-size: 12px; }
-  .props-block {
-    width: min(92vw, 900px);
-    background: #1d2027; border-radius: 10px;
-    padding: 12px 14px; display: none;
-  }
-  .props-block.visible { display: block; }
+
   .props-grid {
     display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
   }
@@ -123,66 +103,7 @@
     margin: 0 0 8px 0; font-size: 13px;
     color: #ffcc00; font-weight: 600;
   }
-  .prop-bar { margin: 6px 0; }
-  .prop-bar-label {
-    display: flex; justify-content: space-between;
-    font-size: 12px; color: #b9c3d1;
-    margin-bottom: 3px; gap: 8px;
-  }
-  .prop-bar-label b { color: #e6e6e6; font-variant-numeric: tabular-nums; }
-  .prop-bar-track {
-    height: 8px; background: #2b2f37;
-    border-radius: 4px; overflow: hidden;
-    position: relative;
-  }
-  .prop-bar-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #1e4a8a, #40a0ff);
-  }
-  .heads-badge {
-    display: flex; align-items: center; justify-content: center;
-    gap: 10px; padding: 12px;
-    background: linear-gradient(135deg, #1a3a5c, #2b6cb0);
-    border-radius: 10px; margin-bottom: 10px;
-    border: 1px solid #2b6cb0;
-  }
-  .heads-badge .value {
-    font-size: 32px; font-weight: 800;
-    color: #fff; line-height: 1;
-    font-variant-numeric: tabular-nums;
-  }
-  .heads-badge .label { font-size: 13px; color: #c5dcff; line-height: 1.3; }
-  .heads-badge .label b { color: #fff; display: block; font-size: 14px; margin-bottom: 2px; }
-  .persp-badge {
-    display: flex; align-items: center; justify-content: center;
-    gap: 12px; padding: 14px;
-    background: linear-gradient(135deg, #3a1a4a, #6a2cb0);
-    border-radius: 10px; margin-bottom: 10px;
-    border: 1px solid #6a2cb0;
-  }
-  .persp-badge .icon { font-size: 28px; }
-  .persp-badge .info { font-size: 13px; color: #ddc5ff; line-height: 1.3; }
-  .persp-badge .info b { color: #fff; font-size: 18px; display: block; margin-bottom: 2px; }
-  .info-panel {
-    width: min(92vw, 900px);
-    background: #1d2027; border-radius: 10px;
-    padding: 12px 14px; font-size: 13px;
-    color: #b9c3d1; line-height: 1.5;
-    display: none;
-  }
-  .info-panel.visible { display: block; }
-  .info-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
-  }
-  @media (max-width: 700px) { .info-grid { grid-template-columns: 1fr; } }
-  .info-block {
-    background: #14161a; border: 1px solid #2b2f37;
-    border-radius: 8px; padding: 10px 12px;
-  }
-  .info-block h4 {
-    margin: 0 0 8px 0; font-size: 13px;
-    color: #ffcc00; font-weight: 600;
-  }
+
   .kv {
     display: flex; justify-content: space-between; gap: 10px;
     padding: 3px 0; border-bottom: 1px dashed #2b2f37;
@@ -190,6 +111,73 @@
   .kv:last-child { border-bottom: none; }
   .kv span:first-child { color: #8b93a1; }
   .kv span:last-child { color: #e6e6e6; font-variant-numeric: tabular-nums; }
+
+  /* Шкалы */
+  .scale {
+    height: 12px;
+    background: #2b2f37;
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+    margin-top: 4px;
+  }
+  .scale-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #1e4a8a, #40a0ff);
+    transition: width 0.2s;
+  }
+  .scale-fill.good { background: linear-gradient(90deg, #1e6a3a, #40d080); }
+  .scale-fill.warn { background: linear-gradient(90deg, #6a5a1a, #ffcc00); }
+  .scale-fill.bad { background: linear-gradient(90deg, #6a1a1a, #ff4040); }
+
+  /* Палитра */
+  .palette-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 8px;
+  }
+  .palette-chip {
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #2b2f37;
+    background: #14161a;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .palette-chip:hover { transform: scale(1.03); border-color: #40a0ff; }
+  .palette-chip .color-block {
+    height: 48px;
+    width: 100%;
+  }
+  .palette-chip .info-block {
+    padding: 5px 7px;
+    font-size: 11px;
+    line-height: 1.25;
+    background: #14161a;
+  }
+  .palette-chip .hex { color: #e6e6e6; font-weight: 600; }
+  .palette-chip .pct { color: #8b93a1; }
+
+  /* Суставы — список */
+  .joint-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    font-size: 12px;
+  }
+  @media (max-width: 600px) {
+    .joint-list { grid-template-columns: 1fr; }
+  }
+  .joint-item {
+    display: flex; justify-content: space-between;
+    padding: 4px 8px;
+    background: #14161a;
+    border-radius: 5px;
+    border: 1px solid #2b2f37;
+  }
+  .joint-item .name { color: #b9c3d1; }
+  .joint-item .coords { color: #e6e6e6; font-variant-numeric: tabular-nums; font-size: 11px; }
+
   .point-list { max-height: 240px; overflow-y: auto; font-size: 12px; }
   .point-item {
     display: flex; justify-content: space-between; align-items: center;
@@ -205,15 +193,12 @@
     display: inline-block; width: 8px; height: 8px;
     border-radius: 50%; background: #ffcc00; flex-shrink: 0;
   }
-  .point-item .coords {
-    color: #8b93a1; font-variant-numeric: tabular-nums; white-space: nowrap;
-  }
+  .point-item .coords { color: #8b93a1; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .point-item .remove {
     background: transparent; border: none; color: #ff6060;
     font-size: 15px; padding: 0 6px; cursor: pointer;
     line-height: 1; border-radius: 4px;
   }
-  .point-item .remove:hover { background: #3a1a1a; color: #ff9090; }
 </style>
 </head>
 <body>
@@ -225,10 +210,15 @@
   <button id="addPointBtn">🎯 Точка заливки</button>
   <button id="clearPointsBtn" class="danger">✕ Очистить точки</button>
   <label><input id="hideImage" type="checkbox" /> Скрыть</label>
-  <label><input id="showInfo" type="checkbox" checked /> Инфо</label>
+</div>
+
+<div class="controls">
   <label><input id="showHisto" type="checkbox" checked /> Гистограмма</label>
   <label><input id="showProps" type="checkbox" checked /> Пропорции</label>
-  <label><input id="showPersp" type="checkbox" checked /> Перспектива</label>
+  <label><input id="showSymm" type="checkbox" checked /> Симметрия</label>
+  <label><input id="showJoints" type="checkbox" checked /> Суставы</label>
+  <label><input id="showPalette" type="checkbox" checked /> Палитра</label>
+  <label><input id="showInfo" type="checkbox" checked /> Характеристики</label>
 </div>
 
 <div class="controls">
@@ -255,12 +245,6 @@
 </div>
 
 <div class="controls">
-  <button id="editPropsBtn">✎ Ручная правка долей</button>
-  <button id="manualVPBtn">⌖ Точка схода вручную</button>
-  <button id="resetVPBtn">↺ Авто-точка схода</button>
-  <button id="clearVPBtn" class="danger">✕ Убрать точку схода</button>
-  <button id="resetPropsBtn">↺ Сбросить доли</button>
-  <button id="resetNeckBtn">↺ Авто-шея</button>
   <label>Макс. дырка:
     <input id="maxHole" type="range" min="0" max="500" value="80" />
     <span id="maxHoleVal">80</span>
@@ -273,6 +257,10 @@
     <input id="smoothIter" type="range" min="0" max="4" value="1" />
     <span id="smoothIterVal">1</span>
   </label>
+  <label>Цветов в палитре:
+    <input id="paletteCount" type="range" min="3" max="16" value="8" />
+    <span id="paletteCountVal">8</span>
+  </label>
 </div>
 
 <div class="stage" id="stage">
@@ -281,9 +269,9 @@
 </div>
 
 <p class="hint" id="hintText">
-  Блоки: ① Гистограмма ② Пропорции ③ Перспектива ④ Цветовые образцы ⑤ Характеристики.
-  Кнопка «⌖ Точка схода вручную» — клик по картинке ставит точку схода.
-  Если точка за кадром — рисуется стрелка на краю с расстоянием.
+  Блоки: ① Гистограмма ② Пропорции ③ Симметрия ④ Суставы ⑤ Палитра ⑥ Характеристики.
+  Симметрия показывает зеркальное сходство половин. Суставы определяются
+  по локальным сужениям силуэта. Палитра — доминирующие цвета.
 </p>
 
 <!-- ② ПРОПОРЦИИ -->
@@ -291,82 +279,89 @@
   <h3 class="block-title">
     <span class="num">2</span>
     <span>Пропорции персонажа</span>
-    <span id="editStatus" style="margin-left:auto;font-size:12px;font-weight:normal;color:#8b93a1;">авто</span>
   </h3>
-  <div class="heads-badge">
-    <span class="value" id="headsValue">—</span>
-    <span class="label">
-      <b>Рост в головах</b>
-      <span id="headsSubtext">—</span>
-    </span>
-  </div>
   <div class="props-grid">
     <div class="props-block-inner">
-      <h4>2.1. Габариты силуэта</h4>
+      <h4>2.1. Габариты</h4>
       <div class="kv"><span>Высота</span><span id="propHeight">—</span></div>
       <div class="kv"><span>Ширина</span><span id="propWidth">—</span></div>
       <div class="kv"><span>Соотношение</span><span id="propAspect">—</span></div>
-      <div class="kv"><span>Заполнение bbox</span><span id="propFill">—</span></div>
+      <div class="kv"><span>Заполнение</span><span id="propFill">—</span></div>
+      <div class="kv"><span>Рост в головах</span><span id="propHeads">—</span></div>
+    </div>
+    <div class="props-block-inner">
+      <h4>2.2. Смещение центра</h4>
       <div class="kv"><span>Смещение X</span><span id="propOffsetX">—</span></div>
       <div class="kv"><span>Смещение Y</span><span id="propOffsetY">—</span></div>
-      <div class="kv"><span>Высота головы</span><span id="propHeadHeight">—</span></div>
-      <div class="kv"><span>Ширина головы</span><span id="propHeadWidth">—</span></div>
-    </div>
-    <div class="props-block-inner">
-      <h4>2.2. Пропорции по уровням</h4>
-      <div id="propBars"></div>
+      <div class="kv"><span>Центр X</span><span id="propCx">—</span></div>
+      <div class="kv"><span>Центр Y</span><span id="propCy">—</span></div>
     </div>
   </div>
 </div>
 
-<!-- ③ ПЕРСПЕКТИВА -->
-<div class="props-block visible" id="perspPanel">
+<!-- ③ СИММЕТРИЯ -->
+<div class="props-block visible" id="symmPanel">
   <h3 class="block-title">
     <span class="num">3</span>
-    <span>Перспектива</span>
-    <span id="vpStatus" style="margin-left:auto;font-size:12px;font-weight:normal;color:#8b93a1;">авто</span>
+    <span>Симметрия силуэта</span>
+    <span id="symmVerdict" style="margin-left:auto;font-size:12px;color:#8b93a1;">—</span>
   </h3>
-  <div class="persp-badge">
-    <span class="icon" id="perspIcon">○</span>
-    <span class="info">
-      <b id="perspMain">—</b>
-      <span id="perspSub">—</span>
-    </span>
-  </div>
   <div class="props-grid">
     <div class="props-block-inner">
-      <h4>3.1. Ракурс по вертикали</h4>
-      <div class="kv"><span>Верхняя треть</span><span id="perspTopW">—</span></div>
-      <div class="kv"><span>Средняя треть</span><span id="perspMidW">—</span></div>
-      <div class="kv"><span>Нижняя треть</span><span id="perspBotW">—</span></div>
-      <div class="kv"><span>Верх ÷ низ</span><span id="perspTopBot">—</span></div>
-      <div class="kv"><span>Вердикт</span><span id="perspVerdict">—</span></div>
+      <h4>3.1. Общий коэффициент</h4>
+      <div class="kv"><span>Симметрия</span><span id="symmScore">—</span></div>
+      <div class="scale"><div class="scale-fill" id="symmBar" style="width:0%"></div></div>
+      <div style="font-size:11px;color:#8b93a1;margin-top:6px;">
+        100% — идеальная симметрия, 0% — полная асимметрия.
+      </div>
     </div>
     <div class="props-block-inner">
-      <h4>3.2. Наклон и точка схода</h4>
-      <div class="kv"><span>Наклон плеч</span><span id="perspShoulder">—</span></div>
-      <div class="kv"><span>Наклон бёдер</span><span id="perspPelvis">—</span></div>
-      <div class="kv"><span>Разница наклонов</span><span id="perspDiff">—</span></div>
-      <div class="kv"><span>Угол контура</span><span id="perspContourAngle">—</span></div>
-      <div class="kv"><span>Средний наклон границ</span><span id="perspEdgeSlope">—</span></div>
-      <div class="kv"><span>Точка схода</span><span id="perspVanishing">—</span></div>
-      <div class="kv"><span>Расстояние до ТС</span><span id="perspVPDist">—</span></div>
-      <div class="kv"><span>Уверенность</span><span id="perspConfidence">—</span></div>
-      <div class="kv"><span>Вердикт</span><span id="perspTilt">—</span></div>
+      <h4>3.2. По зонам</h4>
+      <div class="kv"><span>Верх (голова + плечи)</span><span id="symmTop">—</span></div>
+      <div class="scale"><div class="scale-fill" id="symmTopBar" style="width:0%"></div></div>
+      <div class="kv" style="margin-top:6px;"><span>Середина (торс)</span><span id="symmMid">—</span></div>
+      <div class="scale"><div class="scale-fill" id="symmMidBar" style="width:0%"></div></div>
+      <div class="kv" style="margin-top:6px;"><span>Низ (ноги)</span><span id="symmBot">—</span></div>
+      <div class="scale"><div class="scale-fill" id="symmBotBar" style="width:0%"></div></div>
     </div>
   </div>
 </div>
 
-<div class="samples-block" id="samplesPanel">
+<!-- ④ СУСТАВЫ -->
+<div class="props-block visible" id="jointsPanel">
   <h3 class="block-title">
     <span class="num">4</span>
-    <span>Цветовые образцы фона <span id="samplesCount" style="color:#8b93a1;font-weight:normal;">(0)</span></span>
+    <span>Суставы (по сужениям силуэта)</span>
+    <span style="margin-left:auto;font-size:12px;color:#8b93a1;" id="jointsCount">—</span>
   </h3>
-  <div class="sample-list" id="samplesList">
-    <span class="sample-empty">Образцы не заданы.</span>
+  <div class="joint-list" id="jointList">
+    <div class="joint-item"><span class="name">—</span><span class="coords">—</span></div>
+  </div>
+  <div style="font-size:11px;color:#8b93a1;margin-top:8px;">
+    Суставы определяются по локальным сужениям силуэта. Чем больше порог сужения,
+    тем строже отбор.
+  </div>
+  <label style="display:flex;gap:6px;align-items:center;font-size:12px;margin-top:8px;color:#b9c3d1;">
+    Порог сужения:
+    <input id="jointTol" type="range" min="5" max="60" value="20" />
+    <span id="jointTolVal">20</span>
+  </label>
+</div>
+
+<!-- ⑤ ПАЛИТРА -->
+<div class="props-block visible" id="palettePanel">
+  <h3 class="block-title">
+    <span class="num">5</span>
+    <span>Палитра персонажа</span>
+    <span style="margin-left:auto;font-size:12px;color:#8b93a1;" id="paletteCountDisplay">—</span>
+  </h3>
+  <div class="palette-grid" id="paletteGrid"></div>
+  <div style="font-size:11px;color:#8b93a1;margin-top:8px;">
+    Топ цветов по частоте. Клик по образцу — копирует HEX в буфер.
   </div>
 </div>
 
+<!-- ① ГИСТОГРАММА -->
 <div class="histo-block visible" id="histoPanel">
   <h3 class="block-title">
     <span class="num">1</span>
@@ -383,24 +378,24 @@
   </div>
 </div>
 
+<!-- ⑥ ХАРАКТЕРИСТИКИ -->
 <div class="info-panel visible" id="infoPanel">
   <h3 class="block-title">
-    <span class="num">5</span>
+    <span class="num">6</span>
     <span>Характеристики</span>
   </h3>
-  <div class="info-grid">
-    <div class="info-block">
-      <h4>5.1. Изображение</h4>
+  <div class="props-grid">
+    <div class="props-block-inner">
+      <h4>6.1. Изображение</h4>
       <div class="kv"><span>Размер</span><span id="infoSize">—</span></div>
       <div class="kv"><span>Режим</span><span id="infoModeMode">—</span></div>
-      <div class="kv"><span>Параметры</span><span id="infoThreshold">—</span></div>
       <div class="kv"><span>Фон</span><span id="infoBgPct">—</span></div>
       <div class="kv"><span>Персонаж</span><span id="infoCharPct">—</span></div>
       <div class="kv"><span>Дырок закрыто</span><span id="infoHoles">—</span></div>
       <div class="kv"><span>Окон найдено</span><span id="infoWindows">—</span></div>
     </div>
-    <div class="info-block">
-      <h4>5.2. Точки-источники <span id="infoPointsCount" style="color:#8b93a1;font-weight:normal;">(0)</span></h4>
+    <div class="props-block-inner">
+      <h4>6.2. Точки-источники <span id="infoPointsCount" style="color:#8b93a1;font-weight:normal;">(0)</span></h4>
       <div class="point-list" id="pointList">
         <div style="color:#8b93a1;font-size:12px;padding:4px 0;">Точки не заданы.</div>
       </div>
@@ -428,23 +423,21 @@ const minWinEl       = document.getElementById('minWin');
 const minWinVal      = document.getElementById('minWinVal');
 const smoothIterEl   = document.getElementById('smoothIter');
 const smoothIterVal  = document.getElementById('smoothIterVal');
+const paletteCountEl = document.getElementById('paletteCount');
+const paletteCountVal= document.getElementById('paletteCountVal');
+const jointTolEl     = document.getElementById('jointTol');
+const jointTolVal    = document.getElementById('jointTolVal');
 const hideImageEl    = document.getElementById('hideImage');
-const showInfoEl     = document.getElementById('showInfo');
 const showHistoEl    = document.getElementById('showHisto');
 const showPropsEl    = document.getElementById('showProps');
-const showPerspEl    = document.getElementById('showPersp');
+const showSymmEl     = document.getElementById('showSymm');
+const showJointsEl   = document.getElementById('showJoints');
+const showPaletteEl  = document.getElementById('showPalette');
+const showInfoEl     = document.getElementById('showInfo');
 const addPointBtn    = document.getElementById('addPointBtn');
 const clearPointsBtn = document.getElementById('clearPointsBtn');
 const autoThresholdBtn = document.getElementById('autoThresholdBtn');
 const pickBgColorBtn = document.getElementById('pickBgColorBtn');
-const editPropsBtn   = document.getElementById('editPropsBtn');
-const manualVPBtn    = document.getElementById('manualVPBtn');
-const resetVPBtn     = document.getElementById('resetVPBtn');
-const clearVPBtn     = document.getElementById('clearVPBtn');
-const resetPropsBtn  = document.getElementById('resetPropsBtn');
-const resetNeckBtn   = document.getElementById('resetNeckBtn');
-const editStatus     = document.getElementById('editStatus');
-const vpStatus       = document.getElementById('vpStatus');
 
 const modeLumBtn   = document.getElementById('modeLum');
 const modeColorBtn = document.getElementById('modeColor');
@@ -452,62 +445,64 @@ const lumControls   = document.getElementById('lumControls');
 const colorControls = document.getElementById('colorControls');
 const hintText      = document.getElementById('hintText');
 
-const samplesPanel = document.getElementById('samplesPanel');
-const samplesCount = document.getElementById('samplesCount');
-const samplesList  = document.getElementById('samplesList');
+// Пропорции
+const propHeight = document.getElementById('propHeight');
+const propWidth = document.getElementById('propWidth');
+const propAspect = document.getElementById('propAspect');
+const propFill = document.getElementById('propFill');
+const propHeads = document.getElementById('propHeads');
+const propOffsetX = document.getElementById('propOffsetX');
+const propOffsetY = document.getElementById('propOffsetY');
+const propCx = document.getElementById('propCx');
+const propCy = document.getElementById('propCy');
 
-const propsPanel    = document.getElementById('propsPanel');
-const headsValue    = document.getElementById('headsValue');
-const headsSubtext  = document.getElementById('headsSubtext');
-const propWidth     = document.getElementById('propWidth');
-const propHeight    = document.getElementById('propHeight');
-const propAspect    = document.getElementById('propAspect');
-const propFill      = document.getElementById('propFill');
-const propOffsetX   = document.getElementById('propOffsetX');
-const propOffsetY   = document.getElementById('propOffsetY');
-const propHeadHeight= document.getElementById('propHeadHeight');
-const propHeadWidth = document.getElementById('propHeadWidth');
-const propBars      = document.getElementById('propBars');
+// Симметрия
+const symmVerdict = document.getElementById('symmVerdict');
+const symmScore = document.getElementById('symmScore');
+const symmBar = document.getElementById('symmBar');
+const symmTop = document.getElementById('symmTop');
+const symmTopBar = document.getElementById('symmTopBar');
+const symmMid = document.getElementById('symmMid');
+const symmMidBar = document.getElementById('symmMidBar');
+const symmBot = document.getElementById('symmBot');
+const symmBotBar = document.getElementById('symmBotBar');
 
-const perspPanel    = document.getElementById('perspPanel');
-const perspIcon     = document.getElementById('perspIcon');
-const perspMain     = document.getElementById('perspMain');
-const perspSub      = document.getElementById('perspSub');
-const perspTopW     = document.getElementById('perspTopW');
-const perspMidW     = document.getElementById('perspMidW');
-const perspBotW     = document.getElementById('perspBotW');
-const perspTopBot   = document.getElementById('perspTopBot');
-const perspVerdict  = document.getElementById('perspVerdict');
-const perspShoulder = document.getElementById('perspShoulder');
-const perspPelvis   = document.getElementById('perspPelvis');
-const perspDiff     = document.getElementById('perspDiff');
-const perspContourAngle = document.getElementById('perspContourAngle');
-const perspEdgeSlope = document.getElementById('perspEdgeSlope');
-const perspVanishing = document.getElementById('perspVanishing');
-const perspVPDist   = document.getElementById('perspVPDist');
-const perspConfidence = document.getElementById('perspConfidence');
-const perspTilt     = document.getElementById('perspTilt');
+// Суставы
+const jointsCount = document.getElementById('jointsCount');
+const jointList = document.getElementById('jointList');
 
-const infoPanel       = document.getElementById('infoPanel');
-const infoSize        = document.getElementById('infoSize');
-const infoModeMode    = document.getElementById('infoModeMode');
-const infoThreshold   = document.getElementById('infoThreshold');
-const infoBgPct       = document.getElementById('infoBgPct');
-const infoCharPct     = document.getElementById('infoCharPct');
-const infoHoles       = document.getElementById('infoHoles');
-const infoWindows     = document.getElementById('infoWindows');
+// Палитра
+const paletteGrid = document.getElementById('paletteGrid');
+const paletteCountDisplay = document.getElementById('paletteCountDisplay');
+
+// Панели
+const propsPanel = document.getElementById('propsPanel');
+const symmPanel = document.getElementById('symmPanel');
+const jointsPanel = document.getElementById('jointsPanel');
+const palettePanel = document.getElementById('palettePanel');
+const histoPanel = document.getElementById('histoPanel');
+const infoPanel = document.getElementById('infoPanel');
+
+// Инфо
+const infoSize = document.getElementById('infoSize');
+const infoModeMode = document.getElementById('infoModeMode');
+const infoBgPct = document.getElementById('infoBgPct');
+const infoCharPct = document.getElementById('infoCharPct');
+const infoHoles = document.getElementById('infoHoles');
+const infoWindows = document.getElementById('infoWindows');
 const infoPointsCount = document.getElementById('infoPointsCount');
-const pointList       = document.getElementById('pointList');
+const pointList = document.getElementById('pointList');
 
-const histoPanel   = document.getElementById('histoPanel');
-const histoCanvas  = document.getElementById('histoCanvas');
+// Гистограмма
+const histoCanvas = document.getElementById('histoCanvas');
 const histoThresholdLabel = document.getElementById('histoThresholdLabel');
-const histoValley  = document.getElementById('histoValley');
-const histoCtx     = histoCanvas.getContext('2d');
+const histoValley = document.getElementById('histoValley');
+const histoCtx = histoCanvas.getContext('2d');
 
-const baseCtx    = baseCanvas.getContext('2d');
+const baseCtx = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
 
+// ---------- Состояние ----------
 let imgWidth = 0, imgHeight = 0;
 let lum = null;
 let isBg = null;
@@ -524,25 +519,10 @@ let holesFilledCount = 0;
 let windowsFoundCount = 0;
 let charBBox = null;
 
-const DEFAULT_FRACTIONS = [
-  { id: 'top',     name: '1. Макушка', value: 0.00, color: '#8b93a1' },
-  { id: 'neck',    name: '2. Шея', value: 0.13, color: '#ff00ff' },
-  { id: 'shoulder',name: '3. Плечи (A)', value: 0.20, color: '#ffaa00' },
-  { id: 'chest',   name: '4. Грудь / локти', value: 0.33, color: '#ffcc00' },
-  { id: 'pelvis',  name: '5. Бёдра (B)', value: 0.52, color: '#ffaa00' },
-  { id: 'knee',    name: '6. Колени', value: 0.72, color: '#ffcc00' },
-  { id: 'ankle',   name: '7. Лодыжки', value: 0.95, color: '#ffcc00' },
-];
-let fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
-let autoNeckValue = 0.13;
-let editPropsMode = false;
-let dragging = null;
-
-let contourResult = null;
-
-// Ручная точка схода
-let manualVP = null;          // { x, y } в координатах картинки
-let manualVPMode = false;     // активен ли режим установки
+// Результаты анализов
+let symmetryResult = null;
+let jointsResult = null;
+let paletteResult = null;
 
 // ---------- Загрузка ----------
 fileInput.addEventListener('change', e => {
@@ -550,7 +530,7 @@ fileInput.addEventListener('change', e => {
   if (!file) return;
   const img = new Image();
   img.onload = () => {
-    imgWidth  = img.naturalWidth;
+    imgWidth = img.naturalWidth;
     imgHeight = img.naturalHeight;
     [baseCanvas, overlay].forEach(c => { c.width = imgWidth; c.height = imgHeight; });
     baseCtx.drawImage(img, 0, 0);
@@ -560,8 +540,6 @@ fileInput.addEventListener('change', e => {
     sourcePoints = [];
     selectedPointIndex = -1;
     colorSamples = [];
-    fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
-    manualVP = null;
     if (mode === 'lum') autoPickThreshold();
     rebuildAll();
   };
@@ -735,9 +713,9 @@ function smoothOnce(isBg, w, h) {
 }
 
 // ============================================================
-//  ПРОПОРЦИИ
+//  BBOX + ПРОПОРЦИИ
 // ============================================================
-function computeProportions() {
+function computeBBox() {
   const w = imgWidth, h = imgHeight;
   let minX = w, minY = h, maxX = -1, maxY = -1, charCount = 0;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
@@ -750,22 +728,25 @@ function computeProportions() {
     }
   }
   if (maxX < 0) { charBBox = null; return; }
-  charBBox = { minX, minY, maxX, maxY, width: maxX - minX + 1, height: maxY - minY + 1 };
-  const bw = charBBox.width, bh = charBBox.height;
-  const bboxArea = bw * bh;
+  charBBox = { minX, minY, maxX, maxY, width: maxX - minX + 1, height: maxY - minY + 1, charCount };
+}
+
+function updateProportions() {
+  if (!charBBox) return;
+  const { minX, minY, width: bw, height: bh, charCount } = charBBox;
+  const w = imgWidth, h = imgHeight;
+
   propWidth.textContent   = `${bw} px`;
   propHeight.textContent  = `${bh} px`;
   propAspect.textContent  = (bh / bw).toFixed(3);
-  propFill.textContent    = `${((charCount / bboxArea) * 100).toFixed(1)}%`;
-  const bboxCX = minX + bw / 2, bboxCY = minY + bh / 2;
-  propOffsetX.textContent = `${((bboxCX - w / 2) / w * 100) >= 0 ? '+' : ''}${(((bboxCX - w / 2) / w) * 100).toFixed(1)}%`;
-  propOffsetY.textContent = `${((bboxCY - h / 2) / h * 100) >= 0 ? '+' : ''}${(((bboxCY - h / 2) / h) * 100).toFixed(1)}%`;
+  propFill.textContent    = `${((charCount / (bw * bh)) * 100).toFixed(1)}%`;
 
+  // Рост в головах — быстрая оценка по высоте головы
   const rowWidths = new Int32Array(bh);
   for (let yy = 0; yy < bh; yy++) {
     const y = minY + yy;
     let rowMinX = -1, rowMaxX = -1;
-    for (let x = minX; x <= maxX; x++) {
+    for (let x = minX; x <= minX + bw - 1; x++) {
       if (!isBg[y * w + x]) { if (rowMinX < 0) rowMinX = x; rowMaxX = x; }
     }
     rowWidths[yy] = rowMinX < 0 ? 0 : (rowMaxX - rowMinX + 1);
@@ -788,340 +769,375 @@ function computeProportions() {
     }
   }
   if (neckIdx < 0) neckIdx = Math.max(1, Math.round(bh * 0.12));
-  autoNeckValue = neckIdx / bh;
-  const neckFrac = fractions.find(f => f.id === 'neck');
-  if (neckFrac && !neckFrac.manual) neckFrac.value = autoNeckValue;
-  const headHeightPx = Math.round(bh * (neckFrac ? neckFrac.value : autoNeckValue));
-  let hw = 0;
-  for (let i = 0; i <= headHeightPx; i++) if (smoothW[i] > hw) hw = smoothW[i];
-  const headWidthPx = Math.round(hw);
-  propHeadHeight.textContent = `${headHeightPx} px (${((headHeightPx / bh) * 100).toFixed(1)}%)`;
-  propHeadWidth.textContent  = `${headWidthPx} px`;
+  const heads = bh / neckIdx;
+  propHeads.textContent = `${heads.toFixed(2)} (${neckIdx} px голова)`;
 
-  const heads = bh / headHeightPx;
-  headsValue.textContent = heads.toFixed(2);
-  let descriptor = '';
-  if (heads < 4.5) descriptor = 'чиби/мультяшный';
-  else if (heads < 6) descriptor = 'мультяшный / аниме';
-  else if (heads < 7) descriptor = 'стилизованный реализм';
-  else if (heads < 8) descriptor = 'реалистичный';
-  else descriptor = 'вытянутый / модельный';
-  headsSubtext.textContent = `${bh} px ÷ ${headHeightPx} px = ${heads.toFixed(2)} · ${descriptor}`;
-
-  propBars.innerHTML = '';
-  for (const frac of fractions) {
-    const y = minY + Math.round(bh * frac.value);
-    if (y < 0 || y >= h) continue;
-    let rowMinX = -1, rowMaxX = -1;
-    for (let x = 0; x < w; x++) {
-      if (!isBg[y * w + x]) { if (rowMinX < 0) rowMinX = x; rowMaxX = x; }
-    }
-    const rowWidth = rowMinX < 0 ? 0 : (rowMaxX - rowMinX + 1);
-    const pct = (rowWidth / bw) * 100;
-    const bar = document.createElement('div');
-    bar.className = 'prop-bar';
-    bar.innerHTML = `
-      <div class="prop-bar-label">
-        <span style="color:${frac.color}">■ ${frac.name} (${(frac.value * 100).toFixed(1)}%)</span>
-        <b>${rowWidth} px</b>
-      </div>
-      <div class="prop-bar-track">
-        <div class="prop-bar-fill" style="width:${Math.min(100, pct)}%"></div>
-      </div>`;
-    propBars.appendChild(bar);
-  }
-  editStatus.textContent = editPropsMode ? 'правка' : 'авто';
+  const cx = minX + bw / 2;
+  const cy = minY + bh / 2;
+  propCx.textContent = `${cx.toFixed(0)} px`;
+  propCy.textContent = `${cy.toFixed(0)} px`;
+  propOffsetX.textContent = `${((cx - w/2) / w * 100) >= 0 ? '+' : ''}${(((cx - w/2) / w) * 100).toFixed(1)}%`;
+  propOffsetY.textContent = `${((cy - h/2) / h * 100) >= 0 ? '+' : ''}${(((cy - h/2) / h) * 100).toFixed(1)}%`;
 }
 
 // ============================================================
-//  ПЕРСПЕКТИВА + ТОЧКА СХОДА
+//  СИММЕТРИЯ
 // ============================================================
-function computePerspective() {
-  if (!charBBox) {
-    perspMain.textContent = '—';
-    perspSub.textContent = 'персонаж не определён';
-    perspIcon.textContent = '○';
-    contourResult = null;
-    return;
+// Сравниваем левую и правую половины относительно вертикальной
+// оси, проходящей через центр bbox.
+// Для каждой строки: ширина слева, ширина справа, разница.
+function computeSymmetry() {
+  if (!charBBox) { symmetryResult = null; return; }
+  const w = imgWidth, h = imgHeight;
+  const { minX, minY, width: bw, height: bh } = charBBox;
+
+  const cx = minX + bw / 2;
+  const rowData = [];
+
+  for (let yy = 0; yy < bh; yy++) {
+    const y = minY + yy;
+    let leftCount = 0, rightCount = 0;
+    let leftMinX = -1, leftMaxX = -1;
+    let rightMinX = -1, rightMaxX = -1;
+
+    for (let x = minX; x <= minX + bw - 1; x++) {
+      const isChar = !isBg[y * w + x];
+      if (isChar) {
+        if (x < cx) {
+          leftCount++;
+          if (leftMinX < 0) leftMinX = x;
+          leftMaxX = x;
+        } else {
+          rightCount++;
+          if (rightMinX < 0) rightMinX = x;
+          rightMaxX = x;
+        }
+      }
+    }
+
+    // Симметрия строки: сравниваем ширины слева и справа от центра.
+    // Если обе пустые — считаем симметричной.
+    // Если одна пустая, другая нет — асимметрия.
+    let rowSymm = 0;
+    if (leftCount === 0 && rightCount === 0) rowSymm = 1;
+    else if (leftCount === 0 || rightCount === 0) rowSymm = 0;
+    else {
+      const maxCount = Math.max(leftCount, rightCount);
+      rowSymm = Math.min(leftCount, rightCount) / maxCount;
+    }
+    rowData.push({ y: yy, leftCount, rightCount, rowSymm });
   }
 
-  const w = imgWidth, h = imgHeight;
-  const { minX, minY, maxX, maxY, width: bw, height: bh } = charBBox;
+  // Общая симметрия — среднее по всем непустым строкам
+  const nonEmpty = rowData.filter(r => r.leftCount > 0 || r.rightCount > 0);
+  const totalSymm = nonEmpty.length
+    ? nonEmpty.reduce((s, r) => s + r.rowSymm, 0) / nonEmpty.length
+    : 0;
 
-  const thirdH = Math.floor(bh / 3);
-  const widths = [[], [], []];
-  const rowEdges = [];
+  // По зонам
+  const zone = (a, b) => {
+    const slice = rowData.filter(r => r.y >= a && r.y < b && (r.leftCount > 0 || r.rightCount > 0));
+    return slice.length ? slice.reduce((s, r) => s + r.rowSymm, 0) / slice.length : 0;
+  };
+  const zTop = zone(0, Math.floor(bh / 3));
+  const zMid = zone(Math.floor(bh / 3), Math.floor(bh * 2 / 3));
+  const zBot = zone(Math.floor(bh * 2 / 3), bh);
+
+  symmetryResult = {
+    total: totalSymm,
+    top: zTop, mid: zMid, bot: zBot,
+  };
+
+  // Обновление UI
+  const pct = v => (v * 100).toFixed(1) + '%';
+
+  symmScore.textContent = pct(totalSymm);
+  const cls = totalSymm > 0.9 ? 'good' : totalSymm > 0.75 ? '' : totalSymm > 0.6 ? 'warn' : 'bad';
+  symmBar.className = 'scale-fill ' + cls;
+  symmBar.style.width = (totalSymm * 100) + '%';
+
+  symmTop.textContent = pct(zTop);
+  symmMid.textContent = pct(zMid);
+  symmBot.textContent = pct(zBot);
+
+  const clsT = zTop > 0.9 ? 'good' : zTop > 0.75 ? '' : zTop > 0.6 ? 'warn' : 'bad';
+  const clsM = zMid > 0.9 ? 'good' : zMid > 0.75 ? '' : zMid > 0.6 ? 'warn' : 'bad';
+  const clsB = zBot > 0.9 ? 'good' : zBot > 0.75 ? '' : zBot > 0.6 ? 'warn' : 'bad';
+  symmTopBar.className = 'scale-fill ' + clsT;
+  symmTopBar.style.width = (zTop * 100) + '%';
+  symmMidBar.className = 'scale-fill ' + clsM;
+  symmMidBar.style.width = (zMid * 100) + '%';
+  symmBotBar.className = 'scale-fill ' + clsB;
+  symmBotBar.style.width = (zBot * 100) + '%';
+
+  let verdict = '';
+  if (totalSymm > 0.95) verdict = 'идеальная симметрия';
+  else if (totalSymm > 0.85) verdict = 'почти симметрично';
+  else if (totalSymm > 0.7) verdict = 'лёгкая асимметрия';
+  else if (totalSymm > 0.55) verdict = 'заметная асимметрия';
+  else verdict = 'сильная асимметрия';
+  symmVerdict.textContent = verdict;
+}
+
+// ============================================================
+//  СУСТАВЫ
+// ============================================================
+// Идея: суставы — локальные сужения силуэта.
+// Идём по строкам, считаем ширину. Ищем локальные минимумы
+// ширины (где силуэт узкий) — это шея, локти, запястья, колени,
+// лодыжки, талия.
+function computeJoints() {
+  if (!charBBox) { jointsResult = null; jointsListRender([]); return; }
+  const w = imgWidth, h = imgHeight;
+  const { minX, minY, width: bw, height: bh } = charBBox;
+  const tol = +jointTolEl.value;
+
+  const rowWidths = new Int32Array(bh);
   for (let yy = 0; yy < bh; yy++) {
     const y = minY + yy;
     let rowMinX = -1, rowMaxX = -1;
-    for (let x = minX; x <= maxX; x++) {
+    for (let x = minX; x <= minX + bw - 1; x++) {
       if (!isBg[y * w + x]) { if (rowMinX < 0) rowMinX = x; rowMaxX = x; }
     }
-    const ww = rowMinX < 0 ? 0 : (rowMaxX - rowMinX + 1);
-    rowEdges.push({ y, lx: rowMinX, rx: rowMaxX, width: ww });
-    if (yy < thirdH) widths[0].push(ww);
-    else if (yy < thirdH * 2) widths[1].push(ww);
-    else widths[2].push(ww);
+    rowWidths[yy] = rowMinX < 0 ? 0 : (rowMaxX - rowMinX + 1);
   }
-
-  const avg = arr => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0;
-  const topW = avg(widths[0]);
-  const midW = avg(widths[1]);
-  const botW = avg(widths[2]);
-  perspTopW.textContent = `${topW.toFixed(1)} px`;
-  perspMidW.textContent = `${midW.toFixed(1)} px`;
-  perspBotW.textContent = `${botW.toFixed(1)} px`;
-  const ratio = botW > 0 ? topW / botW : 0;
-  perspTopBot.textContent = ratio.toFixed(3);
-
-  let vVerdict = '';
-  if (ratio > 1.15)      vVerdict = 'ракурс снизу';
-  else if (ratio < 0.87) vVerdict = 'ракурс сверху';
-  else                    vVerdict = 'фронтально';
-  perspVerdict.textContent = vVerdict;
-
-  // Анализ по контуру
-  let leftSlopes = [], rightSlopes = [];
-  for (let i = 1; i < rowEdges.length; i++) {
-    const a = rowEdges[i - 1];
-    const b = rowEdges[i];
-    if (a.lx < 0 || b.lx < 0 || a.rx < 0 || b.rx < 0) continue;
-    const dy = b.y - a.y;
-    if (dy === 0) continue;
-    const dlx = b.lx - a.lx, drx = b.rx - a.rx;
-    if (Math.abs(dlx) > 6 || Math.abs(drx) > 6) continue;
-    leftSlopes.push(dlx / dy);
-    rightSlopes.push(drx / dy);
-  }
-  const median = arr => {
-    if (!arr.length) return 0;
-    const s = arr.slice().sort((a, b) => a - b);
-    return s[s.length >> 1];
-  };
-  const leftSlope = median(leftSlopes);
-  const rightSlope = median(rightSlopes);
-  const leftAngleDeg  = Math.atan(Math.abs(leftSlope))  * 180 / Math.PI;
-  const rightAngleDeg = Math.atan(Math.abs(rightSlope)) * 180 / Math.PI;
-  const avgAngleDeg   = (leftAngleDeg + rightAngleDeg) / 2;
-  perspContourAngle.textContent = `${avgAngleDeg.toFixed(2)}°`;
-  perspEdgeSlope.textContent    = `L: ${leftSlope.toFixed(3)}, R: ${rightSlope.toFixed(3)}`;
-
-  // Точка схода — ручная или автоматическая
-  let vanishing = null;
-  let isManual = false;
-
-  if (manualVP) {
-    // Прямые идут от краёв силуэта к ручной точке
-    vanishing = { x: manualVP.x, y: manualVP.y, insideImage: true, confidence: 1, manual: true };
-    isManual = true;
-  } else {
-    vanishing = findVanishingPoint(rowEdges);
-    if (vanishing) vanishing.manual = false;
-  }
-
-  if (vanishing) {
-    const inside = vanishing.x >= 0 && vanishing.x < w && vanishing.y >= 0 && vanishing.y < h;
-    vanishing.insideImage = inside;
-    const distX = Math.max(0, Math.max(-vanishing.x, vanishing.x - w));
-    const distY = Math.max(0, Math.max(-vanishing.y, vanishing.y - h));
-    const dist = Math.sqrt(distX * distX + distY * distY);
-    perspVanishing.textContent = `x=${vanishing.x.toFixed(0)}, y=${vanishing.y.toFixed(0)}`
-      + (inside ? ' (в кадре)' : ` (вне кадра)`)
-      + (isManual ? ' · ручная' : '');
-    perspVPDist.textContent = inside ? '0 (в кадре)' : `${dist.toFixed(0)} px от края`;
-    perspConfidence.textContent = isManual
-      ? '100% (ручная)'
-      : `${(vanishing.confidence * 100).toFixed(0)}%`;
-  } else {
-    perspVanishing.textContent = '—';
-    perspVPDist.textContent = '—';
-    perspConfidence.textContent = 'не найдена';
-  }
-  contourResult = { leftSlope, rightSlope, avgAngleDeg, vanishing };
-  vpStatus.textContent = isManual ? 'ручная ТС' : 'авто';
-
-  // Наклон плеч и бёдер
-  const shFrac = fractions.find(f => f.id === 'shoulder');
-  const plFrac = fractions.find(f => f.id === 'pelvis');
-  const shoulderY = minY + Math.round(bh * (shFrac ? shFrac.value : 0.20));
-  const pelvisY   = minY + Math.round(bh * (plFrac ? plFrac.value : 0.52));
-  const edgeAt = (y) => {
-    let lx = -1, rx = -1;
-    for (let x = minX; x <= maxX; x++) {
-      if (!isBg[y * w + x]) { if (lx < 0) lx = x; rx = x; }
+  // Сглаживание
+  const sm = new Float32Array(bh);
+  for (let i = 0; i < bh; i++) {
+    let s = 0, c = 0;
+    for (let k = -3; k <= 3; k++) {
+      const ii = i + k;
+      if (ii < 0 || ii >= bh) continue;
+      s += rowWidths[ii]; c++;
     }
-    return { lx, rx };
-  };
-  const avgCenterAround = (y) => {
-    let sx = 0, n = 0;
-    for (let dy = -4; dy <= 4; dy++) {
-      const e = edgeAt(y + dy);
-      if (e.lx < 0) continue;
-      sx += (e.lx + e.rx) / 2;
-      n++;
+    sm[i] = s / c;
+  }
+
+  // Ищем локальные минимумы в диапазоне [8%, 95%] высоты
+  const found = [];
+  for (let i = Math.floor(bh * 0.08); i < Math.floor(bh * 0.95); i++) {
+    if (i < 4 || i > bh - 5) continue;
+    const above = Math.max(sm[i-4], sm[i-3], sm[i-2]);
+    const below = Math.max(sm[i+2], sm[i+3], sm[i+4]);
+    if (sm[i] < above && sm[i] < below) {
+      const drop = Math.min(above - sm[i], below - sm[i]);
+      if (drop >= tol) {
+        // Точка сустава по центру силуэта
+        const y = minY + i;
+        let xMin = -1, xMax = -1;
+        for (let x = minX; x <= minX + bw - 1; x++) {
+          if (!isBg[y * w + x]) { if (xMin < 0) xMin = x; xMax = x; }
+        }
+        const cx = (xMin + xMax) / 2;
+        found.push({ y: i, x: cx, yImg: y, width: sm[i], drop });
+      }
     }
-    return n ? sx / n : 0;
-  };
-  const shCenterX = avgCenterAround(shoulderY);
-  const plCenterX = avgCenterAround(pelvisY);
-  const shOffset = shCenterX - (minX + bw / 2);
-  const plOffset = plCenterX - (minX + bw / 2);
-  perspShoulder.textContent = `${shOffset >= 0 ? '+' : ''}${shOffset.toFixed(1)} px`;
-  perspPelvis.textContent   = `${plOffset >= 0 ? '+' : ''}${plOffset.toFixed(1)} px`;
-  const diff = shOffset - plOffset;
-  perspDiff.textContent = `${diff >= 0 ? '+' : ''}${diff.toFixed(1)} px`;
+  }
 
-  let tiltVerdict = '';
-  if (Math.abs(diff) < 4) tiltVerdict = 'вертикально';
-  else if (diff > 0)      tiltVerdict = 'наклон вправо';
-  else                    tiltVerdict = 'наклон влево';
-  perspTilt.textContent = tiltVerdict;
+  // Убираем слишком близкие (объединяем)
+  const merged = [];
+  for (const f of found) {
+    if (merged.length === 0) { merged.push(f); continue; }
+    const last = merged[merged.length - 1];
+    if (f.y - last.y < 5) {
+      if (f.width < last.width) merged[merged.length - 1] = f;
+    } else {
+      merged.push(f);
+    }
+  }
 
-  let main = '';
-  let icon = '○';
-  if (vVerdict.includes('снизу')) { main = 'Ракурс снизу'; icon = '▲'; }
-  else if (vVerdict.includes('сверху')) { main = 'Ракурс сверху'; icon = '▼'; }
-  else { main = 'Фронтально / без ракурса'; icon = '○'; }
-  if (tiltVerdict.includes('вправо')) main += ' · наклон вправо';
-  else if (tiltVerdict.includes('влево')) main += ' · наклон влево';
-  perspMain.textContent = main;
-  perspIcon.textContent = icon;
+  // Классифицируем по положению (сверху вниз)
+  const names = ['шея', 'плечи / локти', 'запястья / талия', 'бёдра', 'колени', 'лодыжки'];
+  const classified = merged.map((m, i) => ({
+    ...m,
+    name: names[i] || `сустав ${i + 1}`,
+    pctHeight: (m.y / bh * 100).toFixed(1),
+  }));
 
-  let sub = `верх/низ = ${ratio.toFixed(2)} · контур ${avgAngleDeg.toFixed(1)}°`;
-  if (vanishing) sub += ` · ТС ${isManual ? 'ручная' : (vanishing.confidence * 100).toFixed(0) + '%'}`;
-  perspSub.textContent = sub;
+  jointsResult = classified;
+  jointsListRender(classified);
 }
 
-function findVanishingPoint(rowEdges) {
-  const valid = rowEdges.filter(e => e.lx >= 0 && e.rx >= 0);
-  if (valid.length < 20) return null;
-
-  const linReg = (points) => {
-    const n = points.length;
-    let sy = 0, sx = 0, syy = 0, sxy = 0;
-    for (const p of points) {
-      sy += p.y; sx += p.x;
-      syy += p.y * p.y; sxy += p.y * p.x;
-    }
-    const denom = n * syy - sy * sy;
-    if (Math.abs(denom) < 1e-6) return null;
-    const a = (n * sxy - sy * sx) / denom;
-    const b = (sx - a * sy) / n;
-    return { a, b };
-  };
-
-  const leftPts  = valid.map(e => ({ y: e.y, x: e.lx }));
-  const rightPts = valid.map(e => ({ y: e.y, x: e.rx }));
-  const L = linReg(leftPts);
-  const R = linReg(rightPts);
-  if (!L || !R) return null;
-
-  const dA = L.a - R.a;
-  if (Math.abs(dA) < 0.001) return null;
-  const vy = (R.b - L.b) / dA;
-  const vx = L.a * vy + L.b;
-  const insideImage = (vx >= 0 && vx < imgWidth && vy >= 0 && vy < imgHeight);
-
-  const angleL = Math.abs(L.a), angleR = Math.abs(R.a);
-  const tiltScore = Math.min(1, (angleL + angleR) / 1.2);
-  let distScore = 1;
-  if (!insideImage) {
-    const dx = Math.max(0, Math.max(-vx, vx - imgWidth));
-    const dy = Math.max(0, Math.max(-vy, vy - imgHeight));
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    distScore = Math.max(0, 1 - dist / (imgWidth + imgHeight));
+function jointsListRender(arr) {
+  jointList.innerHTML = '';
+  jointsCount.textContent = `${arr.length}`;
+  if (arr.length === 0) {
+    jointList.innerHTML = '<div class="joint-item"><span class="name">Суставы не найдены</span><span class="coords">уменьшите порог</span></div>';
+    return;
   }
-  const confidence = Math.max(0, Math.min(1, tiltScore * distScore));
-  return { x: vx, y: vy, insideImage, confidence, L, R };
+  arr.forEach((j, i) => {
+    const el = document.createElement('div');
+    el.className = 'joint-item';
+    el.innerHTML = `<span class="name">${i+1}. ${j.name} (${j.pctHeight}%)</span>`
+      + `<span class="coords">x=${j.x.toFixed(0)}, y=${j.yImg}</span>`;
+    jointList.appendChild(el);
+  });
 }
 
-// ---------- Отрисовка ----------
+// ============================================================
+//  ПАЛИТРА
+// ============================================================
+function computePalette() {
+  if (!charBBox) { paletteResult = null; paletteGrid.innerHTML = ''; return; }
+  const w = imgWidth, h = imgHeight;
+  const { minX, minY, width: bw, height: bh } = charBBox;
+  const d = imgDataRef.data;
+  const count = +paletteCountEl.value;
+
+  // Квантование: 5 бит на канал = 32×32×32
+  const SHIFT = 3;
+  const buckets = new Map();
+  let total = 0;
+
+  for (let y = minY; y < minY + bh; y++) {
+    for (let x = minX; x < minX + bw; x++) {
+      const idx = y * w + x;
+      if (isBg[idx]) continue;
+      const p = idx * 4;
+      const a = d[p + 3];
+      if (a < 20) continue;
+      const r = d[p], g = d[p + 1], b = d[p + 2];
+      const key = ((r >> SHIFT) << 10) | ((g >> SHIFT) << 5) | (b >> SHIFT);
+      let e = buckets.get(key);
+      if (!e) { e = { n: 0, r: 0, g: 0, b: 0 }; buckets.set(key, e); }
+      e.n++; e.r += r; e.g += g; e.b += b;
+      total++;
+    }
+  }
+
+  const arr = [];
+  for (const e of buckets.values()) {
+    arr.push({
+      r: Math.round(e.r / e.n),
+      g: Math.round(e.g / e.n),
+      b: Math.round(e.b / e.n),
+      n: e.n,
+    });
+  }
+  arr.sort((a, b) => b.n - a.n);
+  const top = arr.slice(0, count);
+
+  paletteResult = { colors: top, total };
+  renderPalette(top, total);
+}
+
+function renderPalette(colors, total) {
+  paletteGrid.innerHTML = '';
+  paletteCountDisplay.textContent = `${colors.length} цветов`;
+  if (colors.length === 0) {
+    paletteGrid.innerHTML = '<div style="color:#8b93a1;font-size:12px;">Цвета не найдены.</div>';
+    return;
+  }
+  colors.forEach(c => {
+    const pct = (c.n / total * 100).toFixed(1);
+    const hex = rgbToHex(c.r, c.g, c.b);
+    const chip = document.createElement('div');
+    chip.className = 'palette-chip';
+    chip.innerHTML = `
+      <div class="color-block" style="background:rgb(${c.r},${c.g},${c.b})"></div>
+      <div class="info-block">
+        <div class="hex">${hex}</div>
+        <div class="pct">${pct}%</div>
+      </div>`;
+    chip.addEventListener('click', () => {
+      navigator.clipboard.writeText(hex).catch(() => {});
+      chip.style.borderColor = '#40d080';
+      setTimeout(() => chip.style.borderColor = '', 400);
+    });
+    paletteGrid.appendChild(chip);
+  });
+}
+
+function rgbToHex(r, g, b) {
+  const h = v => v.toString(16).padStart(2, '0');
+  return '#' + h(r) + h(g) + h(b);
+}
+
+// ============================================================
+//  ОТРИСОВКА OVERLAY
+// ============================================================
 function drawOverlay() {
   const w = imgWidth, h = imgHeight;
   if (!w) return;
   overlayCtx.clearRect(0, 0, w, h);
 
+  // Заливка персонажа
   const img = overlayCtx.createImageData(w, h);
   const data = img.data;
   for (let i = 0, j = 0; i < w * h; i++, j += 4) {
-    if (!isBg[i]) { data[j] = 255; data[j+1] = 60; data[j+2] = 60; data[j+3] = 140; }
+    if (!isBg[i]) {
+      data[j] = 255; data[j+1] = 60; data[j+2] = 60; data[j+3] = 100;
+    }
   }
   overlayCtx.putImageData(img, 0, 0);
 
+  // Bounding box
   if (charBBox) {
     overlayCtx.strokeStyle = 'rgba(0, 200, 255, 0.9)';
     overlayCtx.lineWidth = Math.max(2, Math.round(imgWidth / 400));
     overlayCtx.setLineDash([10, 6]);
     overlayCtx.strokeRect(charBBox.minX, charBBox.minY, charBBox.width, charBBox.height);
     overlayCtx.setLineDash([]);
-
-    for (const frac of fractions) {
-      const y = charBBox.minY + Math.round(charBBox.height * frac.value);
-      if (y < 0 || y >= imgHeight) continue;
-      const isKey = frac.id === 'neck' || frac.id === 'shoulder' || frac.id === 'pelvis';
-      overlayCtx.strokeStyle = frac.color;
-      overlayCtx.globalAlpha = isKey ? 1 : 0.7;
-      overlayCtx.lineWidth = isKey ? Math.max(3, Math.round(imgWidth / 500)) : Math.max(1, Math.round(imgWidth / 800));
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(charBBox.minX, y);
-      overlayCtx.lineTo(charBBox.maxX + 1, y);
-      overlayCtx.stroke();
-      overlayCtx.globalAlpha = 1;
-      if (isKey || editPropsMode) {
-        const fs = Math.max(11, Math.round(imgWidth / 70));
-        overlayCtx.font = `bold ${fs}px system-ui`;
-        overlayCtx.fillStyle = 'rgba(0,0,0,0.7)';
-        const tw = overlayCtx.measureText(frac.name).width;
-        overlayCtx.fillRect(charBBox.maxX + 6, y - fs, tw + 8, fs + 4);
-        overlayCtx.fillStyle = frac.color;
-        overlayCtx.fillText(frac.name, charBBox.maxX + 10, y - 2);
-      }
-    }
   }
 
-  // Точка схода и стрелка
-  if (contourResult && contourResult.vanishing) {
-    const v = contourResult.vanishing;
-    const isManual = v.manual === true;
+  // Симметрия — ось
+  if (showSymmEl.checked && symmetryResult && charBBox) {
+    const cx = charBBox.minX + charBBox.width / 2;
+    overlayCtx.strokeStyle = 'rgba(185, 255, 128, 0.85)';
+    overlayCtx.lineWidth = Math.max(2, Math.round(imgWidth / 500));
+    overlayCtx.setLineDash([8, 6]);
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(cx, charBBox.minY);
+    overlayCtx.lineTo(cx, charBBox.maxY + 1);
+    overlayCtx.stroke();
+    overlayCtx.setLineDash([]);
 
-    // Рисуем прямые, идущие от краёв bbox к точке схода
-    if (charBBox) {
-      const corners = [
-        { x: charBBox.minX, y: charBBox.minY },
-        { x: charBBox.maxX, y: charBBox.minY },
-        { x: charBBox.minX, y: charBBox.maxY },
-        { x: charBBox.maxX, y: charBBox.maxY },
-      ];
-      overlayCtx.strokeStyle = isManual ? 'rgba(120, 255, 120, 0.85)' : 'rgba(255, 120, 255, 0.7)';
-      overlayCtx.lineWidth = 1.5;
-      overlayCtx.setLineDash([6, 4]);
-      for (const c of corners) {
-        overlayCtx.beginPath();
-        overlayCtx.moveTo(c.x, c.y);
-        overlayCtx.lineTo(v.x, v.y);
-        overlayCtx.stroke();
-      }
-      overlayCtx.setLineDash([]);
-    }
+    // Подписи симметрии по зонам
+    const fs = Math.max(11, Math.round(imgWidth / 75));
+    overlayCtx.font = `bold ${fs}px system-ui`;
+    const label = `Симметрия: ${(symmetryResult.total * 100).toFixed(0)}%`;
+    const tw = overlayCtx.measureText(label).width;
+    overlayCtx.fillStyle = 'rgba(0,0,0,0.7)';
+    overlayCtx.fillRect(charBBox.minX, charBBox.minY - fs - 8, tw + 12, fs + 6);
+    overlayCtx.fillStyle = '#b9ff80';
+    overlayCtx.fillText(label, charBBox.minX + 6, charBBox.minY - 4);
+  }
 
-    // Точка схода — если в кадре
-    if (v.insideImage) {
+  // Суставы — точки
+  if (showJointsEl.checked && jointsResult) {
+    jointsResult.forEach(j => {
+      // Круг
       overlayCtx.beginPath();
-      overlayCtx.arc(v.x, v.y, 9, 0, Math.PI * 2);
-      overlayCtx.fillStyle = isManual ? '#60ff60' : '#ff60ff';
+      overlayCtx.arc(j.x, j.yImg, 7, 0, Math.PI * 2);
+      overlayCtx.fillStyle = '#ff60ff';
       overlayCtx.fill();
       overlayCtx.lineWidth = 2;
       overlayCtx.strokeStyle = '#000';
       overlayCtx.stroke();
-      overlayCtx.font = `bold ${Math.max(11, Math.round(imgWidth / 80))}px system-ui`;
-      overlayCtx.fillStyle = '#fff';
-      overlayCtx.fillText(isManual ? 'ТС (ручная)' : 'ТС', v.x + 12, v.y - 6);
-    } else {
-      // Точка вне кадра — рисуем стрелку на краю
-      drawVanishingArrow(v);
-    }
+
+      // Горизонтальная черта на уровне сустава
+      overlayCtx.strokeStyle = 'rgba(255, 96, 255, 0.5)';
+      overlayCtx.lineWidth = 1;
+      overlayCtx.setLineDash([4, 4]);
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(charBBox.minX, j.yImg);
+      overlayCtx.lineTo(charBBox.maxX + 1, j.yImg);
+      overlayCtx.stroke();
+      overlayCtx.setLineDash([]);
+
+      // Подпись
+      const fs = Math.max(10, Math.round(imgWidth / 90));
+      overlayCtx.font = `bold ${fs}px system-ui`;
+      const label = `${j.name} (${j.pctHeight}%)`;
+      const tw = overlayCtx.measureText(label).width;
+      overlayCtx.fillStyle = 'rgba(0,0,0,0.7)';
+      overlayCtx.fillRect(charBBox.maxX + 4, j.yImg - fs, tw + 8, fs + 4);
+      overlayCtx.fillStyle = '#ff80ff';
+      overlayCtx.fillText(label, charBBox.maxX + 8, j.yImg - 2);
+    });
   }
 
+  // Точки-источники
   sourcePoints.forEach((p, i) => {
     const isSelected = i === selectedPointIndex;
     overlayCtx.beginPath();
@@ -1134,98 +1150,12 @@ function drawOverlay() {
   });
 }
 
-// ============================================================
-//  СТРЕЛКА ДЛЯ ТОЧКИ СХОДА ВНЕ КАДРА
-// ============================================================
-// Ищем, где луч от центра bbox к точке схода пересекает границу
-// изображения. Там рисуем стрелку + подпись с расстоянием.
-function drawVanishingArrow(v) {
-  const w = imgWidth, h = imgHeight;
-  // Точка на границе
-  const cx = w / 2, cy = h / 2;
-  const dx = v.x - cx, dy = v.y - cy;
-  if (dx === 0 && dy === 0) return;
-
-  // Параметр t для пересечения с рамкой
-  let tMin = Infinity;
-  if (dx !== 0) {
-    const t1 = (0 - cx) / dx;
-    const t2 = (w - cx) / dx;
-    if (t1 > 0) tMin = Math.min(tMin, t1);
-    if (t2 > 0) tMin = Math.min(tMin, t2);
-  }
-  if (dy !== 0) {
-    const t1 = (0 - cy) / dy;
-    const t2 = (h - cy) / dy;
-    if (t1 > 0) tMin = Math.min(tMin, t1);
-    if (t2 > 0) tMin = Math.min(tMin, t2);
-  }
-  if (!isFinite(tMin)) return;
-
-  const edgeX = cx + dx * tMin;
-  const edgeY = cy + dy * tMin;
-
-  // Направление стрелки
-  const len = Math.sqrt(dx * dx + dy * dy);
-  const ux = dx / len, uy = dy / len;
-
-  // Рисуем стрелку на краю
-  const arrowLen = Math.max(20, Math.round(imgWidth / 25));
-  const arrowWidth = Math.max(8, Math.round(imgWidth / 60));
-  const baseX = edgeX - ux * arrowLen * 0.6;
-  const baseY = edgeY - uy * arrowLen * 0.6;
-
-  overlayCtx.fillStyle = 'rgba(255, 100, 255, 0.9)';
-  overlayCtx.strokeStyle = 'rgba(0,0,0,0.9)';
-  overlayCtx.lineWidth = 2;
-
-  // Треугольник
-  overlayCtx.beginPath();
-  overlayCtx.moveTo(edgeX, edgeY);
-  overlayCtx.lineTo(baseX - uy * arrowWidth, baseY + ux * arrowWidth);
-  overlayCtx.lineTo(baseX + uy * arrowWidth, baseY - ux * arrowWidth);
-  overlayCtx.closePath();
-  overlayCtx.fill();
-  overlayCtx.stroke();
-
-  // Подпись с расстоянием
-  const dist = Math.sqrt((v.x - cx) ** 2 + (v.y - cy) ** 2);
-  const label = `ТС ${dist.toFixed(0)} px →`;
-  const fs = Math.max(12, Math.round(imgWidth / 60));
-  overlayCtx.font = `bold ${fs}px system-ui`;
-  const tw = overlayCtx.measureText(label).width;
-  const pad = 6;
-  let lx = baseX - tw / 2;
-  let ly = baseY - fs - 8;
-  // Не вылезать за границы
-  if (lx < 4) lx = 4;
-  if (lx + tw + pad * 2 > w - 4) lx = w - tw - pad * 2 - 4;
-  if (ly < 4) ly = baseY + 6;
-
-  overlayCtx.fillStyle = 'rgba(0,0,0,0.75)';
-  overlayCtx.fillRect(lx - pad, ly - fs - pad, tw + pad * 2, fs + pad * 2);
-  overlayCtx.fillStyle = '#ff80ff';
-  overlayCtx.fillText(label, lx, ly - 1);
-
-  // Ещё — пунктирная линия от bbox до края
-  if (charBBox) {
-    overlayCtx.strokeStyle = 'rgba(255, 120, 255, 0.5)';
-    overlayCtx.setLineDash([8, 6]);
-    overlayCtx.lineWidth = 1.5;
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(cx, cy);
-    overlayCtx.lineTo(edgeX, edgeY);
-    overlayCtx.stroke();
-    overlayCtx.setLineDash([]);
-  }
-}
-
 // ---------- Гистограмма ----------
 function drawHistogram() {
   if (!histogram) return;
   const rect = histoCanvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
-  histoCanvas.width  = Math.max(100, Math.round(rect.width * dpr));
+  histoCanvas.width = Math.max(100, Math.round(rect.width * dpr));
   histoCanvas.height = Math.max(60, Math.round(rect.height * dpr));
   histoCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const W = rect.width, H = rect.height;
@@ -1280,184 +1210,85 @@ function drawHistogram() {
     : `Цвет-образцов: ${colorSamples.length}`;
 }
 
-function renderSamplesList() {
-  samplesCount.textContent = `(${colorSamples.length})`;
-  samplesList.innerHTML = '';
-  if (colorSamples.length === 0) {
-    samplesList.innerHTML = '<span class="sample-empty">Образцы не заданы.</span>';
-    return;
-  }
-  colorSamples.forEach((s, i) => {
-    const chip = document.createElement('div');
-    chip.className = 'sample-chip';
-    chip.innerHTML = `
-      <span style="display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid #555;background:rgb(${s.r},${s.g},${s.b})"></span>
-      <span>rgb(${s.r}, ${s.g}, ${s.b})</span>
-      <button class="remove" title="Удалить">✕</button>`;
-    chip.querySelector('.remove').addEventListener('click', () => {
-      colorSamples.splice(i, 1); renderSamplesList();
-      if (lum) rebuildAll();
+// ---------- Инфо ----------
+function updateInfo() {
+  if (!lum) return;
+  const N = imgWidth * imgHeight;
+  let bg = 0, char_ = 0;
+  for (let i = 0; i < N; i++) { if (isBg[i]) bg++; else char_++; }
+  infoSize.textContent = `${imgWidth} × ${imgHeight}`;
+  infoModeMode.textContent = mode === 'lum' ? 'яркость' : 'цвет';
+  infoBgPct.textContent = ((bg / N) * 100).toFixed(1) + '%';
+  infoCharPct.textContent = ((char_ / N) * 100).toFixed(1) + '%';
+  infoHoles.textContent = holesFilledCount.toLocaleString('ru-RU') + ' px';
+  infoWindows.textContent = windowsFoundCount.toLocaleString('ru-RU') + ' px';
+  infoPointsCount.textContent = `(${sourcePoints.length})`;
+
+  if (sourcePoints.length === 0) {
+    pointList.innerHTML = '<div style="color:#8b93a1;font-size:12px;padding:4px 0;">Точки не заданы.</div>';
+  } else {
+    pointList.innerHTML = '';
+    sourcePoints.forEach((p, i) => {
+      const item = document.createElement('div');
+      item.className = 'point-item' + (i === selectedPointIndex ? ' selected' : '');
+      const left = document.createElement('div');
+      left.className = 'left';
+      const dotColor = (i === selectedPointIndex) ? '#ff5050' : '#ffcc00';
+      left.innerHTML = `<span class="dot" style="background:${dotColor}"></span><span>#${i + 1}</span><span class="coords">x=${p.x}, y=${p.y}</span>`;
+      left.addEventListener('click', () => { selectedPointIndex = i; drawOverlay(); updateInfo(); });
+      const btn = document.createElement('button');
+      btn.className = 'remove'; btn.textContent = '✕';
+      btn.addEventListener('click', (ev) => { ev.stopPropagation(); removePoint(i); });
+      item.appendChild(left); item.appendChild(btn);
+      pointList.appendChild(item);
     });
-    samplesList.appendChild(chip);
-  });
+  }
 }
 
-// ---------- Кнопки ----------
-editPropsBtn.addEventListener('click', () => {
-  editPropsMode = !editPropsMode;
-  editPropsBtn.classList.toggle('active', editPropsMode);
-  stageEl.classList.toggle('edit-mode', editPropsMode);
-  if (editPropsMode) {
-    // Выключаем другие режимы клика
-    manualVPMode = false;
-    manualVPBtn.classList.remove('active');
-    stageEl.classList.remove('vp-mode');
-    bgColorMode = false;
-    pickBgColorBtn.classList.remove('active');
-    addPointMode = false;
-    addPointBtn.classList.remove('active');
-  }
-  hintText.textContent = editPropsMode
-    ? 'Тяни линии долей. Ключевые: шея, плечи, бёдра.'
-    : 'Ручная правка отключена.';
+function removePoint(index) {
+  sourcePoints.splice(index, 1);
+  if (selectedPointIndex === index) selectedPointIndex = -1;
+  else if (selectedPointIndex > index) selectedPointIndex--;
+  rebuildAll();
+}
+
+// ---------- Полный пересчёт ----------
+function rebuildAll() {
+  if (!lum) return;
+  buildMask();
+  computeBBox();
+  updateProportions();
+  computeSymmetry();
+  computeJoints();
+  computePalette();
   drawOverlay();
-});
-
-manualVPBtn.addEventListener('click', () => {
-  manualVPMode = !manualVPMode;
-  manualVPBtn.classList.toggle('active', manualVPMode);
-  stageEl.classList.toggle('vp-mode', manualVPMode);
-  if (manualVPMode) {
-    editPropsMode = false;
-    editPropsBtn.classList.remove('active');
-    stageEl.classList.remove('edit-mode');
-    bgColorMode = false;
-    pickBgColorBtn.classList.remove('active');
-    addPointMode = false;
-    addPointBtn.classList.remove('active');
-  }
-  hintText.textContent = manualVPMode
-    ? 'Кликни по картинке — туда встанет точка схода. Можно кликать сколько угодно раз.'
-    : 'Ручная установка ТС отключена.';
-});
-
-resetVPBtn.addEventListener('click', () => {
-  manualVP = null;
-  if (lum) rebuildAll();
-});
-
-clearVPBtn.addEventListener('click', () => {
-  manualVP = null;
-  contourResult = null;
-  if (lum) { drawOverlay(); }
-  perspVanishing.textContent = '—';
-  perspVPDist.textContent = '—';
-  perspConfidence.textContent = '—';
-  vpStatus.textContent = 'отключена';
-});
-
-resetPropsBtn.addEventListener('click', () => {
-  fractions = DEFAULT_FRACTIONS.map(f => ({ ...f }));
-  if (lum) rebuildAll();
-});
-
-resetNeckBtn.addEventListener('click', () => {
-  const neckFrac = fractions.find(f => f.id === 'neck');
-  if (neckFrac) { neckFrac.manual = false; neckFrac.value = autoNeckValue; }
-  if (lum) rebuildAll();
-});
-
-function findFractionAtY(y) {
-  if (!charBBox) return null;
-  let best = null, bestDist = Infinity;
-  const thresh = Math.max(8, imgHeight * 0.015);
-  for (const frac of fractions) {
-    const lineY = charBBox.minY + charBBox.height * frac.value;
-    const d = Math.abs(lineY - y);
-    if (d < bestDist) { bestDist = d; best = frac; }
-  }
-  return bestDist <= thresh ? best : null;
+  drawHistogram();
+  updateInfo();
 }
 
-function clientToImage(clientX, clientY) {
-  const rect = baseCanvas.getBoundingClientRect();
-  return {
-    x: (clientX - rect.left) * (imgWidth / rect.width),
-    y: (clientY - rect.top) * (imgHeight / rect.height),
-  };
-}
-
-baseCanvas.addEventListener('mousedown', (e) => {
-  if (!editPropsMode || !charBBox) return;
-  const p = clientToImage(e.clientX, e.clientY);
-  const frac = findFractionAtY(p.y);
-  if (!frac) return;
-  dragging = { id: frac.id, startY: p.y, startValue: frac.value };
-  baseCanvas.style.cursor = 'grabbing';
-  e.preventDefault();
-});
-
-window.addEventListener('mousemove', (e) => {
-  if (!dragging || !charBBox) return;
-  const p = clientToImage(e.clientX, e.clientY);
-  const dy = (p.y - dragging.startY) / charBBox.height;
-  let newValue = dragging.startValue + dy;
-  const neighbors = fractions.filter(f => f.id !== dragging.id).map(f => f.value).sort((a, b) => a - b);
-  let minV = 0.01, maxV = 0.99;
-  for (const v of neighbors) {
-    if (v < dragging.startValue && v > minV) minV = v + 0.005;
-    if (v > dragging.startValue && v < maxV) maxV = v - 0.005;
-  }
-  newValue = Math.max(minV, Math.min(maxV, newValue));
-  const frac = fractions.find(f => f.id === dragging.id);
-  if (frac) { frac.value = newValue; frac.manual = true; }
-  if (lum) { computeProportions(); computePerspective(); drawOverlay(); }
-});
-
-window.addEventListener('mouseup', () => {
-  if (dragging) {
-    dragging = null;
-    if (editPropsMode) baseCanvas.style.cursor = 'row-resize';
-  }
-});
-
-baseCanvas.addEventListener('mousemove', (e) => {
-  if (dragging) return;
-  if (manualVPMode) { baseCanvas.style.cursor = 'cell'; return; }
-  if (!editPropsMode || !charBBox) { baseCanvas.style.cursor = 'crosshair'; return; }
-  const p = clientToImage(e.clientX, e.clientY);
-  baseCanvas.style.cursor = findFractionAtY(p.y) ? 'row-resize' : 'crosshair';
-});
-
+// ---------- Управление режимами ----------
 modeLumBtn.addEventListener('click', () => {
   mode = 'lum';
   modeLumBtn.classList.add('active'); modeColorBtn.classList.remove('active');
   lumControls.style.display = ''; colorControls.style.display = 'none';
-  samplesPanel.classList.remove('visible');
   if (lum) rebuildAll();
 });
 modeColorBtn.addEventListener('click', () => {
   mode = 'color';
   modeColorBtn.classList.add('active'); modeLumBtn.classList.remove('active');
   lumControls.style.display = 'none'; colorControls.style.display = '';
-  samplesPanel.classList.add('visible');
-  renderSamplesList();
   if (lum) rebuildAll();
 });
 pickBgColorBtn.addEventListener('click', () => {
   bgColorMode = !bgColorMode;
   pickBgColorBtn.classList.toggle('active', bgColorMode);
   addPointBtn.classList.remove('active'); addPointMode = false;
-  manualVPMode = false; manualVPBtn.classList.remove('active');
-  stageEl.classList.remove('vp-mode');
   baseCanvas.style.cursor = bgColorMode ? 'copy' : 'default';
 });
 addPointBtn.addEventListener('click', () => {
   addPointMode = !addPointMode;
   addPointBtn.classList.toggle('active', addPointMode);
   pickBgColorBtn.classList.remove('active'); bgColorMode = false;
-  manualVPMode = false; manualVPBtn.classList.remove('active');
-  stageEl.classList.remove('vp-mode');
   baseCanvas.style.cursor = addPointMode ? 'crosshair' : 'default';
 });
 clearPointsBtn.addEventListener('click', () => {
@@ -1466,18 +1297,11 @@ clearPointsBtn.addEventListener('click', () => {
 });
 
 baseCanvas.addEventListener('click', e => {
-  if (!lum || editPropsMode) return;
+  if (!lum) return;
   const rect = baseCanvas.getBoundingClientRect();
   const x = Math.floor((e.clientX - rect.left) * (imgWidth / rect.width));
-  const y = Math.floor((e.clientY - rect.top)  * (imgHeight / rect.height));
+  const y = Math.floor((e.clientY - rect.top) * (imgHeight / rect.height));
   if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) return;
-
-  // Режим ручной точки схода
-  if (manualVPMode) {
-    manualVP = { x, y };
-    rebuildAll();
-    return;
-  }
 
   if (bgColorMode) {
     const idx = y * imgWidth + x;
@@ -1488,9 +1312,7 @@ baseCanvas.addEventListener('click', e => {
       mode = 'color';
       modeColorBtn.classList.add('active'); modeLumBtn.classList.remove('active');
       lumControls.style.display = 'none'; colorControls.style.display = '';
-      samplesPanel.classList.add('visible');
     }
-    renderSamplesList();
     bgColorMode = false; pickBgColorBtn.classList.remove('active');
     baseCanvas.style.cursor = 'default'; rebuildAll(); return;
   }
@@ -1511,66 +1333,7 @@ baseCanvas.addEventListener('click', e => {
   rebuildAll();
 });
 
-function removePoint(index) {
-  sourcePoints.splice(index, 1);
-  if (selectedPointIndex === index) selectedPointIndex = -1;
-  else if (selectedPointIndex > index) selectedPointIndex--;
-  rebuildAll();
-}
-
-function updateInfoPanel() {
-  infoPanel.classList.toggle('visible', showInfoEl.checked);
-  histoPanel.classList.toggle('visible', showHistoEl.checked);
-  propsPanel.classList.toggle('visible', showPropsEl.checked);
-  perspPanel.classList.toggle('visible', showPerspEl.checked);
-  if (!lum) return;
-
-  const N = imgWidth * imgHeight;
-  let bg = 0, char_ = 0;
-  for (let i = 0; i < N; i++) { if (isBg[i]) bg++; else char_++; }
-
-  infoSize.textContent      = `${imgWidth} × ${imgHeight}`;
-  infoModeMode.textContent  = mode === 'lum' ? 'яркость' : 'цвет';
-  infoThreshold.textContent = mode === 'lum'
-    ? `${bgLumEl.value}${invertEl.checked ? ' (инв)' : ''}`
-    : `${colorSamples.length} образц. ±${bgDistEl.value}`;
-  infoBgPct.textContent     = ((bg / N) * 100).toFixed(1) + '%';
-  infoCharPct.textContent   = ((char_ / N) * 100).toFixed(1) + '%';
-  infoHoles.textContent     = holesFilledCount.toLocaleString('ru-RU') + ' px';
-  infoWindows.textContent   = windowsFoundCount.toLocaleString('ru-RU') + ' px';
-  infoPointsCount.textContent = `(${sourcePoints.length})`;
-
-  if (sourcePoints.length === 0) {
-    pointList.innerHTML = '<div style="color:#8b93a1;font-size:12px;padding:4px 0;">Точки не заданы.</div>';
-  } else {
-    pointList.innerHTML = '';
-    sourcePoints.forEach((p, i) => {
-      const item = document.createElement('div');
-      item.className = 'point-item' + (i === selectedPointIndex ? ' selected' : '');
-      const left = document.createElement('div');
-      left.className = 'left';
-      const dotColor = (i === selectedPointIndex) ? '#ff5050' : '#ffcc00';
-      left.innerHTML = `<span class="dot" style="background:${dotColor}"></span><span>#${i + 1}</span><span class="coords">x=${p.x}, y=${p.y}</span>`;
-      left.addEventListener('click', () => { selectedPointIndex = i; drawOverlay(); updateInfoPanel(); });
-      const btn = document.createElement('button');
-      btn.className = 'remove'; btn.textContent = '✕';
-      btn.addEventListener('click', (ev) => { ev.stopPropagation(); removePoint(i); });
-      item.appendChild(left); item.appendChild(btn);
-      pointList.appendChild(item);
-    });
-  }
-}
-
-function rebuildAll() {
-  if (!lum) return;
-  buildMask();
-  computeProportions();
-  computePerspective();
-  drawOverlay();
-  drawHistogram();
-  updateInfoPanel();
-}
-
+// ---------- Слушатели ----------
 bgLumEl.addEventListener('input', () => { bgLumVal.textContent = bgLumEl.value; if (mode === 'lum') rebuildAll(); });
 bgDistEl.addEventListener('input', () => { bgDistVal.textContent = bgDistEl.value; if (mode === 'color') rebuildAll(); });
 invertEl.addEventListener('change', () => { if (lum) rebuildAll(); });
@@ -1580,6 +1343,9 @@ useSmoothEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 maxHoleEl.addEventListener('input', () => { maxHoleVal.textContent = maxHoleEl.value; if (lum && useHolesEl.checked) rebuildAll(); });
 minWinEl.addEventListener('input', () => { minWinVal.textContent = minWinEl.value; if (lum && useWindowsEl.checked) rebuildAll(); });
 smoothIterEl.addEventListener('input', () => { smoothIterVal.textContent = smoothIterEl.value; if (lum && useSmoothEl.checked) rebuildAll(); });
+paletteCountEl.addEventListener('input', () => { paletteCountVal.textContent = paletteCountEl.value; if (lum) computePalette(); });
+jointTolEl.addEventListener('input', () => { jointTolVal.textContent = jointTolEl.value; if (lum) computeJoints(); });
+
 autoThresholdBtn.addEventListener('click', () => { if (!histogram) return; autoPickThreshold(); if (mode === 'lum') rebuildAll(); });
 histoCanvas.addEventListener('click', (e) => {
   if (!histogram || mode !== 'lum') return;
@@ -1588,13 +1354,17 @@ histoCanvas.addEventListener('click', (e) => {
   const v = Math.max(0, Math.min(255, Math.round((x / rect.width) * 255)));
   bgLumEl.value = v; bgLumVal.textContent = v; rebuildAll();
 });
+
 hideImageEl.addEventListener('change', () => { stageEl.classList.toggle('hide', hideImageEl.checked); });
-showInfoEl.addEventListener('change', () => { infoPanel.classList.toggle('visible', showInfoEl.checked); });
 showHistoEl.addEventListener('change', () => { histoPanel.classList.toggle('visible', showHistoEl.checked); if (showHistoEl.checked) drawHistogram(); });
 showPropsEl.addEventListener('change', () => { propsPanel.classList.toggle('visible', showPropsEl.checked); });
-showPerspEl.addEventListener('change', () => { perspPanel.classList.toggle('visible', showPerspEl.checked); });
+showSymmEl.addEventListener('change', () => { symmPanel.classList.toggle('visible', showSymmEl.checked); drawOverlay(); });
+showJointsEl.addEventListener('change', () => { jointsPanel.classList.toggle('visible', showJointsEl.checked); drawOverlay(); });
+showPaletteEl.addEventListener('change', () => { palettePanel.classList.toggle('visible', showPaletteEl.checked); });
+showInfoEl.addEventListener('change', () => { infoPanel.classList.toggle('visible', showInfoEl.checked); });
+
 window.addEventListener('resize', () => { if (histoPanel.classList.contains('visible') && histogram) drawHistogram(); });
 </script>
 
 </body>
-  </html>
+</html>
