@@ -3,26 +3,27 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Фон и персонаж (Otsu + морфология)</title>
+<title>Фон и персонаж</title>
 <style>
   body {
     margin: 0;
     font-family: system-ui, sans-serif;
     background: #14161a;
     color: #e6e6e6;
-    display: flex; flex-direction: column; align-items: center;
-    padding: 16px; gap: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    gap: 12px;
   }
   .controls {
     display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
     justify-content: center; padding: 10px 14px;
     background: #1d2027; border-radius: 10px;
-    max-width: min(92vw, 900px);
   }
   .controls label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
   input[type="file"] { font-size: 13px; }
-  input[type="range"] { width: 140px; }
-  .status { font-size: 12px; opacity: 0.7; }
+  input[type="range"] { width: 160px; }
   .stage {
     position: relative; display: inline-block;
     border: 1px solid #2b2f37; background: #0b0c0f; line-height: 0;
@@ -41,16 +42,11 @@
 
 <div class="controls">
   <label>Изображение: <input id="file" type="file" accept="image/*" /></label>
-  <label>Порог (Otsu ±):
-    <input id="bgLum" type="range" min="-80" max="80" value="0" />
-    <span id="bgLumVal">0</span>
-  </label>
-  <label>Морфология:
-    <input id="morph" type="range" min="0" max="10" value="2" />
-    <span id="morphVal">2</span>
+  <label>Яркость фона:
+    <input id="bgLum" type="range" min="200" max="255" value="200" />
+    <span id="bgLumVal">200</span>
   </label>
   <label><input id="hideImage" type="checkbox" /> Скрыть изображение</label>
-  <span class="status" id="status">готов</span>
 </div>
 
 <div class="stage" id="stage">
@@ -59,101 +55,22 @@
 </div>
 
 <script>
-/* =========================================================
- * 1. Алгоритмы: Otsu, erode, dilate — чистый JS
- * =======================================================*/
-
-/** Гистограмма яркости + порог Оцу */
-function otsuThreshold(lum) {
-  const hist = new Uint32Array(256);
-  for (let i = 0; i < lum.length; i++) hist[lum[i]]++;
-
-  const total = lum.length;
-  let sum = 0;
-  for (let i = 0; i < 256; i++) sum += i * hist[i];
-
-  let sumB = 0, wB = 0, maxVar = -1, threshold = 0;
-  for (let t = 0; t < 256; t++) {
-    wB += hist[t];
-    if (wB === 0) continue;
-    const wF = total - wB;
-    if (wF === 0) break;
-    sumB += t * hist[t];
-    const mB = sumB / wB;
-    const mF = (sum - sumB) / wF;
-    const between = wB * wF * (mB - mF) * (mB - mF);
-    if (between > maxVar) { maxVar = between; threshold = t; }
-  }
-  return threshold;
-}
-
-/** Erode: пиксель остаётся 1, если все соседи в квадрате r — 1 */
-function erode(mask, w, h, r) {
-  const out = new Uint8Array(mask.length);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let all = 1;
-      for (let dy = -r; dy <= r && all; dy++) {
-        const ny = y + dy;
-        if (ny < 0 || ny >= h) continue;
-        for (let dx = -r; dx <= r; dx++) {
-          const nx = x + dx;
-          if (nx < 0 || nx >= w) continue;
-          if (!mask[ny * w + nx]) { all = 0; break; }
-        }
-      }
-      out[y * w + x] = all;
-    }
-  }
-  return out;
-}
-
-/** Dilate: пиксель 1, если хотя бы один сосед в квадрате r — 1 */
-function dilate(mask, w, h, r) {
-  const out = new Uint8Array(mask.length);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let any = 0;
-      for (let dy = -r; dy <= r && !any; dy++) {
-        const ny = y + dy;
-        if (ny < 0 || ny >= h) continue;
-        for (let dx = -r; dx <= r; dx++) {
-          const nx = x + dx;
-          if (nx < 0 || nx >= w) continue;
-          if (mask[ny * w + nx]) { any = 1; break; }
-        }
-      }
-      out[y * w + x] = any;
-    }
-  }
-  return out;
-}
-
-/* =========================================================
- * 2. Состояние
- * =======================================================*/
 const fileInput   = document.getElementById('file');
 const baseCanvas  = document.getElementById('base');
 const overlay     = document.getElementById('overlay');
 const stageEl     = document.getElementById('stage');
 const bgLumEl     = document.getElementById('bgLum');
 const bgLumVal    = document.getElementById('bgLumVal');
-const morphEl     = document.getElementById('morph');
-const morphVal    = document.getElementById('morphVal');
 const hideImageEl = document.getElementById('hideImage');
-const statusEl    = document.getElementById('status');
 
-const baseCtx    = baseCanvas.getContext('2d', { willReadFrequently: true });
+const baseCtx    = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
 
 let imgWidth = 0, imgHeight = 0;
-let lum = null;       // Uint8Array яркостей
-let baseMask = null;  // после Otsu, до морфологии
-let isBg = null;      // финальная маска фона
+let lum = null;
+let isBg = null;
 
-/* =========================================================
- * 3. Загрузка изображения
- * =======================================================*/
+// ---------- Загрузка ----------
 fileInput.addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
@@ -162,132 +79,87 @@ fileInput.addEventListener('change', e => {
     imgWidth  = img.naturalWidth;
     imgHeight = img.naturalHeight;
 
-    baseCanvas.width  = imgWidth;
-    baseCanvas.height = imgHeight;
-    overlay.width     = imgWidth;
-    overlay.height    = imgHeight;
+    [baseCanvas, overlay].forEach(c => {
+      c.width = imgWidth; c.height = imgHeight;
+    });
 
     baseCtx.drawImage(img, 0, 0);
-    computeLuminance();
-    rebuild();
+    const data = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
+    computeLuminance(data);
+    buildMask();
+    drawOverlay();
   };
   img.src = URL.createObjectURL(file);
 });
 
-function computeLuminance() {
-  const data = baseCtx.getImageData(0, 0, imgWidth, imgHeight).data;
+// ---------- Яркость ----------
+function computeLuminance(data) {
+  const d = data.data;
   const N = imgWidth * imgHeight;
-  lum = new Uint8Array(N);
+  lum = new Float32Array(N);
   for (let i = 0, p = 0; i < N; i++, p += 4) {
-    if (data[p + 3] < 20) { lum[i] = 255; continue; } // прозрачное = фон
-    lum[i] = (0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2]) | 0;
+    if (d[p + 3] < 20) { lum[i] = 255; continue; }
+    lum[i] = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2];
   }
 }
 
-/* =========================================================
- * 4. Основная обработка
- * =======================================================*/
-function rebuild() {
-  if (!lum) return;
-  const t0 = performance.now();
-
+// ---------- Маска фона ----------
+function buildMask() {
   const w = imgWidth, h = imgHeight;
-  const offset = +bgLumEl.value;
-  const morphK = +morphEl.value;
+  const N = w * h;
+  const threshold = +bgLumEl.value;
 
-  // 4.1. Otsu
-  const otsu = otsuThreshold(lum);
-  const thresh = Math.max(0, Math.min(255, otsu + offset));
-
-  // 4.2. Бинарная маска: 1 = яркий (потенциальный фон)
-  baseMask = new Uint8Array(lum.length);
-  for (let i = 0; i < lum.length; i++) {
-    baseMask[i] = lum[i] >= thresh ? 1 : 0;
-  }
-
-  // 4.3. Морфология: close (dilate→erode) + open (erode→dilate)
-  let mask = baseMask;
-  if (morphK > 0) {
-    mask = dilate(mask, w, h, morphK);
-    mask = erode(mask, w, h, morphK);
-    mask = erode(mask, w, h, morphK);
-    mask = dilate(mask, w, h, morphK);
-  }
-
-  // 4.4. Flood fill от краёв — фон = яркий И связанный с границей
-  isBg = new Uint8Array(w * h);
-  const queue = new Int32Array(w * h);
-  let head = 0, tail = 0;
+  isBg = new Uint8Array(N);
+  const queue = [];
+  const isBright = i => lum[i] >= threshold;
 
   const push = (x, y) => {
     if (x < 0 || y < 0 || x >= w || y >= h) return;
     const idx = y * w + x;
-    if (isBg[idx] || !mask[idx]) return;
+    if (isBg[idx]) return;
+    if (!isBright(idx)) return;
     isBg[idx] = 1;
-    queue[tail++] = idx;
+    queue.push(idx);
   };
 
   for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
   for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
 
-  while (head < tail) {
+  let head = 0;
+  while (head < queue.length) {
     const idx = queue[head++];
-    const x = idx % w;
-    const y = (idx / w) | 0;
-    push(x + 1, y);
-    push(x - 1, y);
-    push(x, y + 1);
-    push(x, y - 1);
+    push(idx % w + 1, (idx / w) | 0);
+    push(idx % w - 1, (idx / w) | 0);
+    push(idx % w, (idx / w | 0) + 1);
+    push(idx % w, (idx / w | 0) - 1);
   }
-
-  drawOverlay();
-
-  const dt = (performance.now() - t0).toFixed(0);
-  statusEl.textContent = `Otsu=${otsu}, порог=${thresh}, морф=${morphK}, ${dt} мс`;
 }
 
-/* =========================================================
- * 5. Отрисовка
- * =======================================================*/
+// ---------- Отрисовка ----------
 function drawOverlay() {
-  if (!isBg) return;
   const w = imgWidth, h = imgHeight;
+  if (!w) return;
   overlayCtx.clearRect(0, 0, w, h);
-  const imgData = overlayCtx.createImageData(w, h);
-  const d = imgData.data;
+  const img = overlayCtx.createImageData(w, h);
+  const data = img.data;
 
   for (let i = 0, j = 0; i < w * h; i++, j += 4) {
     if (!isBg[i]) {
-      d[j]     = 255;
-      d[j + 1] = 60;
-      d[j + 2] = 60;
-      d[j + 3] = 140;
+      data[j]     = 255;
+      data[j + 1] = 60;
+      data[j + 2] = 60;
+      data[j + 3] = 140;
     }
   }
-  overlayCtx.putImageData(imgData, 0, 0);
+  overlayCtx.putImageData(img, 0, 0);
 }
 
-/* =========================================================
- * 6. UI + throttling через requestAnimationFrame
- * =======================================================*/
-let rafPending = false;
-function scheduleRebuild() {
-  if (rafPending) return;
-  rafPending = true;
-  requestAnimationFrame(() => {
-    rafPending = false;
-    rebuild();
-  });
-}
-
+// ---------- Реакции ----------
 bgLumEl.addEventListener('input', () => {
   bgLumVal.textContent = bgLumEl.value;
-  scheduleRebuild();
-});
-
-morphEl.addEventListener('input', () => {
-  morphVal.textContent = morphEl.value;
-  scheduleRebuild();
+  if (!lum) return;
+  buildMask();
+  drawOverlay();
 });
 
 hideImageEl.addEventListener('change', () => {
