@@ -8,9 +8,13 @@
 </head>
 <body>
 
+<!-- ВЕРХНЯЯ ПАНЕЛЬ -->
 <div class="topbar">
   <button class="menu-toggle" id="menuToggle">☰</button>
-  <label class="file-label">📷 Файл <input id="file" type="file" accept="image/*" /></label>
+  <label class="file-label">
+    📷 Файл
+    <input id="file" type="file" accept="image/*" />
+  </label>
   <button id="pickBgColorBtn">🎨 Цвет фона</button>
   <button id="addPointBtn">🎯 Точка</button>
   <button id="editFractionsBtn">✎ Доли</button>
@@ -18,6 +22,7 @@
   <button id="manualVPBtn">⌖ ТС</button>
 </div>
 
+<!-- МЕНЮ -->
 <div class="drawer-backdrop" id="drawerBackdrop"></div>
 <div class="drawer" id="drawer">
   <button class="drawer-close" id="drawerClose">✕</button>
@@ -68,7 +73,8 @@
   <h3>Пропорции</h3>
   <div class="drawer-section">
     <div class="row">
-      <button id="presetAnime" class="active">Аниме</button>
+      <button id="presetReference" class="active">Референс</button>
+      <button id="presetAnime">Аниме</button>
       <button id="presetStylized">Стилиз.</button>
       <button id="presetRealism">Реализм</button>
       <button id="presetChibi">Чиби</button>
@@ -106,7 +112,15 @@
       <label><input id="showSamples" type="checkbox" /> ⑧ Образцы</label>
       <label><input id="showInfo" type="checkbox" checked /> ⑨ Инфо</label>
       <label><input id="showCorrected" type="checkbox" checked /> Истинные доли</label>
-      <label><input id="showSkinMask" type="checkbox" /> Показать маску тела</label>
+    </div>
+  </div>
+
+  <h3>Показ масок</h3>
+  <div class="drawer-section">
+    <div class="row" style="flex-wrap:wrap;">
+      <label><input id="showSkinMask" type="checkbox" /> Маска тела</label>
+      <label><input id="showHairMask" type="checkbox" /> Маска волос</label>
+      <label><input id="showClothMask" type="checkbox" /> Маска одежды</label>
     </div>
   </div>
 
@@ -123,6 +137,7 @@
   </div>
 </div>
 
+<!-- КАНВАС -->
 <div class="stage" id="stage">
   <canvas id="base"></canvas>
   <canvas id="overlay"></canvas>
@@ -133,6 +148,7 @@
   Послойная сегментация: тело отделяется от волос и одежды, пропорции ищутся на голом теле.
 </p>
 
+<!-- ПАНЕЛИ АНАЛИЗА -->
 <div class="panels" id="panels">
 
   <div class="panel" id="histoPanel">
@@ -358,6 +374,7 @@
 
 </div>
 
+<!-- НИЖНЯЯ ПАНЕЛЬ -->
 <div class="bottom-bar">
   <button id="bottomFile"><span class="ico">📷</span><span>Файл</span></button>
   <button id="bottomReset"><span class="ico">↺</span><span>Вид</span></button>
