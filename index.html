@@ -182,7 +182,7 @@
 </div>
 
 <p class="hint">
-  Загрузка и подготовка изображения → маска фона (BFS + дырки/окна/сглаживание) → точки-источники (ручная подсказка для заливки).
+  Загрузка и подготовка изображения → маска фона (BFS + сглаживание) → точки-источники (ручная подсказка для заливки).
 </p>
 
 <div class="panel">
@@ -209,17 +209,7 @@
     </div>
     <div class="row">
       <label><input id="invert" type="checkbox" /> Инверт</label>
-      <label><input id="useHoles" type="checkbox" checked /> Дырки</label>
-      <label><input id="useWindows" type="checkbox" /> Окна</label>
       <label><input id="useSmooth" type="checkbox" checked /> Сглаж.</label>
-    </div>
-    <div class="slider-row">
-      <div class="label-line"><span>Макс. дырка</span><span id="maxHoleVal">80</span></div>
-      <input id="maxHole" type="range" min="0" max="500" value="80" />
-    </div>
-    <div class="slider-row">
-      <div class="label-line"><span>Мин. окно</span><span id="minWinVal">300</span></div>
-      <input id="minWin" type="range" min="10" max="3000" value="300" />
     </div>
     <div class="slider-row">
       <div class="label-line"><span>Сглаживание</span><span id="smoothIterVal">1</span></div>
@@ -230,8 +220,6 @@
     <h3>Итоги</h3>
     <div class="kv"><span>Фон</span><span id="infoBgPct">—</span></div>
     <div class="kv"><span>Персонаж</span><span id="infoCharPct">—</span></div>
-    <div class="kv"><span>Дырок закрыто</span><span id="infoHoles">—</span></div>
-    <div class="kv"><span>Окон найдено</span><span id="infoWindows">—</span></div>
   </div>
 </div>
 
@@ -265,13 +253,7 @@ const bgLumVal = document.getElementById('bgLumVal');
 const bgDistEl = document.getElementById('bgDist');
 const bgDistVal = document.getElementById('bgDistVal');
 const invertEl = document.getElementById('invert');
-const useHolesEl = document.getElementById('useHoles');
-const useWindowsEl = document.getElementById('useWindows');
 const useSmoothEl = document.getElementById('useSmooth');
-const maxHoleEl = document.getElementById('maxHole');
-const maxHoleVal = document.getElementById('maxHoleVal');
-const minWinEl = document.getElementById('minWin');
-const minWinVal = document.getElementById('minWinVal');
 const smoothIterEl = document.getElementById('smoothIter');
 const smoothIterVal = document.getElementById('smoothIterVal');
 
@@ -289,8 +271,6 @@ const infoMode = document.getElementById('infoMode');
 const infoHisto = document.getElementById('infoHisto');
 const infoBgPct = document.getElementById('infoBgPct');
 const infoCharPct = document.getElementById('infoCharPct');
-const infoHoles = document.getElementById('infoHoles');
-const infoWindows = document.getElementById('infoWindows');
 const infoPointsCount = document.getElementById('infoPointsCount');
 const pointList = document.getElementById('pointList');
 const samplesList = document.getElementById('samplesList');
@@ -308,7 +288,6 @@ let mode = 'lum';
 let colorSamples = [];
 let bgColorMode = false, addPointMode = false;
 let sourcePoints = [];
-let holesFilledCount = 0, windowsFoundCount = 0;
 
 // ============================================================
 //  1. ЗАГРУЗКА И ПОДГОТОВКА ИЗОБРАЖЕНИЯ
@@ -422,68 +401,6 @@ function buildMask() {
     const idx = queue[head++];
     const x = idx % w, y = (idx / w) | 0;
     push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
-  }
-
-  // Дырки
-  holesFilledCount = 0;
-  if (useHolesEl.checked) {
-    const maxHole = +maxHoleEl.value;
-    if (maxHole > 0) {
-      const visited = new Uint8Array(N);
-      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-        const idx = y * w + x;
-        if (visited[idx] || !isBg[idx]) continue;
-        const pixels = [idx]; const localSeen = new Uint8Array(N); localSeen[idx] = 1;
-        let touchesFrame = false, hh = 0;
-        while (hh < pixels.length) {
-          const ci = pixels[hh++];
-          const cx = ci % w, cy = (ci / w) | 0;
-          if (cx === 0 || cy === 0 || cx === w - 1 || cy === h - 1) touchesFrame = true;
-          const nb = [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]];
-          for (const [nx, ny] of nb) {
-            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-            const ni = ny * w + nx;
-            if (localSeen[ni] || !isBg[ni]) continue;
-            localSeen[ni] = 1; pixels.push(ni);
-          }
-        }
-        for (const pp of pixels) visited[pp] = 1;
-        if (!touchesFrame && pixels.length <= maxHole) {
-          for (const pp of pixels) isBg[pp] = 0;
-          holesFilledCount += pixels.length;
-        }
-      }
-    }
-  }
-
-  // Окна
-  windowsFoundCount = 0;
-  if (useWindowsEl.checked) {
-    const minWin = +minWinEl.value;
-    const visited = new Uint8Array(N);
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const idx = y * w + x;
-      if (visited[idx] || isBg[idx] || !isPixelBg(idx)) continue;
-      const pixels = [idx]; const localSeen = new Uint8Array(N); localSeen[idx] = 1;
-      let touchesBg = false, hh = 0;
-      while (hh < pixels.length) {
-        const ci = pixels[hh++];
-        const cx = ci % w, cy = (ci / w) | 0;
-        const nb = [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]];
-        for (const [nx, ny] of nb) {
-          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-          const ni = ny * w + nx;
-          if (isBg[ni]) { touchesBg = true; continue; }
-          if (localSeen[ni] || !isPixelBg(ni)) continue;
-          localSeen[ni] = 1; pixels.push(ni);
-        }
-      }
-      for (const pp of pixels) visited[pp] = 1;
-      if (!touchesBg && pixels.length >= minWin) {
-        for (const pp of pixels) isBg[pp] = 1;
-        windowsFoundCount += pixels.length;
-      }
-    }
   }
 
   // Сглаживание
@@ -601,8 +518,6 @@ function updateInfo() {
   infoHisto.textContent = histogram ? `256 корзин` : '—';
   infoBgPct.textContent = ((bg / N) * 100).toFixed(1) + '%';
   infoCharPct.textContent = ((char_ / N) * 100).toFixed(1) + '%';
-  infoHoles.textContent = holesFilledCount.toLocaleString('ru-RU') + ' px';
-  infoWindows.textContent = windowsFoundCount.toLocaleString('ru-RU') + ' px';
   infoPointsCount.textContent = `(${sourcePoints.length})`;
   renderPointList();
 }
@@ -729,11 +644,7 @@ autoThresholdBtn.addEventListener('click', () => {
 bgLumEl.addEventListener('input', () => { bgLumVal.textContent = bgLumEl.value; if (mode === 'lum') rebuildAll(); });
 bgDistEl.addEventListener('input', () => { bgDistVal.textContent = bgDistEl.value; if (mode === 'color') rebuildAll(); });
 invertEl.addEventListener('change', () => { if (lum) rebuildAll(); });
-useHolesEl.addEventListener('change', () => { if (lum) rebuildAll(); });
-useWindowsEl.addEventListener('change', () => { if (lum) rebuildAll(); });
 useSmoothEl.addEventListener('change', () => { if (lum) rebuildAll(); });
-maxHoleEl.addEventListener('input', () => { maxHoleVal.textContent = maxHoleEl.value; if (lum && useHolesEl.checked) rebuildAll(); });
-minWinEl.addEventListener('input', () => { minWinVal.textContent = minWinEl.value; if (lum && useWindowsEl.checked) rebuildAll(); });
 smoothIterEl.addEventListener('input', () => { smoothIterVal.textContent = smoothIterEl.value; if (lum && useSmoothEl.checked) rebuildAll(); });
 </script>
 </body>
