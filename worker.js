@@ -4,44 +4,52 @@
 
 self.onmessage = (e) => {
   const { type, payload } = e.data;
+  console.log('[worker] received:', type);
 
   if (type === 'buildMask') {
     try {
       const result = buildMaskInWorker(payload);
-      self.postMessage(
-        { type: 'mask', payload: result },
-        [result.mask.buffer]
-      );
+      console.log('[worker] done, bgCount =', result.bgCount);
+      // Передаём как обычный массив (structured clone, без transfer)
+      self.postMessage({
+        type: 'mask',
+        payload: {
+          mask: result.mask,
+          bgCount: result.bgCount,
+          width: result.width,
+          height: result.height
+        }
+      });
     } catch (err) {
+      console.error('[worker] error:', err);
       self.postMessage({ type: 'error', payload: String(err && err.message || err) });
     }
   }
 };
 
-// ------------------------------------------------------------
-//  Основная функция: строит маску фона
-// ------------------------------------------------------------
 function buildMaskInWorker(p) {
   const {
-    imageData,
+    imageData,          // { data: Uint8ClampedArray, width, height }
     width, height,
-    mode,               // 'lum' | 'color' | 'region'
-    thresholdLum,       // 0..255
-    colorSamples,       // [{r,g,b}]
-    thresholdDist,      // 1..150
+    mode,
+    thresholdLum,
+    colorSamples,
+    thresholdDist,
     invert,
-    sourcePoints,       // [{x,y}]
-    autoSeeds,          // [{x,y}] — предвычисленные в главном потоке
+    sourcePoints,
+    autoSeeds,
     useSmooth,
     smoothIter,
     morphOpen,
     morphClose,
-    regionTolerance     // 0..255 для регионального роста
+    regionTolerance
   } = p;
 
   const w = width, h = height;
   const N = w * h;
   const data = imageData.data;
+
+  console.log('[worker] buildMask:', { w, h, mode, thresholdLum, useSmooth, smoothIter, morphOpen, morphClose });
 
   // Лум-канал
   const lum = new Float32Array(N);
@@ -50,7 +58,6 @@ function buildMaskInWorker(p) {
     lum[i] = 0.299 * data[j] + 0.587 * data[j + 1] + 0.114 * data[j + 2];
   }
 
-  // Кэш порогов
   const dist2 = thresholdDist * thresholdDist * 3;
   const colorMode = (mode === 'color' && colorSamples && colorSamples.length > 0);
 
@@ -69,15 +76,11 @@ function buildMaskInWorker(p) {
         if (dr * dr + dg * dg + db * db <= dist2) { matched = true; break; }
       }
     } else {
-      // region — обрабатывается отдельно, здесь fallback на lum
       matched = lum[idx] >= thresholdLum;
     }
     return invert ? !matched : matched;
   }
 
-  // ------------------------------------------------------------
-  //  Основной BFS
-  // ------------------------------------------------------------
   const mask = new Uint8Array(N);
   const queue = new Int32Array(N);
   let head = 0, tail = 0;
@@ -104,16 +107,10 @@ function buildMaskInWorker(p) {
     push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
   }
 
-  // ------------------------------------------------------------
-  //  Региональный рост (опционально, поверх BFS)
-  // ------------------------------------------------------------
   if (mode === 'region' && sourcePoints && sourcePoints.length > 0) {
     regionGrow(mask, data, w, h, sourcePoints, regionTolerance);
   }
 
-  // ------------------------------------------------------------
-  //  Морфология
-  // ------------------------------------------------------------
   if (morphOpen > 0) {
     for (let i = 0; i < morphOpen; i++) erode(mask, w, h);
     for (let i = 0; i < morphOpen; i++) dilate(mask, w, h);
@@ -123,25 +120,16 @@ function buildMaskInWorker(p) {
     for (let i = 0; i < morphClose; i++) erode(mask, w, h);
   }
 
-  // ------------------------------------------------------------
-  //  Сглаживание
-  // ------------------------------------------------------------
   if (useSmooth) {
     for (let i = 0; i < smoothIter; i++) smoothOnce(mask, w, h);
   }
 
-  // ------------------------------------------------------------
-  //  Подсчёт фона
-  // ------------------------------------------------------------
   let bgCount = 0;
   for (let i = 0; i < N; i++) if (mask[i]) bgCount++;
 
   return { mask, bgCount, width: w, height: h };
 }
 
-// ============================================================
-//  Региональный рост: BFS от точек, критерий — похожесть на соседа
-// ============================================================
 function regionGrow(mask, data, w, h, seeds, tolerance) {
   const N = w * h;
   const queue = new Int32Array(N);
@@ -187,16 +175,12 @@ function regionGrow(mask, data, w, h, seeds, tolerance) {
   }
 }
 
-// ============================================================
-//  Морфология
-// ============================================================
 function erode(mask, w, h) {
   const copy = mask.slice();
   for (let y = 1; y < h - 1; y++) {
     for (let x = 1; x < w - 1; x++) {
       const idx = y * w + x;
       if (!copy[idx]) continue;
-      // Если хотя бы один 4-сосед не фон — гасим
       if (!copy[idx - 1] || !copy[idx + 1] || !copy[idx - w] || !copy[idx + w]) {
         mask[idx] = 0;
       }
@@ -217,9 +201,6 @@ function dilate(mask, w, h) {
   }
 }
 
-// ============================================================
-//  Сглаживание (3×3, пороги 7/1)
-// ============================================================
 function smoothOnce(mask, w, h) {
   const copy = mask.slice();
   for (let y = 1; y < h - 1; y++) {
