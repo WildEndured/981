@@ -182,7 +182,7 @@
 </div>
 
 <p class="hint">
-  Загрузка и подготовка изображения → маска фона (BFS + сглаживание) → точки-источники (ручная подсказка для заливки).
+  Загрузка и подготовка изображения → маска фона (BFS + сглаживание + авто-поиск изолированных областей) → точки-источники (ручная подсказка).
 </p>
 
 <div class="panel">
@@ -359,27 +359,105 @@ function autoPickThreshold() {
 // ============================================================
 //  2. МАСКА ФОНА
 // ============================================================
+// Кэшируем параметры на время одного пересчёта для ускорения
+let _cacheLumT = 0, _cacheInv = false, _cacheDist2 = 0, _cacheColorMode = false;
+
+function updateCache() {
+  _cacheLumT = +bgLumEl.value;
+  _cacheInv = invertEl.checked;
+  const t = +bgDistEl.value;
+  _cacheDist2 = t * t * 3;
+  _cacheColorMode = (mode === 'color' && colorSamples.length > 0);
+}
+
 function isPixelBg(idx) {
   if (mode === 'lum') {
     const L = lum[idx];
-    const t = +bgLumEl.value;
-    const inv = invertEl.checked;
-    return inv ? (L <= t) : (L >= t);
+    return _cacheInv ? (L <= _cacheLumT) : (L >= _cacheLumT);
   }
-  if (colorSamples.length === 0) return false;
+  if (!_cacheColorMode) return false;
   const p = idx * 4;
   const d = imgDataRef.data;
   const r = d[p], g = d[p + 1], b = d[p + 2];
-  const t = +bgDistEl.value;
-  const t2 = t * t * 3;
   for (const s of colorSamples) {
     const dr = r - s.r, dg = g - s.g, db = b - s.b;
-    if (dr * dr + dg * dg + db * db <= t2) return !invertEl.checked;
+    if (dr * dr + dg * dg + db * db <= _cacheDist2) return !_cacheInv;
   }
-  return invertEl.checked;
+  return _cacheInv;
+}
+
+/**
+ * Автоматически находит изолированные области, подходящие под критерий фона,
+ * но не касающиеся границ изображения. Возвращает массив точек-семян.
+ * @param {number} minSize минимальный размер области (в пикселях)
+ */
+function findIsolatedBgSeeds(minSize = 30) {
+  const w = imgWidth, h = imgHeight;
+  const N = w * h;
+  const visited = new Uint8Array(N);
+  const seeds = [];
+  const queue = new Int32Array(N);
+  const region = [];
+
+  for (let start = 0; start < N; start++) {
+    if (visited[start]) continue;
+
+    if (!isPixelBg(start)) {
+      visited[start] = 1;
+      continue;
+    }
+
+    // Локальный BFS для поиска связной области фона
+    let head = 0, tail = 0;
+    queue[tail++] = start;
+    visited[start] = 1;
+    region.length = 0;
+    let touchesBorder = false;
+
+    while (head < tail) {
+      const cur = queue[head++];
+      region.push(cur);
+      const cx = cur % w;
+      const cy = (cur / w) | 0;
+
+      if (cx === 0 || cy === 0 || cx === w - 1 || cy === h - 1) {
+        touchesBorder = true;
+      }
+
+      // Соседи: влево, вправо, вверх, вниз
+      if (cx > 0) {
+        const n = cur - 1;
+        if (!visited[n] && isPixelBg(n)) { visited[n] = 1; queue[tail++] = n; }
+      }
+      if (cx < w - 1) {
+        const n = cur + 1;
+        if (!visited[n] && isPixelBg(n)) { visited[n] = 1; queue[tail++] = n; }
+      }
+      if (cy > 0) {
+        const n = cur - w;
+        if (!visited[n] && isPixelBg(n)) { visited[n] = 1; queue[tail++] = n; }
+      }
+      if (cy < h - 1) {
+        const n = cur + w;
+        if (!visited[n] && isPixelBg(n)) { visited[n] = 1; queue[tail++] = n; }
+      }
+    }
+
+    // Если область не касается границы и достаточно большая — берём её центр как семя
+    if (!touchesBorder && region.length >= minSize) {
+      const centerIdx = region[Math.floor(region.length / 2)];
+      const cx = centerIdx % w;
+      const cy = (centerIdx / w) | 0;
+      seeds.push({ x: cx, y: cy });
+    }
+  }
+
+  return seeds;
 }
 
 function buildMask() {
+  updateCache();
+
   const w = imgWidth, h = imgHeight;
   const N = w * h;
   isBg = new Uint8Array(N);
@@ -390,12 +468,21 @@ function buildMask() {
     if (isBg[idx] || !isPixelBg(idx)) return;
     isBg[idx] = 1; queue.push(idx);
   };
+
+  // 1. Приоритет — ручные точки пользователя
   if (sourcePoints.length > 0) {
     for (const p of sourcePoints) push(p.x, p.y);
   } else {
-    for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
-    for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+    // 2. Автоматический поиск изолированных областей фона внутри персонажа
+    const autoSeeds = findIsolatedBgSeeds(30);
+    for (const p of autoSeeds) push(p.x, p.y);
   }
+
+  // 3. Всегда добавляем границы изображения, чтобы захватить основной фон
+  for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
+  for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+
+  // 4. Основной BFS
   let head = 0;
   while (head < queue.length) {
     const idx = queue[head++];
@@ -403,7 +490,7 @@ function buildMask() {
     push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
   }
 
-  // Сглаживание
+  // 5. Сглаживание
   if (useSmoothEl.checked) {
     const iterations = +smoothIterEl.value;
     for (let it = 0; it < iterations; it++) smoothOnce(isBg, w, h);
