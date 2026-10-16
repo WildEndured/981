@@ -53,6 +53,9 @@
   .stage canvas { display: block; max-width: min(96vw, 960px); height: auto; }
   .stage canvas#base { cursor: crosshair; touch-action: none; }
   .stage canvas#overlay { position: absolute; inset: 0; pointer-events: none; }
+  /* Скрытие исходного изображения — видна только маска */
+  .stage.hide-base canvas#base { visibility: hidden; }
+  .stage.hide-base { background: #000; }
 
   .panel {
     width: 100%; max-width: 960px;
@@ -174,6 +177,7 @@
   <button id="pickBgColorBtn">🎨 Цвет фона</button>
   <button id="addPointBtn">🎯 Точка</button>
   <button id="clearPointsBtn">✕ Очистить точки</button>
+  <button id="toggleImageBtn">👁 Маска</button>
 </div>
 
 <div class="stage" id="stage">
@@ -263,6 +267,7 @@ const autoThresholdBtn = document.getElementById('autoThresholdBtn');
 const pickBgColorBtn = document.getElementById('pickBgColorBtn');
 const addPointBtn = document.getElementById('addPointBtn');
 const clearPointsBtn = document.getElementById('clearPointsBtn');
+const toggleImageBtn = document.getElementById('toggleImageBtn');
 const lumSliderRow = document.getElementById('lumSliderRow');
 const colorSliderRow = document.getElementById('colorSliderRow');
 
@@ -288,6 +293,17 @@ let mode = 'lum';
 let colorSamples = [];
 let bgColorMode = false, addPointMode = false;
 let sourcePoints = [];
+let hideImage = false;
+
+// ============================================================
+//  СКРЫТИЕ ИЗОБРАЖЕНИЯ (видна только маска)
+// ============================================================
+toggleImageBtn.addEventListener('click', () => {
+  hideImage = !hideImage;
+  stageEl.classList.toggle('hide-base', hideImage);
+  toggleImageBtn.classList.toggle('active', hideImage);
+  toggleImageBtn.textContent = hideImage ? '👁 Показать' : '👁 Маска';
+});
 
 // ============================================================
 //  1. ЗАГРУЗКА И ПОДГОТОВКА ИЗОБРАЖЕНИЯ
@@ -359,7 +375,6 @@ function autoPickThreshold() {
 // ============================================================
 //  2. МАСКА ФОНА
 // ============================================================
-// Кэшируем параметры на время одного пересчёта для ускорения
 let _cacheLumT = 0, _cacheInv = false, _cacheDist2 = 0, _cacheColorMode = false;
 
 function updateCache() {
@@ -389,7 +404,6 @@ function isPixelBg(idx) {
 /**
  * Автоматически находит изолированные области, подходящие под критерий фона,
  * но не касающиеся границ изображения. Возвращает массив точек-семян.
- * @param {number} minSize минимальный размер области (в пикселях)
  */
 function findIsolatedBgSeeds(minSize = 30) {
   const w = imgWidth, h = imgHeight;
@@ -401,13 +415,8 @@ function findIsolatedBgSeeds(minSize = 30) {
 
   for (let start = 0; start < N; start++) {
     if (visited[start]) continue;
+    if (!isPixelBg(start)) { visited[start] = 1; continue; }
 
-    if (!isPixelBg(start)) {
-      visited[start] = 1;
-      continue;
-    }
-
-    // Локальный BFS для поиска связной области фона
     let head = 0, tail = 0;
     queue[tail++] = start;
     visited[start] = 1;
@@ -420,35 +429,17 @@ function findIsolatedBgSeeds(minSize = 30) {
       const cx = cur % w;
       const cy = (cur / w) | 0;
 
-      if (cx === 0 || cy === 0 || cx === w - 1 || cy === h - 1) {
-        touchesBorder = true;
-      }
+      if (cx === 0 || cy === 0 || cx === w - 1 || cy === h - 1) touchesBorder = true;
 
-      // Соседи: влево, вправо, вверх, вниз
-      if (cx > 0) {
-        const n = cur - 1;
-        if (!visited[n] && isPixelBg(n)) { visited[n] = 1; queue[tail++] = n; }
-      }
-      if (cx < w - 1) {
-        const n = cur + 1;
-        if (!visited[n] && isPixelBg(n)) { visited[n] = 1; queue[tail++] = n; }
-      }
-      if (cy > 0) {
-        const n = cur - w;
-        if (!visited[n] && isPixelBg(n)) { visited[n] = 1; queue[tail++] = n; }
-      }
-      if (cy < h - 1) {
-        const n = cur + w;
-        if (!visited[n] && isPixelBg(n)) { visited[n] = 1; queue[tail++] = n; }
-      }
+      if (cx > 0)     { const n = cur - 1; if (!visited[n] && isPixelBg(n)) { visited[n] = 1; queue[tail++] = n; } }
+      if (cx < w - 1) { const n = cur + 1; if (!visited[n] && isPixelBg(n)) { visited[n] = 1; queue[tail++] = n; } }
+      if (cy > 0)     { const n = cur - w; if (!visited[n] && isPixelBg(n)) { visited[n] = 1; queue[tail++] = n; } }
+      if (cy < h - 1) { const n = cur + w; if (!visited[n] && isPixelBg(n)) { visited[n] = 1; queue[tail++] = n; } }
     }
 
-    // Если область не касается границы и достаточно большая — берём её центр как семя
     if (!touchesBorder && region.length >= minSize) {
       const centerIdx = region[Math.floor(region.length / 2)];
-      const cx = centerIdx % w;
-      const cy = (centerIdx / w) | 0;
-      seeds.push({ x: cx, y: cy });
+      seeds.push({ x: centerIdx % w, y: (centerIdx / w) | 0 });
     }
   }
 
@@ -469,20 +460,20 @@ function buildMask() {
     isBg[idx] = 1; queue.push(idx);
   };
 
-  // 1. Приоритет — ручные точки пользователя
+  // 1. Приоритет — ручные точки
   if (sourcePoints.length > 0) {
     for (const p of sourcePoints) push(p.x, p.y);
   } else {
-    // 2. Автоматический поиск изолированных областей фона внутри персонажа
+    // 2. Авто-поиск изолированных областей
     const autoSeeds = findIsolatedBgSeeds(30);
     for (const p of autoSeeds) push(p.x, p.y);
   }
 
-  // 3. Всегда добавляем границы изображения, чтобы захватить основной фон
+  // 3. Границы изображения
   for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
   for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
 
-  // 4. Основной BFS
+  // 4. BFS
   let head = 0;
   while (head < queue.length) {
     const idx = queue[head++];
