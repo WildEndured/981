@@ -2,380 +2,349 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-<title>Функция 1 — Загрузка и подготовка изображения</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Загрузка · Маска фона · Точки-источники</title>
 <style>
   :root {
-    --bg: #14161a;
-    --panel: #1d2027;
-    --panel-2: #14161a;
-    --border: #2b2f37;
-    --accent: #2b6cb0;
-    --text: #e6e6e6;
-    --muted: #8b93a1;
-    --muted-2: #b9c3d1;
     color-scheme: dark;
+    --bg: #14161a; --panel: #1d2027; --panel-2: #14161a;
+    --border: #2b2f37; --accent: #2b6cb0;
+    --text: #e6e6e6; --muted: #8b93a1; --muted-2: #b9c3d1;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
     margin: 0; padding: 0;
     background: var(--bg); color: var(--text);
     font-family: system-ui, -apple-system, sans-serif;
-    min-height: 100vh;
+    overscroll-behavior: none;
   }
   body {
     display: flex; flex-direction: column; align-items: center;
-    padding: 16px; gap: 14px;
-  }
-  h1 {
-    font-size: 18px; margin: 0; font-weight: 600;
-    color: var(--text); text-align: center;
-  }
-  .subtitle {
-    font-size: 12px; color: var(--muted); text-align: center;
-    margin-top: -8px; max-width: 640px; line-height: 1.5;
+    padding: 8px 8px 40px; gap: 10px; min-height: 100vh;
   }
   .topbar {
     width: 100%; max-width: 960px;
-    display: flex; gap: 8px; align-items: center;
+    display: flex; gap: 6px; align-items: center;
     background: var(--panel); border-radius: 12px;
-    padding: 8px 10px; flex-wrap: wrap;
+    padding: 6px 8px; overflow-x: auto; scrollbar-width: none;
   }
-  .file-label {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 0 16px; height: 40px; border-radius: 8px;
+  .topbar::-webkit-scrollbar { display: none; }
+  .topbar .file-label {
+    flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px;
+    padding: 0 12px; height: 38px; border-radius: 8px;
     background: var(--accent); color: #fff;
-    font-size: 13px; font-weight: 500; cursor: pointer;
-    white-space: nowrap;
+    font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;
   }
-  .file-label:hover { background: #3579c0; }
-  input[type="file"] { display: none; }
+  .topbar input[type="file"] { display: none; }
   .topbar button {
-    height: 40px; padding: 0 14px;
-    font-size: 13px; border-radius: 8px;
-    border: 1px solid #333a44;
-    background: #232830; color: var(--text);
-    cursor: pointer; white-space: nowrap;
+    flex-shrink: 0; height: 38px; padding: 0 12px;
+    font-size: 13px; white-space: nowrap;
+    border-radius: 8px; border: 1px solid #333a44;
+    background: #232830; color: var(--text); cursor: pointer;
   }
-  .topbar button:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
-
+  .topbar button:hover, .topbar button.active {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+  }
   .stage {
     position: relative; display: inline-block;
     border: 1px solid var(--border); background: #0b0c0f;
-    line-height: 0; max-width: 100%; border-radius: 8px;
-    overflow: hidden; min-height: 120px;
-    display: flex; align-items: center; justify-content: center;
-    color: var(--muted); font-size: 13px; padding: 0;
+    line-height: 0; max-width: 100%; border-radius: 8px; overflow: hidden;
   }
-  .stage canvas {
-    display: block; max-width: min(96vw, 960px);
-    height: auto; line-height: 0;
-  }
-  .stage .placeholder {
-    padding: 60px 20px; text-align: center; line-height: 1.5;
-  }
+  .stage canvas { display: block; max-width: min(96vw, 960px); height: auto; }
+  .stage canvas#base { cursor: crosshair; touch-action: none; }
+  .stage canvas#overlay { position: absolute; inset: 0; pointer-events: none; }
 
-  .panels {
-    width: 100%; max-width: 960px;
-    display: flex; flex-direction: column; gap: 10px;
-  }
   .panel {
+    width: 100%; max-width: 960px;
     background: var(--panel); border-radius: 12px;
-    overflow: hidden;
+    padding: 14px 16px;
   }
-  .panel-header {
-    display: flex; align-items: center; gap: 10px;
-    padding: 12px 14px; min-height: 48px;
-    cursor: pointer; user-select: none;
+  .panel h2 {
+    margin: 0 0 10px; font-size: 14px;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;
   }
-  .panel-header .num {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 24px; height: 24px; border-radius: 50%;
-    background: var(--accent); color: #fff;
-    font-size: 12px; font-weight: 700; flex-shrink: 0;
-  }
-  .panel-header .title {
-    font-size: 14px; font-weight: 600; flex: 1;
-  }
-  .panel-header .summary {
-    font-size: 12px; color: var(--muted);
-    font-variant-numeric: tabular-nums;
-  }
-  .panel-header .chevron {
-    font-size: 14px; color: var(--muted);
-    transition: transform .2s;
-  }
-  .panel.open .panel-header .chevron { transform: rotate(90deg); }
-  .panel-body { display: none; padding: 0 14px 14px; }
-  .panel.open .panel-body { display: block; }
-
-  .histo-canvas-wrap {
-    position: relative; width: 100%; height: 160px;
-  }
-  .histo-canvas {
-    width: 100%; height: 100%; display: block;
-    background: var(--panel-2); border-radius: 6px;
-    border: 1px solid var(--border); cursor: crosshair;
-  }
-  .histo-info {
-    font-size: 12px; color: var(--muted); margin-top: 8px;
-    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-  }
-  .histo-info b { color: var(--text); font-variant-numeric: tabular-nums; }
-
-  .kv {
-    display: flex; justify-content: space-between; gap: 10px;
-    padding: 6px 0; border-bottom: 1px dashed var(--border);
-    font-size: 13px;
-  }
-  .kv:last-child { border-bottom: none; }
-  .kv span:first-child { color: var(--muted); }
-  .kv span:last-child {
-    color: var(--text); font-variant-numeric: tabular-nums;
-    text-align: right;
-  }
-
-  .info-block {
+  .panel-section {
     background: var(--panel-2); border: 1px solid var(--border);
-    border-radius: 8px; padding: 10px 12px;
+    border-radius: 10px; padding: 12px; margin-bottom: 10px;
   }
-
-  .slider-row {
-    display: flex; flex-direction: column; gap: 2px;
-    padding: 8px 0;
+  .panel-section:last-child { margin-bottom: 0; }
+  .panel-section h3 {
+    margin: 0 0 10px; font-size: 13px;
+    color: #ffcc00; font-weight: 600;
   }
-  .slider-row .label-line {
-    display: flex; justify-content: space-between;
-    font-size: 12px; color: var(--muted-2);
+  .row {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    align-items: center; margin-bottom: 8px;
   }
-  .slider-row .label-line span:last-child {
-    color: var(--text); font-weight: 600;
-    font-variant-numeric: tabular-nums;
+  .row:last-child { margin-bottom: 0; }
+  .row label {
+    font-size: 13px; display: flex; align-items: center;
+    gap: 6px; color: var(--muted-2); cursor: pointer;
   }
+  input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
   input[type="range"] {
-    width: 100%; height: 32px; margin: 0;
-    background: transparent;
-    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 28px; margin: 0;
+    background: transparent; -webkit-appearance: none; appearance: none;
   }
   input[type="range"]::-webkit-slider-runnable-track {
     height: 6px; background: #2b2f37; border-radius: 3px;
   }
   input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none; appearance: none;
-    width: 24px; height: 24px; border-radius: 50%;
+    width: 22px; height: 22px; border-radius: 50%;
     background: var(--accent); border: 2px solid #fff;
-    margin-top: -9px; cursor: pointer;
+    margin-top: -8px; cursor: pointer;
   }
   input[type="range"]::-moz-range-track {
     height: 6px; background: #2b2f37; border-radius: 3px;
   }
   input[type="range"]::-moz-range-thumb {
-    width: 24px; height: 24px; border-radius: 50%;
+    width: 22px; height: 22px; border-radius: 50%;
     background: var(--accent); border: 2px solid #fff; cursor: pointer;
   }
-
+  .slider-row { display: flex; flex-direction: column; gap: 2px; padding: 4px 0; }
+  .slider-row .label-line {
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: var(--muted-2);
+  }
+  .kv {
+    display: flex; justify-content: space-between; gap: 10px;
+    padding: 5px 0; border-bottom: 1px dashed var(--border); font-size: 13px;
+  }
+  .kv:last-child { border-bottom: none; }
+  .kv span:first-child { color: var(--muted); }
+  .kv span:last-child { color: var(--text); font-variant-numeric: tabular-nums; }
   .hint {
     font-size: 12px; color: var(--muted);
     max-width: 800px; text-align: center; line-height: 1.5;
+    padding: 0 8px;
+  }
+  .point-list { max-height: 240px; overflow-y: auto; font-size: 13px; }
+  .point-item {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 8px; padding: 6px 8px; border-radius: 6px;
+  }
+  .point-item:hover { background: #232830; }
+  .point-item.selected { background: #232830; outline: 1px solid var(--accent); }
+  .point-item .left {
+    display: flex; align-items: center; gap: 6px;
+    cursor: pointer; flex: 1; min-width: 0;
+  }
+  .point-item .dot {
+    display: inline-block; width: 10px; height: 10px;
+    border-radius: 50%; background: #ffcc00; flex-shrink: 0;
+  }
+  .point-item .coords {
+    color: var(--muted); font-variant-numeric: tabular-nums;
+    white-space: nowrap; font-size: 12px;
+  }
+  .point-item .remove {
+    background: transparent; border: none; color: #ff6060;
+    font-size: 18px; padding: 6px 10px; cursor: pointer;
+    line-height: 1; border-radius: 6px;
+  }
+  .sample-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .sample-chip {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 10px; border-radius: 8px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .sample-chip button.remove {
+    background: transparent; border: none; color: #ff6060;
+    font-size: 16px; padding: 4px 8px; cursor: pointer; line-height: 1;
+  }
+  .sample-empty { color: var(--muted); font-size: 12px; }
+  @media (max-width: 600px) {
+    body { padding: 6px 6px 30px; gap: 8px; }
+    .topbar button, .topbar .file-label { height: 36px; padding: 0 10px; font-size: 12px; }
   }
 </style>
 </head>
 <body>
 
-<h1>Функция 1 — Загрузка и подготовка изображения</h1>
-<p class="subtitle">
-  Выбор файла → отрисовка на канвасе → расчёт яркости каждого пикселя →
-  гистограмма (256 корзин) → автоподбор порога фона.
-</p>
-
-<!-- ВЕРХНЯЯ ПАНЕЛЬ -->
 <div class="topbar">
   <label class="file-label">
     📷 Файл
     <input id="file" type="file" accept="image/*" />
   </label>
-  <button id="autoThresholdBtn">⚡ Авто-порог</button>
-  <button id="invertBtn">⇄ Инверт</button>
+  <button id="modeLum" class="active">Яркость</button>
+  <button id="modeColor">Цвет</button>
+  <button id="autoThresholdBtn">⚡ Авто</button>
+  <button id="pickBgColorBtn">🎨 Цвет фона</button>
+  <button id="addPointBtn">🎯 Точка</button>
+  <button id="clearPointsBtn">✕ Очистить точки</button>
 </div>
 
-<!-- КАНВАС -->
 <div class="stage" id="stage">
-  <div class="placeholder" id="placeholder">
-    Изображение не загружено.<br />Нажмите «📷 Файл», чтобы выбрать картинку.
-  </div>
-  <canvas id="base" style="display:none;"></canvas>
-</div>
-
-<!-- ПАНЕЛИ -->
-<div class="panels">
-
-  <!-- ГИСТОГРАММА -->
-  <div class="panel open" id="histoPanel">
-    <div class="panel-header" data-toggle>
-      <span class="num">1</span>
-      <span class="title">Гистограмма яркости</span>
-      <span class="summary" id="histoSummary">—</span>
-      <span class="chevron">▶</span>
-    </div>
-    <div class="panel-body">
-      <div class="histo-canvas-wrap">
-        <canvas class="histo-canvas" id="histoCanvas"></canvas>
-      </div>
-      <div class="histo-info">
-        <span>Тёмное ◀</span>
-        <span>Провал: <b id="histoValley">—</b></span>
-        <span>▶ Светлое</span>
-      </div>
-
-      <div class="slider-row">
-        <div class="label-line">
-          <span>Порог яркости</span>
-          <span id="bgLumVal">200</span>
-        </div>
-        <input id="bgLum" type="range" min="0" max="255" value="200" />
-      </div>
-      <div class="histo-info">
-        <span>Фон: пиксели <b id="bgCount">0</b> (<b id="bgPct">0%</b>)</span>
-        <span>Персонаж: <b id="charCount">0</b> (<b id="charPct">0%</b>)</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- ХАРАКТЕРИСТИКИ ИЗОБРАЖЕНИЯ -->
-  <div class="panel open" id="infoPanel">
-    <div class="panel-header" data-toggle>
-      <span class="num">2</span>
-      <span class="title">Характеристики изображения</span>
-      <span class="summary" id="infoSummary">—</span>
-      <span class="chevron">▶</span>
-    </div>
-    <div class="panel-body">
-      <div class="info-block">
-        <div class="kv"><span>Размер</span><span id="infoSize">—</span></div>
-        <div class="kv"><span>Соотношение сторон</span><span id="infoAspect">—</span></div>
-        <div class="kv"><span>Всего пикселей</span><span id="infoTotal">—</span></div>
-        <div class="kv"><span>Мин. яркость</span><span id="infoMin">—</span></div>
-        <div class="kv"><span>Макс. яркость</span><span id="infoMax">—</span></div>
-        <div class="kv"><span>Средняя яркость</span><span id="infoMean">—</span></div>
-        <div class="kv"><span>Медиана яркости</span><span id="infoMedian">—</span></div>
-        <div class="kv"><span>Стд. отклонение</span><span id="infoStd">—</span></div>
-        <div class="kv"><span>Прозрачных пикселей</span><span id="infoAlpha">—</span></div>
-      </div>
-    </div>
-  </div>
-
+  <canvas id="base"></canvas>
+  <canvas id="overlay"></canvas>
 </div>
 
 <p class="hint">
-  Клик по гистограмме — установить порог. «⚡ Авто-порог» — подбор по самому яркому горбу.
-  «⇄ Инверт» — считать фон тёмным, а не светлым.
+  Загрузка и подготовка изображения → маска фона (BFS + дырки/окна/сглаживание) → точки-источники (ручная подсказка для заливки).
 </p>
+
+<div class="panel">
+  <h2>1 · Изображение</h2>
+  <div class="panel-section">
+    <h3>Параметры</h3>
+    <div class="kv"><span>Размер</span><span id="infoSize">—</span></div>
+    <div class="kv"><span>Режим</span><span id="infoMode">—</span></div>
+    <div class="kv"><span>Гистограмма</span><span id="infoHisto">—</span></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>2 · Маска фона</h2>
+  <div class="panel-section">
+    <h3>Пороги</h3>
+    <div class="slider-row" id="lumSliderRow">
+      <div class="label-line"><span>Порог яркости</span><span id="bgLumVal">200</span></div>
+      <input id="bgLum" type="range" min="0" max="255" value="200" />
+    </div>
+    <div class="slider-row" id="colorSliderRow" style="display:none;">
+      <div class="label-line"><span>Порог цвета</span><span id="bgDistVal">30</span></div>
+      <input id="bgDist" type="range" min="1" max="150" value="30" />
+    </div>
+    <div class="row">
+      <label><input id="invert" type="checkbox" /> Инверт</label>
+      <label><input id="useHoles" type="checkbox" checked /> Дырки</label>
+      <label><input id="useWindows" type="checkbox" /> Окна</label>
+      <label><input id="useSmooth" type="checkbox" checked /> Сглаж.</label>
+    </div>
+    <div class="slider-row">
+      <div class="label-line"><span>Макс. дырка</span><span id="maxHoleVal">80</span></div>
+      <input id="maxHole" type="range" min="0" max="500" value="80" />
+    </div>
+    <div class="slider-row">
+      <div class="label-line"><span>Мин. окно</span><span id="minWinVal">300</span></div>
+      <input id="minWin" type="range" min="10" max="3000" value="300" />
+    </div>
+    <div class="slider-row">
+      <div class="label-line"><span>Сглаживание</span><span id="smoothIterVal">1</span></div>
+      <input id="smoothIter" type="range" min="0" max="4" value="1" />
+    </div>
+  </div>
+  <div class="panel-section">
+    <h3>Итоги</h3>
+    <div class="kv"><span>Фон</span><span id="infoBgPct">—</span></div>
+    <div class="kv"><span>Персонаж</span><span id="infoCharPct">—</span></div>
+    <div class="kv"><span>Дырок закрыто</span><span id="infoHoles">—</span></div>
+    <div class="kv"><span>Окон найдено</span><span id="infoWindows">—</span></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>3 · Точки-источники</h2>
+  <div class="panel-section">
+    <h3>Список точек <span id="infoPointsCount" style="color:var(--muted);font-weight:400;">(0)</span></h3>
+    <div class="point-list" id="pointList">
+      <div style="color:var(--muted);font-size:12px;padding:4px 0;">Точки не заданы.</div>
+    </div>
+  </div>
+  <div class="panel-section">
+    <h3>Образцы фона</h3>
+    <div class="sample-list" id="samplesList">
+      <span class="sample-empty">Образцы не заданы.</span>
+    </div>
+  </div>
+</div>
 
 <script>
 // ============================================================
 //  DOM
 // ============================================================
-const fileInput       = document.getElementById('file');
-const baseCanvas      = document.getElementById('base');
-const stageEl         = document.getElementById('stage');
-const placeholder     = document.getElementById('placeholder');
-const bgLumEl         = document.getElementById('bgLum');
-const bgLumVal        = document.getElementById('bgLumVal');
-const autoThresholdBtn= document.getElementById('autoThresholdBtn');
-const invertBtn       = document.getElementById('invertBtn');
+const fileInput = document.getElementById('file');
+const baseCanvas = document.getElementById('base');
+const overlay = document.getElementById('overlay');
+const stageEl = document.getElementById('stage');
 
-const histoCanvas     = document.getElementById('histoCanvas');
-const histoCtx        = histoCanvas.getContext('2d');
-const histoValley     = document.getElementById('histoValley');
-const histoSummary    = document.getElementById('histoSummary');
-const bgCountEl       = document.getElementById('bgCount');
-const bgPctEl         = document.getElementById('bgPct');
-const charCountEl     = document.getElementById('charCount');
-const charPctEl       = document.getElementById('charPct');
+const bgLumEl = document.getElementById('bgLum');
+const bgLumVal = document.getElementById('bgLumVal');
+const bgDistEl = document.getElementById('bgDist');
+const bgDistVal = document.getElementById('bgDistVal');
+const invertEl = document.getElementById('invert');
+const useHolesEl = document.getElementById('useHoles');
+const useWindowsEl = document.getElementById('useWindows');
+const useSmoothEl = document.getElementById('useSmooth');
+const maxHoleEl = document.getElementById('maxHole');
+const maxHoleVal = document.getElementById('maxHoleVal');
+const minWinEl = document.getElementById('minWin');
+const minWinVal = document.getElementById('minWinVal');
+const smoothIterEl = document.getElementById('smoothIter');
+const smoothIterVal = document.getElementById('smoothIterVal');
 
-const infoSize        = document.getElementById('infoSize');
-const infoAspect      = document.getElementById('infoAspect');
-const infoTotal       = document.getElementById('infoTotal');
-const infoMin         = document.getElementById('infoMin');
-const infoMax         = document.getElementById('infoMax');
-const infoMean        = document.getElementById('infoMean');
-const infoMedian      = document.getElementById('infoMedian');
-const infoStd         = document.getElementById('infoStd');
-const infoAlpha       = document.getElementById('infoAlpha');
-const infoSummary     = document.getElementById('infoSummary');
+const modeLumBtn = document.getElementById('modeLum');
+const modeColorBtn = document.getElementById('modeColor');
+const autoThresholdBtn = document.getElementById('autoThresholdBtn');
+const pickBgColorBtn = document.getElementById('pickBgColorBtn');
+const addPointBtn = document.getElementById('addPointBtn');
+const clearPointsBtn = document.getElementById('clearPointsBtn');
+const lumSliderRow = document.getElementById('lumSliderRow');
+const colorSliderRow = document.getElementById('colorSliderRow');
+
+const infoSize = document.getElementById('infoSize');
+const infoMode = document.getElementById('infoMode');
+const infoHisto = document.getElementById('infoHisto');
+const infoBgPct = document.getElementById('infoBgPct');
+const infoCharPct = document.getElementById('infoCharPct');
+const infoHoles = document.getElementById('infoHoles');
+const infoWindows = document.getElementById('infoWindows');
+const infoPointsCount = document.getElementById('infoPointsCount');
+const pointList = document.getElementById('pointList');
+const samplesList = document.getElementById('samplesList');
 
 const baseCtx = baseCanvas.getContext('2d');
+const overlayCtx = overlay.getContext('2d');
 
 // ============================================================
 //  СОСТОЯНИЕ
 // ============================================================
 let imgWidth = 0, imgHeight = 0;
-let lum = null;              // Float32Array яркости, длина = W*H
-let imgDataRef = null;       // ImageData исходника
-let histogram = null;        // Uint32Array(256)
-let invert = false;          // инвертировать логику фона
+let lum = null, isBg = null, imgDataRef = null, histogram = null;
+let selectedPointIndex = -1;
+let mode = 'lum';
+let colorSamples = [];
+let bgColorMode = false, addPointMode = false;
+let sourcePoints = [];
+let holesFilledCount = 0, windowsFoundCount = 0;
 
 // ============================================================
-//  ЗАГРУЗКА ИЗОБРАЖЕНИЯ
+//  1. ЗАГРУЗКА И ПОДГОТОВКА ИЗОБРАЖЕНИЯ
 // ============================================================
 fileInput.addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
   const img = new Image();
   img.onload = () => {
-    imgWidth  = img.naturalWidth;
+    imgWidth = img.naturalWidth;
     imgHeight = img.naturalHeight;
-
-    // Размеры канваса = размеры картинки (пиксель в пиксель)
-    baseCanvas.width  = imgWidth;
-    baseCanvas.height = imgHeight;
-
-    // Рисуем изображение
-    baseCtx.clearRect(0, 0, imgWidth, imgHeight);
+    [baseCanvas, overlay].forEach(c => { c.width = imgWidth; c.height = imgHeight; });
     baseCtx.drawImage(img, 0, 0);
-
-    // Забираем пиксели
     imgDataRef = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
-
-    // Считаем яркость и гистограмму
     computeLuminance(imgDataRef);
     computeHistogram();
-
-    // Автоподбор порога
-    autoPickThreshold();
-
-    // Показываем канвас, убираем placeholder
-    placeholder.style.display = 'none';
-    baseCanvas.style.display  = 'block';
-
-    // Обновляем всю выдачу
-    refreshAll();
-
-    // Освобождаем blob-URL
-    URL.revokeObjectURL(img.src);
-  };
-  img.onerror = () => {
-    alert('Не удалось загрузить изображение. Попробуйте другой файл.');
+    sourcePoints = [];
+    selectedPointIndex = -1;
+    colorSamples = [];
+    if (mode === 'lum') autoPickThreshold();
+    rebuildAll();
+    renderSamplesList();
   };
   img.src = URL.createObjectURL(file);
 });
 
-// ============================================================
-//  РАСЧЁТ ЯРКОСТИ
-// ============================================================
 function computeLuminance(data) {
   const d = data.data;
   const N = imgWidth * imgHeight;
   lum = new Float32Array(N);
   for (let i = 0, p = 0; i < N; i++, p += 4) {
-    if (d[p + 3] < 20) { lum[i] = 255; continue; } // прозрачное = «белое»
+    if (d[p + 3] < 20) { lum[i] = 255; continue; }
     lum[i] = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2];
   }
 }
 
-// ============================================================
-//  ГИСТОГРАММА
-// ============================================================
 function computeHistogram() {
   histogram = new Uint32Array(256);
   const N = imgWidth * imgHeight;
@@ -385,15 +354,10 @@ function computeHistogram() {
   }
 }
 
-// ============================================================
-//  АВТОПОДБОР ПОРОГА (по самому яркому «горбу»)
-// ============================================================
 function autoPickThreshold() {
   if (!histogram) return;
   const N = imgWidth * imgHeight;
   const minCount = Math.max(1, Math.floor(N * 0.003));
-
-  // Сглаживание гистограммы окном ±2
   const smooth = new Uint32Array(256);
   for (let v = 0; v < 256; v++) {
     let s = 0;
@@ -403,228 +367,374 @@ function autoPickThreshold() {
     }
     smooth[v] = s;
   }
-
-  // Ищем самый яркий бин с достаточным количеством
   let bestBin = -1, bestCount = 0;
   for (let v = 255; v >= 0; v--) {
-    if (smooth[v] >= minCount && smooth[v] > bestCount) {
-      bestCount = smooth[v];
-      bestBin = v;
-    }
+    if (smooth[v] >= minCount && smooth[v] > bestCount) { bestCount = smooth[v]; bestBin = v; }
   }
   if (bestBin < 0) bestBin = 248;
-
-  // Небольшой отступ вниз — чтобы не захватить антиалиасинг
   const threshold = Math.max(0, Math.min(255, bestBin - 4));
   bgLumEl.value = threshold;
   bgLumVal.textContent = threshold;
 }
 
 // ============================================================
-//  ЛОГИКА «ФОН/ПЕРСОНАЖ» ПО ПОРОГУ
+//  2. МАСКА ФОНА
 // ============================================================
-function isPixelBg(v) {
-  const t = +bgLumEl.value;
-  return invert ? (v <= t) : (v >= t);
-}
-
-// ============================================================
-//  ОТРИСОВКА ГИСТОГРАММЫ
-// ============================================================
-function drawHistogram() {
-  if (!histogram) return;
-  const rect = histoCanvas.getBoundingClientRect();
-  if (rect.width === 0) return;
-
-  const dpr = window.devicePixelRatio || 1;
-  histoCanvas.width  = Math.max(100, Math.round(rect.width  * dpr));
-  histoCanvas.height = Math.max(60,  Math.round(rect.height * dpr));
-  histoCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-  const W = rect.width, H = rect.height;
-  histoCtx.clearRect(0, 0, W, H);
-
-  let maxCount = 0;
-  for (let v = 1; v < 255; v++) if (histogram[v] > maxCount) maxCount = histogram[v];
-  if (maxCount === 0) maxCount = 1;
-
-  const barW = W / 256;
-
-  // Серые столбцы
-  histoCtx.fillStyle = '#3a4450';
-  for (let v = 0; v < 256; v++) {
-    const hh = (histogram[v] / maxCount) * (H - 4);
-    histoCtx.fillRect(v * barW, H - hh, Math.max(1, barW), hh);
+function isPixelBg(idx) {
+  if (mode === 'lum') {
+    const L = lum[idx];
+    const t = +bgLumEl.value;
+    const inv = invertEl.checked;
+    return inv ? (L <= t) : (L >= t);
   }
-
-  // Синяя зона = фон
-  const threshold = +bgLumEl.value;
-  histoCtx.fillStyle = 'rgba(64, 160, 255, 0.45)';
-  if (!invert) {
-    for (let v = threshold; v < 256; v++) {
-      const hh = (histogram[v] / maxCount) * (H - 4);
-      histoCtx.fillRect(v * barW, H - hh, Math.max(1, barW), hh);
-    }
-  } else {
-    for (let v = 0; v <= threshold; v++) {
-      const hh = (histogram[v] / maxCount) * (H - 4);
-      histoCtx.fillRect(v * barW, H - hh, Math.max(1, barW), hh);
-    }
-  }
-
-  // Жёлтая линия порога
-  const px = threshold * barW;
-  histoCtx.strokeStyle = '#ffcc00';
-  histoCtx.lineWidth = 2;
-  histoCtx.beginPath();
-  histoCtx.moveTo(px, 0);
-  histoCtx.lineTo(px, H);
-  histoCtx.stroke();
-
-  // Подписи 0 / 255
-  histoCtx.fillStyle = '#8b93a1';
-  histoCtx.font = '10px system-ui';
-  histoCtx.textAlign = 'left';  histoCtx.fillText('0',   4,     H - 4);
-  histoCtx.textAlign = 'right'; histoCtx.fillText('255', W - 4, H - 4);
-
-  // Провал — минимум сглаженной гистограммы в диапазоне 50–250
-  const sm = new Float32Array(256);
-  for (let v = 0; v < 256; v++) {
-    let s = 0;
-    for (let k = -3; k <= 3; k++) {
-      const vv = v + k;
-      if (vv >= 0 && vv < 256) s += histogram[vv];
-    }
-    sm[v] = s;
-  }
-  let valleyV = -1, valleyScore = Infinity;
-  for (let v = 50; v <= 250; v++) {
-    if (sm[v] < valleyScore) { valleyScore = sm[v]; valleyV = v; }
-  }
-  histoValley.textContent = valleyV >= 0 ? `${valleyV}` : '—';
-  histoSummary.textContent = `порог ${threshold}${invert ? ' · инверт' : ''}`;
-}
-
-// ============================================================
-//  СТАТИСТИКА ПО ФОНУ/ПЕРСОНАЖУ
-// ============================================================
-function updateBgStats() {
-  if (!lum) return;
-  const N = imgWidth * imgHeight;
-  let bg = 0, ch = 0;
-  for (let i = 0; i < N; i++) {
-    if (isPixelBg(lum[i])) bg++; else ch++;
-  }
-  bgCountEl.textContent   = bg.toLocaleString('ru-RU');
-  charCountEl.textContent = ch.toLocaleString('ru-RU');
-  bgPctEl.textContent     = ((bg / N) * 100).toFixed(1) + '%';
-  charPctEl.textContent   = ((ch / N) * 100).toFixed(1) + '%';
-}
-
-// ============================================================
-//  ХАРАКТЕРИСТИКИ ИЗОБРАЖЕНИЯ
-// ============================================================
-function updateImageInfo() {
-  if (!lum) return;
-  const N = imgWidth * imgHeight;
-
-  // Мин/макс/среднее/стд/медиана
-  let minV = 255, maxV = 0, sum = 0, sumSq = 0;
-  for (let i = 0; i < N; i++) {
-    const v = lum[i];
-    if (v < minV) minV = v;
-    if (v > maxV) maxV = v;
-    sum   += v;
-    sumSq += v * v;
-  }
-  const mean = sum / N;
-  const variance = Math.max(0, sumSq / N - mean * mean);
-  const std = Math.sqrt(variance);
-
-  // Медиана через накопительную гистограмму
-  let acc = 0, median = 0;
-  const half = N / 2;
-  for (let v = 0; v < 256; v++) {
-    acc += histogram[v];
-    if (acc >= half) { median = v; break; }
-  }
-
-  // Прозрачные пиксели
-  let alphaCount = 0;
+  if (colorSamples.length === 0) return false;
+  const p = idx * 4;
   const d = imgDataRef.data;
-  for (let p = 3; p < d.length; p += 4) if (d[p] < 20) alphaCount++;
+  const r = d[p], g = d[p + 1], b = d[p + 2];
+  const t = +bgDistEl.value;
+  const t2 = t * t * 3;
+  for (const s of colorSamples) {
+    const dr = r - s.r, dg = g - s.g, db = b - s.b;
+    if (dr * dr + dg * dg + db * db <= t2) return !invertEl.checked;
+  }
+  return invertEl.checked;
+}
 
-  infoSize.textContent   = `${imgWidth} × ${imgHeight}`;
-  infoAspect.textContent = (imgWidth / imgHeight).toFixed(3);
-  infoTotal.textContent  = N.toLocaleString('ru-RU');
-  infoMin.textContent    = minV.toFixed(0);
-  infoMax.textContent    = maxV.toFixed(0);
-  infoMean.textContent   = mean.toFixed(1);
-  infoMedian.textContent = median.toFixed(0);
-  infoStd.textContent    = std.toFixed(1);
-  infoAlpha.textContent  = alphaCount.toLocaleString('ru-RU');
-  infoSummary.textContent = `${imgWidth}×${imgHeight} · μ=${mean.toFixed(0)}`;
+function buildMask() {
+  const w = imgWidth, h = imgHeight;
+  const N = w * h;
+  isBg = new Uint8Array(N);
+  const queue = [];
+  const push = (x, y) => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return;
+    const idx = y * w + x;
+    if (isBg[idx] || !isPixelBg(idx)) return;
+    isBg[idx] = 1; queue.push(idx);
+  };
+  if (sourcePoints.length > 0) {
+    for (const p of sourcePoints) push(p.x, p.y);
+  } else {
+    for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
+    for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+  }
+  let head = 0;
+  while (head < queue.length) {
+    const idx = queue[head++];
+    const x = idx % w, y = (idx / w) | 0;
+    push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
+  }
+
+  // Дырки
+  holesFilledCount = 0;
+  if (useHolesEl.checked) {
+    const maxHole = +maxHoleEl.value;
+    if (maxHole > 0) {
+      const visited = new Uint8Array(N);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const idx = y * w + x;
+        if (visited[idx] || !isBg[idx]) continue;
+        const pixels = [idx]; const localSeen = new Uint8Array(N); localSeen[idx] = 1;
+        let touchesFrame = false, hh = 0;
+        while (hh < pixels.length) {
+          const ci = pixels[hh++];
+          const cx = ci % w, cy = (ci / w) | 0;
+          if (cx === 0 || cy === 0 || cx === w - 1 || cy === h - 1) touchesFrame = true;
+          const nb = [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]];
+          for (const [nx, ny] of nb) {
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            const ni = ny * w + nx;
+            if (localSeen[ni] || !isBg[ni]) continue;
+            localSeen[ni] = 1; pixels.push(ni);
+          }
+        }
+        for (const pp of pixels) visited[pp] = 1;
+        if (!touchesFrame && pixels.length <= maxHole) {
+          for (const pp of pixels) isBg[pp] = 0;
+          holesFilledCount += pixels.length;
+        }
+      }
+    }
+  }
+
+  // Окна
+  windowsFoundCount = 0;
+  if (useWindowsEl.checked) {
+    const minWin = +minWinEl.value;
+    const visited = new Uint8Array(N);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const idx = y * w + x;
+      if (visited[idx] || isBg[idx] || !isPixelBg(idx)) continue;
+      const pixels = [idx]; const localSeen = new Uint8Array(N); localSeen[idx] = 1;
+      let touchesBg = false, hh = 0;
+      while (hh < pixels.length) {
+        const ci = pixels[hh++];
+        const cx = ci % w, cy = (ci / w) | 0;
+        const nb = [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]];
+        for (const [nx, ny] of nb) {
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const ni = ny * w + nx;
+          if (isBg[ni]) { touchesBg = true; continue; }
+          if (localSeen[ni] || !isPixelBg(ni)) continue;
+          localSeen[ni] = 1; pixels.push(ni);
+        }
+      }
+      for (const pp of pixels) visited[pp] = 1;
+      if (!touchesBg && pixels.length >= minWin) {
+        for (const pp of pixels) isBg[pp] = 1;
+        windowsFoundCount += pixels.length;
+      }
+    }
+  }
+
+  // Сглаживание
+  if (useSmoothEl.checked) {
+    const iterations = +smoothIterEl.value;
+    for (let it = 0; it < iterations; it++) smoothOnce(isBg, w, h);
+  }
+}
+
+function smoothOnce(isBg, w, h) {
+  const copy = isBg.slice();
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const idx = y * w + x;
+    let bgCount = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      bgCount += copy[idx + dy * w + dx];
+    }
+    if (bgCount >= 7) isBg[idx] = 1;
+    else if (bgCount <= 1) isBg[idx] = 0;
+  }
 }
 
 // ============================================================
-//  ПОЛНЫЙ ПЕРЕСЧЁТ
+//  3. ТОЧКИ-ИСТОЧНИКИ
 // ============================================================
-function refreshAll() {
-  drawHistogram();
-  updateBgStats();
-  updateImageInfo();
-}
-
-// ============================================================
-//  СОБЫТИЯ
-// ============================================================
-bgLumEl.addEventListener('input', () => {
-  bgLumVal.textContent = bgLumEl.value;
-  refreshAll();
+addPointBtn.addEventListener('click', () => {
+  addPointMode = !addPointMode;
+  if (addPointMode) {
+    bgColorMode = false;
+    pickBgColorBtn.classList.remove('active');
+  }
+  addPointBtn.classList.toggle('active', addPointMode);
 });
 
+pickBgColorBtn.addEventListener('click', () => {
+  bgColorMode = !bgColorMode;
+  if (bgColorMode) {
+    addPointMode = false;
+    addPointBtn.classList.remove('active');
+  }
+  pickBgColorBtn.classList.toggle('active', bgColorMode);
+});
+
+clearPointsBtn.addEventListener('click', () => {
+  sourcePoints = [];
+  selectedPointIndex = -1;
+  if (lum) rebuildAll();
+});
+
+baseCanvas.addEventListener('click', e => {
+  if (!lum) return;
+  const rect = baseCanvas.getBoundingClientRect();
+  const x = Math.floor((e.clientX - rect.left) * (imgWidth / rect.width));
+  const y = Math.floor((e.clientY - rect.top) * (imgHeight / rect.height));
+  if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) return;
+
+  if (bgColorMode) {
+    const idx = y * imgWidth + x;
+    const dp = idx * 4;
+    const d = imgDataRef.data;
+    colorSamples.push({ r: d[dp], g: d[dp + 1], b: d[dp + 2] });
+    if (mode !== 'color') {
+      mode = 'color';
+      modeColorBtn.classList.add('active');
+      modeLumBtn.classList.remove('active');
+      lumSliderRow.style.display = 'none';
+      colorSliderRow.style.display = '';
+    }
+    renderSamplesList();
+    bgColorMode = false;
+    pickBgColorBtn.classList.remove('active');
+    rebuildAll();
+    return;
+  }
+
+  if (addPointMode) {
+    sourcePoints.push({ x, y });
+    selectedPointIndex = sourcePoints.length - 1;
+  } else {
+    let hit = -1;
+    for (let i = sourcePoints.length - 1; i >= 0; i--) {
+      const p = sourcePoints[i];
+      const dx = p.x - x, dy = p.y - y;
+      if (dx * dx + dy * dy < 15 * 15) { hit = i; break; }
+    }
+    if (hit === -1) selectedPointIndex = -1;
+    else if (hit === selectedPointIndex) {
+      sourcePoints.splice(hit, 1);
+      selectedPointIndex = -1;
+    } else selectedPointIndex = hit;
+  }
+  rebuildAll();
+});
+
+function removePoint(index) {
+  sourcePoints.splice(index, 1);
+  if (selectedPointIndex === index) selectedPointIndex = -1;
+  else if (selectedPointIndex > index) selectedPointIndex--;
+  rebuildAll();
+}
+
+// ============================================================
+//  ОБНОВЛЕНИЕ UI
+// ============================================================
+function updateInfo() {
+  if (!lum) return;
+  const N = imgWidth * imgHeight;
+  let bg = 0, char_ = 0;
+  for (let i = 0; i < N; i++) {
+    if (isBg[i]) bg++; else char_++;
+  }
+  infoSize.textContent = `${imgWidth} × ${imgHeight}`;
+  infoMode.textContent = mode === 'lum' ? 'яркость' : 'цвет';
+  infoHisto.textContent = histogram ? `256 корзин` : '—';
+  infoBgPct.textContent = ((bg / N) * 100).toFixed(1) + '%';
+  infoCharPct.textContent = ((char_ / N) * 100).toFixed(1) + '%';
+  infoHoles.textContent = holesFilledCount.toLocaleString('ru-RU') + ' px';
+  infoWindows.textContent = windowsFoundCount.toLocaleString('ru-RU') + ' px';
+  infoPointsCount.textContent = `(${sourcePoints.length})`;
+  renderPointList();
+}
+
+function renderPointList() {
+  if (sourcePoints.length === 0) {
+    pointList.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:4px 0;">Точки не заданы.</div>';
+    return;
+  }
+  pointList.innerHTML = '';
+  sourcePoints.forEach((p, i) => {
+    const item = document.createElement('div');
+    item.className = 'point-item' + (i === selectedPointIndex ? ' selected' : '');
+    const left = document.createElement('div');
+    left.className = 'left';
+    const dotColor = (i === selectedPointIndex) ? '#ff5050' : '#ffcc00';
+    left.innerHTML = `<span class="dot" style="background:${dotColor}"></span><span>#${i + 1}</span><span class="coords">x=${p.x}, y=${p.y}</span>`;
+    left.addEventListener('click', () => {
+      selectedPointIndex = i;
+      drawOverlay();
+      updateInfo();
+    });
+    const btn = document.createElement('button');
+    btn.className = 'remove';
+    btn.textContent = '✕';
+    btn.addEventListener('click', (ev) => { ev.stopPropagation(); removePoint(i); });
+    item.appendChild(left);
+    item.appendChild(btn);
+    pointList.appendChild(item);
+  });
+}
+
+function renderSamplesList() {
+  samplesList.innerHTML = '';
+  if (colorSamples.length === 0) {
+    samplesList.innerHTML = '<span class="sample-empty">Образцы не заданы.</span>';
+    return;
+  }
+  colorSamples.forEach((s, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'sample-chip';
+    chip.innerHTML = `
+      <span style="display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid #555;background:rgb(${s.r},${s.g},${s.b})"></span>
+      <span>rgb(${s.r}, ${s.g}, ${s.b})</span>
+      <button class="remove" title="Удалить">✕</button>`;
+    chip.querySelector('.remove').addEventListener('click', () => {
+      colorSamples.splice(i, 1);
+      renderSamplesList();
+      if (lum) rebuildAll();
+    });
+    samplesList.appendChild(chip);
+  });
+}
+
+// ============================================================
+//  ОТРИСОВКА ОВЕРЛЕЯ
+// ============================================================
+function drawOverlay() {
+  const w = imgWidth, h = imgHeight;
+  if (!w) return;
+  overlayCtx.clearRect(0, 0, w, h);
+
+  if (isBg) {
+    const img = overlayCtx.createImageData(w, h);
+    const data = img.data;
+    for (let i = 0, j = 0; i < w * h; i++, j += 4) {
+      if (!isBg[i]) {
+        data[j] = 255; data[j+1] = 60; data[j+2] = 60; data[j+3] = 100;
+      }
+    }
+    overlayCtx.putImageData(img, 0, 0);
+  }
+
+  sourcePoints.forEach((p, i) => {
+    const isSelected = i === selectedPointIndex;
+    overlayCtx.beginPath();
+    overlayCtx.arc(p.x, p.y, isSelected ? 10 : 8, 0, Math.PI * 2);
+    overlayCtx.fillStyle = isSelected ? '#ff5050' : '#ffcc00';
+    overlayCtx.fill();
+    overlayCtx.lineWidth = 2;
+    overlayCtx.strokeStyle = '#000';
+    overlayCtx.stroke();
+  });
+}
+
+// ============================================================
+//  ПЕРЕСЧЁТ
+// ============================================================
+function rebuildAll() {
+  if (!lum) return;
+  buildMask();
+  drawOverlay();
+  updateInfo();
+}
+
+// ============================================================
+//  РЕЖИМЫ
+// ============================================================
+modeLumBtn.addEventListener('click', () => {
+  mode = 'lum';
+  modeLumBtn.classList.add('active');
+  modeColorBtn.classList.remove('active');
+  lumSliderRow.style.display = '';
+  colorSliderRow.style.display = 'none';
+  if (lum) rebuildAll();
+});
+modeColorBtn.addEventListener('click', () => {
+  mode = 'color';
+  modeColorBtn.classList.add('active');
+  modeLumBtn.classList.remove('active');
+  lumSliderRow.style.display = 'none';
+  colorSliderRow.style.display = '';
+  if (lum) rebuildAll();
+});
 autoThresholdBtn.addEventListener('click', () => {
   if (!histogram) return;
   autoPickThreshold();
-  refreshAll();
+  if (mode === 'lum') rebuildAll();
 });
 
-invertBtn.addEventListener('click', () => {
-  invert = !invert;
-  invertBtn.classList.toggle('active', invert);
-  if (lum) refreshAll();
-});
-
-histoCanvas.addEventListener('click', (e) => {
-  if (!histogram) return;
-  const rect = histoCanvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const v = Math.max(0, Math.min(255, Math.round((x / rect.width) * 255)));
-  bgLumEl.value = v;
-  bgLumVal.textContent = v;
-  refreshAll();
-});
-
-// Сворачивание панелей
-document.querySelectorAll('.panel-header[data-toggle]').forEach(header => {
-  header.addEventListener('click', () => {
-    header.parentElement.classList.toggle('open');
-    // Перерисовать гистограмму, если панель только что раскрылась
-    if (header.parentElement.classList.contains('open')) {
-      requestAnimationFrame(drawHistogram);
-    }
-  });
-});
-
-// Перерисовка при ресайзе
-window.addEventListener('resize', () => {
-  if (histogram) drawHistogram();
-});
-
-// Первичная отрисовка пустой гистограммы
-requestAnimationFrame(() => {
-  if (histogram) drawHistogram();
-});
+// ============================================================
+//  СЛУШАТЕЛИ
+// ============================================================
+bgLumEl.addEventListener('input', () => { bgLumVal.textContent = bgLumEl.value; if (mode === 'lum') rebuildAll(); });
+bgDistEl.addEventListener('input', () => { bgDistVal.textContent = bgDistEl.value; if (mode === 'color') rebuildAll(); });
+invertEl.addEventListener('change', () => { if (lum) rebuildAll(); });
+useHolesEl.addEventListener('change', () => { if (lum) rebuildAll(); });
+useWindowsEl.addEventListener('change', () => { if (lum) rebuildAll(); });
+useSmoothEl.addEventListener('change', () => { if (lum) rebuildAll(); });
+maxHoleEl.addEventListener('input', () => { maxHoleVal.textContent = maxHoleEl.value; if (lum && useHolesEl.checked) rebuildAll(); });
+minWinEl.addEventListener('input', () => { minWinVal.textContent = minWinEl.value; if (lum && useWindowsEl.checked) rebuildAll(); });
+smoothIterEl.addEventListener('input', () => { smoothIterVal.textContent = smoothIterEl.value; if (lum && useSmoothEl.checked) rebuildAll(); });
 </script>
 </body>
 </html>
