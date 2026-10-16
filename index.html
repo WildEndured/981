@@ -45,6 +45,9 @@
   .topbar button:hover, .topbar button.active {
     background: var(--accent); border-color: var(--accent); color: #fff;
   }
+  .topbar button:disabled {
+    opacity: 0.4; cursor: not-allowed;
+  }
   .stage {
     position: relative; display: inline-block;
     border: 1px solid var(--border); background: #0b0c0f;
@@ -53,7 +56,6 @@
   .stage canvas { display: block; max-width: min(96vw, 960px); height: auto; }
   .stage canvas#base { cursor: crosshair; touch-action: none; }
   .stage canvas#overlay { position: absolute; inset: 0; pointer-events: none; }
-  /* Скрытие исходного изображения — видна только маска */
   .stage.hide-base canvas#base { visibility: hidden; }
   .stage.hide-base { background: #000; }
 
@@ -89,6 +91,7 @@
     width: 100%; height: 28px; margin: 0;
     background: transparent; -webkit-appearance: none; appearance: none;
   }
+  input[type="range"]:disabled { opacity: 0.4; cursor: not-allowed; }
   input[type="range"]::-webkit-slider-runnable-track {
     height: 6px; background: #2b2f37; border-radius: 3px;
   }
@@ -178,6 +181,8 @@
   <button id="addPointBtn">🎯 Точка</button>
   <button id="clearPointsBtn">✕ Очистить точки</button>
   <button id="toggleImageBtn">👁 Маска</button>
+  <button id="exportMaskBtn">💾 Маска</button>
+  <button id="exportCutBtn">🖼 Вырезать</button>
 </div>
 
 <div class="stage" id="stage">
@@ -268,6 +273,8 @@ const pickBgColorBtn = document.getElementById('pickBgColorBtn');
 const addPointBtn = document.getElementById('addPointBtn');
 const clearPointsBtn = document.getElementById('clearPointsBtn');
 const toggleImageBtn = document.getElementById('toggleImageBtn');
+const exportMaskBtn = document.getElementById('exportMaskBtn');
+const exportCutBtn = document.getElementById('exportCutBtn');
 const lumSliderRow = document.getElementById('lumSliderRow');
 const colorSliderRow = document.getElementById('colorSliderRow');
 
@@ -295,8 +302,29 @@ let bgColorMode = false, addPointMode = false;
 let sourcePoints = [];
 let hideImage = false;
 
+// Кэш авто-семян
+let _seedsCache = null;
+function invalidateSeeds() { _seedsCache = null; }
+
 // ============================================================
-//  СКРЫТИЕ ИЗОБРАЖЕНИЯ (видна только маска)
+//  УТИЛИТЫ
+// ============================================================
+function debounce(fn, ms = 80) {
+  let t = null;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
+}
+
+function updateCursor() {
+  if (addPointMode) baseCanvas.style.cursor = 'copy';
+  else if (bgColorMode) baseCanvas.style.cursor = 'crosshair';
+  else baseCanvas.style.cursor = 'default';
+}
+
+// ============================================================
+//  СКРЫТИЕ ИЗОБРАЖЕНИЯ
 // ============================================================
 toggleImageBtn.addEventListener('click', () => {
   hideImage = !hideImage;
@@ -306,7 +334,55 @@ toggleImageBtn.addEventListener('click', () => {
 });
 
 // ============================================================
-//  1. ЗАГРУЗКА И ПОДГОТОВКА ИЗОБРАЖЕНИЯ
+//  ЭКСПОРТ
+// ============================================================
+function downloadCanvasPNG(canvas, filename) {
+  canvas.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }, 'image/png');
+}
+
+exportMaskBtn.addEventListener('click', () => {
+  if (!isBg) return;
+  const w = imgWidth, h = imgHeight;
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  const out = ctx.createImageData(w, h);
+  const d = out.data;
+  for (let i = 0, j = 0; i < w * h; i++, j += 4) {
+    const v = isBg[i] ? 0 : 255;
+    d[j] = v; d[j+1] = v; d[j+2] = v; d[j+3] = 255;
+  }
+  ctx.putImageData(out, 0, 0);
+  downloadCanvasPNG(c, 'mask.png');
+});
+
+exportCutBtn.addEventListener('click', () => {
+  if (!isBg || !imgDataRef) return;
+  const w = imgWidth, h = imgHeight;
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  const out = ctx.createImageData(w, h);
+  const src = imgDataRef.data;
+  const d = out.data;
+  for (let i = 0, j = 0; i < w * h; i++, j += 4) {
+    d[j]   = src[j];
+    d[j+1] = src[j+1];
+    d[j+2] = src[j+2];
+    d[j+3] = isBg[i] ? 0 : 255;
+  }
+  ctx.putImageData(out, 0, 0);
+  downloadCanvasPNG(c, 'cutout.png');
+});
+
+// ============================================================
+//  1. ЗАГРУЗКА И ПОДГОТОВКА
 // ============================================================
 fileInput.addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
@@ -323,6 +399,7 @@ fileInput.addEventListener('change', e => {
     sourcePoints = [];
     selectedPointIndex = -1;
     colorSamples = [];
+    invalidateSeeds();
     if (mode === 'lum') autoPickThreshold();
     rebuildAll();
     renderSamplesList();
@@ -370,6 +447,7 @@ function autoPickThreshold() {
   const threshold = Math.max(0, Math.min(255, bestBin - 4));
   bgLumEl.value = threshold;
   bgLumVal.textContent = threshold;
+  invalidateSeeds();
 }
 
 // ============================================================
@@ -386,25 +464,24 @@ function updateCache() {
 }
 
 function isPixelBg(idx) {
+  let matched;
   if (mode === 'lum') {
-    const L = lum[idx];
-    return _cacheInv ? (L <= _cacheLumT) : (L >= _cacheLumT);
+    matched = lum[idx] >= _cacheLumT;
+  } else {
+    if (!_cacheColorMode) return _cacheInv;
+    matched = false;
+    const p = idx * 4;
+    const d = imgDataRef.data;
+    const r = d[p], g = d[p + 1], b = d[p + 2];
+    for (let k = 0; k < colorSamples.length; k++) {
+      const s = colorSamples[k];
+      const dr = r - s.r, dg = g - s.g, db = b - s.b;
+      if (dr * dr + dg * dg + db * db <= _cacheDist2) { matched = true; break; }
+    }
   }
-  if (!_cacheColorMode) return false;
-  const p = idx * 4;
-  const d = imgDataRef.data;
-  const r = d[p], g = d[p + 1], b = d[p + 2];
-  for (const s of colorSamples) {
-    const dr = r - s.r, dg = g - s.g, db = b - s.b;
-    if (dr * dr + dg * dg + db * db <= _cacheDist2) return !_cacheInv;
-  }
-  return _cacheInv;
+  return _cacheInv ? !matched : matched;
 }
 
-/**
- * Автоматически находит изолированные области, подходящие под критерий фона,
- * но не касающиеся границ изображения. Возвращает массив точек-семян.
- */
 function findIsolatedBgSeeds(minSize = 30) {
   const w = imgWidth, h = imgHeight;
   const N = w * h;
@@ -446,26 +523,37 @@ function findIsolatedBgSeeds(minSize = 30) {
   return seeds;
 }
 
+function getAutoSeeds() {
+  if (_seedsCache) return _seedsCache;
+  _seedsCache = findIsolatedBgSeeds(30);
+  return _seedsCache;
+}
+
 function buildMask() {
   updateCache();
 
   const w = imgWidth, h = imgHeight;
   const N = w * h;
   isBg = new Uint8Array(N);
-  const queue = [];
+  const queue = new Int32Array(N);
+  let head = 0, tail = 0;
+  let bgCount = 0;
+
   const push = (x, y) => {
     if (x < 0 || y < 0 || x >= w || y >= h) return;
     const idx = y * w + x;
     if (isBg[idx] || !isPixelBg(idx)) return;
-    isBg[idx] = 1; queue.push(idx);
+    isBg[idx] = 1;
+    queue[tail++] = idx;
+    bgCount++;
   };
 
   // 1. Приоритет — ручные точки
   if (sourcePoints.length > 0) {
     for (const p of sourcePoints) push(p.x, p.y);
   } else {
-    // 2. Авто-поиск изолированных областей
-    const autoSeeds = findIsolatedBgSeeds(30);
+    // 2. Авто-семена (кэш)
+    const autoSeeds = getAutoSeeds();
     for (const p of autoSeeds) push(p.x, p.y);
   }
 
@@ -474,8 +562,7 @@ function buildMask() {
   for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
 
   // 4. BFS
-  let head = 0;
-  while (head < queue.length) {
+  while (head < tail) {
     const idx = queue[head++];
     const x = idx % w, y = (idx / w) | 0;
     push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
@@ -486,6 +573,8 @@ function buildMask() {
     const iterations = +smoothIterEl.value;
     for (let it = 0; it < iterations; it++) smoothOnce(isBg, w, h);
   }
+
+  return bgCount;
 }
 
 function smoothOnce(isBg, w, h) {
@@ -512,6 +601,7 @@ addPointBtn.addEventListener('click', () => {
     pickBgColorBtn.classList.remove('active');
   }
   addPointBtn.classList.toggle('active', addPointMode);
+  updateCursor();
 });
 
 pickBgColorBtn.addEventListener('click', () => {
@@ -521,11 +611,13 @@ pickBgColorBtn.addEventListener('click', () => {
     addPointBtn.classList.remove('active');
   }
   pickBgColorBtn.classList.toggle('active', bgColorMode);
+  updateCursor();
 });
 
 clearPointsBtn.addEventListener('click', () => {
   sourcePoints = [];
   selectedPointIndex = -1;
+  invalidateSeeds();
   if (lum) rebuildAll();
 });
 
@@ -549,8 +641,10 @@ baseCanvas.addEventListener('click', e => {
       colorSliderRow.style.display = '';
     }
     renderSamplesList();
+    invalidateSeeds();
     bgColorMode = false;
     pickBgColorBtn.classList.remove('active');
+    updateCursor();
     rebuildAll();
     return;
   }
@@ -558,6 +652,7 @@ baseCanvas.addEventListener('click', e => {
   if (addPointMode) {
     sourcePoints.push({ x, y });
     selectedPointIndex = sourcePoints.length - 1;
+    invalidateSeeds();
   } else {
     let hit = -1;
     for (let i = sourcePoints.length - 1; i >= 0; i--) {
@@ -569,6 +664,7 @@ baseCanvas.addEventListener('click', e => {
     else if (hit === selectedPointIndex) {
       sourcePoints.splice(hit, 1);
       selectedPointIndex = -1;
+      invalidateSeeds();
     } else selectedPointIndex = hit;
   }
   rebuildAll();
@@ -578,19 +674,18 @@ function removePoint(index) {
   sourcePoints.splice(index, 1);
   if (selectedPointIndex === index) selectedPointIndex = -1;
   else if (selectedPointIndex > index) selectedPointIndex--;
+  invalidateSeeds();
   rebuildAll();
 }
 
 // ============================================================
 //  ОБНОВЛЕНИЕ UI
 // ============================================================
-function updateInfo() {
+function updateInfo(bgCount) {
   if (!lum) return;
   const N = imgWidth * imgHeight;
-  let bg = 0, char_ = 0;
-  for (let i = 0; i < N; i++) {
-    if (isBg[i]) bg++; else char_++;
-  }
+  const bg = bgCount;
+  const char_ = N - bg;
   infoSize.textContent = `${imgWidth} × ${imgHeight}`;
   infoMode.textContent = mode === 'lum' ? 'яркость' : 'цвет';
   infoHisto.textContent = histogram ? `256 корзин` : '—';
@@ -616,7 +711,7 @@ function renderPointList() {
     left.addEventListener('click', () => {
       selectedPointIndex = i;
       drawOverlay();
-      updateInfo();
+      renderPointList();
     });
     const btn = document.createElement('button');
     btn.className = 'remove';
@@ -644,6 +739,7 @@ function renderSamplesList() {
     chip.querySelector('.remove').addEventListener('click', () => {
       colorSamples.splice(i, 1);
       renderSamplesList();
+      invalidateSeeds();
       if (lum) rebuildAll();
     });
     samplesList.appendChild(chip);
@@ -686,10 +782,12 @@ function drawOverlay() {
 // ============================================================
 function rebuildAll() {
   if (!lum) return;
-  buildMask();
+  const bgCount = buildMask();
   drawOverlay();
-  updateInfo();
+  updateInfo(bgCount);
 }
+
+const rebuildAllDebounced = debounce(rebuildAll, 80);
 
 // ============================================================
 //  РЕЖИМЫ
@@ -700,6 +798,7 @@ modeLumBtn.addEventListener('click', () => {
   modeColorBtn.classList.remove('active');
   lumSliderRow.style.display = '';
   colorSliderRow.style.display = 'none';
+  invalidateSeeds();
   if (lum) rebuildAll();
 });
 modeColorBtn.addEventListener('click', () => {
@@ -708,6 +807,7 @@ modeColorBtn.addEventListener('click', () => {
   modeLumBtn.classList.remove('active');
   lumSliderRow.style.display = 'none';
   colorSliderRow.style.display = '';
+  invalidateSeeds();
   if (lum) rebuildAll();
 });
 autoThresholdBtn.addEventListener('click', () => {
@@ -719,11 +819,32 @@ autoThresholdBtn.addEventListener('click', () => {
 // ============================================================
 //  СЛУШАТЕЛИ
 // ============================================================
-bgLumEl.addEventListener('input', () => { bgLumVal.textContent = bgLumEl.value; if (mode === 'lum') rebuildAll(); });
-bgDistEl.addEventListener('input', () => { bgDistVal.textContent = bgDistEl.value; if (mode === 'color') rebuildAll(); });
-invertEl.addEventListener('change', () => { if (lum) rebuildAll(); });
-useSmoothEl.addEventListener('change', () => { if (lum) rebuildAll(); });
-smoothIterEl.addEventListener('input', () => { smoothIterVal.textContent = smoothIterEl.value; if (lum && useSmoothEl.checked) rebuildAll(); });
+bgLumEl.addEventListener('input', () => {
+  bgLumVal.textContent = bgLumEl.value;
+  invalidateSeeds();
+  if (mode === 'lum') rebuildAllDebounced();
+});
+bgDistEl.addEventListener('input', () => {
+  bgDistVal.textContent = bgDistEl.value;
+  invalidateSeeds();
+  if (mode === 'color') rebuildAllDebounced();
+});
+invertEl.addEventListener('change', () => {
+  invalidateSeeds();
+  if (lum) rebuildAll();
+});
+useSmoothEl.addEventListener('change', () => {
+  smoothIterEl.disabled = !useSmoothEl.checked;
+  if (lum) rebuildAll();
+});
+smoothIterEl.addEventListener('input', () => {
+  smoothIterVal.textContent = smoothIterEl.value;
+  if (lum && useSmoothEl.checked) rebuildAllDebounced();
+});
+
+// Инициализация: сглаживание выключено — ползунок disabled
+smoothIterEl.disabled = !useSmoothEl.checked;
+updateCursor();
 </script>
 </body>
 </html>
