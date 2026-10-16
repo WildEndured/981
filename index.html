@@ -47,7 +47,6 @@
   }
   .topbar button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  /* Stage: контейнер с overflow hidden, внутри — transform-обёртка */
   .stage-wrap {
     position: relative;
     width: min(96vw, 1100px);
@@ -73,7 +72,6 @@
   .stage canvas#overlay { position: absolute; inset: 0; pointer-events: none; }
   .stage.hide-base canvas#base { visibility: hidden; }
 
-  /* Прогресс-оверлей */
   .progress-overlay {
     position: absolute; inset: 0;
     display: none; align-items: center; justify-content: center;
@@ -91,7 +89,6 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Zoom-кнопки */
   .zoom-bar {
     position: absolute;
     right: 10px; bottom: 10px;
@@ -264,7 +261,7 @@
 </div>
 
 <p class="hint">
-  ЛКМ — точка / пипетка (в зависимости от режима). СКМ или ПКМ — панорама. Колесо — зум. Двойной клик по точке — удалить.
+  ЛКМ — точка / пипетка (в зависимости от режима). СКМ или ПКМ — панорама. Колесо — зум.
 </p>
 
 <div class="panel">
@@ -318,11 +315,11 @@
       <input id="smoothIter" type="range" min="0" max="4" value="1" />
     </div>
     <div class="slider-row">
-      <div class="label-line"><span>Открытие (убрать острова)</span><span id="morphOpenVal">0</span></div>
+      <div class="label-line"><span>Открытие</span><span id="morphOpenVal">0</span></div>
       <input id="morphOpen" type="range" min="0" max="4" value="0" />
     </div>
     <div class="slider-row">
-      <div class="label-line"><span>Закрытие (заделать дырки)</span><span id="morphCloseVal">0</span></div>
+      <div class="label-line"><span>Закрытие</span><span id="morphCloseVal">0</span></div>
       <input id="morphClose" type="range" min="0" max="4" value="0" />
     </div>
   </div>
@@ -403,7 +400,7 @@ const zoomOutBtn = document.getElementById('zoomOutBtn');
 const zoomFitBtn = document.getElementById('zoomFitBtn');
 const zoomResetBtn = document.getElementById('zoomResetBtn');
 
-const baseCtx = baseCanvas.getContext('2d');
+const baseCtx = baseCanvas.getContext('2d', { willReadFrequently: true });
 const overlayCtx = overlay.getContext('2d');
 
 // ============================================================
@@ -419,18 +416,15 @@ let sourcePoints = [];
 let hideImage = false;
 let bgCount = 0;
 
-// Zoom / Pan
 let zoom = 1, panX = 0, panY = 0;
 let fitZoom = 1;
 let isDragging = false, dragStartX = 0, dragStartY = 0;
 let dragStartPanX = 0, dragStartPanY = 0;
 
-// Worker
 let worker = null;
 let workerBusy = false;
 let pendingBuild = false;
 
-// Кэш авто-семян
 let _seedsCache = null;
 function invalidateSeeds() { _seedsCache = null; }
 
@@ -457,11 +451,20 @@ function updateCursor() {
 // ============================================================
 function initWorker() {
   if (worker) return;
-  worker = new Worker('worker.js');
+  try {
+    worker = new Worker('worker.js');
+  } catch (err) {
+    console.error('[main] Worker creation failed:', err);
+    alert('Не удалось создать Worker. Проверьте, что worker.js лежит рядом с index.html.');
+    return;
+  }
   worker.onmessage = (e) => {
     const { type, payload } = e.data;
+    console.log('[main] worker message:', type);
     if (type === 'mask') {
-      isBg = new Uint8Array(payload.mask);
+      isBg = payload.mask instanceof Uint8Array
+        ? payload.mask
+        : new Uint8Array(payload.mask);
       bgCount = payload.bgCount;
       drawOverlay();
       updateInfo();
@@ -472,16 +475,17 @@ function initWorker() {
         rebuildAll();
       }
     } else if (type === 'error') {
-      console.error('Worker error:', payload);
+      console.error('[main] worker error:', payload);
       workerBusy = false;
       hideProgress();
     }
   };
   worker.onerror = (err) => {
-    console.error('Worker error event:', err);
+    console.error('[main] worker onerror:', err);
     workerBusy = false;
     hideProgress();
   };
+  console.log('[main] worker initialized');
 }
 
 function showProgress() { progressOverlay.classList.add('visible'); }
@@ -522,25 +526,44 @@ function autoPickThreshold() {
 // ============================================================
 fileInput.addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
-  if (!file) return;
+  if (!file) {
+    console.log('[main] no file selected');
+    return;
+  }
+  console.log('[main] file selected:', file.name, file.size, file.type);
+
   const img = new Image();
   img.onload = () => {
-    imgWidth = img.naturalWidth;
-    imgHeight = img.naturalHeight;
-    [baseCanvas, overlay].forEach(c => { c.width = imgWidth; c.height = imgHeight; });
-    baseCtx.drawImage(img, 0, 0);
-    imgDataRef = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
-    computeLuminance(imgDataRef);
-    computeHistogram();
-    sourcePoints = [];
-    selectedPointIndex = -1;
-    colorSamples = [];
-    invalidateSeeds();
-    autoPickThreshold();
-    rebuildAll();
-    renderSamplesList();
-    // Вписать изображение в область
-    requestAnimationFrame(() => fitToView());
+    try {
+      console.log('[main] image loaded:', img.naturalWidth, 'x', img.naturalHeight);
+      imgWidth = img.naturalWidth;
+      imgHeight = img.naturalHeight;
+      [baseCanvas, overlay].forEach(c => { c.width = imgWidth; c.height = imgHeight; });
+      baseCtx.clearRect(0, 0, imgWidth, imgHeight);
+      baseCtx.drawImage(img, 0, 0);
+      imgDataRef = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
+      computeLuminance(imgDataRef);
+      computeHistogram();
+      sourcePoints = [];
+      selectedPointIndex = -1;
+      colorSamples = [];
+      invalidateSeeds();
+      autoPickThreshold();
+      renderSamplesList();
+
+      // Сначала вписываем изображение в область, чтобы transform был корректным
+      requestAnimationFrame(() => {
+        fitToView();
+        rebuildAll();
+      });
+    } catch (err) {
+      console.error('[main] onload error:', err);
+      alert('Ошибка при обработке изображения: ' + (err.message || err));
+    }
+  };
+  img.onerror = (err) => {
+    console.error('[main] image load error:', err);
+    alert('Не удалось загрузить изображение');
   };
   img.src = URL.createObjectURL(file);
 });
@@ -565,7 +588,7 @@ function computeHistogram() {
 }
 
 // ============================================================
-//  АВТО-СЕМЕНА (в главном потоке, чтобы не гонять дважды)
+//  АВТО-СЕМЕНА (в главном потоке)
 // ============================================================
 function isPixelBgMain(idx) {
   if (mode === 'lum' || mode === 'region') {
@@ -580,9 +603,7 @@ function isPixelBgMain(idx) {
   const t2 = t * t * 3;
   for (const s of colorSamples) {
     const dr = r - s.r, dg = g - s.g, db = b - s.b;
-    if (dr * dr + dg * dg + db * db <= t2) {
-      return !invertEl.checked;
-    }
+    if (dr * dr + dg * dg + db * db <= t2) return !invertEl.checked;
   }
   return invertEl.checked;
 }
@@ -610,7 +631,6 @@ function findIsolatedBgSeeds(minSize = 30) {
       region.push(cur);
       const cx = cur % w;
       const cy = (cur / w) | 0;
-
       if (cx === 0 || cy === 0 || cx === w - 1 || cy === h - 1) touchesBorder = true;
 
       if (cx > 0)     { const n = cur - 1; if (!visited[n] && isPixelBgMain(n)) { visited[n] = 1; queue[tail++] = n; } }
@@ -637,29 +657,36 @@ function getAutoSeeds() {
 //  ПЕРЕСЧЁТ МАСКИ (через Worker)
 // ============================================================
 function rebuildAll() {
-  if (!lum || !imgDataRef) return;
-
-  if (workerBusy) { pendingBuild = true; return; }
+  if (!lum || !imgDataRef) {
+    console.log('[main] rebuildAll skipped: no image');
+    return;
+  }
+  if (!worker) {
+    console.error('[main] worker not initialized');
+    initWorker();
+    if (!worker) return;
+  }
+  if (workerBusy) {
+    console.log('[main] worker busy, queue pending');
+    pendingBuild = true;
+    return;
+  }
   workerBusy = true;
   showProgress();
 
-  // Готовим autoSeeds только если нет ручных точек
   let autoSeeds = [];
   if (sourcePoints.length === 0) {
     autoSeeds = getAutoSeeds();
   }
 
-  // Копия ImageData для передачи в worker
-  const id = new ImageData(
-    new Uint8ClampedArray(imgDataRef.data),
-    imgDataRef.width,
-    imgDataRef.height
-  );
+  // Копируем данные изображения — без transfer, чтобы не терять буфер
+  const dataCopy = new Uint8ClampedArray(imgDataRef.data);
 
+  console.log('[main] posting buildMask to worker');
   worker.postMessage({
     type: 'buildMask',
     payload: {
-      imageData: { data: id.data, width: id.width, height: id.height },
+      imageData: { data: dataCopy, width: imgWidth, height: imgHeight },
       width: imgWidth,
       height: imgHeight,
       mode,
@@ -675,7 +702,7 @@ function rebuildAll() {
       morphClose: +morphCloseEl.value,
       regionTolerance: +regionTolEl.value
     }
-  }, [id.data.buffer]);
+  });
 }
 
 const rebuildAllDebounced = debounce(rebuildAll, 80);
@@ -816,28 +843,22 @@ function zoomAt(factor, clientX, clientY) {
 }
 
 zoomInBtn.addEventListener('click', () => {
-  const cx = stageWrap.clientWidth / 2;
-  const cy = stageWrap.clientHeight / 2;
   const rect = stageWrap.getBoundingClientRect();
-  zoomAt(1.25, rect.left + cx, rect.top + cy);
+  zoomAt(1.25, rect.left + stageWrap.clientWidth / 2, rect.top + stageWrap.clientHeight / 2);
 });
 zoomOutBtn.addEventListener('click', () => {
-  const cx = stageWrap.clientWidth / 2;
-  const cy = stageWrap.clientHeight / 2;
   const rect = stageWrap.getBoundingClientRect();
-  zoomAt(1 / 1.25, rect.left + cx, rect.top + cy);
+  zoomAt(1 / 1.25, rect.left + stageWrap.clientWidth / 2, rect.top + stageWrap.clientHeight / 2);
 });
 zoomFitBtn.addEventListener('click', fitToView);
 zoomResetBtn.addEventListener('click', resetZoom);
 
-// Колесо мыши
 stageWrap.addEventListener('wheel', (e) => {
   e.preventDefault();
   const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
   zoomAt(factor, e.clientX, e.clientY);
 }, { passive: false });
 
-// Панорамирование (СКМ = button 1, ПКМ = button 2)
 stageWrap.addEventListener('mousedown', (e) => {
   if (e.button === 1 || e.button === 2) {
     e.preventDefault();
@@ -867,7 +888,6 @@ window.addEventListener('mouseup', () => {
 
 stageWrap.addEventListener('contextmenu', (e) => e.preventDefault());
 
-// Тач: панорамирование одним пальцем + pinch двумя
 let touchMode = null;
 let touchStartDist = 0, touchStartZoom = 1;
 let touchStartX = 0, touchStartY = 0;
@@ -914,7 +934,7 @@ stageWrap.addEventListener('touchmove', (e) => {
 stageWrap.addEventListener('touchend', () => { touchMode = null; }, { passive: true });
 
 // ============================================================
-//  КЛИК ПО CANVAS → координаты изображения
+//  КЛИК ПО CANVAS
 // ============================================================
 function clientToImage(clientX, clientY) {
   const rect = stageEl.getBoundingClientRect();
@@ -923,11 +943,9 @@ function clientToImage(clientX, clientY) {
   return { x: Math.floor(x), y: Math.floor(y) };
 }
 
-// Обрабатываем клик на stage-wrap, чтобы учесть transform
 stageWrap.addEventListener('click', (e) => {
   if (!lum) return;
-  // Если был drag — игнорируем
-  if (Math.abs(panX - dragStartPanX) > 2 || Math.abs(panY - dragStartPanY) > 2) return;
+  if (isDragging) return;
 
   const { x, y } = clientToImage(e.clientX, e.clientY);
   if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) return;
@@ -1005,7 +1023,7 @@ autoThresholdBtn.addEventListener('click', () => {
 });
 
 // ============================================================
-//  РЕЖИМЫ КУРСОРА
+//  КУРСОР
 // ============================================================
 addPointBtn.addEventListener('click', () => {
   addPointMode = !addPointMode;
@@ -1133,3 +1151,8 @@ morphCloseEl.addEventListener('input', () => {
 initWorker();
 smoothIterEl.disabled = !useSmoothEl.checked;
 updateCursor();
+
+console.log('[main] script loaded, worker =', !!worker);
+</script>
+</body>
+        </html>
