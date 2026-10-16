@@ -1,449 +1,419 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Силуэт персонажа</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Обнаружение фона и силуэта</title>
 <style>
+  * { box-sizing: border-box; }
   body {
-    margin: 0;
-    font-family: system-ui, sans-serif;
-    background: #14161a;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: #12141a;
     color: #e6e6e6;
-    padding: 16px;
+    margin: 0;
+    padding: 24px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
   }
+  h1 { font-size: 20px; font-weight: 600; margin: 0; }
   .controls {
-    display: flex; flex-wrap: wrap; gap: 12px;
-    align-items: center; justify-content: center;
-    padding: 10px 14px;
-    background: #1d2027; border-radius: 10px;
-    max-width: min(92vw, 900px);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    background: #1b1e27;
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 1px solid #262a36;
   }
-  .controls label {
-    font-size: 13px;
-    display: flex; gap: 6px; align-items: center;
-  }
-  input[type="file"] { font-size: 13px; }
+  label { font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  input[type="file"] { color: #ccc; font-size: 13px; }
   input[type="range"] { width: 140px; }
-  input[type="color"] {
-    width: 34px; height: 26px; border: none; background: none;
-    padding: 0; cursor: pointer;
-  }
   button {
-    font-size: 13px; padding: 6px 10px; border-radius: 8px;
-    border: 1px solid #333; background: #262a32; color: #e6e6e6;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
     cursor: pointer;
-  }
-  button:hover { background: #303540; }
-  button.active { background: #3a5; border-color: #4c7; color: #fff; }
-  .stage {
-    position: relative;
-    display: inline-block;
-    border: 1px solid #2b2f37;
-    background: #0b0c0f;
-    touch-action: none;
-  }
-  .stage.hide canvas#base { opacity: 0; }
-  .stage.hide { background: #ffffff; }
-  .stage canvas {
-    display: block;
-    max-width: min(92vw, 900px);
-    height: auto;
-  }
-  .stage canvas#overlay {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-  }
-  .stage.edit canvas#overlay { pointer-events: auto; cursor: crosshair; }
-  .info {
     font-size: 13px;
-    color: #b9c3d1;
-    text-align: center;
-    max-width: min(92vw, 900px);
+    font-weight: 500;
   }
-  .info b { color: #e6e6e6; }
-  .hint { color: #8a93a3; }
-  .row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; }
+  button:hover { background: #2563eb; }
+  button.secondary { background: #374151; }
+  button.secondary:hover { background: #4b5563; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    width: 100%;
+    max-width: 1100px;
+  }
+  .panel {
+    background: #1b1e27;
+    border: 1px solid #262a36;
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .panel h3 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 8px;
+    background: #0b0d12;
+    image-rendering: pixelated;
+  }
+  .hint { font-size: 12px; color: #6b7280; text-align: center; max-width: 700px; }
 </style>
 </head>
 <body>
 
-<div class="controls">
-  <label>Файл:
-    <input id="file" type="file" accept="image/*" />
-  </label>
-  <label>Порог:
-    <input id="bgLum" type="range" min="0" max="255" value="200" />
-    <span id="bgLumVal">200</span>
-  </label>
-  <label>Цвет маски:
-    <input id="maskColor" type="color" value="#ffffff" />
-  </label>
-  <label>
-    <input id="hideImage" type="checkbox" />
-    Скрыть изображение
-  </label>
-</div>
+<h1>🖼️ Обнаружение фона и силуэта</h1>
 
 <div class="controls">
-  <button id="btnPick" title="Кликните по фону на изображении, чтобы добавить точку-образец">+ Добавить точку фона</button>
-  <button id="btnClearPoints">Очистить точки</button>
-  <label>Допуск:
-    <input id="tolerance" type="range" min="0" max="120" value="30" />
-    <span id="toleranceVal">30</span>
+  <label>
+    Загрузить:
+    <input type="file" id="fileInput" accept="image/*">
   </label>
   <label>
-    <input id="showPoints" type="checkbox" checked />
-    Показывать точки
+    Порог:
+    <input type="range" id="threshold" min="5" max="120" value="40">
+    <span id="thresholdVal">40</span>
   </label>
+  <button id="detectBtn">Найти силуэт</button>
+  <button id="clearBtn" class="secondary">Сброс</button>
 </div>
 
-<div class="stage" id="stage">
-  <canvas id="base"></canvas>
-  <canvas id="overlay"></canvas>
+<div class="grid">
+  <div class="panel">
+    <h3>Оригинал</h3>
+    <canvas id="original"></canvas>
+  </div>
+  <div class="panel">
+    <h3>Обнаруженный фон (маска)</h3>
+    <canvas id="mask"></canvas>
+  </div>
+  <div class="panel">
+    <h3>Силуэт персонажа</h3>
+    <canvas id="silhouette"></canvas>
+  </div>
 </div>
 
-<div class="info" id="info">
-  Загрузите изображение. Затем нажмите «+ Добавить точку фона» и кликните по фону.
-  <div class="hint">Точки можно перетаскивать мышью. Правый клик по точке — удалить.</div>
-</div>
+<p class="hint">
+  Алгоритм: берёт цвета по краям изображения как «фон», сравнивает каждый пиксель
+  с ближайшим фоновым цветом (евклидово расстояние в RGB), применяет медианный фильтр
+  и морфологию для чистки маски.
+</p>
 
 <script>
-(function () {
-  const fileInput     = document.getElementById('file');
-  const bgLumInput    = document.getElementById('bgLum');
-  const bgLumVal      = document.getElementById('bgLumVal');
-  const maskColorInp  = document.getElementById('maskColor');
-  const hideImageChk  = document.getElementById('hideImage');
-  const toleranceInp  = document.getElementById('tolerance');
-  const toleranceVal  = document.getElementById('toleranceVal');
-  const showPointsChk = document.getElementById('showPoints');
-  const btnPick       = document.getElementById('btnPick');
-  const btnClear      = document.getElementById('btnClearPoints');
-  const stage         = document.getElementById('stage');
-  const base          = document.getElementById('base');
-  const overlay       = document.getElementById('overlay');
-  const info          = document.getElementById('info');
+(() => {
+  'use strict';
 
-  const bctx = base.getContext('2d');
-  const octx = overlay.getContext('2d', { willReadFrequently: true });
+  const fileInput   = document.getElementById('fileInput');
+  const threshold   = document.getElementById('threshold');
+  const thresholdVal= document.getElementById('thresholdVal');
+  const detectBtn   = document.getElementById('detectBtn');
+  const clearBtn    = document.getElementById('clearBtn');
 
-  let img = null;             // HTMLImageElement
-  let srcData = null;         // исходные пиксели {data,width,height}
-  let maskImageData = null;   // ImageData для маски
-  let points = [];            // [{x,y}] в координатах исходного изображения
-  let pickMode = false;
-  let dragIndex = -1;
-  let hoverIndex = -1;
-  const POINT_R = 8;          // радиус точки в экранных пикселях
+  const origCanvas  = document.getElementById('original');
+  const maskCanvas  = document.getElementById('mask');
+  const silCanvas   = document.getElementById('silhouette');
 
-  // ---------- Утилиты ----------
-  function hexToRgb(hex) {
-    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return m ? { r: parseInt(m[1],16), g: parseInt(m[2],16), b: parseInt(m[3],16) } : { r:255,g:255,b:255 };
-  }
+  const origCtx = origCanvas.getContext('2d', { willReadFrequently: true });
+  const maskCtx = maskCanvas.getContext('2d');
+  const silCtx  = silCanvas.getContext('2d');
 
-  function fitOverlay() {
-    overlay.width  = base.width;
-    overlay.height = base.height;
-    overlay.style.width  = base.clientWidth + 'px';
-    overlay.style.height = base.clientHeight + 'px';
-  }
+  let currentImage = null;
 
-  function scaleFactor() {
-    // отношение внутренних пикселей canvas к CSS-пикселям
-    return base.width / (base.clientWidth || 1);
-  }
+  threshold.addEventListener('input', () => {
+    thresholdVal.textContent = threshold.value;
+    if (currentImage) detect();
+  });
 
   // ---------- Загрузка ----------
   fileInput.addEventListener('change', e => {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    const url = URL.createObjectURL(f);
-    const im = new Image();
-    im.onload = () => {
-      img = im;
-      base.width = im.naturalWidth;
-      base.height = im.naturalHeight;
-      base.style.width  = '';
-      base.style.height = '';
-      bctx.clearRect(0,0,base.width,base.height);
-      bctx.drawImage(im, 0, 0);
-      srcData = bctx.getImageData(0,0,base.width,base.height);
-      maskImageData = bctx.createImageData(base.width, base.height);
-      points = [];
-      fitOverlay();
-      // стартовая точка — центр
-      points.push({ x: Math.floor(base.width/2), y: Math.floor(base.height/2) });
-      recompute();
-      info.innerHTML = `Изображение: <b>${base.width}×${base.height}</b>. ` +
-        `Нажмите «+ Добавить точку фона» и кликните по фону.`;
-      URL.revokeObjectURL(url);
+    const file = e.target.files[0];
+    if (!file) return;
+    const img = new Image();
+    img.onload = () => {
+      currentImage = img;
+      // ограничиваем размер для производительности
+      const MAX = 900;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      [origCanvas, maskCanvas, silCanvas].forEach(c => {
+        c.width = w; c.height = h;
+      });
+      origCtx.drawImage(img, 0, 0, w, h);
+      detect();
     };
-    im.onerror = () => info.textContent = 'Не удалось загрузить изображение';
-    im.src = url;
+    img.src = URL.createObjectURL(file);
   });
 
-  // ---------- Основной алгоритм: flood fill от точек-образцов ----------
-  function recompute() {
-    if (!srcData || !maskImageData) return;
+  detectBtn.addEventListener('click', () => {
+    if (currentImage) detect();
+  });
 
-    const w = srcData.width, h = srcData.height;
-    const src = srcData.data;
-    const dst = maskImageData.data;
-
-    const tol = parseInt(toleranceInp.value, 10);
-    const lum = parseInt(bgLumInput.value, 10);
-
-    const { r: mr, g: mg, b: mb } = hexToRgb(maskColorInp.value);
-
-    // Обнуление маски
-    for (let i = 0; i < dst.length; i += 4) {
-      dst[i] = mr; dst[i+1] = mg; dst[i+2] = mb; dst[i+3] = 0;
-    }
-
-    if (!points.length) {
-      // нет точек — пустая маска
-      bctx.putImageData(srcData, 0, 0);
-      drawOverlay();
-      return;
-    }
-
-    // Используем BFS от всех точек одновременно (multi-source flood fill).
-    // Для каждого семпла берём его цвет и проверяем похожесть пикселя
-    // на ЛЮБОЙ из семплов в пределах допуска.
-    const samples = points.map(p => {
-      const x = Math.max(0, Math.min(w - 1, Math.round(p.x)));
-      const y = Math.max(0, Math.min(h - 1, Math.round(p.y)));
-      const i = (y * w + x) * 4;
-      return { r: src[i], g: src[i+1], b: src[i+2] };
+  clearBtn.addEventListener('click', () => {
+    currentImage = null;
+    fileInput.value = '';
+    [origCtx, maskCtx, silCtx].forEach(ctx => {
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     });
+  });
 
-    const visited = new Uint8Array(w * h);
-    const queue = [];
+  // ---------- Основной алгоритм ----------
+  function detect() {
+    const w = origCanvas.width;
+    const h = origCanvas.height;
+    if (!w || !h) return;
 
-    // Инициализация: все точки
-    for (const p of points) {
-      const x = Math.max(0, Math.min(w - 1, Math.round(p.x)));
-      const y = Math.max(0, Math.min(h - 1, Math.round(p.y)));
-      const idx = y * w + x;
-      if (!visited[idx]) {
-        visited[idx] = 1;
-        queue.push(idx);
+    const src = origCtx.getImageData(0, 0, w, h);
+    const data = src.data;
+    const N = w * h;
+
+    // 1. Собираем образцы фона по периметру
+    const bgSamples = sampleBorderColors(data, w, h, 4);
+
+    // 2. Кластеризация фоновых цветов (простая: усреднение похожих)
+    const bgColors = clusterColors(bgSamples, 30);
+
+    // 3. Маска фона: 255 = фон, 0 = объект
+    const thr = parseFloat(threshold.value);
+    const thrSq = thr * thr;
+    let mask = new Uint8Array(N);
+
+    for (let i = 0; i < N; i++) {
+      const r = data[i*4], g = data[i*4+1], b = data[i*4+2];
+      let minDist = Infinity;
+      for (let c = 0; c < bgColors.length; c++) {
+        const bc = bgColors[c];
+        const dr = r - bc[0], dg = g - bc[1], db = b - bc[2];
+        const d = dr*dr + dg*dg + db*db;
+        if (d < minDist) {
+          minDist = d;
+          if (minDist < thrSq) break;
+        }
       }
+      mask[i] = minDist < thrSq ? 255 : 0; // 255 = фон
     }
 
-    const tolSq = tol * tol * 3; // грубый квадрат расстояния
+    // 4. Медианный фильтр 3x3 для удаления шума
+    mask = medianFilter3x3(mask, w, h);
 
-    function matches(x, y) {
+    // 5. Морфология: закрытие (dilate -> erode), потом открытие (erode -> dilate)
+    mask = morph(mask, w, h, 'dilate', 2);
+    mask = morph(mask, w, h, 'erode', 2);
+    mask = morph(mask, w, h, 'erode', 2);
+    mask = morph(mask, w, h, 'dilate', 2);
+
+    // 6. Оставляем только крупнейшую связную область объекта (не фон)
+    mask = keepLargestObject(mask, w, h);
+
+    // 7. Рисуем маску фона
+    const maskData = maskCtx.createImageData(w, h);
+    for (let i = 0; i < N; i++) {
+      // mask[i] = 255 -> фон (белый), 0 -> объект (чёрный)
+      const v = mask[i];
+      maskData.data[i*4]   = v;
+      maskData.data[i*4+1] = v;
+      maskData.data[i*4+2] = v;
+      maskData.data[i*4+3] = 255;
+    }
+    maskCtx.putImageData(maskData, 0, 0);
+
+    // 8. Рисуем силуэт: объект чёрным, фон прозрачным
+    const silData = silCtx.createImageData(w, h);
+    for (let i = 0; i < N; i++) {
+      if (mask[i] === 0) {
+        // объект — заливаем чёрным
+        silData.data[i*4]   = 0;
+        silData.data[i*4+1] = 0;
+        silData.data[i*4+2] = 0;
+        silData.data[i*4+3] = 255;
+      } else {
+        silData.data[i*4+3] = 0; // прозрачный
+      }
+    }
+    silCtx.putImageData(silData, 0, 0);
+  }
+
+  // ---------- Вспомогательные функции ----------
+
+  // Собираем цвета по периметру (шаг 4 пикселя)
+  function sampleBorderColors(data, w, h, step) {
+    const out = [];
+    const push = (x, y) => {
       const i = (y * w + x) * 4;
-      // Порог по яркости: слишком яркие пиксели не считаем фоном
-      const l = 0.299 * src[i] + 0.587 * src[i+1] + 0.114 * src[i+2];
-      if (l >= lum) return false;
-      // Похожесть на любой из образцов
-      for (let s = 0; s < samples.length; s++) {
-        const dr = src[i] - samples[s].r;
-        const dg = src[i+1] - samples[s].g;
-        const db = src[i+2] - samples[s].b;
-        if (dr*dr + dg*dg + db*db <= tolSq) return true;
-      }
-      return false;
+      out.push([data[i], data[i+1], data[i+2]]);
+    };
+    for (let x = 0; x < w; x += step) {
+      push(x, 0);
+      push(x, 1);
+      push(x, h - 1);
+      push(x, h - 2);
     }
+    for (let y = 0; y < h; y += step) {
+      push(0, y);
+      push(1, y);
+      push(w - 1, y);
+      push(w - 2, y);
+    }
+    return out;
+  }
 
-    // BFS
-    let head = 0;
-    while (head < queue.length) {
-      const idx = queue[head++];
-      const x = idx % w;
-      const y = (idx - x) / w;
+  // Простая кластеризация: объединяем цвета, отличающиеся менее чем на tol
+  function clusterColors(colors, tol) {
+    const tolSq = tol * tol;
+    const clusters = [];
+    for (const c of colors) {
+      let found = false;
+      for (const cl of clusters) {
+        const dr = c[0] - cl.r, dg = c[1] - cl.g, db = c[2] - cl.b;
+        if (dr*dr + dg*dg + db*db < tolSq) {
+          cl.r = (cl.r * cl.n + c[0]) / (cl.n + 1);
+          cl.g = (cl.g * cl.n + c[1]) / (cl.n + 1);
+          cl.b = (cl.b * cl.n + c[2]) / (cl.n + 1);
+          cl.n++;
+          found = true;
+          break;
+        }
+      }
+      if (!found) clusters.push({ r: c[0], g: c[1], b: c[2], n: 1 });
+    }
+    // отбрасываем очень редкие кластеры (< 2% пикселей)
+    const minN = colors.length * 0.02;
+    return clusters
+      .filter(cl => cl.n >= minN)
+      .map(cl => [cl.r, cl.g, cl.b]);
+  }
 
-      // закраска маски
-      const di = idx * 4;
-      dst[di+3] = 255;
+  // Медианный фильтр 3x3 по бинарной маске
+  function medianFilter3x3(mask, w, h) {
+    const out = new Uint8Array(mask.length);
+    const buf = new Uint8Array(9);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let k = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx, ny = y + dy;
+            if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+              buf[k++] = mask[ny * w + nx];
+            } else {
+              buf[k++] = 255; // границы считаем фоном
+            }
+          }
+        }
+        // сортируем вставками (9 элементов)
+        for (let i = 1; i < 9; i++) {
+          const v = buf[i];
+          let j = i - 1;
+          while (j >= 0 && buf[j] > v) { buf[j+1] = buf[j]; j--; }
+          buf[j+1] = v;
+        }
+        out[y * w + x] = buf[4];
+      }
+    }
+    return out;
+  }
 
-      // соседи
-      const neigh = [];
-      if (x > 0)     neigh.push(idx - 1);
-      if (x < w - 1) neigh.push(idx + 1);
-      if (y > 0)     neigh.push(idx - w);
-      if (y < h - 1) neigh.push(idx + w);
+  // Морфология: dilate (255 растёт) / erode (255 сжимается)
+  function morph(mask, w, h, type, iterations) {
+    let cur = mask;
+    for (let it = 0; it < iterations; it++) {
+      const out = new Uint8Array(cur.length);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          let result = type === 'dilate' ? 0 : 255;
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const nx = x + dx, ny = y + dy;
+              const v = (nx >= 0 && nx < w && ny >= 0 && ny < h)
+                ? cur[ny * w + nx]
+                : (type === 'dilate' ? 0 : 255);
+              if (type === 'dilate') {
+                if (v > result) result = v;
+              } else {
+                if (v < result) result = v;
+              }
+            }
+          }
+          out[y * w + x] = result;
+        }
+      }
+      cur = out;
+    }
+    return cur;
+  }
 
-      for (const n of neigh) {
-        if (visited[n]) continue;
-        const nx = n % w;
-        const ny = (n - nx) / w;
-        if (matches(nx, ny)) {
-          visited[n] = 1;
-          queue.push(n);
-        } else {
-          visited[n] = 2; // помечаем как проверенный "не фон", чтобы не проверять снова
+  // Оставить только крупнейшую связную область пикселей со значением 0 (объект)
+  function keepLargestObject(mask, w, h) {
+    const N = w * h;
+    const visited = new Uint8Array(N);
+    let bestLabel = -1;
+    let bestSize = 0;
+    const labels = new Int32Array(N).fill(-1);
+    let label = 0;
+    const stack = [];
+
+    for (let i = 0; i < N; i++) {
+      if (visited[i] || mask[i] !== 0) continue;
+      // BFS/DFS
+      stack.length = 0;
+      stack.push(i);
+      visited[i] = 1;
+      labels[i] = label;
+      let size = 0;
+      while (stack.length) {
+        const p = stack.pop();
+        size++;
+        const x = p % w;
+        const y = (p / w) | 0;
+        // 4 соседа
+        if (x > 0)     tryPush(p - 1);
+        if (x < w - 1) tryPush(p + 1);
+        if (y > 0)     tryPush(p - w);
+        if (y < h - 1) tryPush(p + w);
+      }
+      if (size > bestSize) {
+        bestSize = size;
+        bestLabel = label;
+      }
+      label++;
+
+      function tryPush(np) {
+        if (!visited[np] && mask[np] === 0) {
+          visited[np] = 1;
+          labels[np] = label;
+          stack.push(np);
         }
       }
     }
 
-    drawOverlay();
+    // Если объекта не нашли — вернуть исходную маску
+    if (bestLabel === -1) return mask;
+
+    const out = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      // 0 — оставляем только лучший объект, остальное — фон
+      out[i] = (mask[i] === 0 && labels[i] === bestLabel) ? 0 : 255;
+    }
+    return out;
   }
 
-  function drawOverlay() {
-    if (!maskImageData) return;
-    // Рисуем маску на overlay
-    octx.clearRect(0, 0, overlay.width, overlay.height);
-    octx.putImageData(maskImageData, 0, 0);
-
-    // Рисуем точки
-    if (showPointsChk.checked) {
-      const sf = scaleFactor();
-      const r = POINT_R / sf; // радиус в пикселях canvas
-      for (let i = 0; i < points.length; i++) {
-        const p = points[i];
-        octx.beginPath();
-        octx.arc(p.x, p.y, r, 0, Math.PI * 2);
-        octx.fillStyle = (i === hoverIndex) ? 'rgba(255,180,0,0.85)'
-                       : (i === dragIndex) ? 'rgba(80,255,120,0.9)'
-                       : 'rgba(255,80,80,0.8)';
-        octx.fill();
-        octx.lineWidth = 2 / sf;
-        octx.strokeStyle = '#fff';
-        octx.stroke();
-        // крестик в центре
-        octx.beginPath();
-        octx.moveTo(p.x - r*0.6, p.y);
-        octx.lineTo(p.x + r*0.6, p.y);
-        octx.moveTo(p.x, p.y - r*0.6);
-        octx.lineTo(p.x, p.y + r*0.6);
-        octx.strokeStyle = '#000';
-        octx.lineWidth = 1.5 / sf;
-        octx.stroke();
-      }
-    }
-  }
-
-  // ---------- Управление ----------
-  bgLumInput.addEventListener('input', () => {
-    bgLumVal.textContent = bgLumInput.value;
-    recompute();
-  });
-
-  toleranceInp.addEventListener('input', () => {
-    toleranceVal.textContent = toleranceInp.value;
-    recompute();
-  });
-
-  maskColorInp.addEventListener('input', recompute);
-  showPointsChk.addEventListener('change', drawOverlay);
-
-  hideImageChk.addEventListener('change', () => {
-    stage.classList.toggle('hide', hideImageChk.checked);
-  });
-
-  btnPick.addEventListener('click', () => {
-    pickMode = !pickMode;
-    btnPick.classList.toggle('active', pickMode);
-    stage.classList.toggle('edit', pickMode);
-    btnPick.textContent = pickMode ? '✓ Кликните по фону…' : '+ Добавить точку фона';
-  });
-
-  btnClear.addEventListener('click', () => {
-    points = [];
-    recompute();
-  });
-
-  // ---------- Работа с точками на overlay ----------
-  function toCanvasCoords(evt) {
-    const rect = overlay.getBoundingClientRect();
-    const x = (evt.clientX - rect.left) * (overlay.width  / rect.width);
-    const y = (evt.clientY - rect.top)  * (overlay.height / rect.height);
-    return { x, y };
-  }
-
-  function hitTest(x, y) {
-    const sf = scaleFactor();
-    const r = POINT_R / sf;
-    for (let i = points.length - 1; i >= 0; i--) {
-      const p = points[i];
-      const dx = p.x - x, dy = p.y - y;
-      if (dx*dx + dy*dy <= r*r) return i;
-    }
-    return -1;
-  }
-
-  overlay.addEventListener('mousedown', e => {
-    if (!img) return;
-    const { x, y } = toCanvasCoords(e);
-    const idx = hitTest(x, y);
-
-    if (e.button === 2) {
-      // правый клик — удалить точку
-      if (idx >= 0) {
-        points.splice(idx, 1);
-        recompute();
-      }
-      e.preventDefault();
-      return;
-    }
-
-    if (pickMode) {
-      // добавить новую точку
-      points.push({ x, y });
-      recompute();
-      return;
-    }
-
-    if (idx >= 0) {
-      dragIndex = idx;
-      overlay.style.cursor = 'grabbing';
-    }
-  });
-
-  overlay.addEventListener('mousemove', e => {
-    if (!img) return;
-    const { x, y } = toCanvasCoords(e);
-
-    if (dragIndex >= 0) {
-      points[dragIndex] = { x, y };
-      recompute();
-      return;
-    }
-
-    const idx = hitTest(x, y);
-    if (idx !== hoverIndex) {
-      hoverIndex = idx;
-      if (!pickMode) {
-        overlay.style.cursor = idx >= 0 ? 'grab' : 'default';
-      }
-      drawOverlay();
-    }
-  });
-
-  window.addEventListener('mouseup', () => {
-    if (dragIndex >= 0) {
-      dragIndex = -1;
-      overlay.style.cursor = pickMode ? 'crosshair' : 'default';
-      recompute();
-    }
-  });
-
-  overlay.addEventListener('contextmenu', e => e.preventDefault());
-
-  // ---------- Ресайз ----------
-  window.addEventListener('resize', () => {
-    fitOverlay();
-    drawOverlay();
-  });
-
-  // На случай, если canvas#base имеет CSS max-width и меняет размер
-  const ro = new ResizeObserver(() => {
-    if (base.width) {
-      fitOverlay();
-      drawOverlay();
-    }
-  });
-  ro.observe(base);
 })();
 </script>
 </body>
