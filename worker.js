@@ -1,5 +1,5 @@
 // ============================================================
-//  Web Worker: маска фона (улучшенный алгоритм)
+//  Web Worker: маска фона (Исправленный Hysteresis + Adaptive)
 // ============================================================
 
 let _imageData = null;
@@ -54,9 +54,7 @@ function buildMaskInWorker(p) {
 
   const w = width, h = height, N = w * h;
 
-  if (!_imageData) {
-    throw new Error('imageData not set in worker');
-  }
+  if (!_imageData) throw new Error('imageData not set in worker');
   const data = _imageData.data;
 
   // --- 1. Luminance ---
@@ -66,37 +64,51 @@ function buildMaskInWorker(p) {
     lum[i] = 0.299 * data[j] + 0.587 * data[j + 1] + 0.114 * data[j + 2];
   }
 
-  // --- 2. Адаптивный порог ---
+  // --- 2. Адаптивный порог (Box Blur) ---
   let adaptive = null;
   if (useAdaptive && (mode === 'lum' || mode === 'region')) {
     adaptive = boxBlurLum(lum, w, h, adaptiveRadius || 15);
   }
 
-  // --- 3. Кэш isPixelBg + hysteresis ---
+  // --- 3. Кэш isPixelBg + Hysteresis ---
   const dist2 = thresholdDist * thresholdDist * 3;
   const colorMode = (mode === 'color' && colorSamples && colorSamples.length > 0);
+  
   const bgCache = new Uint8Array(N);
-  const lumHi = thresholdLum;
-  const lumLoRaw = useHysteresis ? (lowLum ?? (thresholdLum - 20)) : thresholdLum;
-  const lumLo = Math.min(lumLoRaw, lumHi);
-
   let strongMask = null;
+  
+  const lumHi = thresholdLum;
+  const lumLo = useHysteresis ? (lowLum ?? (thresholdLum - 20)) : thresholdLum;
+
   if (useHysteresis && (mode === 'lum' || mode === 'region')) {
     strongMask = new Uint8Array(N);
   }
 
   for (let i = 0; i < N; i++) {
     if (mode === 'lum' || mode === 'region') {
+      // Учитываем адаптивный порог
       const hi = adaptive ? (adaptive[i] + (lumHi - 128)) : lumHi;
       const lo = adaptive ? (adaptive[i] + (lumLo - 128)) : lumLo;
-      const strong = lum[i] >= hi;
-      const weak = lum[i] >= lo;
-      const strongInv = invert ? !strong : strong;
-      const weakInv = invert ? !weak : weak;
-      bgCache[i] = weakInv ? 1 : 0;
-      if (strongMask) strongMask[i] = strongInv ? 1 : 0;
+      
+      // Сначала определяем "сильный" и "слабый" фон БЕЗ учета инверсии
+      let isStrong = lum[i] >= hi;
+      let isWeak = lum[i] >= lo;
+      
+      // Применяем инверсию, если нужно
+      if (invert) {
+        isStrong = !isStrong;
+        isWeak = !isWeak;
+      }
+
+      bgCache[i] = isWeak ? 1 : 0;
+      if (strongMask) strongMask[i] = isStrong ? 1 : 0;
+      
     } else {
-      if (!colorMode) { bgCache[i] = invert ? 1 : 0; continue; }
+      // Цветовой режим
+      if (!colorMode) { 
+        bgCache[i] = invert ? 1 : 0; 
+        continue; 
+      }
       let matched = false;
       const j = i * 4;
       const r = data[j], g = data[j + 1], b = data[j + 2];
@@ -105,7 +117,9 @@ function buildMaskInWorker(p) {
         const dr = r - s.r, dg = g - s.g, db = b - s.b;
         if (dr * dr + dg * dg + db * db <= dist2) { matched = true; break; }
       }
-      bgCache[i] = (invert ? !matched : matched) ? 1 : 0;
+      // Применяем инверсию к цвету
+      if (invert) matched = !matched;
+      bgCache[i] = matched ? 1 : 0;
     }
   }
 
@@ -119,7 +133,9 @@ function buildMaskInWorker(p) {
     const idx = y * w + x;
     if (mask[idx]) return;
     if (!bgCache[idx]) return;
-    if (strongMask && !strongMask[idx]) return; // hysteresis: только сильные
+    // Если включен hysteresis, на первом этапе заливаем ТОЛЬКО сильные пиксели
+    if (strongMask && !strongMask[idx]) return; 
+    
     mask[idx] = 1;
     queue[tail++] = idx;
   };
@@ -143,24 +159,26 @@ function buildMaskInWorker(p) {
     const addQueue = new Int32Array(N);
     let ah = 0, at = 0;
     for (let i = 0; i < N; i++) if (mask[i]) addQueue[at++] = i;
+    
     while (ah < at) {
       const idx = addQueue[ah++];
       const x = idx % w, y = (idx / w) | 0;
-      const nx = [x - 1, x + 1, x, x];
-      const ny = [y, y, y - 1, y + 1];
-      const nb = [idx - 1, idx + 1, idx - w, idx + w];
-      for (let k = 0; k < 4; k++) {
-        if (nx[k] < 0 || ny[k] < 0 || nx[k] >= w || ny[k] >= h) continue;
-        const n = nb[k];
-        if (mask[n]) continue;
-        if (!bgCache[n]) continue;
+      
+      const tryExpand = (nx, ny) => {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
+        const n = ny * w + nx;
+        if (mask[n]) return;
+        if (!bgCache[n]) return; // слабый фон
         mask[n] = 1;
         addQueue[at++] = n;
-      }
+      };
+      
+      tryExpand(x - 1, y); tryExpand(x + 1, y); 
+      tryExpand(x, y - 1); tryExpand(x, y + 1);
     }
   }
 
-  // --- 6. region-режим: отдельная заливка от точек ---
+  // --- 6. region-режим ---
   if (mode === 'region' && sourcePoints && sourcePoints.length > 0) {
     regionFill(mask, data, w, h, sourcePoints, regionTolerance, invert);
   }
@@ -367,4 +385,4 @@ function softAlpha(mask, w, h, radius) {
     out[i] = Math.round((1 - a[i]) * 255);
   }
   return out;
-  }
+        }
