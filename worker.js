@@ -1,23 +1,26 @@
 // ============================================================
-//  Web Worker: тяжёлые вычисления маски
+//  Web Worker: маска фона (улучшенный алгоритм)
 // ============================================================
+
+let _imageData = null;
 
 self.onmessage = (e) => {
   const { type, payload } = e.data;
-  console.log('[worker] received:', type);
-
+  if (type === 'setImage') {
+    _imageData = payload.imageData;
+    return;
+  }
   if (type === 'buildMask') {
     try {
       const result = buildMaskInWorker(payload);
-      console.log('[worker] done, bgCount =', result.bgCount);
-      // Передаём как обычный массив (structured clone, без transfer)
       self.postMessage({
         type: 'mask',
         payload: {
           mask: result.mask,
           bgCount: result.bgCount,
           width: result.width,
-          height: result.height
+          height: result.height,
+          alpha: result.alpha
         }
       });
     } catch (err) {
@@ -29,7 +32,6 @@ self.onmessage = (e) => {
 
 function buildMaskInWorker(p) {
   const {
-    imageData,          // { data: Uint8ClampedArray, width, height }
     width, height,
     mode,
     thresholdLum,
@@ -42,45 +44,72 @@ function buildMaskInWorker(p) {
     smoothIter,
     morphOpen,
     morphClose,
-    regionTolerance
+    regionTolerance,
+    useHysteresis,
+    lowLum,
+    useAdaptive,
+    adaptiveRadius,
+    softEdge
   } = p;
 
-  const w = width, h = height;
-  const N = w * h;
-  const data = imageData.data;
+  const w = width, h = height, N = w * h;
 
-  console.log('[worker] buildMask:', { w, h, mode, thresholdLum, useSmooth, smoothIter, morphOpen, morphClose });
+  if (!_imageData) {
+    throw new Error('imageData not set in worker');
+  }
+  const data = _imageData.data;
 
-  // Лум-канал
+  // --- 1. Luminance ---
   const lum = new Float32Array(N);
   for (let i = 0, j = 0; i < N; i++, j += 4) {
     if (data[j + 3] < 20) { lum[i] = 255; continue; }
     lum[i] = 0.299 * data[j] + 0.587 * data[j + 1] + 0.114 * data[j + 2];
   }
 
+  // --- 2. Адаптивный порог ---
+  let adaptive = null;
+  if (useAdaptive && (mode === 'lum' || mode === 'region')) {
+    adaptive = boxBlurLum(lum, w, h, adaptiveRadius || 15);
+  }
+
+  // --- 3. Кэш isPixelBg + hysteresis ---
   const dist2 = thresholdDist * thresholdDist * 3;
   const colorMode = (mode === 'color' && colorSamples && colorSamples.length > 0);
+  const bgCache = new Uint8Array(N);
+  const lumHi = thresholdLum;
+  const lumLoRaw = useHysteresis ? (lowLum ?? (thresholdLum - 20)) : thresholdLum;
+  const lumLo = Math.min(lumLoRaw, lumHi);
 
-  function isPixelBg(idx) {
-    let matched;
-    if (mode === 'lum') {
-      matched = lum[idx] >= thresholdLum;
-    } else if (mode === 'color') {
-      if (!colorMode) return invert;
-      matched = false;
-      const j = idx * 4;
+  let strongMask = null;
+  if (useHysteresis && (mode === 'lum' || mode === 'region')) {
+    strongMask = new Uint8Array(N);
+  }
+
+  for (let i = 0; i < N; i++) {
+    if (mode === 'lum' || mode === 'region') {
+      const hi = adaptive ? (adaptive[i] + (lumHi - 128)) : lumHi;
+      const lo = adaptive ? (adaptive[i] + (lumLo - 128)) : lumLo;
+      const strong = lum[i] >= hi;
+      const weak = lum[i] >= lo;
+      const strongInv = invert ? !strong : strong;
+      const weakInv = invert ? !weak : weak;
+      bgCache[i] = weakInv ? 1 : 0;
+      if (strongMask) strongMask[i] = strongInv ? 1 : 0;
+    } else {
+      if (!colorMode) { bgCache[i] = invert ? 1 : 0; continue; }
+      let matched = false;
+      const j = i * 4;
       const r = data[j], g = data[j + 1], b = data[j + 2];
       for (let k = 0; k < colorSamples.length; k++) {
         const s = colorSamples[k];
         const dr = r - s.r, dg = g - s.g, db = b - s.b;
         if (dr * dr + dg * dg + db * db <= dist2) { matched = true; break; }
       }
-    } else {
-      matched = lum[idx] >= thresholdLum;
+      bgCache[i] = (invert ? !matched : matched) ? 1 : 0;
     }
-    return invert ? !matched : matched;
   }
 
+  // --- 4. BFS от краёв + seed-точек ---
   const mask = new Uint8Array(N);
   const queue = new Int32Array(N);
   let head = 0, tail = 0;
@@ -88,7 +117,9 @@ function buildMaskInWorker(p) {
   const push = (x, y) => {
     if (x < 0 || y < 0 || x >= w || y >= h) return;
     const idx = y * w + x;
-    if (mask[idx] || !isPixelBg(idx)) return;
+    if (mask[idx]) return;
+    if (!bgCache[idx]) return;
+    if (strongMask && !strongMask[idx]) return; // hysteresis: только сильные
     mask[idx] = 1;
     queue[tail++] = idx;
   };
@@ -107,10 +138,34 @@ function buildMaskInWorker(p) {
     push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
   }
 
-  if (mode === 'region' && sourcePoints && sourcePoints.length > 0) {
-    regionGrow(mask, data, w, h, sourcePoints, regionTolerance);
+  // --- 5. Hysteresis: расширяем сильные в слабые ---
+  if (strongMask) {
+    const addQueue = new Int32Array(N);
+    let ah = 0, at = 0;
+    for (let i = 0; i < N; i++) if (mask[i]) addQueue[at++] = i;
+    while (ah < at) {
+      const idx = addQueue[ah++];
+      const x = idx % w, y = (idx / w) | 0;
+      const nx = [x - 1, x + 1, x, x];
+      const ny = [y, y, y - 1, y + 1];
+      const nb = [idx - 1, idx + 1, idx - w, idx + w];
+      for (let k = 0; k < 4; k++) {
+        if (nx[k] < 0 || ny[k] < 0 || nx[k] >= w || ny[k] >= h) continue;
+        const n = nb[k];
+        if (mask[n]) continue;
+        if (!bgCache[n]) continue;
+        mask[n] = 1;
+        addQueue[at++] = n;
+      }
+    }
   }
 
+  // --- 6. region-режим: отдельная заливка от точек ---
+  if (mode === 'region' && sourcePoints && sourcePoints.length > 0) {
+    regionFill(mask, data, w, h, sourcePoints, regionTolerance, invert);
+  }
+
+  // --- 7. Морфология ---
   if (morphOpen > 0) {
     for (let i = 0; i < morphOpen; i++) erode(mask, w, h);
     for (let i = 0; i < morphOpen; i++) dilate(mask, w, h);
@@ -120,6 +175,7 @@ function buildMaskInWorker(p) {
     for (let i = 0; i < morphClose; i++) erode(mask, w, h);
   }
 
+  // --- 8. Сглаживание ---
   if (useSmooth) {
     for (let i = 0; i < smoothIter; i++) smoothOnce(mask, w, h);
   }
@@ -127,35 +183,83 @@ function buildMaskInWorker(p) {
   let bgCount = 0;
   for (let i = 0; i < N; i++) if (mask[i]) bgCount++;
 
-  return { mask, bgCount, width: w, height: h };
+  // --- 9. Мягкая альфа ---
+  let alpha = null;
+  if (softEdge > 0) {
+    alpha = softAlpha(mask, w, h, softEdge);
+  }
+
+  return { mask, bgCount, width: w, height: h, alpha };
 }
 
-function regionGrow(mask, data, w, h, seeds, tolerance) {
+// ============================================================
+//  Хелперы
+// ============================================================
+function boxBlurLum(src, w, h, radius) {
+  const tmp = new Float32Array(w * h);
+  const out = new Float32Array(w * h);
+  const r = Math.max(1, radius | 0);
+  const inv = 1 / (2 * r + 1);
+
+  // По горизонтали
+  for (let y = 0; y < h; y++) {
+    let sum = 0;
+    const row = y * w;
+    for (let x = -r; x <= r; x++) {
+      const xx = x < 0 ? 0 : (x >= w ? w - 1 : x);
+      sum += src[row + xx];
+    }
+    for (let x = 0; x < w; x++) {
+      tmp[row + x] = sum * inv;
+      const xAdd = x + r + 1;
+      const xSub = x - r;
+      sum += src[row + (xAdd >= w ? w - 1 : xAdd)] - src[row + (xSub < 0 ? 0 : xSub)];
+    }
+  }
+  // По вертикали
+  for (let x = 0; x < w; x++) {
+    let sum = 0;
+    for (let y = -r; y <= r; y++) {
+      const yy = y < 0 ? 0 : (y >= h ? h - 1 : y);
+      sum += tmp[yy * w + x];
+    }
+    for (let y = 0; y < h; y++) {
+      out[y * w + x] = sum * inv;
+      const yAdd = y + r + 1;
+      const ySub = y - r;
+      sum += tmp[(yAdd >= h ? h - 1 : yAdd) * w + x] - tmp[(ySub < 0 ? 0 : ySub) * w + x];
+    }
+  }
+  return out;
+}
+
+function regionFill(mask, data, w, h, seeds, tolerance, invert) {
   const N = w * h;
   const queue = new Int32Array(N);
   let head = 0, tail = 0;
   const visited = new Uint8Array(N);
+  const tol2 = tolerance * tolerance * 3;
 
   const pushSeed = (x, y) => {
     if (x < 0 || y < 0 || x >= w || y >= h) return;
     const idx = y * w + x;
     if (visited[idx]) return;
     visited[idx] = 1;
-    mask[idx] = 1;
-    queue[tail++] = idx;
+    if (invert) {
+      queue[tail++] = idx;
+    } else {
+      mask[idx] = 1;
+      queue[tail++] = idx;
+    }
   };
-
   for (const s of seeds) pushSeed(s.x, s.y);
-
-  const tol2 = tolerance * tolerance * 3;
 
   while (head < tail) {
     const idx = queue[head++];
     const x = idx % w, y = (idx / w) | 0;
     const j = idx * 4;
     const r0 = data[j], g0 = data[j + 1], b0 = data[j + 2];
-
-    const tryNeighbor = (nx, ny) => {
+    const tryN = (nx, ny) => {
       if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
       const nidx = ny * w + nx;
       if (visited[nidx]) return;
@@ -163,58 +267,104 @@ function regionGrow(mask, data, w, h, seeds, tolerance) {
       const nj = nidx * 4;
       const dr = data[nj] - r0, dg = data[nj + 1] - g0, db = data[nj + 2] - b0;
       if (dr * dr + dg * dg + db * db <= tol2) {
-        mask[nidx] = 1;
+        if (!invert) mask[nidx] = 1;
         queue[tail++] = nidx;
       }
     };
-
-    tryNeighbor(x + 1, y);
-    tryNeighbor(x - 1, y);
-    tryNeighbor(x, y + 1);
-    tryNeighbor(x, y - 1);
+    tryN(x + 1, y); tryN(x - 1, y); tryN(x, y + 1); tryN(x, y - 1);
   }
 }
 
 function erode(mask, w, h) {
   const copy = mask.slice();
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
       const idx = y * w + x;
       if (!copy[idx]) continue;
-      if (!copy[idx - 1] || !copy[idx + 1] || !copy[idx - w] || !copy[idx + w]) {
-        mask[idx] = 0;
-      }
+      const l = x > 0 ? copy[idx - 1] : 1;
+      const r = x < w - 1 ? copy[idx + 1] : 1;
+      const u = y > 0 ? copy[idx - w] : 1;
+      const d = y < h - 1 ? copy[idx + w] : 1;
+      if (!l || !r || !u || !d) mask[idx] = 0;
     }
   }
 }
 
 function dilate(mask, w, h) {
   const copy = mask.slice();
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
       const idx = y * w + x;
       if (copy[idx]) continue;
-      if (copy[idx - 1] || copy[idx + 1] || copy[idx - w] || copy[idx + w]) {
-        mask[idx] = 1;
-      }
+      const l = x > 0 ? copy[idx - 1] : 1;
+      const r = x < w - 1 ? copy[idx + 1] : 1;
+      const u = y > 0 ? copy[idx - w] : 1;
+      const d = y < h - 1 ? copy[idx + w] : 1;
+      if (l || r || u || d) mask[idx] = 1;
     }
   }
 }
 
 function smoothOnce(mask, w, h) {
   const copy = mask.slice();
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
       const idx = y * w + x;
-      let bgCount = 0;
+      let bg = 0, tot = 0;
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
-          if (dx === 0 && dy === 0) continue;
-          bgCount += copy[idx + dy * w + dx];
+          if (!dx && !dy) continue;
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          bg += copy[ny * w + nx];
+          tot++;
         }
       }
-      if (bgCount >= 7) mask[idx] = 1;
-      else if (bgCount <= 1) mask[idx] = 0;
+      if (bg >= tot - 1) mask[idx] = 1;
+      else if (bg <= 1) mask[idx] = 0;
     }
   }
 }
+
+function softAlpha(mask, w, h, radius) {
+  const a = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) a[i] = mask[i] ? 1 : 0;
+
+  const tmp = new Float32Array(w * h);
+  const r = Math.max(1, radius | 0);
+  const inv = 1 / (2 * r + 1);
+
+  for (let y = 0; y < h; y++) {
+    let sum = 0;
+    const row = y * w;
+    for (let x = -r; x <= r; x++) {
+      const xx = x < 0 ? 0 : (x >= w ? w - 1 : x);
+      sum += a[row + xx];
+    }
+    for (let x = 0; x < w; x++) {
+      tmp[row + x] = sum * inv;
+      const xAdd = x + r + 1;
+      const xSub = x - r;
+      sum += a[row + (xAdd >= w ? w - 1 : xAdd)] - a[row + (xSub < 0 ? 0 : xSub)];
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    let sum = 0;
+    for (let y = -r; y <= r; y++) {
+      const yy = y < 0 ? 0 : (y >= h ? h - 1 : y);
+      sum += tmp[yy * w + x];
+    }
+    for (let y = 0; y < h; y++) {
+      a[y * w + x] = sum * inv;
+      const yAdd = y + r + 1;
+      const ySub = y - r;
+      sum += tmp[(yAdd >= h ? h - 1 : yAdd) * w + x] - tmp[(ySub < 0 ? 0 : ySub) * w + x];
+    }
+  }
+
+  const out = new Uint8ClampedArray(w * h);
+  for (let i = 0; i < w * h; i++) {
+    out[i] = Math.round((1 - a[i]) * 255);
+  }
+  return out;
+  }
