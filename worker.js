@@ -1,21 +1,17 @@
 // ============================================================
-//  Web Worker: Маска фона + Brush + Despeckle
+//  Web Worker: Маска фона + Brush + Despeckle (ПОЛНЫЙ)
 // ============================================================
 
 let _imageData = null;
 
 self.onmessage = (e) => {
   const { type, payload } = e.data;
-  if (type === 'setImage') {
-    _imageData = payload.imageData;
-    return;
-  }
+  if (type === 'setImage') { _imageData = payload.imageData; return; }
   if (type === 'buildMask') {
     try {
       const result = buildMaskInWorker(payload);
       self.postMessage({ type: 'mask', payload: result });
     } catch (err) {
-      console.error('[worker] error:', err);
       self.postMessage({ type: 'error', payload: String(err && err.message || err) });
     }
   }
@@ -30,7 +26,6 @@ function buildMaskInWorker(p) {
 
   const w = width, h = height, N = w * h;
   if (!_imageData) throw new Error('imageData not set');
-
   const data = _imageData.data;
 
   // 1. Luminance
@@ -42,9 +37,7 @@ function buildMaskInWorker(p) {
 
   // 2. Адаптивный порог
   let adaptive = null;
-  if (useAdaptive && (mode === 'lum' || mode === 'region')) {
-    adaptive = boxBlurLum(lum, w, h, adaptiveRadius || 15);
-  }
+  if (useAdaptive && (mode === 'lum' || mode === 'region')) adaptive = boxBlurLum(lum, w, h, adaptiveRadius || 15);
 
   // 3. Кэш isPixelBg + Hysteresis
   const dist2 = thresholdDist * thresholdDist * 3;
@@ -80,21 +73,21 @@ function buildMaskInWorker(p) {
     }
   }
 
-  // 4. Применяем данные Кисти (если есть)
+  // 4. Применяем кисть
   const finalMask = new Uint8Array(N);
   if (brushData) {
     for (let i = 0; i < N; i++) {
-      const brushVal = brushData[i * 4]; // Красный канал
-      if (brushVal === 255) { finalMask[i] = 0; continue; } // Принудительно персонаж
-      if (brushVal === 0 && brushData[i*4+3] > 0) { finalMask[i] = 1; continue; } // Принудительный фон
-      // Если кисти нет, ставим исходное значение
+      const bv = brushData[i * 4];
+      const ba = brushData[i * 4 + 3];
+      if (bv === 255) { finalMask[i] = 0; continue; } // Красный = принудительный персонаж
+      if (bv === 0 && ba > 0) { finalMask[i] = 1; continue; } // Синий = принудительный фон
       finalMask[i] = bgCache[i]; 
     }
   } else {
     finalMask.set(bgCache);
   }
 
-  // 5. BFS от краев (только для тех, кто не тронут кистью)
+  // 5. BFS
   const mask = new Uint8Array(N);
   const queue = new Int32Array(N);
   let head = 0, tail = 0;
@@ -102,11 +95,8 @@ function buildMaskInWorker(p) {
   const push = (x, y) => {
     if (x < 0 || y < 0 || x >= w || y >= h) return;
     const idx = y * w + x;
-    if (mask[idx]) return;
-    if (!finalMask[idx]) return;
-    // Hysteresis проверка
-    if (strongMask && !strongMask[idx] && (!brushData || brushData[idx*4] !== 0)) return; 
-    
+    if (mask[idx] || !finalMask[idx]) return;
+    if (strongMask && !strongMask[idx] && (!brushData || brushData[idx*4+3] === 0)) return; 
     mask[idx] = 1; queue[tail++] = idx;
   };
 
@@ -122,7 +112,7 @@ function buildMaskInWorker(p) {
     push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
   }
 
-  // 6. Hysteresis: расширение
+  // 6. Hysteresis
   if (strongMask) {
     const addQueue = new Int32Array(N);
     let ah = 0, at = 0;
@@ -140,56 +130,41 @@ function buildMaskInWorker(p) {
     }
   }
 
-  // 7. Применяем кисть поверх BFS (чтобы закрасить изнутри)
+  // 7. Кисть поверх BFS
   if (brushData) {
     for (let i = 0; i < N; i++) {
       const bv = brushData[i * 4];
+      const ba = brushData[i * 4 + 3];
       if (bv === 255) mask[i] = 0;
-      if (bv === 0 && brushData[i*4+3] > 0) mask[i] = 1;
+      if (bv === 0 && ba > 0) mask[i] = 1;
     }
   }
 
-  // 8. Despeckle (Удаление мусора)
+  // 8. Despeckle
   if (despeckleSize > 0) despeckle(mask, w, h, despeckleSize);
 
   // 9. Region
-  if (mode === 'region' && sourcePoints && sourcePoints.length > 0) {
-    regionFill(mask, data, w, h, sourcePoints, regionTolerance, invert);
-  }
+  if (mode === 'region' && sourcePoints && sourcePoints.length > 0) regionFill(mask, data, w, h, sourcePoints, regionTolerance, invert);
 
-  // 10. Морфология
+  // 10. Морфология и сглаживание
   if (morphOpen > 0) { for (let i = 0; i < morphOpen; i++) erode(mask, w, h); for (let i = 0; i < morphOpen; i++) dilate(mask, w, h); }
   if (morphClose > 0) { for (let i = 0; i < morphClose; i++) dilate(mask, w, h); for (let i = 0; i < morphClose; i++) erode(mask, w, h); }
-
-  // 11. Сглаживание
   if (useSmooth) for (let i = 0; i < smoothIter; i++) smoothOnce(mask, w, h);
 
   let bgCount = 0; for (let i = 0; i < N; i++) if (mask[i]) bgCount++;
-
   let alpha = null;
   if (softEdge > 0) alpha = softAlpha(mask, w, h, softEdge);
 
   return { mask, bgCount, width: w, height: h, alpha };
 }
 
-// ============================================================
-//  Despeckle (Поиск связных компонент)
-// ============================================================
 function despeckle(mask, w, h, minSize) {
-  const N = w * h;
-  const visited = new Uint8Array(N);
-  const queue = new Int32Array(N);
-
+  const N = w * h; const visited = new Uint8Array(N); const queue = new Int32Array(N);
   for (let i = 0; i < N; i++) {
     if (visited[i] || !mask[i]) continue;
-    let head = 0, tail = 0;
-    queue[tail++] = i;
-    visited[i] = 1;
-    const region = [i];
-
+    let head = 0, tail = 0; queue[tail++] = i; visited[i] = 1; const region = [i];
     while (head < tail) {
-      const idx = queue[head++];
-      const x = idx % w, y = (idx / w) | 0;
+      const idx = queue[head++]; const x = idx % w, y = (idx / w) | 0;
       const check = (nx, ny) => {
         if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
         const n = ny * w + nx;
@@ -197,17 +172,109 @@ function despeckle(mask, w, h, minSize) {
       };
       check(x + 1, y); check(x - 1, y); check(x, y + 1); check(x, y - 1);
     }
-    // Если островок меньше minSize — удаляем (инвертируем)
-    if (region.length < minSize) {
-      for (const r of region) mask[r] = 0;
-    }
+    if (region.length < minSize) for (const r of region) mask[r] = 0;
   }
-  
-  // То же самое для дырок внутри персонажа (мусор фона внутри)
-  // (опционально, но полезно)
 }
 
-// ============================================================
-//  Хелперы (boxBlurLum, regionFill, erode, dilate, smooth, softAlpha)
-// ============================================================
-// ... (остальные хелперы из предыдущего сообщения остаются без изменений)
+function boxBlurLum(src, w, h, radius) {
+  const tmp = new Float32Array(w * h); const out = new Float32Array(w * h);
+  const r = Math.max(1, radius | 0); const inv = 1 / (2 * r + 1);
+  for (let y = 0; y < h; y++) {
+    let sum = 0; const row = y * w;
+    for (let x = -r; x <= r; x++) { const xx = x < 0 ? 0 : (x >= w ? w - 1 : x); sum += src[row + xx]; }
+    for (let x = 0; x < w; x++) {
+      tmp[row + x] = sum * inv; const xAdd = x + r + 1; const xSub = x - r;
+      sum += src[row + (xAdd >= w ? w - 1 : xAdd)] - src[row + (xSub < 0 ? 0 : xSub)];
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    let sum = 0;
+    for (let y = -r; y <= r; y++) { const yy = y < 0 ? 0 : (y >= h ? h - 1 : y); sum += tmp[yy * w + x]; }
+    for (let y = 0; y < h; y++) {
+      out[y * w + x] = sum * inv; const yAdd = y + r + 1; const ySub = y - r;
+      sum += tmp[(yAdd >= h ? h - 1 : yAdd) * w + x] - tmp[(ySub < 0 ? 0 : ySub) * w + x];
+    }
+  }
+  return out;
+}
+
+function regionFill(mask, data, w, h, seeds, tolerance, invert) {
+  const N = w * h; const queue = new Int32Array(N); let head = 0, tail = 0;
+  const visited = new Uint8Array(N); const tol2 = tolerance * tolerance * 3;
+  const pushSeed = (x, y) => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return;
+    const idx = y * w + x; if (visited[idx]) return; visited[idx] = 1;
+    if (invert) queue[tail++] = idx;
+    else { mask[idx] = 1; queue[tail++] = idx; }
+  };
+  for (const s of seeds) pushSeed(s.x, s.y);
+  while (head < tail) {
+    const idx = queue[head++]; const x = idx % w, y = (idx / w) | 0;
+    const j = idx * 4; const r0 = data[j], g0 = data[j + 1], b0 = data[j + 2];
+    const tryN = (nx, ny) => {
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
+      const nidx = ny * w + nx; if (visited[nidx]) return; visited[nidx] = 1;
+      const nj = nidx * 4; const dr = data[nj] - r0, dg = data[nj + 1] - g0, db = data[nj + 2] - b0;
+      if (dr * dr + dg * dg + db * db <= tol2) { if (!invert) mask[nidx] = 1; queue[tail++] = nidx; }
+    };
+    tryN(x + 1, y); tryN(x - 1, y); tryN(x, y + 1); tryN(x, y - 1);
+  }
+}
+
+function erode(mask, w, h) {
+  const copy = mask.slice();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const idx = y * w + x; if (!copy[idx]) continue;
+    const l = x > 0 ? copy[idx - 1] : 1; const r = x < w - 1 ? copy[idx + 1] : 1;
+    const u = y > 0 ? copy[idx - w] : 1; const d = y < h - 1 ? copy[idx + w] : 1;
+    if (!l || !r || !u || !d) mask[idx] = 0;
+  }
+}
+
+function dilate(mask, w, h) {
+  const copy = mask.slice();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const idx = y * w + x; if (copy[idx]) continue;
+    const l = x > 0 ? copy[idx - 1] : 1; const r = x < w - 1 ? copy[idx + 1] : 1;
+    const u = y > 0 ? copy[idx - w] : 1; const d = y < h - 1 ? copy[idx + w] : 1;
+    if (l || r || u || d) mask[idx] = 1;
+  }
+}
+
+function smoothOnce(mask, w, h) {
+  const copy = mask.slice();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const idx = y * w + x; let bg = 0, tot = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue; const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+      bg += copy[ny * w + nx]; tot++;
+    }
+    if (bg >= tot - 1) mask[idx] = 1; else if (bg <= 1) mask[idx] = 0;
+  }
+}
+
+function softAlpha(mask, w, h, radius) {
+  const a = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) a[i] = mask[i] ? 1 : 0;
+  const tmp = new Float32Array(w * h); const r = Math.max(1, radius | 0); const inv = 1 / (2 * r + 1);
+  for (let y = 0; y < h; y++) {
+    let sum = 0; const row = y * w;
+    for (let x = -r; x <= r; x++) { const xx = x < 0 ? 0 : (x >= w ? w - 1 : x); sum += a[row + xx]; }
+    for (let x = 0; x < w; x++) {
+      tmp[row + x] = sum * inv; const xAdd = x + r + 1; const xSub = x - r;
+      sum += a[row + (xAdd >= w ? w - 1 : xAdd)] - a[row + (xSub < 0 ? 0 : xSub)];
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    let sum = 0;
+    for (let y = -r; y <= r; y++) { const yy = y < 0 ? 0 : (y >= h ? h - 1 : y); sum += tmp[yy * w + x]; }
+    for (let y = 0; y < h; y++) {
+      a[y * w + x] = sum * inv; const yAdd = y + r + 1; const ySub = y - r;
+      sum += tmp[(yAdd >= h ? h - 1 : yAdd) * w + x] - tmp[(ySub < 0 ? 0 : ySub) * w + x];
+    }
+  }
+  const out = new Uint8ClampedArray(w * h);
+  for (let i = 0; i < w * h; i++) out[i] = Math.round((1 - a[i]) * 255);
+  return out;
+}
