@@ -410,4 +410,4 @@ function softAlpha(mask, w, h, radius) {
     out[i] = Math.round((1 - a[i]) * 255);
   }
   return out;
-          }
+}
