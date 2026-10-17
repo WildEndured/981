@@ -30,8 +30,8 @@
   .stage canvas { display: block; }
   .stage canvas#overlay { position: absolute; inset: 0; pointer-events: none; }
   .stage.hide-base canvas#base { visibility: hidden; }
-
-  /* Слой кисти */
+  
+  /* Слой для кисти */
   .stage canvas#brushCanvas { position: absolute; inset: 0; pointer-events: none; }
 
   .progress-overlay { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.55); z-index: 10; pointer-events: none; font-size: 14px; color: #fff; gap: 12px; }
@@ -68,6 +68,7 @@
   .seg button:last-child { border-right: none; }
   .seg button.active { background: var(--accent); color: #fff; }
 
+  /* Стили для кисти */
   .brush-ui { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .brush-ui button { height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid #333a44; background: #232830; color: var(--text); cursor: pointer; font-size: 12px; }
   .brush-ui button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -161,6 +162,7 @@
       <div class="label-line"><span>Радиус адаптации</span><span id="adaptiveRadiusVal">15</span></div>
       <input id="adaptiveRadius" type="range" min="5" max="60" value="15" />
     </div>
+    <!-- НОВОЕ -->
     <div class="slider-row">
       <div class="label-line"><span>Удалить мусор (пикс.)</span><span id="despeckleSizeVal">50</span></div>
       <input id="despeckleSize" type="range" min="0" max="500" value="50" />
@@ -367,7 +369,7 @@ function paint(e) {
   
   brushCtx.lineCap = 'round'; brushCtx.lineJoin = 'round';
   brushCtx.lineWidth = +brushSizeEl.value;
-  // ВАЖНО: Красный = 255 (Удалить фон), Альфа = 255 (Добавить фон)
+  // ВАЖНО: Красный = 255 (Удалить фон), Синий = принудительно фон
   brushCtx.strokeStyle = brushMode === 'add' ? 'rgba(255,0,0,1)' : 'rgba(0,0,255,1)'; 
   
   if (!isPainting) {
