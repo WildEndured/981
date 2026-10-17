@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Маска фона · Worker · Zoom/Pan</title>
+<title>Маска фона · Face Detection · Zoom/Pan</title>
 <style>
   :root {
     color-scheme: dark;
@@ -241,6 +241,7 @@
   <button id="toggleImageBtn">👁 Маска</button>
   <button id="exportMaskBtn">💾 Маска</button>
   <button id="exportCutBtn">🖼 Вырезать</button>
+  <button id="detectFaceBtn">🎭 Найти лицо</button>
 </div>
 
 <div class="stage-wrap" id="stageWrap">
@@ -262,6 +263,7 @@
 
 <p class="hint">
   ЛКМ — точка / пипетка (в зависимости от режима). СКМ или ПКМ — панорама. Колесо — зум.
+  Кнопка «🎭 Найти лицо» использует MediaPipe (основной) и face-api.js (fallback).
 </p>
 
 <div class="panel">
@@ -347,6 +349,49 @@
   </div>
 </div>
 
+<div class="panel">
+  <h2>4 · Аниме-лицо и пропорции</h2>
+  <div class="panel-section">
+    <h3>Детекция</h3>
+    <div class="row">
+      <label><input id="faceUseForMask" type="checkbox" checked /> Использовать точки лица для маски</label>
+    </div>
+    <div class="row">
+      <label><input id="faceUseMediapipe" type="checkbox" checked /> MediaPipe</label>
+      <label><input id="faceUseFaceapi" type="checkbox" /> face-api.js (fallback)</label>
+    </div>
+    <div class="kv"><span>Статус</span><span id="faceStatus">—</span></div>
+  </div>
+
+  <div class="panel-section">
+    <h3>Пропорции</h3>
+    <div class="kv"><span>Bounding box</span><span id="faceBox">—</span></div>
+    <div class="kv"><span>Ширина / высота</span><span id="faceWHRatio">—</span></div>
+    <div class="kv"><span>Глаза / высота лица</span><span id="faceEyeRatio">—</span></div>
+    <div class="kv"><span>Глаза→подбородок / высота</span><span id="faceThirds">—</span></div>
+    <div class="kv"><span>Рот / ширина лица</span><span id="faceMouthRatio">—</span></div>
+    <div class="kv"><span>Позиция глаз (Y)</span><span id="faceEyeY">—</span></div>
+  </div>
+
+  <div class="panel-section">
+    <h3>Точки лица (для отладки)</h3>
+    <div class="kv"><span>Найдено ключевых точек</span><span id="faceLandmarksCount">—</span></div>
+    <div class="row">
+      <label><input id="faceShowLandmarks" type="checkbox" /> Показывать на оверлее</label>
+    </div>
+  </div>
+</div>
+
+<!-- MediaPipe loader -->
+<script type="module">
+  import * as mpVision from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+  window.MediapipeTasksVision = mpVision;
+  window.dispatchEvent(new Event('mp-ready'));
+</script>
+
+<!-- face-api.js fallback -->
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
 <script>
 // ============================================================
 //  DOM
@@ -380,6 +425,7 @@ const clearPointsBtn = document.getElementById('clearPointsBtn');
 const toggleImageBtn = document.getElementById('toggleImageBtn');
 const exportMaskBtn = document.getElementById('exportMaskBtn');
 const exportCutBtn = document.getElementById('exportCutBtn');
+const detectFaceBtn = document.getElementById('detectFaceBtn');
 
 const lumSliderRow = document.getElementById('lumSliderRow');
 const colorSliderRow = document.getElementById('colorSliderRow');
@@ -399,6 +445,20 @@ const zoomInBtn = document.getElementById('zoomInBtn');
 const zoomOutBtn = document.getElementById('zoomOutBtn');
 const zoomFitBtn = document.getElementById('zoomFitBtn');
 const zoomResetBtn = document.getElementById('zoomResetBtn');
+
+// face panel
+const faceUseForMask = document.getElementById('faceUseForMask');
+const faceUseMediapipe = document.getElementById('faceUseMediapipe');
+const faceUseFaceapi = document.getElementById('faceUseFaceapi');
+const faceStatus = document.getElementById('faceStatus');
+const faceBox = document.getElementById('faceBox');
+const faceWHRatio = document.getElementById('faceWHRatio');
+const faceEyeRatio = document.getElementById('faceEyeRatio');
+const faceThirds = document.getElementById('faceThirds');
+const faceMouthRatio = document.getElementById('faceMouthRatio');
+const faceEyeY = document.getElementById('faceEyeY');
+const faceLandmarksCount = document.getElementById('faceLandmarksCount');
+const faceShowLandmarks = document.getElementById('faceShowLandmarks');
 
 const baseCtx = baseCanvas.getContext('2d', { willReadFrequently: true });
 const overlayCtx = overlay.getContext('2d');
@@ -428,6 +488,11 @@ let pendingBuild = false;
 let _seedsCache = null;
 function invalidateSeeds() { _seedsCache = null; }
 
+// face state
+let mediapipeLandmarker = null;
+let faceApiLoaded = false;
+let lastFaceLandmarks = null;
+
 // ============================================================
 //  УТИЛИТЫ
 // ============================================================
@@ -447,20 +512,223 @@ function updateCursor() {
 }
 
 // ============================================================
-//  WEB WORKER
+//  WEB WORKER (inline через Blob — один файл!)
 // ============================================================
+const WORKER_SRC = `
+self.onmessage = (e) => {
+  const { type, payload } = e.data;
+  if (type === 'buildMask') {
+    try {
+      const result = buildMaskInWorker(payload);
+      self.postMessage({
+        type: 'mask',
+        payload: {
+          mask: result.mask,
+          bgCount: result.bgCount,
+          width: result.width,
+          height: result.height
+        }
+      });
+    } catch (err) {
+      self.postMessage({ type: 'error', payload: String(err && err.message || err) });
+    }
+  }
+};
+
+function buildMaskInWorker(p) {
+  const {
+    imageData, width, height, mode, thresholdLum,
+    colorSamples, thresholdDist, invert,
+    sourcePoints, autoSeeds, useSmooth, smoothIter,
+    morphOpen, morphClose, regionTolerance
+  } = p;
+
+  const w = width, h = height;
+  const N = w * h;
+  const data = imageData.data;
+
+  const lum = new Float32Array(N);
+  for (let i = 0, j = 0; i < N; i++, j += 4) {
+    if (data[j + 3] < 20) { lum[i] = 255; continue; }
+    lum[i] = 0.299 * data[j] + 0.587 * data[j + 1] + 0.114 * data[j + 2];
+  }
+
+  const dist2 = thresholdDist * thresholdDist * 3;
+  const colorMode = (mode === 'color' && colorSamples && colorSamples.length > 0);
+
+  function isPixelBg(idx) {
+    let matched;
+    if (mode === 'lum') {
+      matched = lum[idx] >= thresholdLum;
+    } else if (mode === 'color') {
+      if (!colorMode) return invert;
+      matched = false;
+      const j = idx * 4;
+      const r = data[j], g = data[j + 1], b = data[j + 2];
+      for (let k = 0; k < colorSamples.length; k++) {
+        const s = colorSamples[k];
+        const dr = r - s.r, dg = g - s.g, db = b - s.b;
+        if (dr * dr + dg * dg + db * db <= dist2) { matched = true; break; }
+      }
+    } else {
+      matched = lum[idx] >= thresholdLum;
+    }
+    return invert ? !matched : matched;
+  }
+
+  const mask = new Uint8Array(N);
+  const queue = new Int32Array(N);
+  let head = 0, tail = 0;
+
+  const push = (x, y) => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return;
+    const idx = y * w + x;
+    if (mask[idx] || !isPixelBg(idx)) return;
+    mask[idx] = 1;
+    queue[tail++] = idx;
+  };
+
+  if (sourcePoints && sourcePoints.length > 0) {
+    for (const pt of sourcePoints) push(pt.x, pt.y);
+  } else if (autoSeeds && autoSeeds.length > 0) {
+    for (const pt of autoSeeds) push(pt.x, pt.y);
+  }
+  for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
+  for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+
+  while (head < tail) {
+    const idx = queue[head++];
+    const x = idx % w, y = (idx / w) | 0;
+    push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
+  }
+
+  if (mode === 'region' && sourcePoints && sourcePoints.length > 0) {
+    regionGrow(mask, data, w, h, sourcePoints, regionTolerance);
+  }
+
+  if (morphOpen > 0) {
+    for (let i = 0; i < morphOpen; i++) erode(mask, w, h);
+    for (let i = 0; i < morphOpen; i++) dilate(mask, w, h);
+  }
+  if (morphClose > 0) {
+    for (let i = 0; i < morphClose; i++) dilate(mask, w, h);
+    for (let i = 0; i < morphClose; i++) erode(mask, w, h);
+  }
+
+  if (useSmooth) {
+    for (let i = 0; i < smoothIter; i++) smoothOnce(mask, w, h);
+  }
+
+  let bgCount = 0;
+  for (let i = 0; i < N; i++) if (mask[i]) bgCount++;
+
+  return { mask, bgCount, width: w, height: h };
+}
+
+function regionGrow(mask, data, w, h, seeds, tolerance) {
+  const N = w * h;
+  const queue = new Int32Array(N);
+  let head = 0, tail = 0;
+  const visited = new Uint8Array(N);
+
+  const pushSeed = (x, y) => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return;
+    const idx = y * w + x;
+    if (visited[idx]) return;
+    visited[idx] = 1;
+    mask[idx] = 1;
+    queue[tail++] = idx;
+  };
+
+  for (const s of seeds) pushSeed(s.x, s.y);
+
+  const tol2 = tolerance * tolerance * 3;
+
+  while (head < tail) {
+    const idx = queue[head++];
+    const x = idx % w, y = (idx / w) | 0;
+    const j = idx * 4;
+    const r0 = data[j], g0 = data[j + 1], b0 = data[j + 2];
+
+    const tryNeighbor = (nx, ny) => {
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
+      const nidx = ny * w + nx;
+      if (visited[nidx]) return;
+      visited[nidx] = 1;
+      const nj = nidx * 4;
+      const dr = data[nj] - r0, dg = data[nj + 1] - g0, db = data[nj + 2] - b0;
+      if (dr * dr + dg * dg + db * db <= tol2) {
+        mask[nidx] = 1;
+        queue[tail++] = nidx;
+      }
+    };
+
+    tryNeighbor(x + 1, y);
+    tryNeighbor(x - 1, y);
+    tryNeighbor(x, y + 1);
+    tryNeighbor(x, y - 1);
+  }
+}
+
+function erode(mask, w, h) {
+  const copy = mask.slice();
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const idx = y * w + x;
+      if (!copy[idx]) continue;
+      if (!copy[idx - 1] || !copy[idx + 1] || !copy[idx - w] || !copy[idx + w]) {
+        mask[idx] = 0;
+      }
+    }
+  }
+}
+
+function dilate(mask, w, h) {
+  const copy = mask.slice();
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const idx = y * w + x;
+      if (copy[idx]) continue;
+      if (copy[idx - 1] || copy[idx + 1] || copy[idx - w] || copy[idx + w]) {
+        mask[idx] = 1;
+      }
+    }
+  }
+}
+
+function smoothOnce(mask, w, h) {
+  const copy = mask.slice();
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const idx = y * w + x;
+      let bgCount = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          bgCount += copy[idx + dy * w + dx];
+        }
+      }
+      if (bgCount >= 7) mask[idx] = 1;
+      else if (bgCount <= 1) mask[idx] = 0;
+    }
+  }
+}
+`;
+
 function initWorker() {
   if (worker) return;
   try {
-    worker = new Worker('worker.js');
+    const blob = new Blob([WORKER_SRC], { type: 'application/javascript' });
+    const url = URL.createObjectURL(blob);
+    worker = new Worker(url);
+    URL.revokeObjectURL(url);
   } catch (err) {
     console.error('[main] Worker creation failed:', err);
-    alert('Не удалось создать Worker. Проверьте, что worker.js лежит рядом с index.html.');
+    alert('Не удалось создать Worker.');
     return;
   }
   worker.onmessage = (e) => {
     const { type, payload } = e.data;
-    console.log('[main] worker message:', type);
     if (type === 'mask') {
       isBg = payload.mask instanceof Uint8Array
         ? payload.mask
@@ -485,7 +753,6 @@ function initWorker() {
     workerBusy = false;
     hideProgress();
   };
-  console.log('[main] worker initialized');
 }
 
 function showProgress() { progressOverlay.classList.add('visible'); }
@@ -526,16 +793,11 @@ function autoPickThreshold() {
 // ============================================================
 fileInput.addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
-  if (!file) {
-    console.log('[main] no file selected');
-    return;
-  }
-  console.log('[main] file selected:', file.name, file.size, file.type);
+  if (!file) return;
 
   const img = new Image();
   img.onload = () => {
     try {
-      console.log('[main] image loaded:', img.naturalWidth, 'x', img.naturalHeight);
       imgWidth = img.naturalWidth;
       imgHeight = img.naturalHeight;
       [baseCanvas, overlay].forEach(c => { c.width = imgWidth; c.height = imgHeight; });
@@ -547,11 +809,12 @@ fileInput.addEventListener('change', e => {
       sourcePoints = [];
       selectedPointIndex = -1;
       colorSamples = [];
+      lastFaceLandmarks = null;
       invalidateSeeds();
       autoPickThreshold();
       renderSamplesList();
+      showProportions(null, null, null);
 
-      // Сначала вписываем изображение в область, чтобы transform был корректным
       requestAnimationFrame(() => {
         fitToView();
         rebuildAll();
@@ -561,10 +824,7 @@ fileInput.addEventListener('change', e => {
       alert('Ошибка при обработке изображения: ' + (err.message || err));
     }
   };
-  img.onerror = (err) => {
-    console.error('[main] image load error:', err);
-    alert('Не удалось загрузить изображение');
-  };
+  img.onerror = () => alert('Не удалось загрузить изображение');
   img.src = URL.createObjectURL(file);
 });
 
@@ -588,7 +848,7 @@ function computeHistogram() {
 }
 
 // ============================================================
-//  АВТО-СЕМЕНА (в главном потоке)
+//  АВТО-СЕМЕНА
 // ============================================================
 function isPixelBgMain(idx) {
   if (mode === 'lum' || mode === 'region') {
@@ -654,35 +914,20 @@ function getAutoSeeds() {
 }
 
 // ============================================================
-//  ПЕРЕСЧЁТ МАСКИ (через Worker)
+//  ПЕРЕСЧЁТ МАСКИ
 // ============================================================
 function rebuildAll() {
-  if (!lum || !imgDataRef) {
-    console.log('[main] rebuildAll skipped: no image');
-    return;
-  }
-  if (!worker) {
-    console.error('[main] worker not initialized');
-    initWorker();
-    if (!worker) return;
-  }
-  if (workerBusy) {
-    console.log('[main] worker busy, queue pending');
-    pendingBuild = true;
-    return;
-  }
+  if (!lum || !imgDataRef) return;
+  if (!worker) { initWorker(); if (!worker) return; }
+  if (workerBusy) { pendingBuild = true; return; }
   workerBusy = true;
   showProgress();
 
   let autoSeeds = [];
-  if (sourcePoints.length === 0) {
-    autoSeeds = getAutoSeeds();
-  }
+  if (sourcePoints.length === 0) autoSeeds = getAutoSeeds();
 
-  // Копируем данные изображения — без transfer, чтобы не терять буфер
   const dataCopy = new Uint8ClampedArray(imgDataRef.data);
 
-  console.log('[main] posting buildMask to worker');
   worker.postMessage({
     type: 'buildMask',
     payload: {
@@ -736,6 +981,18 @@ function drawOverlay() {
     overlayCtx.strokeStyle = '#000';
     overlayCtx.stroke();
   });
+
+  // landmarks
+  if (faceShowLandmarks && faceShowLandmarks.checked && lastFaceLandmarks) {
+    overlayCtx.save();
+    overlayCtx.fillStyle = '#00ffcc';
+    for (const pt of lastFaceLandmarks) {
+      overlayCtx.beginPath();
+      overlayCtx.arc(pt.x, pt.y, 1.5, 0, Math.PI * 2);
+      overlayCtx.fill();
+    }
+    overlayCtx.restore();
+  }
 }
 
 // ============================================================
@@ -1023,7 +1280,7 @@ autoThresholdBtn.addEventListener('click', () => {
 });
 
 // ============================================================
-//  КУРСОР
+//  КУРСОР / РЕЖИМЫ КНОПОК
 // ============================================================
 addPointBtn.addEventListener('click', () => {
   addPointMode = !addPointMode;
@@ -1108,7 +1365,7 @@ exportCutBtn.addEventListener('click', () => {
 });
 
 // ============================================================
-//  СЛУШАТЕЛИ
+//  СЛУШАТЕЛИ СЛАЙДЕРОВ
 // ============================================================
 bgLumEl.addEventListener('input', () => {
   bgLumVal.textContent = bgLumEl.value;
@@ -1146,13 +1403,182 @@ morphCloseEl.addEventListener('input', () => {
 });
 
 // ============================================================
+//  АНИМЕ-ЛИЦО: детекция + пропорции
+// ============================================================
+async function ensureMediapipe() {
+  if (mediapipeLandmarker) return mediapipeLandmarker;
+  faceStatus.textContent = 'Загрузка MediaPipe…';
+  await new Promise(resolve => {
+    if (window.MediapipeTasksVision) return resolve();
+    window.addEventListener('mp-ready', resolve, { once: true });
+    setTimeout(resolve, 15000);
+  });
+  if (!window.MediapipeTasksVision) throw new Error('MediaPipe не загрузился');
+
+  const { FaceLandmarker, FilesetResolver } = window.MediapipeTasksVision;
+  const fileset = await FilesetResolver.forVisionTasks(
+    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+  );
+  mediapipeLandmarker = await FaceLandmarker.createFromOptions(fileset, {
+    baseOptions: {
+      modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+      delegate: 'GPU'
+    },
+    runningMode: 'IMAGE',
+    numFaces: 1
+  });
+  return mediapipeLandmarker;
+}
+
+async function ensureFaceapi() {
+  if (faceApiLoaded) return;
+  faceStatus.textContent = 'Загрузка face-api.js…';
+  const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+  await Promise.all([
+    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
+  ]);
+  faceApiLoaded = true;
+}
+
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+function computeProportions(landmarks, box) {
+  if (!landmarks || landmarks.length < 10) return null;
+  const eyeL = landmarks[33];
+  const eyeR = landmarks[263];
+  const chin = landmarks[152];
+  const top = landmarks[10];
+  const mouthL = landmarks[61];
+  const mouthR = landmarks[291];
+  if (!eyeL || !eyeR || !chin || !top) return null;
+
+  const eyeDist = dist(eyeL, eyeR);
+  const faceHeight = Math.abs(chin.y - top.y);
+  const faceWidth = box ? box.w : Math.abs(eyeR.x - eyeL.x) * 2.2;
+  const eyeMidY = (eyeL.y + eyeR.y) / 2;
+  const eyeToChin = chin.y - eyeMidY;
+  const mouthWidth = (mouthL && mouthR) ? dist(mouthL, mouthR) : null;
+
+  return {
+    boxWH: box ? (box.w / box.h) : null,
+    eyeRatio: faceHeight ? eyeDist / faceHeight : null,
+    thirds: faceHeight ? eyeToChin / faceHeight : null,
+    mouthRatio: (faceWidth && mouthWidth) ? mouthWidth / faceWidth : null,
+    eyeYNorm: faceHeight ? (eyeMidY - top.y) / faceHeight : null
+  };
+}
+
+function showProportions(p, box, landmarks) {
+  faceBox.textContent = box ? `${box.w | 0} × ${box.h | 0} @ (${box.x|0}, ${box.y|0})` : '—';
+  faceWHRatio.textContent = p && p.boxWH != null ? p.boxWH.toFixed(2) : '—';
+  faceEyeRatio.textContent = p && p.eyeRatio != null ? p.eyeRatio.toFixed(3) : '—';
+  faceThirds.textContent = p && p.thirds != null ? p.thirds.toFixed(3) : '—';
+  faceMouthRatio.textContent = p && p.mouthRatio != null ? p.mouthRatio.toFixed(3) : '—';
+  faceEyeY.textContent = p && p.eyeYNorm != null ? p.eyeYNorm.toFixed(3) : '—';
+  faceLandmarksCount.textContent = landmarks ? landmarks.length : '—';
+  lastFaceLandmarks = landmarks || null;
+  drawOverlay();
+}
+
+faceShowLandmarks.addEventListener('change', () => drawOverlay());
+
+function applyFaceToSourcePoints(landmarks) {
+  if (!landmarks || landmarks.length === 0) return;
+  const idxs = [10, 33, 263, 1, 152, 234, 454, 61, 291];
+  const pts = [];
+  for (const i of idxs) {
+    const p = landmarks[i];
+    if (p && p.x >= 0 && p.y >= 0 && p.x < imgWidth && p.y < imgHeight) {
+      pts.push({ x: Math.round(p.x), y: Math.round(p.y) });
+    }
+  }
+  sourcePoints = pts;
+  selectedPointIndex = -1;
+  invalidateSeeds();
+}
+
+async function detectFace() {
+  if (!imgDataRef) { faceStatus.textContent = 'Сначала загрузите изображение'; return; }
+  detectFaceBtn.disabled = true;
+  faceStatus.textContent = 'Детекция…';
+
+  try {
+    let box = null, landmarks = null, source = '—';
+
+    if (faceUseMediapipe.checked) {
+      try {
+        const lm = await ensureMediapipe();
+        const res = lm.detect(baseCanvas);
+        if (res && res.faceLandmarks && res.faceLandmarks.length > 0) {
+          const lmArr = res.faceLandmarks[0].map(p => ({ x: p.x * imgWidth, y: p.y * imgHeight }));
+          landmarks = lmArr;
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          for (const p of lmArr) {
+            if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y;
+            if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y;
+          }
+          box = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+          source = 'MediaPipe';
+        }
+      } catch (err) {
+        console.warn('[face] MediaPipe error:', err);
+      }
+    }
+
+    if (!landmarks && faceUseFaceapi.checked) {
+      try {
+        await ensureFaceapi();
+        const det = await faceapi
+          .detectSingleFace(baseCanvas, new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.3 }))
+          .withFaceLandmarks();
+        if (det) {
+          const lmArr = det.landmarks.positions.map(p => ({ x: p.x, y: p.y }));
+          landmarks = lmArr;
+          box = {
+            x: det.detection.box.x, y: det.detection.box.y,
+            w: det.detection.box.width, h: det.detection.box.height
+          };
+          source = 'face-api.js';
+        }
+      } catch (err) {
+        console.warn('[face] face-api error:', err);
+      }
+    }
+
+    if (!landmarks) {
+      faceStatus.textContent = 'Лицо не найдено';
+      showProportions(null, null, null);
+      return;
+    }
+
+    faceStatus.textContent = `Найдено (${source})`;
+    const props = computeProportions(landmarks, box);
+    showProportions(props, box, landmarks);
+
+    if (faceUseForMask.checked) {
+      applyFaceToSourcePoints(landmarks);
+      if (mode !== 'region') setMode('region');
+      rebuildAll();
+    }
+  } catch (err) {
+    console.error('[face] detectFace error:', err);
+    faceStatus.textContent = 'Ошибка: ' + (err.message || err);
+  } finally {
+    detectFaceBtn.disabled = false;
+  }
+}
+
+detectFaceBtn.addEventListener('click', detectFace);
+
+// ============================================================
 //  INIT
 // ============================================================
 initWorker();
 smoothIterEl.disabled = !useSmoothEl.checked;
 updateCursor();
 
-console.log('[main] script loaded, worker =', !!worker);
+console.log('[main] ready');
 </script>
 </body>
-</html>
+  </html>
