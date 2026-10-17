@@ -306,6 +306,28 @@
   </div>
 
   <div class="panel-section">
+    <h3>Умные пороги</h3>
+    <div class="row">
+      <label><input id="useHysteresis" type="checkbox" /> Hysteresis (двухпороговый)</label>
+    </div>
+    <div class="slider-row">
+      <div class="label-line"><span>Нижний порог (точно фон)</span><span id="lowLumVal">180</span></div>
+      <input id="lowLum" type="range" min="0" max="255" value="180" />
+    </div>
+    <div class="row">
+      <label><input id="useAdaptive" type="checkbox" /> Адаптивный порог</label>
+    </div>
+    <div class="slider-row">
+      <div class="label-line"><span>Радиус адаптации</span><span id="adaptiveRadiusVal">15</span></div>
+      <input id="adaptiveRadius" type="range" min="5" max="60" value="15" />
+    </div>
+    <div class="slider-row">
+      <div class="label-line"><span>Мягкая граница</span><span id="softEdgeVal">0</span></div>
+      <input id="softEdge" type="range" min="0" max="3" value="0" />
+    </div>
+  </div>
+
+  <div class="panel-section">
     <h3>Постобработка</h3>
     <div class="row">
       <label><input id="useSmooth" type="checkbox" checked /> Сглаж.</label>
@@ -373,6 +395,15 @@ const morphOpenVal = document.getElementById('morphOpenVal');
 const morphCloseEl = document.getElementById('morphClose');
 const morphCloseVal = document.getElementById('morphCloseVal');
 
+const useHysteresisEl = document.getElementById('useHysteresis');
+const lowLumEl = document.getElementById('lowLum');
+const lowLumVal = document.getElementById('lowLumVal');
+const useAdaptiveEl = document.getElementById('useAdaptive');
+const adaptiveRadiusEl = document.getElementById('adaptiveRadius');
+const adaptiveRadiusVal = document.getElementById('adaptiveRadiusVal');
+const softEdgeEl = document.getElementById('softEdge');
+const softEdgeVal = document.getElementById('softEdgeVal');
+
 const autoThresholdBtn = document.getElementById('autoThresholdBtn');
 const pickBgColorBtn = document.getElementById('pickBgColorBtn');
 const addPointBtn = document.getElementById('addPointBtn');
@@ -408,6 +439,7 @@ const overlayCtx = overlay.getContext('2d');
 // ============================================================
 let imgWidth = 0, imgHeight = 0;
 let lum = null, isBg = null, imgDataRef = null, histogram = null;
+let alphaData = null;
 let selectedPointIndex = -1;
 let mode = 'lum';
 let colorSamples = [];
@@ -460,12 +492,16 @@ function initWorker() {
   }
   worker.onmessage = (e) => {
     const { type, payload } = e.data;
-    console.log('[main] worker message:', type);
     if (type === 'mask') {
       isBg = payload.mask instanceof Uint8Array
         ? payload.mask
         : new Uint8Array(payload.mask);
       bgCount = payload.bgCount;
+      alphaData = payload.alpha
+        ? (payload.alpha instanceof Uint8ClampedArray
+            ? payload.alpha
+            : new Uint8ClampedArray(payload.alpha))
+        : null;
       drawOverlay();
       updateInfo();
       workerBusy = false;
@@ -478,14 +514,15 @@ function initWorker() {
       console.error('[main] worker error:', payload);
       workerBusy = false;
       hideProgress();
+      if (pendingBuild) { pendingBuild = false; rebuildAll(); }
     }
   };
   worker.onerror = (err) => {
     console.error('[main] worker onerror:', err);
     workerBusy = false;
     hideProgress();
+    if (pendingBuild) { pendingBuild = false; rebuildAll(); }
   };
-  console.log('[main] worker initialized');
 }
 
 function showProgress() { progressOverlay.classList.add('visible'); }
@@ -518,6 +555,10 @@ function autoPickThreshold() {
   const t = otsuThreshold(histogram, N);
   bgLumEl.value = t;
   bgLumVal.textContent = t;
+  // Нижний порог — на 20 ниже верхнего, но не меньше 0
+  const lo = Math.max(0, t - 20);
+  lowLumEl.value = lo;
+  lowLumVal.textContent = lo;
   invalidateSeeds();
 }
 
@@ -526,16 +567,11 @@ function autoPickThreshold() {
 // ============================================================
 fileInput.addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
-  if (!file) {
-    console.log('[main] no file selected');
-    return;
-  }
-  console.log('[main] file selected:', file.name, file.size, file.type);
+  if (!file) return;
 
   const img = new Image();
   img.onload = () => {
     try {
-      console.log('[main] image loaded:', img.naturalWidth, 'x', img.naturalHeight);
       imgWidth = img.naturalWidth;
       imgHeight = img.naturalHeight;
       [baseCanvas, overlay].forEach(c => { c.width = imgWidth; c.height = imgHeight; });
@@ -547,11 +583,26 @@ fileInput.addEventListener('change', e => {
       sourcePoints = [];
       selectedPointIndex = -1;
       colorSamples = [];
+      alphaData = null;
       invalidateSeeds();
       autoPickThreshold();
       renderSamplesList();
+      renderPointList();
 
-      // Сначала вписываем изображение в область, чтобы transform был корректным
+      // Отдаём imageData в worker один раз
+      if (worker) {
+        worker.postMessage({
+          type: 'setImage',
+          payload: {
+            imageData: {
+              data: new Uint8ClampedArray(imgDataRef.data),
+              width: imgWidth,
+              height: imgHeight
+            }
+          }
+        });
+      }
+
       requestAnimationFrame(() => {
         fitToView();
         rebuildAll();
@@ -561,10 +612,7 @@ fileInput.addEventListener('change', e => {
       alert('Ошибка при обработке изображения: ' + (err.message || err));
     }
   };
-  img.onerror = (err) => {
-    console.error('[main] image load error:', err);
-    alert('Не удалось загрузить изображение');
-  };
+  img.onerror = () => alert('Не удалось загрузить изображение');
   img.src = URL.createObjectURL(file);
 });
 
@@ -588,10 +636,11 @@ function computeHistogram() {
 }
 
 // ============================================================
-//  АВТО-СЕМЕНА (в главном потоке)
+//  АВТО-СЕМЕНА (только lum/color; region — по точкам)
 // ============================================================
 function isPixelBgMain(idx) {
-  if (mode === 'lum' || mode === 'region') {
+  if (mode === 'region') return false;
+  if (mode === 'lum') {
     const matched = lum[idx] >= +bgLumEl.value;
     return invertEl.checked ? !matched : matched;
   }
@@ -648,6 +697,7 @@ function findIsolatedBgSeeds(minSize = 30) {
 }
 
 function getAutoSeeds() {
+  if (mode === 'region') return [];
   if (_seedsCache) return _seedsCache;
   _seedsCache = findIsolatedBgSeeds(30);
   return _seedsCache;
@@ -657,36 +707,20 @@ function getAutoSeeds() {
 //  ПЕРЕСЧЁТ МАСКИ (через Worker)
 // ============================================================
 function rebuildAll() {
-  if (!lum || !imgDataRef) {
-    console.log('[main] rebuildAll skipped: no image');
-    return;
-  }
-  if (!worker) {
-    console.error('[main] worker not initialized');
-    initWorker();
-    if (!worker) return;
-  }
-  if (workerBusy) {
-    console.log('[main] worker busy, queue pending');
-    pendingBuild = true;
-    return;
-  }
+  if (!lum || !imgDataRef) return;
+  if (!worker) { initWorker(); if (!worker) return; }
+  if (workerBusy) { pendingBuild = true; return; }
   workerBusy = true;
   showProgress();
 
   let autoSeeds = [];
-  if (sourcePoints.length === 0) {
+  if (sourcePoints.length === 0 && mode !== 'region') {
     autoSeeds = getAutoSeeds();
   }
 
-  // Копируем данные изображения — без transfer, чтобы не терять буфер
-  const dataCopy = new Uint8ClampedArray(imgDataRef.data);
-
-  console.log('[main] posting buildMask to worker');
   worker.postMessage({
     type: 'buildMask',
     payload: {
-      imageData: { data: dataCopy, width: imgWidth, height: imgHeight },
       width: imgWidth,
       height: imgHeight,
       mode,
@@ -700,7 +734,12 @@ function rebuildAll() {
       smoothIter: +smoothIterEl.value,
       morphOpen: +morphOpenEl.value,
       morphClose: +morphCloseEl.value,
-      regionTolerance: +regionTolEl.value
+      regionTolerance: +regionTolEl.value,
+      useHysteresis: useHysteresisEl.checked,
+      lowLum: +lowLumEl.value,
+      useAdaptive: useAdaptiveEl.checked,
+      adaptiveRadius: +adaptiveRadiusEl.value,
+      softEdge: +softEdgeEl.value
     }
   });
 }
@@ -742,11 +781,11 @@ function drawOverlay() {
 //  UI
 // ============================================================
 function updateInfo() {
+  infoMode.textContent = mode === 'lum' ? 'яркость' : mode === 'color' ? 'цвет' : 'регион';
   if (!lum) return;
   const N = imgWidth * imgHeight;
   const charCount = N - bgCount;
   infoSize.textContent = `${imgWidth} × ${imgHeight}`;
-  infoMode.textContent = mode === 'lum' ? 'яркость' : mode === 'color' ? 'цвет' : 'регион';
   infoBgPct.textContent = ((bgCount / N) * 100).toFixed(1) + '%';
   infoCharPct.textContent = ((charCount / N) * 100).toFixed(1) + '%';
   infoPointsCount.textContent = `(${sourcePoints.length})`;
@@ -824,6 +863,7 @@ function fitToView() {
 }
 
 function resetZoom() {
+  if (!imgWidth) return;
   zoom = 1;
   panX = (stageWrap.clientWidth - imgWidth) / 2;
   panY = (stageWrap.clientHeight - imgHeight) / 2;
@@ -1007,6 +1047,7 @@ function setMode(newMode) {
   colorSliderRow.style.display = (newMode === 'color') ? '' : 'none';
   regionSliderRow.style.display = (newMode === 'region') ? '' : 'none';
   invalidateSeeds();
+  updateInfo();
 }
 
 modeSeg.addEventListener('click', (e) => {
@@ -1064,11 +1105,14 @@ toggleImageBtn.addEventListener('click', () => {
 
 function downloadCanvasPNG(canvas, filename) {
   canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = url;
     a.download = filename;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(a.href);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
   }, 'image/png');
 }
 
@@ -1101,7 +1145,7 @@ exportCutBtn.addEventListener('click', () => {
     d[j]   = src[j];
     d[j+1] = src[j+1];
     d[j+2] = src[j+2];
-    d[j+3] = isBg[i] ? 0 : 255;
+    d[j+3] = alphaData ? alphaData[i] : (isBg[i] ? 0 : 255);
   }
   ctx.putImageData(out, 0, 0);
   downloadCanvasPNG(c, 'cutout.png');
@@ -1145,14 +1189,31 @@ morphCloseEl.addEventListener('input', () => {
   if (lum) rebuildAllDebounced();
 });
 
+useHysteresisEl.addEventListener('change', () => {
+  if (lum) rebuildAll();
+});
+lowLumEl.addEventListener('input', () => {
+  lowLumVal.textContent = lowLumEl.value;
+  if (lum && useHysteresisEl.checked) rebuildAllDebounced();
+});
+useAdaptiveEl.addEventListener('change', () => {
+  if (lum) rebuildAll();
+});
+adaptiveRadiusEl.addEventListener('input', () => {
+  adaptiveRadiusVal.textContent = adaptiveRadiusEl.value;
+  if (lum && useAdaptiveEl.checked) rebuildAllDebounced();
+});
+softEdgeEl.addEventListener('input', () => {
+  softEdgeVal.textContent = softEdgeEl.value;
+  if (lum) rebuildAllDebounced();
+});
+
 // ============================================================
 //  INIT
 // ============================================================
 initWorker();
 smoothIterEl.disabled = !useSmoothEl.checked;
 updateCursor();
-
-console.log('[main] script loaded, worker =', !!worker);
 </script>
 </body>
 </html>
