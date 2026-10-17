@@ -31,8 +31,8 @@
   .stage canvas#overlay { position: absolute; inset: 0; pointer-events: none; }
   .stage.hide-base canvas#base { visibility: hidden; }
 
-  /* Кисть */
-  .stage canvas#brushCanvas { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: multiply; opacity: 0.6; }
+  /* Слой кисти */
+  .stage canvas#brushCanvas { position: absolute; inset: 0; pointer-events: none; }
 
   .progress-overlay { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.55); z-index: 10; pointer-events: none; font-size: 14px; color: #fff; gap: 12px; }
   .progress-overlay.visible { display: flex; }
@@ -68,7 +68,6 @@
   .seg button:last-child { border-right: none; }
   .seg button.active { background: var(--accent); color: #fff; }
 
-  /* Кисть UI */
   .brush-ui { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .brush-ui button { height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid #333a44; background: #232830; color: var(--text); cursor: pointer; font-size: 12px; }
   .brush-ui button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -93,7 +92,7 @@
 <div class="stage-wrap" id="stageWrap">
   <div class="stage" id="stage">
     <canvas id="base"></canvas>
-    <canvas id="brushCanvas"></canvas> <!-- Слой для рисования -->
+    <canvas id="brushCanvas"></canvas>
     <canvas id="overlay"></canvas>
   </div>
   <div class="progress-overlay" id="progressOverlay"><div class="spinner"></div><span>Обработка…</span></div>
@@ -162,8 +161,6 @@
       <div class="label-line"><span>Радиус адаптации</span><span id="adaptiveRadiusVal">15</span></div>
       <input id="adaptiveRadius" type="range" min="5" max="60" value="15" />
     </div>
-    
-    <!-- НОВОЕ: Очистка мусора -->
     <div class="slider-row">
       <div class="label-line"><span>Удалить мусор (пикс.)</span><span id="despeckleSizeVal">50</span></div>
       <input id="despeckleSize" type="range" min="0" max="500" value="50" />
@@ -199,7 +196,6 @@
 </div>
 
 <script>
-// DOM
 const fileInput = document.getElementById('file');
 const baseCanvas = document.getElementById('base');
 const brushCanvas = document.getElementById('brushCanvas');
@@ -212,83 +208,39 @@ const baseCtx = baseCanvas.getContext('2d', { willReadFrequently: true });
 const brushCtx = brushCanvas.getContext('2d', { willReadFrequently: true });
 const overlayCtx = overlay.getContext('2d');
 
-// UI Elements
 const modeSeg = document.getElementById('modeSeg');
 const lumSliderRow = document.getElementById('lumSliderRow');
 const colorSliderRow = document.getElementById('colorSliderRow');
 const regionSliderRow = document.getElementById('regionSliderRow');
-
-const bgLumEl = document.getElementById('bgLum');
-const bgLumVal = document.getElementById('bgLumVal');
-const bgDistEl = document.getElementById('bgDist');
-const bgDistVal = document.getElementById('bgDistVal');
-const regionTolEl = document.getElementById('regionTol');
-const regionTolVal = document.getElementById('regionTolVal');
+const bgLumEl = document.getElementById('bgLum'), bgLumVal = document.getElementById('bgLumVal');
+const bgDistEl = document.getElementById('bgDist'), bgDistVal = document.getElementById('bgDistVal');
+const regionTolEl = document.getElementById('regionTol'), regionTolVal = document.getElementById('regionTolVal');
 const invertEl = document.getElementById('invert');
+const useHysteresisEl = document.getElementById('useHysteresis'), lowLumEl = document.getElementById('lowLum'), lowLumVal = document.getElementById('lowLumVal');
+const useAdaptiveEl = document.getElementById('useAdaptive'), adaptiveRadiusEl = document.getElementById('adaptiveRadius'), adaptiveRadiusVal = document.getElementById('adaptiveRadiusVal');
+const despeckleSizeEl = document.getElementById('despeckleSize'), despeckleSizeVal = document.getElementById('despeckleSizeVal');
+const softEdgeEl = document.getElementById('softEdge'), softEdgeVal = document.getElementById('softEdgeVal');
+const useSmoothEl = document.getElementById('useSmooth'), smoothIterEl = document.getElementById('smoothIter'), smoothIterVal = document.getElementById('smoothIterVal');
+const morphOpenEl = document.getElementById('morphOpen'), morphOpenVal = document.getElementById('morphOpenVal');
+const morphCloseEl = document.getElementById('morphClose'), morphCloseVal = document.getElementById('morphCloseVal');
+const brushSizeEl = document.getElementById('brushSize'), brushSizeVal = document.getElementById('brushSizeVal');
+const brushNoneBtn = document.getElementById('brushNoneBtn'), brushAddBtn = document.getElementById('brushAddBtn'), brushRemoveBtn = document.getElementById('brushRemoveBtn');
+const pickBgColorBtn = document.getElementById('pickBgColorBtn'), addPointBtn = document.getElementById('addPointBtn'), clearPointsBtn = document.getElementById('clearPointsBtn');
+const toggleImageBtn = document.getElementById('toggleImageBtn'), exportMaskBtn = document.getElementById('exportMaskBtn'), exportCutBtn = document.getElementById('exportCutBtn');
+const infoBgPct = document.getElementById('infoBgPct'), infoCharPct = document.getElementById('infoCharPct');
 
-const useHysteresisEl = document.getElementById('useHysteresis');
-const lowLumEl = document.getElementById('lowLum');
-const lowLumVal = document.getElementById('lowLumVal');
-const useAdaptiveEl = document.getElementById('useAdaptive');
-const adaptiveRadiusEl = document.getElementById('adaptiveRadius');
-const adaptiveRadiusVal = document.getElementById('adaptiveRadiusVal');
-const despeckleSizeEl = document.getElementById('despeckleSize');
-const despeckleSizeVal = document.getElementById('despeckleSizeVal');
-const softEdgeEl = document.getElementById('softEdge');
-const softEdgeVal = document.getElementById('softEdgeVal');
-
-const useSmoothEl = document.getElementById('useSmooth');
-const smoothIterEl = document.getElementById('smoothIter');
-const smoothIterVal = document.getElementById('smoothIterVal');
-const morphOpenEl = document.getElementById('morphOpen');
-const morphOpenVal = document.getElementById('morphOpenVal');
-const morphCloseEl = document.getElementById('morphClose');
-const morphCloseVal = document.getElementById('morphCloseVal');
-
-const brushSizeEl = document.getElementById('brushSize');
-const brushSizeVal = document.getElementById('brushSizeVal');
-const brushNoneBtn = document.getElementById('brushNoneBtn');
-const brushAddBtn = document.getElementById('brushAddBtn');
-const brushRemoveBtn = document.getElementById('brushRemoveBtn');
-
-const pickBgColorBtn = document.getElementById('pickBgColorBtn');
-const addPointBtn = document.getElementById('addPointBtn');
-const clearPointsBtn = document.getElementById('clearPointsBtn');
-const toggleImageBtn = document.getElementById('toggleImageBtn');
-const exportMaskBtn = document.getElementById('exportMaskBtn');
-const exportCutBtn = document.getElementById('exportCutBtn');
-
-const infoBgPct = document.getElementById('infoBgPct');
-const infoCharPct = document.getElementById('infoCharPct');
-
-// State
 let imgWidth = 0, imgHeight = 0;
-let lum = null, isBg = null, imgDataRef = null, histogram = null;
-let alphaData = null;
+let lum = null, isBg = null, imgDataRef = null, histogram = null, alphaData = null;
 let mode = 'lum';
 let colorSamples = [];
 let bgColorMode = false, addPointMode = false;
 let sourcePoints = [];
-let hideImage = false;
-let bgCount = 0;
+let hideImage = false, bgCount = 0;
+let brushMode = 'none';
+let isPainting = false, lastPaintX = 0, lastPaintY = 0;
+let zoom = 1, panX = 0, panY = 0, isDragging = false, dragStartX = 0, dragStartY = 0, dragStartPanX = 0, dragStartPanY = 0;
+let worker = null, workerBusy = false, pendingBuild = false;
 
-// Brush State
-let brushMode = 'none'; // 'none', 'add', 'remove'
-let isPainting = false;
-let lastPaintX = 0, lastPaintY = 0;
-
-// Zoom/Pan
-let zoom = 1, panX = 0, panY = 0;
-let isDragging = false, dragStartX = 0, dragStartY = 0, dragStartPanX = 0, dragStartPanY = 0;
-
-// Worker
-let worker = null;
-let workerBusy = false;
-let pendingBuild = false;
-
-// ============================================================
-//  ИНИЦИАЛИЗАЦИЯ ВОРКЕРА
-// ============================================================
 function initWorker() {
   if (worker) return;
   worker = new Worker('worker.js');
@@ -298,22 +250,15 @@ function initWorker() {
       isBg = new Uint8Array(payload.mask);
       bgCount = payload.bgCount;
       alphaData = payload.alpha ? new Uint8ClampedArray(payload.alpha) : null;
-      drawOverlay();
-      updateInfo();
-      workerBusy = false;
-      progressOverlay.classList.remove('visible');
+      drawOverlay(); updateInfo(); workerBusy = false; progressOverlay.classList.remove('visible');
       if (pendingBuild) { pendingBuild = false; rebuildAll(); }
     } else if (type === 'error') {
-      console.error('[worker]', payload); alert(payload);
-      workerBusy = false; progressOverlay.classList.remove('visible');
+      console.error('[worker]', payload); alert(payload); workerBusy = false; progressOverlay.classList.remove('visible');
     }
   };
   worker.onerror = (err) => { console.error(err); workerBusy = false; progressOverlay.classList.remove('visible'); };
 }
 
-// ============================================================
-//  ЗАГРУЗКА ИЗОБРАЖЕНИЯ
-// ============================================================
 fileInput.addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
@@ -321,34 +266,20 @@ fileInput.addEventListener('change', e => {
   img.onload = () => {
     imgWidth = img.naturalWidth; imgHeight = img.naturalHeight;
     [baseCanvas, brushCanvas, overlay].forEach(c => { c.width = imgWidth; c.height = imgHeight; });
-    
     baseCtx.drawImage(img, 0, 0);
     imgDataRef = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
-    
-    computeLuminance();
-    computeHistogram();
-    autoPickThreshold();
-    
-    // Очищаем слои
+    computeLuminance(); computeHistogram(); autoPickThreshold();
     brushCtx.clearRect(0, 0, imgWidth, imgHeight);
-    sourcePoints = [];
-    colorSamples = [];
-    
-    if (worker) {
-      worker.postMessage({ type: 'setImage', payload: { imageData: { data: new Uint8ClampedArray(imgDataRef.data), width: imgWidth, height: imgHeight } } });
-    }
-    
+    sourcePoints = []; colorSamples = [];
+    if (worker) worker.postMessage({ type: 'setImage', payload: { imageData: { data: new Uint8ClampedArray(imgDataRef.data), width: imgWidth, height: imgHeight } } });
     requestAnimationFrame(() => { fitToView(); rebuildAll(); });
   };
   img.src = URL.createObjectURL(file);
 });
 
 function computeLuminance() {
-  const d = imgDataRef.data, N = imgWidth * imgHeight;
-  lum = new Float32Array(N);
-  for (let i = 0, p = 0; i < N; i++, p += 4) {
-    lum[i] = d[p+3] < 20 ? 255 : (0.299*d[p] + 0.587*d[p+1] + 0.114*d[p+2]);
-  }
+  const d = imgDataRef.data, N = imgWidth * imgHeight; lum = new Float32Array(N);
+  for (let i = 0, p = 0; i < N; i++, p += 4) lum[i] = d[p+3] < 20 ? 255 : (0.299*d[p] + 0.587*d[p+1] + 0.114*d[p+2]);
 }
 function computeHistogram() {
   histogram = new Uint32Array(256);
@@ -363,51 +294,33 @@ function autoPickThreshold() {
   lowLumEl.value = Math.max(0, t - 20); lowLumVal.textContent = Math.max(0, t - 20);
 }
 
-// ============================================================
-//  ПЕРЕСЧЁТ МАСКИ (WORKER)
-// ============================================================
 function rebuildAll() {
   if (!lum || !worker) return;
   if (workerBusy) { pendingBuild = true; return; }
-  workerBusy = true;
-  progressOverlay.classList.add('visible');
-
-  // Собираем данные с кисти (красный канал: 0-фон, 255-персонаж)
+  workerBusy = true; progressOverlay.classList.add('visible');
   const brushData = brushCtx.getImageData(0, 0, imgWidth, imgHeight).data;
-  
   worker.postMessage({
     type: 'buildMask',
     payload: {
-      width: imgWidth, height: imgHeight,
-      mode,
-      thresholdLum: +bgLumEl.value,
-      colorSamples,
-      thresholdDist: +bgDistEl.value,
-      regionTolerance: +regionTolEl.value,
-      invert: invertEl.checked,
-      sourcePoints,
+      width: imgWidth, height: imgHeight, mode,
+      thresholdLum: +bgLumEl.value, colorSamples, thresholdDist: +bgDistEl.value, regionTolerance: +regionTolEl.value,
+      invert: invertEl.checked, sourcePoints,
       useSmooth: useSmoothEl.checked, smoothIter: +smoothIterEl.value,
       morphOpen: +morphOpenEl.value, morphClose: +morphCloseEl.value,
       useHysteresis: useHysteresisEl.checked, lowLum: +lowLumEl.value,
       useAdaptive: useAdaptiveEl.checked, adaptiveRadius: +adaptiveRadiusEl.value,
-      despeckleSize: +despeckleSizeEl.value,
-      softEdge: +softEdgeEl.value,
-      brushData: brushData // Передаем данные кисти
+      despeckleSize: +despeckleSizeEl.value, softEdge: +softEdgeEl.value,
+      brushData: brushData
     }
   });
 }
 
-// ============================================================
-//  ОТРИСОВКА И UI
-// ============================================================
 function drawOverlay() {
   overlayCtx.clearRect(0, 0, imgWidth, imgHeight);
   if (isBg) {
     const img = overlayCtx.createImageData(imgWidth, imgHeight);
     const d = img.data;
-    for (let i = 0, j = 0; i < imgWidth * imgHeight; i++, j+=4) {
-      if (!isBg[i]) { d[j] = 255; d[j+1] = 60; d[j+2] = 60; d[j+3] = 100; }
-    }
+    for (let i = 0, j = 0; i < imgWidth * imgHeight; i++, j+=4) if (!isBg[i]) { d[j] = 255; d[j+1] = 60; d[j+2] = 60; d[j+3] = 100; }
     overlayCtx.putImageData(img, 0, 0);
   }
   sourcePoints.forEach(p => {
@@ -433,9 +346,6 @@ function setMode(m) {
 }
 modeSeg.addEventListener('click', e => { const btn = e.target.closest('button[data-mode]'); if (btn) setMode(btn.dataset.mode); });
 
-// ============================================================
-//  КИСТЬ (BRUSH) ЛОГИКА
-// ============================================================
 function setBrush(m) {
   brushMode = m;
   brushNoneBtn.classList.toggle('active', m === 'none');
@@ -444,7 +354,6 @@ function setBrush(m) {
   updateCursor();
   if (m !== 'none') { addPointMode = false; bgColorMode = false; addPointBtn.classList.remove('active'); pickBgColorBtn.classList.remove('active'); }
 }
-
 brushNoneBtn.onclick = () => setBrush('none');
 brushAddBtn.onclick = () => setBrush('add');
 brushRemoveBtn.onclick = () => setBrush('remove');
@@ -452,29 +361,20 @@ brushSizeEl.oninput = () => { brushSizeVal.textContent = brushSizeEl.value; };
 
 function paint(e) {
   if (brushMode === 'none' || !imgWidth) return;
-  
   const rect = stageEl.getBoundingClientRect();
   const x = (e.clientX - rect.left) / zoom;
   const y = (e.clientY - rect.top) / zoom;
   
-  brushCtx.lineCap = 'round';
-  brushCtx.lineJoin = 'round';
+  brushCtx.lineCap = 'round'; brushCtx.lineJoin = 'round';
   brushCtx.lineWidth = +brushSizeEl.value;
-  brushCtx.strokeStyle = brushMode === 'add' ? 'rgb(0,0,0)' : 'rgb(255,0,0)'; 
-  
-  // Нам нужно передать воркеру, что рисовать. 
-  // Используем красный канал: 0 = принудительный фон, 255 = принудительный персонаж.
-  // При "Добавить фон" (add) мы рисуем 0 (черный). При "Удалить" - 255 (красный).
+  // ВАЖНО: Красный = 255 (Удалить фон), Альфа = 255 (Добавить фон)
+  brushCtx.strokeStyle = brushMode === 'add' ? 'rgba(255,0,0,1)' : 'rgba(0,0,255,1)'; 
   
   if (!isPainting) {
-    isPainting = true;
-    lastPaintX = x; lastPaintY = y;
-    brushCtx.beginPath();
-    brushCtx.moveTo(x, y);
+    isPainting = true; lastPaintX = x; lastPaintY = y;
+    brushCtx.beginPath(); brushCtx.moveTo(x, y);
   } else {
-    brushCtx.beginPath();
-    brushCtx.moveTo(lastPaintX, lastPaintY);
-    brushCtx.lineTo(x, y);
+    brushCtx.beginPath(); brushCtx.moveTo(lastPaintX, lastPaintY); brushCtx.lineTo(x, y);
     lastPaintX = x; lastPaintY = y;
   }
   brushCtx.stroke();
@@ -483,19 +383,13 @@ function paint(e) {
 function stopPainting() {
   if (!isPainting) return;
   isPainting = false;
-  rebuildAll(); // Пересчитываем маску с учетом кисти
+  rebuildAll();
 }
 
 stageWrap.addEventListener('mousedown', e => {
-  if (brushMode !== 'none' && e.button === 0) {
-    e.preventDefault();
-    paint(e);
-    return;
-  }
-  // Панорама
+  if (brushMode !== 'none' && e.button === 0) { e.preventDefault(); paint(e); return; }
   if (e.button === 1 || e.button === 2) {
-    e.preventDefault();
-    isDragging = true;
+    e.preventDefault(); isDragging = true;
     dragStartX = e.clientX; dragStartY = e.clientY;
     dragStartPanX = panX; dragStartPanY = panY;
     stageWrap.classList.add('dragging');
@@ -504,11 +398,7 @@ stageWrap.addEventListener('mousedown', e => {
 
 window.addEventListener('mousemove', e => {
   if (isPainting) paint(e);
-  if (isDragging) {
-    panX = dragStartPanX + (e.clientX - dragStartX);
-    panY = dragStartPanY + (e.clientY - dragStartY);
-    applyTransform();
-  }
+  if (isDragging) { panX = dragStartPanX + (e.clientX - dragStartX); panY = dragStartPanY + (e.clientY - dragStartY); applyTransform(); }
 });
 
 window.addEventListener('mouseup', () => {
@@ -516,10 +406,8 @@ window.addEventListener('mouseup', () => {
   if (isDragging) { isDragging = false; stageWrap.classList.remove('dragging'); }
 });
 
-// Клик для точек / пипетки (если кисть выключена)
 stageWrap.addEventListener('click', e => {
   if (brushMode !== 'none' || !imgDataRef || isDragging) return;
-  
   const rect = stageEl.getBoundingClientRect();
   const x = Math.floor((e.clientX - rect.left) / zoom);
   const y = Math.floor((e.clientY - rect.top) / zoom);
@@ -528,24 +416,17 @@ stageWrap.addEventListener('click', e => {
   if (bgColorMode) {
     const idx = (y*imgWidth+x)*4, d = imgDataRef.data;
     colorSamples.push({r:d[idx], g:d[idx+1], b:d[idx+2]});
-    setMode('color');
-    bgColorMode = false; pickBgColorBtn.classList.remove('active');
-    rebuildAll();
+    setMode('color'); bgColorMode = false; pickBgColorBtn.classList.remove('active'); rebuildAll();
   } else if (addPointMode) {
-    sourcePoints.push({x, y});
-    rebuildAll();
+    sourcePoints.push({x, y}); rebuildAll();
   }
 });
 
-// ============================================================
-//  ZOOM / PAN
-// ============================================================
 function applyTransform() { stageEl.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`; }
 function fitToView() {
   if (!imgWidth) return;
   zoom = Math.min(stageWrap.clientWidth / imgWidth, stageWrap.clientHeight / imgHeight) * 0.95;
-  panX = (stageWrap.clientWidth - imgWidth * zoom) / 2;
-  panY = (stageWrap.clientHeight - imgHeight * zoom) / 2;
+  panX = (stageWrap.clientWidth - imgWidth * zoom) / 2; panY = (stageWrap.clientHeight - imgHeight * zoom) / 2;
   applyTransform();
 }
 function updateCursor() {
@@ -572,14 +453,10 @@ document.getElementById('zoomOutBtn').onclick = () => { const r = stageWrap.getB
 document.getElementById('zoomFitBtn').onclick = fitToView;
 document.getElementById('zoomResetBtn').onclick = () => { zoom = 1; panX = (stageWrap.clientWidth - imgWidth)/2; panY = (stageWrap.clientHeight - imgHeight)/2; applyTransform(); };
 
-// ============================================================
-//  ЭКСПОРТ
-// ============================================================
 document.getElementById('exportMaskBtn').onclick = () => {
   if (!isBg) return;
   const c = document.createElement('canvas'); c.width = imgWidth; c.height = imgHeight;
-  const ctx = c.getContext('2d');
-  const out = ctx.createImageData(imgWidth, imgHeight);
+  const ctx = c.getContext('2d'); const out = ctx.createImageData(imgWidth, imgHeight);
   for (let i = 0, j = 0; i < imgWidth*imgHeight; i++, j+=4) {
     const v = isBg[i] ? 0 : 255;
     out.data[j]=v; out.data[j+1]=v; out.data[j+2]=v; out.data[j+3]=255;
@@ -591,8 +468,7 @@ document.getElementById('exportMaskBtn').onclick = () => {
 document.getElementById('exportCutBtn').onclick = () => {
   if (!isBg || !imgDataRef) return;
   const c = document.createElement('canvas'); c.width = imgWidth; c.height = imgHeight;
-  const ctx = c.getContext('2d');
-  const out = ctx.createImageData(imgWidth, imgHeight);
+  const ctx = c.getContext('2d'); const out = ctx.createImageData(imgWidth, imgHeight);
   const src = imgDataRef.data;
   for (let i = 0, j = 0; i < imgWidth*imgHeight; i++, j+=4) {
     out.data[j] = src[j]; out.data[j+1] = src[j+1]; out.data[j+2] = src[j+2];
@@ -602,17 +478,14 @@ document.getElementById('exportCutBtn').onclick = () => {
   const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = 'cutout.png'; a.click();
 };
 
-// ============================================================
-//  СЛУШАТЕЛИ UI
-// ============================================================
 function debounce(fn, ms=80) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; }
 const rebuildDb = debounce(rebuildAll, 80);
 
 document.getElementById('autoThresholdBtn').onclick = () => { autoPickThreshold(); rebuildAll(); };
 document.getElementById('clearPointsBtn').onclick = () => { sourcePoints = []; colorSamples = []; brushCtx.clearRect(0,0,imgWidth,imgHeight); rebuildAll(); };
-document.getElementById('toggleImageBtn').onclick = () => { hideImage = !hideImage; stageEl.classList.toggle('hide-base', hideImage); document.getElementById('toggleImageBtn').classList.toggle('active', hideImage); };
-document.getElementById('addPointBtn').onclick = () => { addPointMode = !addPointMode; bgColorMode = false; setBrush('none'); document.getElementById('addPointBtn').classList.toggle('active', addPointMode); document.getElementById('pickBgColorBtn').classList.remove('active'); updateCursor(); };
-document.getElementById('pickBgColorBtn').onclick = () => { bgColorMode = !bgColorMode; addPointMode = false; setBrush('none'); document.getElementById('pickBgColorBtn').classList.toggle('active', bgColorMode); document.getElementById('addPointBtn').classList.remove('active'); updateCursor(); };
+document.getElementById('toggleImageBtn').onclick = () => { hideImage = !hideImage; stageEl.classList.toggle('hide-base', hideImage); toggleImageBtn.classList.toggle('active', hideImage); };
+document.getElementById('addPointBtn').onclick = () => { addPointMode = !addPointMode; bgColorMode = false; setBrush('none'); addPointBtn.classList.toggle('active', addPointMode); pickBgColorBtn.classList.remove('active'); updateCursor(); };
+document.getElementById('pickBgColorBtn').onclick = () => { bgColorMode = !bgColorMode; addPointMode = false; setBrush('none'); pickBgColorBtn.classList.toggle('active', bgColorMode); addPointBtn.classList.remove('active'); updateCursor(); };
 
 bgLumEl.oninput = () => { bgLumVal.textContent = bgLumEl.value; if(mode==='lum') rebuildDb(); };
 bgDistEl.oninput = () => { bgDistVal.textContent = bgDistEl.value; if(mode==='color') rebuildDb(); };
@@ -629,9 +502,7 @@ smoothIterEl.oninput = () => { smoothIterVal.textContent = smoothIterEl.value; i
 morphOpenEl.oninput = () => { morphOpenVal.textContent = morphOpenEl.value; rebuildDb(); };
 morphCloseEl.oninput = () => { morphCloseVal.textContent = morphCloseEl.value; rebuildDb(); };
 
-initWorker();
-smoothIterEl.disabled = !useSmoothEl.checked;
-updateCursor();
+initWorker(); smoothIterEl.disabled = !useSmoothEl.checked; updateCursor();
 </script>
 </body>
 </html>
