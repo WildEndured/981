@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Маска фона · Worker · Zoom/Pan · Ориентиры</title>
+<title>Маска фона + Anime Face Detector</title>
 <style>
   :root {
     color-scheme: dark;
@@ -220,6 +220,17 @@
   .seg button:last-child { border-right: none; }
   .seg button.active { background: var(--accent); color: #fff; }
 
+  .face-item {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 8px; padding: 6px 8px; border-radius: 6px;
+    font-size: 12px; color: var(--muted-2);
+  }
+  .face-item:hover { background: #232830; }
+  .face-item .dot {
+    display: inline-block; width: 10px; height: 10px;
+    border-radius: 50%; background: #00e5ff; flex-shrink: 0;
+  }
+
   @media (max-width: 600px) {
     body { padding: 6px 6px 30px; gap: 8px; }
     .topbar button, .topbar .file-label { height: 36px; padding: 0 10px; font-size: 12px; }
@@ -241,9 +252,7 @@
   <button id="toggleImageBtn">👁 Маска</button>
   <button id="exportMaskBtn">💾 Маска</button>
   <button id="exportCutBtn">🖼 Вырезать</button>
-  <button id="landmarkModeBtn">📐 Ориентиры</button>
-  <button id="clearLandmarksBtn">✕ Ориентиры</button>
-  <button id="exportProportionsBtn">📊 Пропорции</button>
+  <button id="detectFacesBtn">🔍 Найти лица</button>
 </div>
 
 <div class="stage-wrap" id="stageWrap">
@@ -264,7 +273,7 @@
 </div>
 
 <p class="hint">
-  ЛКМ — точка / пипетка / ориентир (в зависимости от режима). СКМ или ПКМ — панорама. Колесо — зум.
+  ЛКМ — точка / пипетка (в зависимости от режима). СКМ или ПКМ — панорама. Колесо — зум.
 </p>
 
 <div class="panel">
@@ -350,24 +359,21 @@
   </div>
 </div>
 
+<!-- НОВЫЙ БЛОК -->
 <div class="panel">
-  <h2>4 · Ориентиры и пропорции</h2>
+  <h2>4 · Детекция лиц (Anime Face Detector)</h2>
   <div class="panel-section">
-    <h3>Список ориентиров <span id="infoLandmarksCount" style="color:var(--muted);font-weight:400;">(0)</span></h3>
-    <div class="point-list" id="landmarkList">
-      <div style="color:var(--muted);font-size:12px;padding:4px 0;">Ориентиры не заданы.</div>
+    <div class="row">
+      <label><input id="showFaces" type="checkbox" checked /> Показывать bbox и keypoints</label>
     </div>
+    <div class="kv"><span>Найдено лиц</span><span id="infoFacesCount">—</span></div>
+    <div class="kv"><span>Статус</span><span id="infoFacesStatus">—</span></div>
   </div>
   <div class="panel-section">
-    <h3>Пропорции</h3>
-    <div class="kv"><span>Высота фигуры</span><span id="propHeight">—</span></div>
-    <div class="kv"><span>Ширина фигуры</span><span id="propWidth">—</span></div>
-    <div class="kv"><span>Отношение В/Ш</span><span id="propAspect">—</span></div>
-    <div class="kv"><span>Голова / рост</span><span id="propHead">—</span></div>
-    <div class="kv"><span>Ноги / рост</span><span id="propLegs">—</span></div>
-    <div class="kv"><span>Руки / рост</span><span id="propArms">—</span></div>
-    <div class="kv"><span>Плечи / рост</span><span id="propShoulders">—</span></div>
-    <div class="kv"><span>Центр тяжести</span><span id="propCenter">—</span></div>
+    <h3>Список лиц</h3>
+    <div id="facesList" style="max-height:200px;overflow-y:auto;font-size:12px;">
+      <div style="color:var(--muted);padding:4px 0;">Запустите детекцию.</div>
+    </div>
   </div>
 </div>
 
@@ -424,6 +430,13 @@ const zoomOutBtn = document.getElementById('zoomOutBtn');
 const zoomFitBtn = document.getElementById('zoomFitBtn');
 const zoomResetBtn = document.getElementById('zoomResetBtn');
 
+// НОВЫЕ DOM
+const detectFacesBtn = document.getElementById('detectFacesBtn');
+const showFacesEl = document.getElementById('showFaces');
+const infoFacesCount = document.getElementById('infoFacesCount');
+const infoFacesStatus = document.getElementById('infoFacesStatus');
+const facesListEl = document.getElementById('facesList');
+
 const baseCtx = baseCanvas.getContext('2d', { willReadFrequently: true });
 const overlayCtx = overlay.getContext('2d');
 
@@ -449,6 +462,10 @@ let worker = null;
 let workerBusy = false;
 let pendingBuild = false;
 
+// НОВОЕ: результаты детекции
+let faceDetections = [];   // [{ bbox: [x1,y1,x2,y2,score], keypoints: [[x,y,c],...] }]
+let lastImageBlob = null;  // для отправки на сервер
+
 let _seedsCache = null;
 function invalidateSeeds() { _seedsCache = null; }
 
@@ -465,7 +482,6 @@ function debounce(fn, ms = 80) {
 
 function updateCursor() {
   if (isDragging) return;
-  if (landmarkMode) { stageWrap.style.cursor = 'cell'; return; }
   if (addPointMode) stageWrap.style.cursor = 'copy';
   else if (bgColorMode) stageWrap.style.cursor = 'crosshair';
   else stageWrap.style.cursor = 'grab';
@@ -551,11 +567,17 @@ function autoPickThreshold() {
 // ============================================================
 fileInput.addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
-  if (!file) return;
+  if (!file) {
+    console.log('[main] no file selected');
+    return;
+  }
+  console.log('[main] file selected:', file.name, file.size, file.type);
+  lastImageBlob = file; // сохраняем для детекции
 
   const img = new Image();
   img.onload = () => {
     try {
+      console.log('[main] image loaded:', img.naturalWidth, 'x', img.naturalHeight);
       imgWidth = img.naturalWidth;
       imgHeight = img.naturalHeight;
       [baseCanvas, overlay].forEach(c => { c.width = imgWidth; c.height = imgHeight; });
@@ -567,16 +589,13 @@ fileInput.addEventListener('change', e => {
       sourcePoints = [];
       selectedPointIndex = -1;
       colorSamples = [];
+      faceDetections = []; // сбрасываем старую детекцию
       invalidateSeeds();
       autoPickThreshold();
       renderSamplesList();
+      renderFacesList();
 
-      // Сбрасываем ориентиры при новой картинке
-      landmarks = {};
-      selectedLandmarkType = null;
-      renderLandmarkList();
-      updateProportions();
-
+      // Сначала вписываем изображение в область, чтобы transform был корректным
       requestAnimationFrame(() => {
         fitToView();
         rebuildAll();
@@ -682,12 +701,17 @@ function getAutoSeeds() {
 //  ПЕРЕСЧЁТ МАСКИ (через Worker)
 // ============================================================
 function rebuildAll() {
-  if (!lum || !imgDataRef) return;
+  if (!lum || !imgDataRef) {
+    console.log('[main] rebuildAll skipped: no image');
+    return;
+  }
   if (!worker) {
+    console.error('[main] worker not initialized');
     initWorker();
     if (!worker) return;
   }
   if (workerBusy) {
+    console.log('[main] worker busy, queue pending');
     pendingBuild = true;
     return;
   }
@@ -701,6 +725,7 @@ function rebuildAll() {
 
   const dataCopy = new Uint8ClampedArray(imgDataRef.data);
 
+  console.log('[main] posting buildMask to worker');
   worker.postMessage({
     type: 'buildMask',
     payload: {
@@ -726,13 +751,14 @@ function rebuildAll() {
 const rebuildAllDebounced = debounce(rebuildAll, 80);
 
 // ============================================================
-//  ОТРИСОВКА ОВЕРЛЕЯ (базовая)
+//  ОТРИСОВКА ОВЕРЛЕЯ
 // ============================================================
-function drawOverlayBase() {
+function drawOverlay() {
   const w = imgWidth, h = imgHeight;
   if (!w) return;
   overlayCtx.clearRect(0, 0, w, h);
 
+  // Маска фона
   if (isBg) {
     const img = overlayCtx.createImageData(w, h);
     const data = img.data;
@@ -744,6 +770,7 @@ function drawOverlayBase() {
     overlayCtx.putImageData(img, 0, 0);
   }
 
+  // Точки-источники
   sourcePoints.forEach((p, i) => {
     const isSelected = i === selectedPointIndex;
     overlayCtx.beginPath();
@@ -754,7 +781,113 @@ function drawOverlayBase() {
     overlayCtx.strokeStyle = '#000';
     overlayCtx.stroke();
   });
+
+  // НОВОЕ: результаты детекции лиц
+  if (showFacesEl.checked) drawFaceDetections();
 }
+
+function drawFaceDetections() {
+  if (!faceDetections.length) return;
+  const lineW = Math.max(1, 2 / zoom);
+
+  faceDetections.forEach((face, fi) => {
+    const [x1, y1, x2, y2, score] = face.bbox;
+    const bw = x2 - x1, bh = y2 - y1;
+
+    // bbox
+    overlayCtx.strokeStyle = '#00e5ff';
+    overlayCtx.lineWidth = lineW * 2;
+    overlayCtx.strokeRect(x1, y1, bw, bh);
+
+    // подпись
+    overlayCtx.font = `${Math.max(10, 14 / zoom)}px sans-serif`;
+    overlayCtx.fillStyle = 'rgba(0, 229, 255, 0.85)';
+    overlayCtx.fillText(
+      `#${fi + 1} ${(score * 100).toFixed(0)}%`,
+      x1,
+      Math.max(12 / zoom, y1 - 6 / zoom)
+    );
+
+    // keypoints
+    face.keypoints.forEach(([kx, ky, kc]) => {
+      if (kc < 0.3) return;
+      overlayCtx.beginPath();
+      overlayCtx.arc(kx, ky, Math.max(2, 3 / zoom), 0, Math.PI * 2);
+      overlayCtx.fillStyle = '#ffeb3b';
+      overlayCtx.fill();
+      overlayCtx.lineWidth = lineW;
+      overlayCtx.strokeStyle = '#000';
+      overlayCtx.stroke();
+    });
+  });
+}
+
+// ============================================================
+//  НОВОЕ: ДЕТЕКЦИЯ ЛИЦ
+// ============================================================
+async function detectFaces() {
+  if (!lastImageBlob) {
+    alert('Сначала загрузите изображение');
+    return;
+  }
+  infoFacesStatus.textContent = 'запрос…';
+  detectFacesBtn.disabled = true;
+
+  try {
+    // Отправляем исходный файл на сервер
+    const form = new FormData();
+    form.append('file', lastImageBlob, 'image.png');
+
+    const resp = await fetch('http://localhost:8000/detect', {
+      method: 'POST',
+      body: form
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    faceDetections = data.faces || [];
+    infoFacesStatus.textContent = 'OK';
+    renderFacesList();
+    drawOverlay();
+  } catch (err) {
+    console.error('[detectFaces]', err);
+    infoFacesStatus.textContent = 'ошибка: ' + (err.message || err);
+    alert('Не удалось получить детекцию.\nПроверьте, что server.py запущен на localhost:8000.\n\n' + (err.message || err));
+  } finally {
+    detectFacesBtn.disabled = false;
+  }
+}
+
+function renderFacesList() {
+  infoFacesCount.textContent = faceDetections.length
+    ? String(faceDetections.length)
+    : '—';
+
+  if (!faceDetections.length) {
+    facesListEl.innerHTML =
+      '<div style="color:var(--muted);padding:4px 0;">Лица не найдены.</div>';
+    return;
+  }
+
+  facesListEl.innerHTML = '';
+  faceDetections.forEach((f, i) => {
+    const [x1, y1, x2, y2, score] = f.bbox;
+    const item = document.createElement('div');
+    item.className = 'face-item';
+    item.innerHTML = `
+      <span><span class="dot"></span> #${i + 1}</span>
+      <span class="coords">${(score * 100).toFixed(1)}% · ${Math.round(x2 - x1)}×${Math.round(y2 - y1)}</span>
+    `;
+    facesListEl.appendChild(item);
+  });
+}
+
+detectFacesBtn.addEventListener('click', detectFaces);
+
+showFacesEl.addEventListener('change', () => {
+  drawOverlay();
+});
 
 // ============================================================
 //  UI
@@ -965,25 +1098,6 @@ stageWrap.addEventListener('click', (e) => {
   if (!lum) return;
   if (isDragging) return;
 
-  // Режим ориентиров имеет приоритет и "съедает" клик
-  if (landmarkMode) {
-    const { x, y } = clientToImage(e.clientX, e.clientY);
-    if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) return;
-    landmarks[activeLandmarkType] = { x, y };
-    selectedLandmarkType = activeLandmarkType;
-
-    const order = ['top', 'chin', 'shoulderL', 'shoulderR', 'hipL', 'hipR',
-                   'kneeL', 'kneeR', 'footL', 'footR', 'handL', 'handR', 'center'];
-    const idx = order.indexOf(activeLandmarkType);
-    if (idx >= 0 && idx < order.length - 1) {
-      activeLandmarkType = order[idx + 1];
-    }
-    renderLandmarkList();
-    updateProportions();
-    drawOverlay();
-    return;
-  }
-
   const { x, y } = clientToImage(e.clientX, e.clientY);
   if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) return;
 
@@ -1066,8 +1180,6 @@ addPointBtn.addEventListener('click', () => {
   addPointMode = !addPointMode;
   if (addPointMode) {
     bgColorMode = false;
-    landmarkMode = false;
-    landmarkModeBtn.classList.remove('active');
     pickBgColorBtn.classList.remove('active');
   }
   addPointBtn.classList.toggle('active', addPointMode);
@@ -1078,8 +1190,6 @@ pickBgColorBtn.addEventListener('click', () => {
   bgColorMode = !bgColorMode;
   if (bgColorMode) {
     addPointMode = false;
-    landmarkMode = false;
-    landmarkModeBtn.classList.remove('active');
     addPointBtn.classList.remove('active');
   }
   pickBgColorBtn.classList.toggle('active', bgColorMode);
@@ -1149,282 +1259,7 @@ exportCutBtn.addEventListener('click', () => {
 });
 
 // ============================================================
-//  ОРИЕНТИРЫ И ПРОПОРЦИИ
-// ============================================================
-const LANDMARK_TYPES = [
-  { key: 'top',       label: 'Макушка',    color: '#ff5050' },
-  { key: 'chin',      label: 'Подбородок', color: '#ff9f43' },
-  { key: 'shoulderL', label: 'Плечо L',    color: '#4ecdc4' },
-  { key: 'shoulderR', label: 'Плечо R',    color: '#4ecdc4' },
-  { key: 'hipL',      label: 'Таз L',      color: '#a29bfe' },
-  { key: 'hipR',      label: 'Таз R',      color: '#a29bfe' },
-  { key: 'kneeL',     label: 'Колено L',   color: '#74b9ff' },
-  { key: 'kneeR',     label: 'Колено R',   color: '#74b9ff' },
-  { key: 'footL',     label: 'Стопа L',    color: '#55efc4' },
-  { key: 'footR',     label: 'Стопа R',    color: '#55efc4' },
-  { key: 'handL',     label: 'Кисть L',    color: '#fdcb6e' },
-  { key: 'handR',     label: 'Кисть R',    color: '#fdcb6e' },
-  { key: 'center',    label: 'Центр',      color: '#ffffff' },
-];
-
-let landmarks = {};
-let landmarkMode = false;
-let activeLandmarkType = 'top';
-let selectedLandmarkType = null;
-
-const landmarkModeBtn = document.getElementById('landmarkModeBtn');
-const clearLandmarksBtn = document.getElementById('clearLandmarksBtn');
-const exportProportionsBtn = document.getElementById('exportProportionsBtn');
-const landmarkList = document.getElementById('landmarkList');
-const infoLandmarksCount = document.getElementById('infoLandmarksCount');
-
-const propHeight = document.getElementById('propHeight');
-const propWidth = document.getElementById('propWidth');
-const propAspect = document.getElementById('propAspect');
-const propHead = document.getElementById('propHead');
-const propLegs = document.getElementById('propLegs');
-const propArms = document.getElementById('propArms');
-const propShoulders = document.getElementById('propShoulders');
-const propCenter = document.getElementById('propCenter');
-
-function renderLandmarkList() {
-  const keys = LANDMARK_TYPES.filter(t => landmarks[t.key]);
-  infoLandmarksCount.textContent = `(${keys.length})`;
-  if (keys.length === 0) {
-    landmarkList.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:4px 0;">Ориентиры не заданы.</div>';
-    return;
-  }
-  landmarkList.innerHTML = '';
-  keys.forEach(t => {
-    const p = landmarks[t.key];
-    const item = document.createElement('div');
-    item.className = 'point-item' + (selectedLandmarkType === t.key ? ' selected' : '');
-    const left = document.createElement('div');
-    left.className = 'left';
-    left.innerHTML = `<span class="dot" style="background:${t.color}"></span>
-      <span>${t.label}</span>
-      <span class="coords">x=${p.x}, y=${p.y}</span>`;
-    left.addEventListener('click', () => {
-      selectedLandmarkType = t.key;
-      activeLandmarkType = t.key;
-      renderLandmarkList();
-      drawOverlay();
-    });
-    const btn = document.createElement('button');
-    btn.className = 'remove';
-    btn.textContent = '✕';
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      delete landmarks[t.key];
-      if (selectedLandmarkType === t.key) selectedLandmarkType = null;
-      renderLandmarkList();
-      updateProportions();
-      drawOverlay();
-    });
-    item.appendChild(left);
-    item.appendChild(btn);
-    landmarkList.appendChild(item);
-  });
-}
-
-function dist(a, b) {
-  if (!a || !b) return null;
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
-
-function mid(a, b) {
-  if (!a || !b) return null;
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-}
-
-function pct(v) {
-  if (v == null || !isFinite(v)) return '—';
-  return (v * 100).toFixed(1) + '%';
-}
-
-function computeProportions() {
-  const L = landmarks;
-  const top = L.top, chin = L.chin;
-  const footL = L.footL, footR = L.footR;
-  const shoulderL = L.shoulderL, shoulderR = L.shoulderR;
-  const hipL = L.hipL, hipR = L.hipR;
-  const handL = L.handL, handR = L.handR;
-  const center = L.center;
-
-  const feetMid = mid(footL, footR) || footL || footR;
-  let height = null;
-  if (top && feetMid) height = Math.abs(feetMid.y - top.y);
-
-  const xs = [];
-  [shoulderL, shoulderR, hipL, hipR, footL, footR, handL, handR].forEach(p => {
-    if (p) xs.push(p.x);
-  });
-  let width = null;
-  if (xs.length >= 2) width = Math.max(...xs) - Math.min(...xs);
-
-  let aspect = (width && height) ? width / height : null;
-
-  let headRatio = null;
-  if (top && chin && height) headRatio = Math.abs(chin.y - top.y) / height;
-
-  let legsRatio = null;
-  const hipMid = mid(hipL, hipR) || hipL || hipR;
-  if (hipMid && feetMid && height) legsRatio = Math.abs(feetMid.y - hipMid.y) / height;
-
-  let armsRatio = null;
-  const armL = dist(shoulderL, handL);
-  const armR = dist(shoulderR, handR);
-  if (height) {
-    const arms = [armL, armR].filter(v => v != null);
-    if (arms.length) armsRatio = (arms.reduce((a, b) => a + b, 0) / arms.length) / height;
-  }
-
-  let shouldersRatio = null;
-  const sw = dist(shoulderL, shoulderR);
-  if (sw != null && height) shouldersRatio = sw / height;
-
-  let centerStr = '—';
-  if (center) centerStr = `x=${center.x}, y=${center.y}`;
-
-  return { height, width, aspect, headRatio, legsRatio, armsRatio, shouldersRatio, centerStr };
-}
-
-function updateProportions() {
-  const p = computeProportions();
-  propHeight.textContent = p.height != null ? p.height.toFixed(1) + ' px' : '—';
-  propWidth.textContent = p.width != null ? p.width.toFixed(1) + ' px' : '—';
-  propAspect.textContent = p.aspect != null ? p.aspect.toFixed(3) : '—';
-  propHead.textContent = pct(p.headRatio);
-  propLegs.textContent = pct(p.legsRatio);
-  propArms.textContent = pct(p.armsRatio);
-  propShoulders.textContent = pct(p.shouldersRatio);
-  propCenter.textContent = p.centerStr;
-}
-
-function drawLandmarksOnOverlay() {
-  if (!imgWidth) return;
-  const L = landmarks;
-  const entries = LANDMARK_TYPES.filter(t => L[t.key]).map(t => ({ t, p: L[t.key] }));
-  if (entries.length === 0) return;
-
-  const lines = [
-    ['top', 'chin'],
-    ['chin', 'shoulderL'], ['chin', 'shoulderR'],
-    ['shoulderL', 'shoulderR'],
-    ['shoulderL', 'handL'], ['shoulderR', 'handR'],
-    ['shoulderL', 'hipL'], ['shoulderR', 'hipR'],
-    ['hipL', 'hipR'],
-    ['hipL', 'kneeL'], ['hipR', 'kneeR'],
-    ['kneeL', 'footL'], ['kneeR', 'footR'],
-  ];
-
-  overlayCtx.save();
-  overlayCtx.lineWidth = Math.max(1, 2 / zoom);
-  overlayCtx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
-  lines.forEach(([a, b]) => {
-    const pa = L[a], pb = L[b];
-    if (!pa || !pb) return;
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(pa.x, pa.y);
-    overlayCtx.lineTo(pb.x, pb.y);
-    overlayCtx.stroke();
-  });
-
-  if (L.top) {
-    const feetMid = mid(L.footL, L.footR) || L.footL || L.footR;
-    if (feetMid) {
-      overlayCtx.setLineDash([8 / zoom, 6 / zoom]);
-      overlayCtx.strokeStyle = 'rgba(255, 204, 0, 0.7)';
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(L.top.x, L.top.y);
-      overlayCtx.lineTo(feetMid.x, feetMid.y);
-      overlayCtx.stroke();
-      overlayCtx.setLineDash([]);
-    }
-  }
-
-  if (L.shoulderL && L.shoulderR) {
-    overlayCtx.setLineDash([6 / zoom, 4 / zoom]);
-    overlayCtx.strokeStyle = 'rgba(78, 205, 196, 0.7)';
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(L.shoulderL.x, L.shoulderL.y);
-    overlayCtx.lineTo(L.shoulderR.x, L.shoulderR.y);
-    overlayCtx.stroke();
-    overlayCtx.setLineDash([]);
-  }
-
-  entries.forEach(({ t, p }) => {
-    const r = (selectedLandmarkType === t.key ? 9 : 7) / Math.max(0.3, zoom);
-    overlayCtx.beginPath();
-    overlayCtx.arc(p.x, p.y, r, 0, Math.PI * 2);
-    overlayCtx.fillStyle = t.color;
-    overlayCtx.fill();
-    overlayCtx.lineWidth = Math.max(1, 2 / zoom);
-    overlayCtx.strokeStyle = '#000';
-    overlayCtx.stroke();
-
-    overlayCtx.fillStyle = '#fff';
-    overlayCtx.font = `${Math.max(10, 12 / zoom)}px system-ui, sans-serif`;
-    overlayCtx.textAlign = 'center';
-    overlayCtx.textBaseline = 'bottom';
-    overlayCtx.fillText(t.label, p.x, p.y - r - 2 / zoom);
-  });
-  overlayCtx.restore();
-}
-
-// Единая отрисовка оверлея: маска + точки + ориентиры
-function drawOverlay() {
-  drawOverlayBase();
-  drawLandmarksOnOverlay();
-}
-
-landmarkModeBtn.addEventListener('click', () => {
-  landmarkMode = !landmarkMode;
-  if (landmarkMode) {
-    addPointMode = false;
-    bgColorMode = false;
-    addPointBtn.classList.remove('active');
-    pickBgColorBtn.classList.remove('active');
-  }
-  landmarkModeBtn.classList.toggle('active', landmarkMode);
-  updateCursor();
-});
-
-clearLandmarksBtn.addEventListener('click', () => {
-  landmarks = {};
-  selectedLandmarkType = null;
-  activeLandmarkType = 'top';
-  renderLandmarkList();
-  updateProportions();
-  drawOverlay();
-});
-
-exportProportionsBtn.addEventListener('click', () => {
-  const p = computeProportions();
-  const payload = {
-    image: { width: imgWidth, height: imgHeight },
-    landmarks,
-    proportions: {
-      heightPx: p.height,
-      widthPx: p.width,
-      widthToHeight: p.aspect,
-      headToHeight: p.headRatio,
-      legsToHeight: p.legsRatio,
-      armsToHeight: p.armsRatio,
-      shouldersToHeight: p.shouldersRatio,
-      centerOfMass: p.centerStr
-    }
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'proportions.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
-});
-
-// ============================================================
-//  СЛУШАТЕЛИ ПОРОГОВ / СЛАЙДЕРОВ
+//  СЛУШАТЕЛИ
 // ============================================================
 bgLumEl.addEventListener('input', () => {
   bgLumVal.textContent = bgLumEl.value;
@@ -1466,11 +1301,9 @@ morphCloseEl.addEventListener('input', () => {
 // ============================================================
 initWorker();
 smoothIterEl.disabled = !useSmoothEl.checked;
-renderLandmarkList();
-updateProportions();
 updateCursor();
 
 console.log('[main] script loaded, worker =', !!worker);
 </script>
 </body>
-  </html>
+</html>
