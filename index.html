@@ -3,13 +3,14 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>3D-разметка · Мультиракурс · Ориентиры</title>
+<title>3D-разметка · Пропорции персонажа</title>
 <style>
   :root {
     color-scheme: dark;
     --bg: #14161a; --panel: #1d2027; --panel-2: #14161a;
     --border: #2b2f37; --accent: #2b6cb0;
     --text: #e6e6e6; --muted: #8b93a1; --muted-2: #b9c3d1;
+    --ok: #4caf50; --warn: #ffb300; --bad: #ff5252;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
@@ -45,7 +46,6 @@
   .topbar button:hover, .topbar button.active {
     background: var(--accent); border-color: var(--accent); color: #fff;
   }
-  .topbar button:disabled { opacity: 0.4; cursor: not-allowed; }
 
   .thumbs {
     width: 100%; max-width: 1100px;
@@ -73,14 +73,12 @@
     background: var(--accent); color: #fff;
     font-size: 10px; padding: 1px 5px; border-radius: 8px;
   }
-  .thumbs-empty {
-    color: var(--muted); font-size: 12px; padding: 6px 4px;
-  }
+  .thumbs-empty { color: var(--muted); font-size: 12px; padding: 6px 4px; }
 
   .stage-wrap {
     position: relative;
     width: min(96vw, 1100px);
-    height: min(62vh, 720px);
+    height: min(58vh, 680px);
     background: #0b0c0f;
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -89,6 +87,7 @@
     cursor: grab;
   }
   .stage-wrap.dragging { cursor: grabbing; }
+  .stage-wrap.hovering-point { cursor: move; }
 
   .stage {
     position: absolute;
@@ -214,7 +213,7 @@
     background: transparent; border: none; color: #ff6060;
     font-size: 16px; cursor: pointer; padding: 2px 6px; border-radius: 4px;
   }
-  .layer-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+  .layer-actions { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
   .layer-actions button {
     height: 32px; padding: 0 12px; font-size: 13px;
     border-radius: 8px; border: 1px solid #333a44;
@@ -222,20 +221,52 @@
   }
   .layer-actions button:hover { background: var(--accent); border-color: var(--accent); }
 
-  .mode-row {
-    display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;
+  /* ---- Пропорции ---- */
+  .prop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 8px;
   }
-  .mode-row button {
-    height: 32px; padding: 0 12px; font-size: 13px;
+  .prop-card {
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px;
+    font-size: 13px;
+  }
+  .prop-card .title {
+    color: var(--muted-2); font-size: 12px; margin-bottom: 4px;
+    display: flex; justify-content: space-between; gap: 6px;
+  }
+  .prop-card .value {
+    font-size: 16px; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .prop-card .range {
+    color: var(--muted); font-size: 11px; margin-top: 3px;
+  }
+  .prop-card.ok    { border-color: rgba(76,175,80,0.5); }
+  .prop-card.warn  { border-color: rgba(255,179,0,0.6); }
+  .prop-card.bad   { border-color: rgba(255,82,82,0.6); }
+  .prop-card .status {
+    display: inline-block; font-size: 10px; padding: 1px 6px;
+    border-radius: 8px; margin-left: 6px;
+  }
+  .prop-card.ok   .status { background: rgba(76,175,80,0.2); color: var(--ok); }
+  .prop-card.warn .status { background: rgba(255,179,0,0.2); color: var(--warn); }
+  .prop-card.bad  .status { background: rgba(255,82,82,0.2); color: var(--bad); }
+  .prop-empty { color: var(--muted); font-size: 12px; padding: 4px 0; }
+
+  .tpl-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tpl-row button {
+    height: 32px; padding: 0 12px; font-size: 12px;
     border-radius: 8px; border: 1px solid #333a44;
     background: #232830; color: var(--text); cursor: pointer;
   }
-  .mode-row button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tpl-row button:hover { background: var(--accent); border-color: var(--accent); }
 
   @media (max-width: 600px) {
     body { padding: 6px 6px 30px; gap: 8px; }
     .topbar button, .topbar .file-label { height: 36px; padding: 0 10px; font-size: 12px; }
-    .stage-wrap { height: 50vh; }
+    .stage-wrap { height: 45vh; }
     .thumb { width: 72px; height: 54px; }
   }
 </style>
@@ -271,9 +302,8 @@
 </div>
 
 <p class="hint">
-  «📍 Точка» — клик ставит точку с именем в активном слое на текущем ракурсе. Имя должно совпадать на всех ракурсах для одной 3D-точки.
-  Перетаскивание ЛКМ/пальцем двигает точку. Клик по точке — выделить; повторный клик — удалить.
-  СКМ/ПКМ — панорама, колесо — зум.
+  Размечайте анатомические ориентиры с <b>каноническими именами</b> (например <code>head_top</code>, <code>chin</code>, <code>shoulder_l</code>, <code>hip_r</code>, …) — панель «Пропорции» посчитает отношения автоматически.
+  Можно загрузить шаблон кнопками ниже. Перетаскивание точек — ЛКМ/пальцем. СКМ/ПКМ — панорама.
 </p>
 
 <div class="panel">
@@ -282,6 +312,31 @@
     <div class="kv"><span>Ракурс</span><span id="infoImage">—</span></div>
     <div class="kv"><span>Размер</span><span id="infoSize">—</span></div>
     <div class="kv"><span>Масштаб</span><span id="infoZoom">100%</span></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Шаблоны ориентиров</h2>
+  <div class="panel-section">
+    <h3>Быстрая разметка</h3>
+    <div class="tpl-row" id="tplRow">
+      <button data-tpl="head">🗣 Голова (6)</button>
+      <button data-tpl="body17">🧍 Фигура (17)</button>
+      <button data-tpl="face68">😐 Лицо (68)</button>
+    </div>
+    <div class="prop-empty" style="margin-top:8px;">
+      После загрузки шаблона пройдитесь по точкам на фото и расставьте их в правильных местах — их имена уже предзаполнены.
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Пропорции персонажа</h2>
+  <div class="panel-section">
+    <h3>Расчёт по активному ракурсу</h3>
+    <div class="prop-grid" id="propGrid">
+      <div class="prop-empty">Разметьте нужные ориентиры, чтобы увидеть пропорции.</div>
+    </div>
   </div>
 </div>
 
@@ -336,34 +391,38 @@ const addLayerBtn = document.getElementById('addLayerBtn');
 const pointListEl = document.getElementById('pointList');
 const infoPointsCount = document.getElementById('infoPointsCount');
 
+const propGrid = document.getElementById('propGrid');
+const tplRow = document.getElementById('tplRow');
+
 const baseCtx = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
 
 // ============================================================
 //  СОСТОЯНИЕ
 // ============================================================
-// images: [{ id, name, width, height, img (HTMLImageElement), dataUrl }]
 let images = [];
 let activeImageId = null;
 let nextImageId = 1;
 
-// layers: [{ id, name, color, visible }]
 let layers = [];
 let activeLayerId = null;
 let nextLayerId = 1;
 const PALETTE = ['#00e0ff', '#ffcc00', '#a0ff60', '#ff7ad9', '#ff9040', '#9d7bff', '#00ffb3', '#ff4d4d'];
 
-// points: [{ id, label, imageId, layerId, x, y }]
-// одна 3D-точка = один label; на каждом ракурсе может быть 0 или 1 запись с этим label
 let points = [];
 let nextPointId = 1;
 
-let selectedPointId = null;     // id выделенной точки
+let selectedPointId = null;
 let addLandmarkMode = false;
 
 // перетаскивание
 let movingPoint = false;
 let movingPointId = null;
+let moveStartX = 0, moveStartY = 0;
+let moveOrigX = 0, moveOrigY = 0;
+let moveThreshold = 3;
+let didMove = false;
+let suppressClick = false;
 
 // зум/пан
 let zoom = 1, panX = 0, panY = 0;
@@ -372,31 +431,64 @@ let isDragging = false, dragStartX = 0, dragStartY = 0;
 let dragStartPanX = 0, dragStartPanY = 0;
 
 // ============================================================
+//  ШАБЛОНЫ ОРИЕНТИРОВ
+// ============================================================
+// label -> подсказка (не используется в анализе, но полезна)
+const TEMPLATES = {
+  head: {
+    name: 'Голова',
+    labels: ['head_top', 'chin', 'eye_l', 'eye_r', 'nose', 'ear_l', 'ear_r']
+  },
+  body17: {
+    name: 'Фигура (17)',
+    // порядок как в COCO keypoints
+    labels: [
+      'nose',
+      'eye_l', 'eye_r',
+      'ear_l', 'ear_r',
+      'shoulder_l', 'shoulder_r',
+      'elbow_l', 'elbow_r',
+      'wrist_l', 'wrist_r',
+      'hip_l', 'hip_r',
+      'knee_l', 'knee_r',
+      'ankle_l', 'ankle_r'
+    ]
+  },
+  face68: {
+    name: 'Лицо (68)',
+    labels: (() => {
+      const arr = [];
+      for (let i = 1; i <= 17; i++) arr.push('jaw_' + i);
+      for (let i = 1; i <= 5; i++)  arr.push('brow_l_' + i);
+      for (let i = 1; i <= 5; i++)  arr.push('brow_r_' + i);
+      for (let i = 1; i <= 4; i++)  arr.push('nose_' + i);
+      for (let i = 1; i <= 6; i++)  arr.push('eye_l_' + i);
+      for (let i = 1; i <= 6; i++)  arr.push('eye_r_' + i);
+      for (let i = 1; i <= 12; i++) arr.push('mouth_' + i);
+      return arr;
+    })()
+  }
+};
+
+// ============================================================
 //  УТИЛИТЫ
 // ============================================================
-function getActiveImage() {
-  return images.find(i => i.id === activeImageId) || null;
-}
-function getActiveLayer() {
-  return layers.find(l => l.id === activeLayerId) || null;
-}
-function getLayer(id) {
-  return layers.find(l => l.id === id) || null;
-}
-function getPoint(id) {
-  return points.find(p => p.id === id) || null;
-}
+function getActiveImage() { return images.find(i => i.id === activeImageId) || null; }
+function getActiveLayer() { return layers.find(l => l.id === activeLayerId) || null; }
+function getLayer(id) { return layers.find(l => l.id === id) || null; }
+function getPoint(id) { return points.find(p => p.id === id) || null; }
 function findPointOnImage(label, imageId) {
   return points.find(p => p.label === label && p.imageId === imageId) || null;
 }
-function uniqueLabels() {
-  const set = new Set(points.map(p => p.label));
-  return Array.from(set);
-}
+function uniqueLabels() { return Array.from(new Set(points.map(p => p.label))); }
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
 function updateCursor() {
-  if (isDragging) return;
+  if (isDragging) { stageWrap.style.cursor = 'grabbing'; return; }
   if (movingPoint) { stageWrap.style.cursor = 'move'; return; }
-  stageWrap.style.cursor = addLandmarkMode ? 'copy' : 'grab';
+  if (addLandmarkMode) { stageWrap.style.cursor = 'copy'; return; }
+  stageWrap.style.cursor = 'grab';
+  stageWrap.classList.remove('hovering-point');
 }
 
 // ============================================================
@@ -422,6 +514,7 @@ function removeLayer(id) {
   renderLayerList();
   renderPointList();
   drawOverlay();
+  renderProportions();
 }
 function moveLayer(id, dir) {
   const idx = layers.findIndex(l => l.id === id);
@@ -450,7 +543,6 @@ function renderLayerList() {
     const vis = document.createElement('button');
     vis.className = 'vis';
     vis.textContent = layer.visible ? '👁' : '🚫';
-    vis.title = layer.visible ? 'Скрыть' : 'Показать';
     vis.addEventListener('click', (ev) => {
       ev.stopPropagation();
       layer.visible = !layer.visible;
@@ -471,7 +563,6 @@ function renderLayerList() {
     const name = document.createElement('div');
     name.className = 'layer-name';
     name.textContent = layer.name;
-    name.title = 'Клик — активный, двойной — переименовать';
     name.addEventListener('click', (ev) => {
       ev.stopPropagation();
       activeLayerId = layer.id;
@@ -490,15 +581,15 @@ function renderLayerList() {
     count.textContent = `(${points.filter(p => p.layerId === layer.id).length})`;
 
     const up = document.createElement('button');
-    up.className = 'move'; up.textContent = '▲'; up.title = 'Выше';
+    up.className = 'move'; up.textContent = '▲';
     up.addEventListener('click', ev => { ev.stopPropagation(); moveLayer(layer.id, +1); });
 
     const down = document.createElement('button');
-    down.className = 'move'; down.textContent = '▼'; down.title = 'Ниже';
+    down.className = 'move'; down.textContent = '▼';
     down.addEventListener('click', ev => { ev.stopPropagation(); moveLayer(layer.id, -1); });
 
     const rm = document.createElement('button');
-    rm.className = 'remove'; rm.textContent = '✕'; rm.title = 'Удалить слой';
+    rm.className = 'remove'; rm.textContent = '✕';
     rm.addEventListener('click', ev => {
       ev.stopPropagation();
       if (confirm(`Удалить слой «${layer.name}» и все его точки?`)) removeLayer(layer.id);
@@ -520,20 +611,18 @@ fileInput.addEventListener('change', async (e) => {
     try {
       const img = await loadImage(file);
       const id = nextImageId++;
-      const record = {
+      images.push({
         id,
         name: file.name.replace(/\.[^.]+$/, ''),
         width: img.naturalWidth,
         height: img.naturalHeight,
         img
-      };
-      images.push(record);
+      });
     } catch (err) {
       console.error('Не удалось загрузить', file.name, err);
     }
   }
 
-  // первый загруженный ракурс делаем активным
   if (!activeImageId && images.length) activeImageId = images[0].id;
 
   renderThumbs();
@@ -565,7 +654,6 @@ function renderThumbs() {
     const name = document.createElement('div');
     name.className = 'name';
     name.textContent = img.name;
-    // бейдж — сколько на этом ракурсе размечено
     const onImage = points.filter(p => p.imageId === img.id).length;
     if (onImage > 0) {
       const badge = document.createElement('div');
@@ -618,8 +706,6 @@ function drawOverlay() {
   if (!img) return;
   overlayCtx.clearRect(0, 0, img.width, img.height);
 
-  // сначала слои снизу вверх, но у нас 1 точка = 1 запись; рисуем точки активного ракурса
-  // и линии между точками одного слоя (порядок добавления / id)
   for (const layer of layers) {
     if (!layer.visible) continue;
     const layerPoints = points
@@ -646,6 +732,15 @@ function drawOverlay() {
 
     layerPoints.forEach(p => {
       const isSel = p.id === selectedPointId;
+      const isMoving = movingPoint && p.id === movingPointId;
+
+      if (isMoving) {
+        overlayCtx.beginPath();
+        overlayCtx.arc(p.x, p.y, 14, 0, Math.PI * 2);
+        overlayCtx.fillStyle = 'rgba(255,255,255,0.15)';
+        overlayCtx.fill();
+      }
+
       overlayCtx.beginPath();
       overlayCtx.arc(p.x, p.y, isSel ? 9 : 7, 0, Math.PI * 2);
       overlayCtx.fillStyle = isSel ? '#ff5050' : layer.color;
@@ -656,7 +751,6 @@ function drawOverlay() {
       overlayCtx.stroke();
       overlayCtx.globalAlpha = 1;
 
-      // label рядом с точкой
       overlayCtx.fillStyle = '#fff';
       overlayCtx.font = 'bold 11px sans-serif';
       overlayCtx.textAlign = 'left';
@@ -669,10 +763,261 @@ function drawOverlay() {
   }
   overlayCtx.textAlign = 'start';
   overlayCtx.textBaseline = 'alphabetic';
+
+  // Пропорции: вспомогательные линии (рост, ширина плеч, голова)
+  drawProportionHelpers(img);
+}
+
+function drawProportionHelpers(img) {
+  const P = collectPointsMap(img.id);
+  const need = ['head_top', 'chin', 'shoulder_l', 'shoulder_r', 'hip_l', 'hip_r', 'ankle_l', 'ankle_r'];
+  const available = need.filter(k => P[k]);
+  if (available.length < 2) return;
+
+  overlayCtx.save();
+  overlayCtx.globalAlpha = 0.35;
+  overlayCtx.strokeStyle = '#4caf50';
+  overlayCtx.lineWidth = 1.2;
+  overlayCtx.setLineDash([3, 5]);
+
+  // вертикаль от head_top до ankle_l/ankle_r (средняя)
+  if (P['head_top']) {
+    let bottomY = null;
+    if (P['ankle_l'] && P['ankle_r']) bottomY = (P['ankle_l'].y + P['ankle_r'].y) / 2;
+    else if (P['ankle_l']) bottomY = P['ankle_l'].y;
+    else if (P['ankle_r']) bottomY = P['ankle_r'].y;
+
+    if (bottomY !== null) {
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(P['head_top'].x, P['head_top'].y);
+      overlayCtx.lineTo(P['head_top'].x, bottomY);
+      overlayCtx.stroke();
+    }
+  }
+
+  // линия плеч
+  if (P['shoulder_l'] && P['shoulder_r']) {
+    overlayCtx.strokeStyle = '#ffb300';
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(P['shoulder_l'].x, P['shoulder_l'].y);
+    overlayCtx.lineTo(P['shoulder_r'].x, P['shoulder_r'].y);
+    overlayCtx.stroke();
+  }
+  // линия таза
+  if (P['hip_l'] && P['hip_r']) {
+    overlayCtx.strokeStyle = '#ff5252';
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(P['hip_l'].x, P['hip_l'].y);
+    overlayCtx.lineTo(P['hip_r'].x, P['hip_r'].y);
+    overlayCtx.stroke();
+  }
+
+  overlayCtx.restore();
 }
 
 // ============================================================
-//  СПИСОК 3D-ТОЧЕК (по label)
+//  ПРОПОРЦИИ
+// ============================================================
+function collectPointsMap(imageId) {
+  const map = {};
+  for (const p of points) {
+    if (p.imageId === imageId) map[p.label] = p;
+  }
+  return map;
+}
+
+function renderProportions() {
+  const img = getActiveImage();
+  if (!img) {
+    propGrid.innerHTML = '<div class="prop-empty">Загрузите изображение и разметьте ориентиры.</div>';
+    return;
+  }
+  const P = collectPointsMap(img.id);
+
+  const cards = [];
+
+  // ---- Рост ----
+  let heightPx = null;
+  if (P['head_top']) {
+    let bottom = null;
+    if (P['ankle_l'] && P['ankle_r']) bottom = (P['ankle_l'].y + P['ankle_r'].y) / 2;
+    else if (P['ankle_l']) bottom = P['ankle_l'].y;
+    else if (P['ankle_r']) bottom = P['ankle_r'].y;
+    if (bottom !== null) heightPx = Math.abs(bottom - P['head_top'].y);
+  }
+
+  // ---- Высота головы ----
+  let headH = null;
+  if (P['head_top'] && P['chin']) headH = dist(P['head_top'], P['chin']);
+
+  // ---- Отношение головы к росту (канон 1:7…1:8) ----
+  if (heightPx && headH) {
+    const ratio = heightPx / headH;
+    cards.push(makeCard(
+      'Голова к росту',
+      ratio.toFixed(2) + ' : 1',
+      'канон: 7.0 – 8.0',
+      ratio,
+      7.0, 8.0, 1.0
+    ));
+  }
+
+  // ---- Размах рук к росту (канон ≈1:1) ----
+  if (heightPx && P['wrist_l'] && P['wrist_r']) {
+    const span = dist(P['wrist_l'], P['wrist_r']);
+    const ratio = span / heightPx;
+    cards.push(makeCard(
+      'Размах рук к росту',
+      ratio.toFixed(2),
+      'канон: 0.95 – 1.05',
+      ratio, 0.95, 1.05, 0.07
+    ));
+  }
+
+  // ---- Ширина плеч к голове (канон ≈2.0–2.5) ----
+  if (headH && P['shoulder_l'] && P['shoulder_r']) {
+    const sw = dist(P['shoulder_l'], P['shoulder_r']);
+    const ratio = sw / headH;
+    cards.push(makeCard(
+      'Ширина плеч к голове',
+      ratio.toFixed(2),
+      'канон: 2.0 – 2.5',
+      ratio, 2.0, 2.5, 0.4
+    ));
+  }
+
+  // ---- Длина ног к росту (канон ≈0.47–0.53) ----
+  if (heightPx && P['hip_l'] && P['ankle_l']) {
+    const leg = dist(P['hip_l'], P['ankle_l']);
+    const ratio = leg / heightPx;
+    cards.push(makeCard(
+      'Нога к росту',
+      ratio.toFixed(2),
+      'канон: 0.47 – 0.53',
+      ratio, 0.47, 0.53, 0.07
+    ));
+  }
+
+  // ---- Плечо–локоть к росту (≈0.19) ----
+  if (heightPx && P['shoulder_l'] && P['elbow_l']) {
+    const v = dist(P['shoulder_l'], P['elbow_l']);
+    const ratio = v / heightPx;
+    cards.push(makeCard(
+      'Плечо–локоть к росту',
+      ratio.toFixed(2),
+      'канон ≈ 0.18 – 0.20',
+      ratio, 0.18, 0.20, 0.04
+    ));
+  }
+
+  // ---- Локоть–запястье к росту (≈0.15) ----
+  if (heightPx && P['elbow_l'] && P['wrist_l']) {
+    const v = dist(P['elbow_l'], P['wrist_l']);
+    const ratio = v / heightPx;
+    cards.push(makeCard(
+      'Предплечье к росту',
+      ratio.toFixed(2),
+      'канон ≈ 0.14 – 0.16',
+      ratio, 0.14, 0.16, 0.04
+    ));
+  }
+
+  // ---- Бедро к росту (≈0.245) ----
+  if (heightPx && P['hip_l'] && P['knee_l']) {
+    const v = dist(P['hip_l'], P['knee_l']);
+    const ratio = v / heightPx;
+    cards.push(makeCard(
+      'Бедро к росту',
+      ratio.toFixed(2),
+      'канон ≈ 0.23 – 0.26',
+      ratio, 0.23, 0.26, 0.04
+    ));
+  }
+
+  // ---- Голень к росту (≈0.246) ----
+  if (heightPx && P['knee_l'] && P['ankle_l']) {
+    const v = dist(P['knee_l'], P['ankle_l']);
+    const ratio = v / heightPx;
+    cards.push(makeCard(
+      'Голень к росту',
+      ratio.toFixed(2),
+      'канон ≈ 0.23 – 0.26',
+      ratio, 0.23, 0.26, 0.04
+    ));
+  }
+
+  // ---- Золотое сечение: пупок ↔ пол / рост (≈0.618) ----
+  if (heightPx && P['hip_l'] && P['hip_r'] && P['head_top']) {
+    let bottom = null;
+    if (P['ankle_l'] && P['ankle_r']) bottom = (P['ankle_l'].y + P['ankle_r'].y) / 2;
+    else if (P['ankle_l']) bottom = P['ankle_l'].y;
+    else if (P['ankle_r']) bottom = P['ankle_r'].y;
+    if (bottom !== null) {
+      const navelY = (P['hip_l'].y + P['hip_r'].y) / 2;
+      const lower = Math.abs(bottom - navelY);
+      const ratio = lower / heightPx;
+      cards.push(makeCard(
+        'Золотое сечение (низ)',
+        ratio.toFixed(3),
+        'канон ≈ 0.618',
+        ratio, 0.60, 0.64, 0.05
+      ));
+    }
+  }
+
+  // ---- Ширина таза к плечам (≈0.75–0.85) ----
+  if (P['shoulder_l'] && P['shoulder_r'] && P['hip_l'] && P['hip_r']) {
+    const sw = dist(P['shoulder_l'], P['shoulder_r']);
+    const hw = dist(P['hip_l'], P['hip_r']);
+    if (sw > 0) {
+      const ratio = hw / sw;
+      cards.push(makeCard(
+        'Таз к плечам',
+        ratio.toFixed(2),
+        'канон: 0.72 – 0.88',
+        ratio, 0.72, 0.88, 0.08
+      ));
+    }
+  }
+
+  // Если ни одной карточки — подсказка
+  if (cards.length === 0) {
+    propGrid.innerHTML = `
+      <div class="prop-empty">
+        Недостаточно ориентиров. Минимум: <code>head_top</code> + (<code>ankle_l</code> или <code>ankle_r</code>) + <code>chin</code>.
+        Используйте шаблон «🧍 Фигура (17)» и расставьте точки.
+      </div>`;
+    return;
+  }
+
+  propGrid.innerHTML = '';
+  cards.forEach(c => propGrid.appendChild(c));
+}
+
+function makeCard(title, valueStr, rangeStr, ratio, lo, hi, tolerance) {
+  const card = document.createElement('div');
+  card.className = 'prop-card';
+
+  let status = 'ok';
+  if (ratio < lo || ratio > hi) {
+    const distOut = ratio < lo ? (lo - ratio) : (ratio - hi);
+    if (distOut > tolerance * (hi - lo || 0.05)) status = 'bad';
+    else status = 'warn';
+  }
+  card.classList.add(status);
+
+  const statusText = status === 'ok' ? 'норма' : status === 'warn' ? 'внимание' : 'отклонение';
+
+  card.innerHTML = `
+    <div class="title">${title}<span class="status">${statusText}</span></div>
+    <div class="value">${valueStr}</div>
+    <div class="range">${rangeStr}</div>
+  `;
+  return card;
+}
+
+// ============================================================
+//  СПИСОК 3D-ТОЧЕК
 // ============================================================
 function renderPointList() {
   const labels = uniqueLabels().sort();
@@ -683,7 +1028,6 @@ function renderPointList() {
     return;
   }
 
-  // для каждого label берём координаты на активном ракурсе (если есть)
   pointListEl.innerHTML = '';
   labels.forEach(label => {
     const onActive = findPointOnImage(label, activeImageId);
@@ -703,21 +1047,11 @@ function renderPointList() {
       <span class="coords">${coords}</span>
     `;
     left.addEventListener('click', () => {
-      if (onActive) {
-        selectedPointId = onActive.id;
-        drawOverlay();
-        renderPointList();
-      } else {
-        // если на активном ракурсе нет — просто выделим первый экземпляр
-        if (anyPoint) {
-          selectedPointId = anyPoint.id;
-          drawOverlay();
-          renderPointList();
-        }
-      }
+      selectedPointId = onActive ? onActive.id : (anyPoint ? anyPoint.id : null);
+      drawOverlay();
+      renderPointList();
     });
 
-    // покрытие по ракурсам
     const cov = document.createElement('div');
     cov.className = 'coverage';
     images.forEach(im => {
@@ -728,19 +1062,15 @@ function renderPointList() {
       c.title = im.name + (has ? ' — размечено' : ' — не размечено');
       c.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        // переключаемся на этот ракурс и выделяем точку там
         if (im.id !== activeImageId) {
           activeImageId = im.id;
           renderThumbs();
           loadActiveImageOnCanvas();
         }
-        if (has) {
-          selectedPointId = has.id;
-        } else {
-          selectedPointId = null;
-        }
+        selectedPointId = has ? has.id : null;
         drawOverlay();
         renderPointList();
+        renderProportions();
       });
       cov.appendChild(c);
     });
@@ -748,7 +1078,6 @@ function renderPointList() {
     const rm = document.createElement('button');
     rm.className = 'remove';
     rm.textContent = '✕';
-    rm.title = 'Удалить точку со всех ракурсов';
     rm.addEventListener('click', (ev) => {
       ev.stopPropagation();
       if (!confirm(`Удалить точку «${label}» со всех ракурсов?`)) return;
@@ -758,6 +1087,7 @@ function renderPointList() {
       renderPointList();
       renderThumbs();
       renderLayerList();
+      renderProportions();
     });
 
     item.append(left, cov, rm);
@@ -821,7 +1151,7 @@ stageWrap.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 // ============================================================
-//  МЫШЬ
+//  ХИТ-ТЕСТ
 // ============================================================
 function clientToImage(clientX, clientY) {
   const rect = stageEl.getBoundingClientRect();
@@ -845,6 +1175,9 @@ function hitTestPoint(x, y) {
   return null;
 }
 
+// ============================================================
+//  МЫШЬ: панорама / перетаскивание
+// ============================================================
 stageWrap.addEventListener('mousedown', (e) => {
   if (e.button === 1 || e.button === 2) {
     e.preventDefault();
@@ -855,22 +1188,31 @@ stageWrap.addEventListener('mousedown', (e) => {
     stageWrap.style.cursor = 'grabbing';
     return;
   }
-  if (e.button === 0 && getActiveImage()) {
-    const { x, y } = clientToImage(e.clientX, e.clientY);
-    const hit = hitTestPoint(x, y);
-    if (hit) {
-      e.preventDefault();
-      movingPoint = true;
-      movingPointId = hit.id;
-      selectedPointId = hit.id;
-      if (activeLayerId !== hit.layerId) {
-        activeLayerId = hit.layerId;
-        renderLayerList();
-      }
-      drawOverlay();
-      renderPointList();
-      updateCursor();
+
+  if (e.button !== 0) return;
+  if (!getActiveImage()) return;
+
+  const { x, y } = clientToImage(e.clientX, e.clientY);
+  const hit = hitTestPoint(x, y);
+
+  if (hit) {
+    e.preventDefault();
+    movingPoint = true;
+    movingPointId = hit.id;
+    moveStartX = e.clientX;
+    moveStartY = e.clientY;
+    moveOrigX = hit.x;
+    moveOrigY = hit.y;
+    didMove = false;
+
+    selectedPointId = hit.id;
+    if (activeLayerId !== hit.layerId) {
+      activeLayerId = hit.layerId;
+      renderLayerList();
     }
+    drawOverlay();
+    renderPointList();
+    stageWrap.style.cursor = 'move';
   }
 });
 
@@ -881,16 +1223,36 @@ window.addEventListener('mousemove', (e) => {
     applyTransform();
     return;
   }
+
   if (movingPoint) {
-    const img = getActiveImage();
-    if (!img) return;
+    const dxScreen = e.clientX - moveStartX;
+    const dyScreen = e.clientY - moveStartY;
+    if (!didMove && Math.hypot(dxScreen, dyScreen) >= moveThreshold) didMove = true;
+    if (didMove) {
+      const img = getActiveImage();
+      if (!img) return;
+      const { x, y } = clientToImage(e.clientX, e.clientY);
+      const p = getPoint(movingPointId);
+      if (p) {
+        p.x = Math.max(0, Math.min(img.width - 1, x));
+        p.y = Math.max(0, Math.min(img.height - 1, y));
+        drawOverlay();
+        renderPointList();
+        renderProportions();
+      }
+    }
+    return;
+  }
+
+  if (!addLandmarkMode && !isDragging && getActiveImage()) {
     const { x, y } = clientToImage(e.clientX, e.clientY);
-    const p = getPoint(movingPointId);
-    if (p) {
-      p.x = Math.max(0, Math.min(img.width - 1, x));
-      p.y = Math.max(0, Math.min(img.height - 1, y));
-      drawOverlay();
-      renderPointList();
+    const hit = hitTestPoint(x, y);
+    if (hit) {
+      stageWrap.style.cursor = 'move';
+      stageWrap.classList.add('hovering-point');
+    } else {
+      stageWrap.style.cursor = 'grab';
+      stageWrap.classList.remove('hovering-point');
     }
   }
 });
@@ -902,10 +1264,16 @@ window.addEventListener('mouseup', () => {
     updateCursor();
   }
   if (movingPoint) {
+    const wasRealDrag = didMove;
     movingPoint = false;
     movingPointId = null;
+    didMove = false;
+    if (wasRealDrag) {
+      suppressClick = true;
+      setTimeout(() => { suppressClick = false; }, 0);
+      renderThumbs();
+    }
     updateCursor();
-    renderThumbs();
   }
 });
 
@@ -926,10 +1294,16 @@ stageWrap.addEventListener('touchstart', (e) => {
     const img = getActiveImage();
     const { x, y } = clientToImage(t.clientX, t.clientY);
     const hit = img ? hitTestPoint(x, y) : null;
+
     if (hit && !addLandmarkMode) {
       touchMode = 'movePoint';
       movingPoint = true;
       movingPointId = hit.id;
+      moveStartX = t.clientX;
+      moveStartY = t.clientY;
+      moveOrigX = hit.x;
+      moveOrigY = hit.y;
+      didMove = false;
       selectedPointId = hit.id;
       if (activeLayerId !== hit.layerId) {
         activeLayerId = hit.layerId;
@@ -954,16 +1328,23 @@ stageWrap.addEventListener('touchstart', (e) => {
 
 stageWrap.addEventListener('touchmove', (e) => {
   if (touchMode === 'movePoint' && e.touches.length === 1) {
-    const img = getActiveImage();
-    if (!img) return;
     const t = e.touches[0];
-    const { x, y } = clientToImage(t.clientX, t.clientY);
-    const p = getPoint(movingPointId);
-    if (p) {
-      p.x = Math.max(0, Math.min(img.width - 1, x));
-      p.y = Math.max(0, Math.min(img.height - 1, y));
-      drawOverlay();
-      renderPointList();
+    const dxScreen = t.clientX - moveStartX;
+    const dyScreen = t.clientY - moveStartY;
+    if (!didMove && Math.hypot(dxScreen, dyScreen) >= moveThreshold) didMove = true;
+    if (didMove) {
+      const img = getActiveImage();
+      if (img) {
+        const { x, y } = clientToImage(t.clientX, t.clientY);
+        const p = getPoint(movingPointId);
+        if (p) {
+          p.x = Math.max(0, Math.min(img.width - 1, x));
+          p.y = Math.max(0, Math.min(img.height - 1, y));
+          drawOverlay();
+          renderPointList();
+          renderProportions();
+        }
+      }
     }
     e.preventDefault();
   } else if (touchMode === 'pan' && e.touches.length === 1) {
@@ -973,8 +1354,8 @@ stageWrap.addEventListener('touchmove', (e) => {
     applyTransform();
   } else if (touchMode === 'pinch' && e.touches.length === 2) {
     const [a, b] = e.touches;
-    const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    const factor = dist / touchStartDist;
+    const distAB = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    const factor = distAB / touchStartDist;
     const newZoom = Math.max(0.05, Math.min(20, touchStartZoom * factor));
     const mx = (a.clientX + b.clientX) / 2;
     const my = (a.clientY + b.clientY) / 2;
@@ -991,11 +1372,35 @@ stageWrap.addEventListener('touchmove', (e) => {
 
 stageWrap.addEventListener('touchend', (e) => {
   if (touchMode === 'movePoint') {
+    const wasRealDrag = didMove;
+    const pointId = movingPointId;
     movingPoint = false;
     movingPointId = null;
+    didMove = false;
     updateCursor();
-    renderThumbs();
+
+    if (wasRealDrag) {
+      renderThumbs();
+    } else {
+      const p = getPoint(pointId);
+      if (p) {
+        if (p.id === selectedPointId) {
+          points = points.filter(x => x.id !== p.id);
+          selectedPointId = null;
+          drawOverlay();
+          renderPointList();
+          renderThumbs();
+          renderLayerList();
+          renderProportions();
+        } else {
+          selectedPointId = p.id;
+          drawOverlay();
+          renderPointList();
+        }
+      }
+    }
   }
+
   if (touchMode === 'pan' && !touchMoved) {
     const img = getActiveImage();
     if (img) {
@@ -1012,6 +1417,7 @@ stageWrap.addEventListener('touchend', (e) => {
         drawOverlay();
         renderPointList();
         renderThumbs();
+        renderProportions();
       } else if (addLandmarkMode) {
         addPointAt(x, y);
       }
@@ -1021,7 +1427,50 @@ stageWrap.addEventListener('touchend', (e) => {
 }, { passive: true });
 
 // ============================================================
-//  КЛИК (мышь): постановка / выделение / удаление
+//  CLICK
+// ============================================================
+stageWrap.addEventListener('click', (e) => {
+  if (suppressClick) {
+    suppressClick = false;
+    return;
+  }
+  if (isDragging) return;
+
+  const img = getActiveImage();
+  if (!img) return;
+
+  const { x, y } = clientToImage(e.clientX, e.clientY);
+  if (x < 0 || y < 0 || x >= img.width || y >= img.height) return;
+
+  if (addLandmarkMode) {
+    addPointAt(x, y);
+    return;
+  }
+
+  const hit = hitTestPoint(x, y);
+  if (hit) {
+    if (hit.id === selectedPointId) {
+      points = points.filter(p => p.id !== hit.id);
+      selectedPointId = null;
+      drawOverlay();
+      renderPointList();
+      renderThumbs();
+      renderLayerList();
+      renderProportions();
+    } else {
+      selectedPointId = hit.id;
+      drawOverlay();
+      renderPointList();
+    }
+    return;
+  }
+  selectedPointId = null;
+  drawOverlay();
+  renderPointList();
+});
+
+// ============================================================
+//  ПОСТАНОВКА ТОЧКИ
 // ============================================================
 function addPointAt(x, y) {
   const img = getActiveImage();
@@ -1029,14 +1478,12 @@ function addPointAt(x, y) {
   if (!img || !layer) return;
   if (x < 0 || y < 0 || x >= img.width || y >= img.height) return;
 
-  // спрашиваем имя
   const defaultLabel = suggestNextLabel();
   const input = prompt('Имя 3D-точки (одинаковое на всех ракурсах):', defaultLabel);
   if (input === null) return;
   const label = input.trim();
   if (!label) return;
 
-  // проверка: на этом ракурсе уже есть такая точка?
   const existing = findPointOnImage(label, img.id);
   if (existing) {
     alert(`Точка «${label}» уже есть на ракурсе «${img.name}».`);
@@ -1057,10 +1504,10 @@ function addPointAt(x, y) {
   renderPointList();
   renderThumbs();
   renderLayerList();
+  renderProportions();
 }
 
 function suggestNextLabel() {
-  // если есть выделенная точка — предлагаем её label (для доразметки того же имени на другом ракурсе)
   if (selectedPointId) {
     const p = getPoint(selectedPointId);
     if (p && !findPointOnImage(p.label, activeImageId)) return p.label;
@@ -1068,39 +1515,55 @@ function suggestNextLabel() {
   return 'point_' + (uniqueLabels().length + 1);
 }
 
-stageWrap.addEventListener('click', (e) => {
+// ============================================================
+//  ШАБЛОНЫ: применение
+// ============================================================
+tplRow.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-tpl]');
+  if (!btn) return;
+  const key = btn.dataset.tpl;
+  const tpl = TEMPLATES[key];
+  if (!tpl) return;
+
   const img = getActiveImage();
-  if (!img) return;
-  if (isDragging) return;
-
-  const { x, y } = clientToImage(e.clientX, e.clientY);
-  if (x < 0 || y < 0 || x >= img.width || y >= img.height) return;
-
-  if (addLandmarkMode) {
-    addPointAt(x, y);
+  const layer = getActiveLayer();
+  if (!img || !layer) {
+    alert('Сначала загрузите изображение и выберите активный слой.');
     return;
   }
 
-  const hit = hitTestPoint(x, y);
-  if (hit) {
-    if (hit.id === selectedPointId) {
-      // повторный клик — удалить эту точку только с текущего ракурса
-      points = points.filter(p => p.id !== hit.id);
-      selectedPointId = null;
-      drawOverlay();
-      renderPointList();
-      renderThumbs();
-      renderLayerList();
-    } else {
-      selectedPointId = hit.id;
-      drawOverlay();
-      renderPointList();
-    }
-    return;
+  // проверяем, сколько уже есть
+  const existing = tpl.labels.filter(l => findPointOnImage(l, img.id)).length;
+  if (existing > 0) {
+    if (!confirm(`На ракурсе уже размечено ${existing} из ${tpl.labels.length} точек шаблона «${tpl.name}». Продолжить? Будут добавлены только недостающие.`)) return;
   }
-  selectedPointId = null;
+
+  let added = 0;
+  for (const label of tpl.labels) {
+    if (findPointOnImage(label, img.id)) continue;
+    // создаём точку в центре изображения — её потом перетащат на место
+    points.push({
+      id: nextPointId++,
+      label,
+      imageId: img.id,
+      layerId: layer.id,
+      x: img.width / 2,
+      y: img.height / 2
+    });
+    added++;
+  }
+
   drawOverlay();
   renderPointList();
+  renderThumbs();
+  renderLayerList();
+  renderProportions();
+
+  if (added > 0) {
+    alert(`Добавлено ${added} точек в центре кадра. Перетащите их на нужные места.`);
+  } else {
+    alert('Все точки шаблона уже есть на этом ракурсе.');
+  }
 });
 
 // ============================================================
@@ -1124,6 +1587,7 @@ clearImagePointsBtn.addEventListener('click', () => {
   renderPointList();
   renderThumbs();
   renderLayerList();
+  renderProportions();
 });
 
 addLayerBtn.addEventListener('click', () => {
@@ -1145,36 +1609,74 @@ function download(filename, content, mime = 'application/json') {
   URL.revokeObjectURL(a.href);
 }
 
+// вычисление всех пропорций в объект (для экспорта)
+function computeProportionsObject(imageId) {
+  const P = collectPointsMap(imageId);
+  const out = {};
+
+  let heightPx = null;
+  if (P['head_top']) {
+    let bottom = null;
+    if (P['ankle_l'] && P['ankle_r']) bottom = (P['ankle_l'].y + P['ankle_r'].y) / 2;
+    else if (P['ankle_l']) bottom = P['ankle_l'].y;
+    else if (P['ankle_r']) bottom = P['ankle_r'].y;
+    if (bottom !== null) heightPx = Math.abs(bottom - P['head_top'].y);
+  }
+  out.height_px = heightPx;
+
+  let headH = null;
+  if (P['head_top'] && P['chin']) headH = dist(P['head_top'], P['chin']);
+  out.head_height_px = headH;
+
+  if (heightPx && headH) out.head_to_height = +(heightPx / headH).toFixed(3);
+  if (heightPx && P['wrist_l'] && P['wrist_r']) {
+    out.armspan_to_height = +(dist(P['wrist_l'], P['wrist_r']) / heightPx).toFixed(3);
+  }
+  if (headH && P['shoulder_l'] && P['shoulder_r']) {
+    out.shoulders_to_head = +(dist(P['shoulder_l'], P['shoulder_r']) / headH).toFixed(3);
+  }
+  if (heightPx && P['hip_l'] && P['ankle_l']) {
+    out.leg_to_height = +(dist(P['hip_l'], P['ankle_l']) / heightPx).toFixed(3);
+  }
+  if (heightPx && P['shoulder_l'] && P['elbow_l']) {
+    out.upperarm_to_height = +(dist(P['shoulder_l'], P['elbow_l']) / heightPx).toFixed(3);
+  }
+  if (heightPx && P['elbow_l'] && P['wrist_l']) {
+    out.forearm_to_height = +(dist(P['elbow_l'], P['wrist_l']) / heightPx).toFixed(3);
+  }
+  if (heightPx && P['hip_l'] && P['knee_l']) {
+    out.thigh_to_height = +(dist(P['hip_l'], P['knee_l']) / heightPx).toFixed(3);
+  }
+  if (heightPx && P['knee_l'] && P['ankle_l']) {
+    out.shin_to_height = +(dist(P['knee_l'], P['ankle_l']) / heightPx).toFixed(3);
+  }
+  if (P['shoulder_l'] && P['shoulder_r'] && P['hip_l'] && P['hip_r']) {
+    const sw = dist(P['shoulder_l'], P['shoulder_r']);
+    const hw = dist(P['hip_l'], P['hip_r']);
+    if (sw > 0) out.hip_to_shoulder = +(hw / sw).toFixed(3);
+  }
+  return out;
+}
+
 exportJsonBtn.addEventListener('click', () => {
   if (points.length === 0 && images.length === 0) {
-    alert('Нечего экспортировать — нет изображений и точек.');
+    alert('Нечего экспортировать.');
     return;
   }
+  const proportions = {};
+  for (const im of images) {
+    proportions[im.name] = computeProportionsObject(im.id);
+  }
+
   const data = {
-    version: 1,
+    version: 2,
     createdAt: new Date().toISOString(),
-    images: images.map(i => ({
-      id: i.id,
-      name: i.name,
-      width: i.width,
-      height: i.height
-    })),
-    layers: layers.map(l => ({
-      id: l.id,
-      name: l.name,
-      color: l.color,
-      visible: l.visible
-    })),
-    // точки в «плоском» виде — совместимо с большинством парсеров
+    images: images.map(i => ({ id: i.id, name: i.name, width: i.width, height: i.height })),
+    layers: layers.map(l => ({ id: l.id, name: l.name, color: l.color, visible: l.visible })),
     points: points.map(p => ({
-      id: p.id,
-      label: p.label,
-      imageId: p.imageId,
-      layerId: p.layerId,
-      x: p.x,
-      y: p.y
+      id: p.id, label: p.label, imageId: p.imageId,
+      layerId: p.layerId, x: p.x, y: p.y
     })),
-    // сгруппированно по label — для 3D-обработки
     pointsByLabel: (() => {
       const map = {};
       for (const p of points) {
@@ -1182,7 +1684,8 @@ exportJsonBtn.addEventListener('click', () => {
         map[p.label].push({ imageId: p.imageId, x: p.x, y: p.y, layerId: p.layerId });
       }
       return map;
-    })()
+    })(),
+    proportions
   };
   download('points3d.json', JSON.stringify(data, null, 2), 'application/json');
 });
@@ -1199,13 +1702,9 @@ exportCsvBtn.addEventListener('click', () => {
     const im = imgById.get(p.imageId);
     const ly = layerById.get(p.layerId);
     rows.push([
-      p.label,
-      im ? im.name : '',
-      p.imageId,
-      Math.round(p.x * 100) / 100,
-      Math.round(p.y * 100) / 100,
-      ly ? ly.name : '',
-      p.layerId
+      p.label, im ? im.name : '', p.imageId,
+      Math.round(p.x * 100) / 100, Math.round(p.y * 100) / 100,
+      ly ? ly.name : '', p.layerId
     ]);
   }
   const csv = rows.map(r => r.map(escapeCsv).join(',')).join('\n');
@@ -1227,7 +1726,8 @@ createLayer('Объект');
 renderLayerList();
 renderPointList();
 renderThumbs();
+renderProportions();
 updateCursor();
 </script>
 </body>
-</html>
+  </html>
