@@ -1,81 +1,100 @@
-<input type="file" id="fileInput" accept="image/*">
-<canvas id="canvas"></canvas>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Детектор лиц</title>
+    <!-- Подключаем библиотеку face-api.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f0f0f0; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        canvas { max-width: 100%; height: auto; display: block; margin: 20px auto; border-radius: 8px; }
+        input[type="file"] { margin-bottom: 20px; }
+        #status { color: #666; font-weight: bold; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Детектор лиц (Тест)</h2>
+        <input type="file" id="fileInput" accept="image/*">
+        <div id="status">Загрузка моделей...</div>
+        <!-- Сюда будем выводить картинку -->
+        <canvas id="canvas"></canvas>
+    </div>
 
-<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
-<script>
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-let session = null;
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const status = document.getElementById('status');
+        let modelsLoaded = false;
 
-// 1. Загрузка модели при старте (замените на ваш путь к модели)
-async function loadModel() {
-  try {
-    // ВАЖНО: загрузите .onnx файл в корень вашего репозитория GitHub
-    session = await ort.InferenceSession.create('./anime_face.onnx'); 
-    console.log("Модель загружена");
-  } catch (e) {
-    console.error("Ошибка загрузки модели:", e);
-  }
-}
-loadModel();
+        // 1. Загружаем модели для распознавания лиц
+        Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models'),
+            faceapi.nets.faceLandmark68Net.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models')
+        ]).then(() => {
+            modelsLoaded = true;
+            status.innerText = "Модели загружены. Выберите фото.";
+            status.style.color = "green";
+        }).catch(err => {
+            status.innerText = "Ошибка загрузки моделей: " + err;
+            status.style.color = "red";
+        });
 
-// 2. Обработка выбора файла
-document.getElementById('fileInput').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+        // 2. Обработка выбора файла
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
 
-  const img = new Image();
-  img.src = URL.createObjectURL(file);
-  await img.decode();
+            if (!modelsLoaded) {
+                alert("Подождите, модели еще загружаются...");
+                return;
+            }
 
-  // Устанавливаем размер canvas под картинку
-  canvas.width = img.width;
-  canvas.height = img.height;
-  ctx.drawImage(img, 0, 0);
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            await img.decode();
 
-  if (!session) {
-    alert("Модель еще загружается, подождите...");
-    return;
-  }
+            // Настраиваем размер холста под картинку
+            canvas.width = img.width;
+            canvas.height = img.height;
+            
+            // Рисуем картинку
+            ctx.drawImage(img, 0, 0);
+            status.innerText = "Идет детекция...";
 
-  // 3. Подготовка данных (Здесь зависит от вашей модели!)
-  // Примерный препроцессинг для YOLO:
-  const inputSize = 640;
-  const offscreen = document.createElement('canvas');
-  offscreen.width = inputSize;
-  offscreen.height = inputSize;
-  const offCtx = offscreen.getContext('2d');
-  offCtx.drawImage(img, 0, 0, inputSize, inputSize);
+            // 3. Запускаем детекцию
+            try {
+                const detections = await faceapi.detectAllFaces(canvas, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+                
+                status.innerText = `Найдено лиц: ${detections.length}`;
 
-  const imageData = offCtx.getImageData(0, 0, inputSize, inputSize);
-  const data = imageData.data;
-  const float32Data = new Float32Array(3 * inputSize * inputSize);
-
-  // Нормализация (обычно 0-1 и перевод в RGB planar)
-  for (let i = 0; i < data.length; i += 4) {
-    const idx = i / 4;
-    float32Data[idx] = data[i] / 255.0;               // R
-    float32Data[idx + inputSize * inputSize] = data[i+1] / 255.0; // G
-    float32Data[idx + 2 * inputSize * inputSize] = data[i+2] / 255.0; // B
-  }
-
-  const tensor = new ort.Tensor('float32', float32Data, [1, 3, inputSize, inputSize]);
-
-  // 4. Запуск нейросети
-  const feeds = {};
-  feeds[session.inputNames[0]] = tensor; // Имя входа модели
-  const results = await session.run(feeds);
-  
-  // 5. Отрисовка (Здесь ВАЖНО знать формат выхода вашей модели)
-  // Обычно YOLO возвращает массив [x, y, w, h, confidence, class1, class2...]
-  const output = results[session.outputNames[0]].data;
-  
-  // ВАМ НУЖНО БУДЕТ ДОБАВИТЬ ПАРСИНГ OUTPUT И NMS (Non-Maximum Suppression)
-  // Пример отрисовки (заглушка):
-  ctx.strokeStyle = 'red';
-  ctx.lineWidth = 3;
-  // ctx.strokeRect(x, y, w, h); 
-  
-  console.log("Результат модели:", results);
-});
-                                                         </script>
+                // 4. Отрисовка рамок
+                if (detections.length > 0) {
+                    detections.forEach(det => {
+                        const box = det.detection.box;
+                        // Рисуем красную рамку
+                        ctx.strokeStyle = '#ff0000';
+                        ctx.lineWidth = 4;
+                        ctx.strokeRect(box.x, box.y, box.width, box.height);
+                        
+                        // Точки (глаза, нос и т.д.)
+                        const landmarks = det.landmarks;
+                        ctx.fillStyle = '#00ff00';
+                        landmarks.positions.forEach(pt => {
+                            ctx.beginPath();
+                            ctx.arc(pt.x, pt.y, 3, 0, 2 * Math.PI);
+                            ctx.fill();
+                        });
+                    });
+                }
+            } catch (err) {
+                console.error(err);
+                status.innerText = "Ошибка при обработке картинки.";
+            }
+        });
+    </script>
+</body>
+</html>
