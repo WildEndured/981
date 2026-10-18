@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Точки-ориентиры · Zoom/Pan</title>
+<title>3D-разметка · Мультиракурс · Ориентиры</title>
 <style>
   :root {
     color-scheme: dark;
@@ -47,10 +47,40 @@
   }
   .topbar button:disabled { opacity: 0.4; cursor: not-allowed; }
 
+  .thumbs {
+    width: 100%; max-width: 1100px;
+    display: flex; gap: 8px; overflow-x: auto;
+    padding: 4px 0; scrollbar-width: thin;
+  }
+  .thumbs::-webkit-scrollbar { height: 6px; }
+  .thumbs::-webkit-scrollbar-thumb { background: #333a44; border-radius: 3px; }
+  .thumb {
+    flex-shrink: 0; position: relative;
+    width: 96px; height: 72px; border-radius: 8px;
+    border: 2px solid var(--border); background: #0b0c0f;
+    overflow: hidden; cursor: pointer;
+  }
+  .thumb.active { border-color: var(--accent); }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb .name {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 2px 4px; font-size: 10px;
+    background: rgba(0,0,0,0.6); color: #fff;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .thumb .badge {
+    position: absolute; top: 3px; right: 3px;
+    background: var(--accent); color: #fff;
+    font-size: 10px; padding: 1px 5px; border-radius: 8px;
+  }
+  .thumbs-empty {
+    color: var(--muted); font-size: 12px; padding: 6px 4px;
+  }
+
   .stage-wrap {
     position: relative;
     width: min(96vw, 1100px);
-    height: min(70vh, 800px);
+    height: min(62vh, 720px);
     background: #0b0c0f;
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -114,35 +144,99 @@
     max-width: 900px; text-align: center; line-height: 1.5;
     padding: 0 8px;
   }
-  .point-list { max-height: 300px; overflow-y: auto; font-size: 13px; }
+
+  .point-list { max-height: 400px; overflow-y: auto; font-size: 13px; }
   .point-item {
-    display: flex; justify-content: space-between; align-items: center;
-    gap: 8px; padding: 6px 8px; border-radius: 6px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px; border-radius: 6px;
   }
   .point-item:hover { background: #232830; }
   .point-item.selected { background: #232830; outline: 1px solid var(--accent); }
   .point-item .left {
-    display: flex; align-items: center; gap: 6px;
+    display: flex; align-items: center; gap: 8px;
     cursor: pointer; flex: 1; min-width: 0;
   }
   .point-item .dot {
     display: inline-block; width: 10px; height: 10px;
-    border-radius: 50%; background: #00e0ff; flex-shrink: 0;
+    border-radius: 50%; flex-shrink: 0;
+  }
+  .point-item .lbl {
+    font-weight: 600; min-width: 90px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .point-item .coords {
     color: var(--muted); font-variant-numeric: tabular-nums;
     white-space: nowrap; font-size: 12px;
   }
+  .point-item .coverage {
+    display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto;
+  }
+  .point-item .cov {
+    font-size: 10px; padding: 1px 5px; border-radius: 8px;
+    background: #232830; color: var(--muted);
+    border: 1px solid #333a44;
+  }
+  .point-item .cov.on { background: #1e3a5f; color: #9fd0ff; border-color: #2b6cb0; }
   .point-item .remove {
     background: transparent; border: none; color: #ff6060;
-    font-size: 18px; padding: 6px 10px; cursor: pointer;
+    font-size: 16px; padding: 4px 8px; cursor: pointer;
     line-height: 1; border-radius: 6px;
   }
+
+  .layer-list { display: flex; flex-direction: column; gap: 6px; }
+  .layer-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border-radius: 8px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .layer-item.active { border-color: var(--accent); background: #1f2530; }
+  .layer-item.hidden-layer .layer-name { text-decoration: line-through; opacity: 0.55; }
+  .layer-item .vis {
+    background: transparent; border: none; color: var(--muted-2);
+    font-size: 16px; cursor: pointer; padding: 2px 6px; border-radius: 4px;
+  }
+  .layer-item .vis:hover { background: #2b2f37; color: #fff; }
+  .layer-item input[type="color"] {
+    width: 26px; height: 22px; border: none; padding: 0; background: transparent; cursor: pointer;
+  }
+  .layer-item .layer-name {
+    flex: 1; min-width: 0; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .layer-item .layer-count { color: var(--muted); font-size: 12px; }
+  .layer-item .move {
+    background: transparent; border: none; color: var(--muted-2);
+    font-size: 14px; cursor: pointer; padding: 2px 6px; border-radius: 4px;
+  }
+  .layer-item .move:hover { background: #2b2f37; color: #fff; }
+  .layer-item .remove {
+    background: transparent; border: none; color: #ff6060;
+    font-size: 16px; cursor: pointer; padding: 2px 6px; border-radius: 4px;
+  }
+  .layer-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+  .layer-actions button {
+    height: 32px; padding: 0 12px; font-size: 13px;
+    border-radius: 8px; border: 1px solid #333a44;
+    background: #232830; color: var(--text); cursor: pointer;
+  }
+  .layer-actions button:hover { background: var(--accent); border-color: var(--accent); }
+
+  .mode-row {
+    display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;
+  }
+  .mode-row button {
+    height: 32px; padding: 0 12px; font-size: 13px;
+    border-radius: 8px; border: 1px solid #333a44;
+    background: #232830; color: var(--text); cursor: pointer;
+  }
+  .mode-row button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
   @media (max-width: 600px) {
     body { padding: 6px 6px 30px; gap: 8px; }
     .topbar button, .topbar .file-label { height: 36px; padding: 0 10px; font-size: 12px; }
-    .stage-wrap { height: 55vh; }
+    .stage-wrap { height: 50vh; }
+    .thumb { width: 72px; height: 54px; }
   }
 </style>
 </head>
@@ -150,12 +244,17 @@
 
 <div class="topbar">
   <label class="file-label">
-    📷 Файл
-    <input id="file" type="file" accept="image/*" />
+    📷 Добавить фото
+    <input id="file" type="file" accept="image/*" multiple />
   </label>
-  <button id="addLandmarkBtn">📍 Ориентир</button>
-  <button id="clearLandmarksBtn">✕ Очистить ориентиры</button>
-  <button id="closeLandmarksBtn">🔗 Замкнуть</button>
+  <button id="addLandmarkBtn">📍 Точка</button>
+  <button id="clearImagePointsBtn">✕ Очистить ракурс</button>
+  <button id="exportJsonBtn">💾 JSON</button>
+  <button id="exportCsvBtn">📄 CSV</button>
+</div>
+
+<div class="thumbs" id="thumbs">
+  <div class="thumbs-empty">Загрузите одно или несколько изображений одного объекта.</div>
 </div>
 
 <div class="stage-wrap" id="stageWrap">
@@ -172,24 +271,36 @@
 </div>
 
 <p class="hint">
-  Включите «📍 Ориентир» и кликайте по изображению — точки соединяются линией в порядке добавления.
-  Клик по уже стоящей точке (вне режима добавления) — выделить/удалить. СКМ или ПКМ — панорама. Колесо — зум.
+  «📍 Точка» — клик ставит точку с именем в активном слое на текущем ракурсе. Имя должно совпадать на всех ракурсах для одной 3D-точки.
+  Перетаскивание ЛКМ/пальцем двигает точку. Клик по точке — выделить; повторный клик — удалить.
+  СКМ/ПКМ — панорама, колесо — зум.
 </p>
 
 <div class="panel">
   <h2>Изображение</h2>
   <div class="panel-section">
+    <div class="kv"><span>Ракурс</span><span id="infoImage">—</span></div>
     <div class="kv"><span>Размер</span><span id="infoSize">—</span></div>
     <div class="kv"><span>Масштаб</span><span id="infoZoom">100%</span></div>
   </div>
 </div>
 
 <div class="panel">
-  <h2>Точки-ориентиры</h2>
+  <h2>Слои</h2>
   <div class="panel-section">
-    <h3>Список ориентиров <span id="infoLandmarksCount" style="color:var(--muted);font-weight:400;">(0)</span></h3>
-    <div class="point-list" id="landmarkList">
-      <div style="color:var(--muted);font-size:12px;padding:4px 0;">Ориентиры не заданы.</div>
+    <div class="layer-actions">
+      <button id="addLayerBtn">+ Слой</button>
+    </div>
+    <div class="layer-list" id="layerList"></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>3D-точки (по label)</h2>
+  <div class="panel-section">
+    <h3>Список <span id="infoPointsCount" style="color:var(--muted);font-weight:400;">(0)</span></h3>
+    <div class="point-list" id="pointList">
+      <div style="color:var(--muted);font-size:12px;padding:4px 0;">Точки не заданы.</div>
     </div>
   </div>
 </div>
@@ -203,20 +314,27 @@ const baseCanvas = document.getElementById('base');
 const overlay = document.getElementById('overlay');
 const stageEl = document.getElementById('stage');
 const stageWrap = document.getElementById('stageWrap');
+const thumbsEl = document.getElementById('thumbs');
 
 const zoomInBtn = document.getElementById('zoomInBtn');
 const zoomOutBtn = document.getElementById('zoomOutBtn');
 const zoomFitBtn = document.getElementById('zoomFitBtn');
 const zoomResetBtn = document.getElementById('zoomResetBtn');
 
+const infoImage = document.getElementById('infoImage');
 const infoSize = document.getElementById('infoSize');
 const infoZoom = document.getElementById('infoZoom');
 
 const addLandmarkBtn = document.getElementById('addLandmarkBtn');
-const clearLandmarksBtn = document.getElementById('clearLandmarksBtn');
-const closeLandmarksBtn = document.getElementById('closeLandmarksBtn');
-const landmarkList = document.getElementById('landmarkList');
-const infoLandmarksCount = document.getElementById('infoLandmarksCount');
+const clearImagePointsBtn = document.getElementById('clearImagePointsBtn');
+const exportJsonBtn = document.getElementById('exportJsonBtn');
+const exportCsvBtn = document.getElementById('exportCsvBtn');
+
+const layerListEl = document.getElementById('layerList');
+const addLayerBtn = document.getElementById('addLayerBtn');
+
+const pointListEl = document.getElementById('pointList');
+const infoPointsCount = document.getElementById('infoPointsCount');
 
 const baseCtx = baseCanvas.getContext('2d');
 const overlayCtx = overlay.getContext('2d');
@@ -224,157 +342,428 @@ const overlayCtx = overlay.getContext('2d');
 // ============================================================
 //  СОСТОЯНИЕ
 // ============================================================
-let imgWidth = 0, imgHeight = 0;
+// images: [{ id, name, width, height, img (HTMLImageElement), dataUrl }]
+let images = [];
+let activeImageId = null;
+let nextImageId = 1;
 
-// -------- ТОЧКИ-ОРИЕНТИРЫ: состояние --------
-let landmarks = [];
+// layers: [{ id, name, color, visible }]
+let layers = [];
+let activeLayerId = null;
+let nextLayerId = 1;
+const PALETTE = ['#00e0ff', '#ffcc00', '#a0ff60', '#ff7ad9', '#ff9040', '#9d7bff', '#00ffb3', '#ff4d4d'];
+
+// points: [{ id, label, imageId, layerId, x, y }]
+// одна 3D-точка = один label; на каждом ракурсе может быть 0 или 1 запись с этим label
+let points = [];
+let nextPointId = 1;
+
+let selectedPointId = null;     // id выделенной точки
 let addLandmarkMode = false;
-let selectedLandmarkIndex = -1;
-let closedLoop = false; // замыкать ли линию в кольцо
-// -------- /ТОЧКИ-ОРИЕНТИРЫ --------
 
+// перетаскивание
+let movingPoint = false;
+let movingPointId = null;
+
+// зум/пан
 let zoom = 1, panX = 0, panY = 0;
 let fitZoom = 1;
 let isDragging = false, dragStartX = 0, dragStartY = 0;
 let dragStartPanX = 0, dragStartPanY = 0;
 
 // ============================================================
-//  ЗАГРУЗКА ИЗОБРАЖЕНИЯ
+//  УТИЛИТЫ
 // ============================================================
-fileInput.addEventListener('change', e => {
-  const file = e.target.files && e.target.files[0];
-  if (!file) return;
-
-  const img = new Image();
-  img.onload = () => {
-    imgWidth = img.naturalWidth;
-    imgHeight = img.naturalHeight;
-    [baseCanvas, overlay].forEach(c => { c.width = imgWidth; c.height = imgHeight; });
-    baseCtx.clearRect(0, 0, imgWidth, imgHeight);
-    baseCtx.drawImage(img, 0, 0);
-
-    // -------- ТОЧКИ-ОРИЕНТИРЫ: сброс при новой загрузке --------
-    landmarks = [];
-    selectedLandmarkIndex = -1;
-    closedLoop = false;
-    addLandmarkMode = false;
-    addLandmarkBtn.classList.remove('active');
-    closeLandmarksBtn.classList.remove('active');
-    renderLandmarkList();
-    // -------- /ТОЧКИ-ОРИЕНТИРЫ --------
-
-    infoSize.textContent = `${imgWidth} × ${imgHeight}`;
-
-    requestAnimationFrame(() => {
-      fitToView();
-      drawOverlay();
-    });
-  };
-  img.onerror = () => alert('Не удалось загрузить изображение');
-  img.src = URL.createObjectURL(file);
-});
-
-// ============================================================
-//  КУРСОР
-// ============================================================
+function getActiveImage() {
+  return images.find(i => i.id === activeImageId) || null;
+}
+function getActiveLayer() {
+  return layers.find(l => l.id === activeLayerId) || null;
+}
+function getLayer(id) {
+  return layers.find(l => l.id === id) || null;
+}
+function getPoint(id) {
+  return points.find(p => p.id === id) || null;
+}
+function findPointOnImage(label, imageId) {
+  return points.find(p => p.label === label && p.imageId === imageId) || null;
+}
+function uniqueLabels() {
+  const set = new Set(points.map(p => p.label));
+  return Array.from(set);
+}
 function updateCursor() {
   if (isDragging) return;
+  if (movingPoint) { stageWrap.style.cursor = 'move'; return; }
   stageWrap.style.cursor = addLandmarkMode ? 'copy' : 'grab';
 }
 
 // ============================================================
-//  ОТРИСОВКА ОВЕРЛЕЯ
+//  СЛОИ
 // ============================================================
-function drawOverlay() {
-  const w = imgWidth, h = imgHeight;
-  if (!w) return;
-  overlayCtx.clearRect(0, 0, w, h);
-
-  // -------- ТОЧКИ-ОРИЕНТИРЫ: линия + маркеры --------
-  if (landmarks.length > 0) {
-    // линия, соединяющая ориентиры в порядке добавления
-    if (landmarks.length > 1) {
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(landmarks[0].x, landmarks[0].y);
-      for (let i = 1; i < landmarks.length; i++) {
-        overlayCtx.lineTo(landmarks[i].x, landmarks[i].y);
-      }
-      // замыкание в кольцо
-      if (closedLoop && landmarks.length > 2) {
-        overlayCtx.lineTo(landmarks[0].x, landmarks[0].y);
-      }
-      overlayCtx.lineWidth = 2;
-      overlayCtx.strokeStyle = '#00e0ff';
-      overlayCtx.setLineDash([6, 4]);
-      overlayCtx.stroke();
-      overlayCtx.setLineDash([]);
-    }
-
-    // сами маркеры-ориентиры
-    landmarks.forEach((p, i) => {
-      const isSel = i === selectedLandmarkIndex;
-      overlayCtx.beginPath();
-      overlayCtx.arc(p.x, p.y, isSel ? 9 : 7, 0, Math.PI * 2);
-      overlayCtx.fillStyle = isSel ? '#ff5050' : '#00e0ff';
-      overlayCtx.fill();
-      overlayCtx.lineWidth = 2;
-      overlayCtx.strokeStyle = '#003a4a';
-      overlayCtx.stroke();
-
-      // номер ориентира
-      overlayCtx.fillStyle = '#003a4a';
-      overlayCtx.font = 'bold 10px sans-serif';
-      overlayCtx.textAlign = 'center';
-      overlayCtx.textBaseline = 'middle';
-      overlayCtx.fillText(String(i + 1), p.x, p.y + 0.5);
-    });
-    overlayCtx.textAlign = 'start';
-    overlayCtx.textBaseline = 'alphabetic';
+function createLayer(name) {
+  const id = nextLayerId++;
+  const color = PALETTE[(id - 1) % PALETTE.length];
+  const layer = { id, name: name || ('Слой ' + id), color, visible: true };
+  layers.push(layer);
+  if (activeLayerId === null) activeLayerId = id;
+  return layer;
+}
+function removeLayer(id) {
+  const idx = layers.findIndex(l => l.id === id);
+  if (idx === -1) return;
+  layers.splice(idx, 1);
+  points = points.filter(p => p.layerId !== id);
+  if (activeLayerId === id) {
+    activeLayerId = layers.length ? layers[Math.max(0, idx - 1)].id : null;
   }
-  // -------- /ТОЧКИ-ОРИЕНТИРЫ --------
+  if (selectedPointId && !getPoint(selectedPointId)) selectedPointId = null;
+  renderLayerList();
+  renderPointList();
+  drawOverlay();
+}
+function moveLayer(id, dir) {
+  const idx = layers.findIndex(l => l.id === id);
+  if (idx === -1) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= layers.length) return;
+  const [l] = layers.splice(idx, 1);
+  layers.splice(newIdx, 0, l);
+  renderLayerList();
+  drawOverlay();
 }
 
-// ============================================================
-//  СПИСОК ОРИЕНТИРОВ
-// ============================================================
-// -------- ТОЧКИ-ОРИЕНТИРЫ: отрисовка списка --------
-function renderLandmarkList() {
-  infoLandmarksCount.textContent = `(${landmarks.length})`;
-  if (landmarks.length === 0) {
-    landmarkList.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:4px 0;">Ориентиры не заданы.</div>';
+function renderLayerList() {
+  layerListEl.innerHTML = '';
+  if (layers.length === 0) {
+    layerListEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:4px 0;">Слоёв нет.</div>';
     return;
   }
-  landmarkList.innerHTML = '';
-  landmarks.forEach((p, i) => {
+  const ordered = layers.slice().reverse();
+  ordered.forEach(layer => {
     const item = document.createElement('div');
-    item.className = 'point-item' + (i === selectedLandmarkIndex ? ' selected' : '');
-    const left = document.createElement('div');
-    left.className = 'left';
-    const dotColor = (i === selectedLandmarkIndex) ? '#ff5050' : '#00e0ff';
-    left.innerHTML = `<span class="dot" style="background:${dotColor}"></span><span>#${i + 1}</span><span class="coords">x=${p.x}, y=${p.y}</span>`;
-    left.addEventListener('click', () => {
-      selectedLandmarkIndex = i;
+    item.className = 'layer-item';
+    if (layer.id === activeLayerId) item.classList.add('active');
+    if (!layer.visible) item.classList.add('hidden-layer');
+
+    const vis = document.createElement('button');
+    vis.className = 'vis';
+    vis.textContent = layer.visible ? '👁' : '🚫';
+    vis.title = layer.visible ? 'Скрыть' : 'Показать';
+    vis.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      layer.visible = !layer.visible;
+      renderLayerList();
       drawOverlay();
-      renderLandmarkList();
     });
-    const btn = document.createElement('button');
-    btn.className = 'remove';
-    btn.textContent = '✕';
-    btn.addEventListener('click', (ev) => { ev.stopPropagation(); removeLandmark(i); });
-    item.appendChild(left);
-    item.appendChild(btn);
-    landmarkList.appendChild(item);
+
+    const colorInput = document.createElement('input');
+    colorInput.type = 'color';
+    colorInput.value = layer.color;
+    colorInput.addEventListener('input', () => {
+      layer.color = colorInput.value;
+      drawOverlay();
+      renderPointList();
+    });
+    colorInput.addEventListener('click', ev => ev.stopPropagation());
+
+    const name = document.createElement('div');
+    name.className = 'layer-name';
+    name.textContent = layer.name;
+    name.title = 'Клик — активный, двойной — переименовать';
+    name.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      activeLayerId = layer.id;
+      renderLayerList();
+      renderPointList();
+      drawOverlay();
+    });
+    name.addEventListener('dblclick', (ev) => {
+      ev.stopPropagation();
+      const v = prompt('Имя слоя:', layer.name);
+      if (v && v.trim()) { layer.name = v.trim(); renderLayerList(); }
+    });
+
+    const count = document.createElement('span');
+    count.className = 'layer-count';
+    count.textContent = `(${points.filter(p => p.layerId === layer.id).length})`;
+
+    const up = document.createElement('button');
+    up.className = 'move'; up.textContent = '▲'; up.title = 'Выше';
+    up.addEventListener('click', ev => { ev.stopPropagation(); moveLayer(layer.id, +1); });
+
+    const down = document.createElement('button');
+    down.className = 'move'; down.textContent = '▼'; down.title = 'Ниже';
+    down.addEventListener('click', ev => { ev.stopPropagation(); moveLayer(layer.id, -1); });
+
+    const rm = document.createElement('button');
+    rm.className = 'remove'; rm.textContent = '✕'; rm.title = 'Удалить слой';
+    rm.addEventListener('click', ev => {
+      ev.stopPropagation();
+      if (confirm(`Удалить слой «${layer.name}» и все его точки?`)) removeLayer(layer.id);
+    });
+
+    item.append(vis, colorInput, name, count, up, down, rm);
+    layerListEl.appendChild(item);
   });
 }
 
-function removeLandmark(index) {
-  landmarks.splice(index, 1);
-  if (selectedLandmarkIndex === index) selectedLandmarkIndex = -1;
-  else if (selectedLandmarkIndex > index) selectedLandmarkIndex--;
-  drawOverlay();
-  renderLandmarkList();
+// ============================================================
+//  ЗАГРУЗКА ИЗОБРАЖЕНИЙ
+// ============================================================
+fileInput.addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []);
+  if (files.length === 0) return;
+
+  for (const file of files) {
+    try {
+      const img = await loadImage(file);
+      const id = nextImageId++;
+      const record = {
+        id,
+        name: file.name.replace(/\.[^.]+$/, ''),
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+        img
+      };
+      images.push(record);
+    } catch (err) {
+      console.error('Не удалось загрузить', file.name, err);
+    }
+  }
+
+  // первый загруженный ракурс делаем активным
+  if (!activeImageId && images.length) activeImageId = images[0].id;
+
+  renderThumbs();
+  renderPointList();
+  loadActiveImageOnCanvas();
+  fileInput.value = '';
+});
+
+function loadImage(file) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = rej;
+    img.src = URL.createObjectURL(file);
+  });
 }
-// -------- /ТОЧКИ-ОРИЕНТИРЫ: список --------
+
+function renderThumbs() {
+  thumbsEl.innerHTML = '';
+  if (images.length === 0) {
+    thumbsEl.innerHTML = '<div class="thumbs-empty">Загрузите одно или несколько изображений одного объекта.</div>';
+    return;
+  }
+  images.forEach(img => {
+    const div = document.createElement('div');
+    div.className = 'thumb' + (img.id === activeImageId ? ' active' : '');
+    const im = document.createElement('img');
+    im.src = img.img.src;
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.textContent = img.name;
+    // бейдж — сколько на этом ракурсе размечено
+    const onImage = points.filter(p => p.imageId === img.id).length;
+    if (onImage > 0) {
+      const badge = document.createElement('div');
+      badge.className = 'badge';
+      badge.textContent = onImage;
+      div.appendChild(badge);
+    }
+    div.append(im, name);
+    div.addEventListener('click', () => {
+      activeImageId = img.id;
+      selectedPointId = null;
+      renderThumbs();
+      renderPointList();
+      loadActiveImageOnCanvas();
+    });
+    thumbsEl.appendChild(div);
+  });
+}
+
+function loadActiveImageOnCanvas() {
+  const img = getActiveImage();
+  if (!img) {
+    baseCanvas.width = 0; baseCanvas.height = 0;
+    overlay.width = 0; overlay.height = 0;
+    infoImage.textContent = '—';
+    infoSize.textContent = '—';
+    return;
+  }
+  baseCanvas.width = img.width;
+  baseCanvas.height = img.height;
+  overlay.width = img.width;
+  overlay.height = img.height;
+  baseCtx.clearRect(0, 0, img.width, img.height);
+  baseCtx.drawImage(img.img, 0, 0);
+
+  infoImage.textContent = img.name;
+  infoSize.textContent = `${img.width} × ${img.height}`;
+
+  requestAnimationFrame(() => {
+    fitToView();
+    drawOverlay();
+  });
+}
+
+// ============================================================
+//  ОТРИСОВКА
+// ============================================================
+function drawOverlay() {
+  const img = getActiveImage();
+  if (!img) return;
+  overlayCtx.clearRect(0, 0, img.width, img.height);
+
+  // сначала слои снизу вверх, но у нас 1 точка = 1 запись; рисуем точки активного ракурса
+  // и линии между точками одного слоя (порядок добавления / id)
+  for (const layer of layers) {
+    if (!layer.visible) continue;
+    const layerPoints = points
+      .filter(p => p.imageId === img.id && p.layerId === layer.id)
+      .sort((a, b) => a.id - b.id);
+    if (layerPoints.length === 0) continue;
+
+    const isActive = layer.id === activeLayerId;
+
+    if (layerPoints.length > 1) {
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(layerPoints[0].x, layerPoints[0].y);
+      for (let i = 1; i < layerPoints.length; i++) {
+        overlayCtx.lineTo(layerPoints[i].x, layerPoints[i].y);
+      }
+      overlayCtx.lineWidth = isActive ? 2 : 1.5;
+      overlayCtx.strokeStyle = layer.color;
+      overlayCtx.globalAlpha = isActive ? 0.9 : 0.5;
+      overlayCtx.setLineDash([6, 4]);
+      overlayCtx.stroke();
+      overlayCtx.setLineDash([]);
+      overlayCtx.globalAlpha = 1;
+    }
+
+    layerPoints.forEach(p => {
+      const isSel = p.id === selectedPointId;
+      overlayCtx.beginPath();
+      overlayCtx.arc(p.x, p.y, isSel ? 9 : 7, 0, Math.PI * 2);
+      overlayCtx.fillStyle = isSel ? '#ff5050' : layer.color;
+      overlayCtx.fill();
+      overlayCtx.lineWidth = 2;
+      overlayCtx.strokeStyle = '#003a4a';
+      overlayCtx.globalAlpha = isActive ? 1 : 0.75;
+      overlayCtx.stroke();
+      overlayCtx.globalAlpha = 1;
+
+      // label рядом с точкой
+      overlayCtx.fillStyle = '#fff';
+      overlayCtx.font = 'bold 11px sans-serif';
+      overlayCtx.textAlign = 'left';
+      overlayCtx.textBaseline = 'middle';
+      overlayCtx.strokeStyle = 'rgba(0,0,0,0.8)';
+      overlayCtx.lineWidth = 3;
+      overlayCtx.strokeText(p.label, p.x + 10, p.y);
+      overlayCtx.fillText(p.label, p.x + 10, p.y);
+    });
+  }
+  overlayCtx.textAlign = 'start';
+  overlayCtx.textBaseline = 'alphabetic';
+}
+
+// ============================================================
+//  СПИСОК 3D-ТОЧЕК (по label)
+// ============================================================
+function renderPointList() {
+  const labels = uniqueLabels().sort();
+  infoPointsCount.textContent = `(${labels.length})`;
+
+  if (labels.length === 0) {
+    pointListEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:4px 0;">Точки не заданы.</div>';
+    return;
+  }
+
+  // для каждого label берём координаты на активном ракурсе (если есть)
+  pointListEl.innerHTML = '';
+  labels.forEach(label => {
+    const onActive = findPointOnImage(label, activeImageId);
+    const anyPoint = points.find(p => p.label === label);
+    const layer = anyPoint ? getLayer(anyPoint.layerId) : null;
+    const color = layer ? layer.color : '#888';
+
+    const item = document.createElement('div');
+    item.className = 'point-item' + (onActive && onActive.id === selectedPointId ? ' selected' : '');
+
+    const left = document.createElement('div');
+    left.className = 'left';
+    const coords = onActive ? `x=${Math.round(onActive.x)}, y=${Math.round(onActive.y)}` : '— на этом ракурсе';
+    left.innerHTML = `
+      <span class="dot" style="background:${color}"></span>
+      <span class="lbl">${label}</span>
+      <span class="coords">${coords}</span>
+    `;
+    left.addEventListener('click', () => {
+      if (onActive) {
+        selectedPointId = onActive.id;
+        drawOverlay();
+        renderPointList();
+      } else {
+        // если на активном ракурсе нет — просто выделим первый экземпляр
+        if (anyPoint) {
+          selectedPointId = anyPoint.id;
+          drawOverlay();
+          renderPointList();
+        }
+      }
+    });
+
+    // покрытие по ракурсам
+    const cov = document.createElement('div');
+    cov.className = 'coverage';
+    images.forEach(im => {
+      const has = findPointOnImage(label, im.id);
+      const c = document.createElement('span');
+      c.className = 'cov' + (has ? ' on' : '');
+      c.textContent = im.name.slice(0, 8) + (has ? ' ✓' : '');
+      c.title = im.name + (has ? ' — размечено' : ' — не размечено');
+      c.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        // переключаемся на этот ракурс и выделяем точку там
+        if (im.id !== activeImageId) {
+          activeImageId = im.id;
+          renderThumbs();
+          loadActiveImageOnCanvas();
+        }
+        if (has) {
+          selectedPointId = has.id;
+        } else {
+          selectedPointId = null;
+        }
+        drawOverlay();
+        renderPointList();
+      });
+      cov.appendChild(c);
+    });
+
+    const rm = document.createElement('button');
+    rm.className = 'remove';
+    rm.textContent = '✕';
+    rm.title = 'Удалить точку со всех ракурсов';
+    rm.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (!confirm(`Удалить точку «${label}» со всех ракурсов?`)) return;
+      points = points.filter(p => p.label !== label);
+      if (selectedPointId && !getPoint(selectedPointId)) selectedPointId = null;
+      drawOverlay();
+      renderPointList();
+      renderThumbs();
+      renderLayerList();
+    });
+
+    item.append(left, cov, rm);
+    pointListEl.appendChild(item);
+  });
+}
 
 // ============================================================
 //  ZOOM / PAN
@@ -383,25 +772,25 @@ function applyTransform() {
   stageEl.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
   infoZoom.textContent = Math.round(zoom * 100) + '%';
 }
-
 function fitToView() {
-  if (!imgWidth) return;
+  const img = getActiveImage();
+  if (!img) return;
   const wrapW = stageWrap.clientWidth;
   const wrapH = stageWrap.clientHeight;
-  fitZoom = Math.min(wrapW / imgWidth, wrapH / imgHeight) * 0.98;
+  fitZoom = Math.min(wrapW / img.width, wrapH / img.height) * 0.98;
   zoom = fitZoom;
-  panX = (wrapW - imgWidth * zoom) / 2;
-  panY = (wrapH - imgHeight * zoom) / 2;
+  panX = (wrapW - img.width * zoom) / 2;
+  panY = (wrapH - img.height * zoom) / 2;
   applyTransform();
 }
-
 function resetZoom() {
+  const img = getActiveImage();
+  if (!img) return;
   zoom = 1;
-  panX = (stageWrap.clientWidth - imgWidth) / 2;
-  panY = (stageWrap.clientHeight - imgHeight) / 2;
+  panX = (stageWrap.clientWidth - img.width) / 2;
+  panY = (stageWrap.clientHeight - img.height) / 2;
   applyTransform();
 }
-
 function zoomAt(factor, clientX, clientY) {
   const rect = stageWrap.getBoundingClientRect();
   const mx = clientX - rect.left;
@@ -431,47 +820,130 @@ stageWrap.addEventListener('wheel', (e) => {
   zoomAt(factor, e.clientX, e.clientY);
 }, { passive: false });
 
+// ============================================================
+//  МЫШЬ
+// ============================================================
+function clientToImage(clientX, clientY) {
+  const rect = stageEl.getBoundingClientRect();
+  const x = (clientX - rect.left) / zoom;
+  const y = (clientY - rect.top) / zoom;
+  return { x, y };
+}
+function hitTestPoint(x, y) {
+  const img = getActiveImage();
+  if (!img) return null;
+  const rl = 15 / zoom;
+  const rl2 = rl * rl;
+  for (let i = points.length - 1; i >= 0; i--) {
+    const p = points[i];
+    if (p.imageId !== img.id) continue;
+    const layer = getLayer(p.layerId);
+    if (layer && !layer.visible) continue;
+    const dx = p.x - x, dy = p.y - y;
+    if (dx * dx + dy * dy < rl2) return p;
+  }
+  return null;
+}
+
 stageWrap.addEventListener('mousedown', (e) => {
   if (e.button === 1 || e.button === 2) {
     e.preventDefault();
     isDragging = true;
-    dragStartX = e.clientX;
-    dragStartY = e.clientY;
-    dragStartPanX = panX;
-    dragStartPanY = panY;
+    dragStartX = e.clientX; dragStartY = e.clientY;
+    dragStartPanX = panX; dragStartPanY = panY;
     stageWrap.classList.add('dragging');
     stageWrap.style.cursor = 'grabbing';
+    return;
+  }
+  if (e.button === 0 && getActiveImage()) {
+    const { x, y } = clientToImage(e.clientX, e.clientY);
+    const hit = hitTestPoint(x, y);
+    if (hit) {
+      e.preventDefault();
+      movingPoint = true;
+      movingPointId = hit.id;
+      selectedPointId = hit.id;
+      if (activeLayerId !== hit.layerId) {
+        activeLayerId = hit.layerId;
+        renderLayerList();
+      }
+      drawOverlay();
+      renderPointList();
+      updateCursor();
+    }
   }
 });
 
 window.addEventListener('mousemove', (e) => {
-  if (!isDragging) return;
-  panX = dragStartPanX + (e.clientX - dragStartX);
-  panY = dragStartPanY + (e.clientY - dragStartY);
-  applyTransform();
+  if (isDragging) {
+    panX = dragStartPanX + (e.clientX - dragStartX);
+    panY = dragStartPanY + (e.clientY - dragStartY);
+    applyTransform();
+    return;
+  }
+  if (movingPoint) {
+    const img = getActiveImage();
+    if (!img) return;
+    const { x, y } = clientToImage(e.clientX, e.clientY);
+    const p = getPoint(movingPointId);
+    if (p) {
+      p.x = Math.max(0, Math.min(img.width - 1, x));
+      p.y = Math.max(0, Math.min(img.height - 1, y));
+      drawOverlay();
+      renderPointList();
+    }
+  }
 });
 
 window.addEventListener('mouseup', () => {
-  if (!isDragging) return;
-  isDragging = false;
-  stageWrap.classList.remove('dragging');
-  updateCursor();
+  if (isDragging) {
+    isDragging = false;
+    stageWrap.classList.remove('dragging');
+    updateCursor();
+  }
+  if (movingPoint) {
+    movingPoint = false;
+    movingPointId = null;
+    updateCursor();
+    renderThumbs();
+  }
 });
 
 stageWrap.addEventListener('contextmenu', (e) => e.preventDefault());
 
+// ============================================================
+//  TOUCH
+// ============================================================
 let touchMode = null;
 let touchStartDist = 0, touchStartZoom = 1;
 let touchStartX = 0, touchStartY = 0;
 let touchStartPanX = 0, touchStartPanY = 0;
+let touchMoved = false;
 
 stageWrap.addEventListener('touchstart', (e) => {
   if (e.touches.length === 1) {
-    touchMode = 'pan';
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-    touchStartPanX = panX;
-    touchStartPanY = panY;
+    const t = e.touches[0];
+    const img = getActiveImage();
+    const { x, y } = clientToImage(t.clientX, t.clientY);
+    const hit = img ? hitTestPoint(x, y) : null;
+    if (hit && !addLandmarkMode) {
+      touchMode = 'movePoint';
+      movingPoint = true;
+      movingPointId = hit.id;
+      selectedPointId = hit.id;
+      if (activeLayerId !== hit.layerId) {
+        activeLayerId = hit.layerId;
+        renderLayerList();
+      }
+      drawOverlay();
+      renderPointList();
+      updateCursor();
+    } else {
+      touchMode = 'pan';
+      touchMoved = false;
+      touchStartX = t.clientX; touchStartY = t.clientY;
+      touchStartPanX = panX; touchStartPanY = panY;
+    }
   } else if (e.touches.length === 2) {
     touchMode = 'pinch';
     const [a, b] = e.touches;
@@ -481,7 +953,21 @@ stageWrap.addEventListener('touchstart', (e) => {
 }, { passive: true });
 
 stageWrap.addEventListener('touchmove', (e) => {
-  if (touchMode === 'pan' && e.touches.length === 1) {
+  if (touchMode === 'movePoint' && e.touches.length === 1) {
+    const img = getActiveImage();
+    if (!img) return;
+    const t = e.touches[0];
+    const { x, y } = clientToImage(t.clientX, t.clientY);
+    const p = getPoint(movingPointId);
+    if (p) {
+      p.x = Math.max(0, Math.min(img.width - 1, x));
+      p.y = Math.max(0, Math.min(img.height - 1, y));
+      drawOverlay();
+      renderPointList();
+    }
+    e.preventDefault();
+  } else if (touchMode === 'pan' && e.touches.length === 1) {
+    touchMoved = true;
     panX = touchStartPanX + (e.touches[0].clientX - touchStartX);
     panY = touchStartPanY + (e.touches[0].clientY - touchStartY);
     applyTransform();
@@ -501,93 +987,247 @@ stageWrap.addEventListener('touchmove', (e) => {
     zoom = newZoom;
     applyTransform();
   }
+}, { passive: false });
+
+stageWrap.addEventListener('touchend', (e) => {
+  if (touchMode === 'movePoint') {
+    movingPoint = false;
+    movingPointId = null;
+    updateCursor();
+    renderThumbs();
+  }
+  if (touchMode === 'pan' && !touchMoved) {
+    const img = getActiveImage();
+    if (img) {
+      const t = e.changedTouches[0];
+      const { x, y } = clientToImage(t.clientX, t.clientY);
+      const hit = hitTestPoint(x, y);
+      if (hit) {
+        if (hit.id === selectedPointId) {
+          points = points.filter(p => p.id !== hit.id);
+          selectedPointId = null;
+        } else {
+          selectedPointId = hit.id;
+        }
+        drawOverlay();
+        renderPointList();
+        renderThumbs();
+      } else if (addLandmarkMode) {
+        addPointAt(x, y);
+      }
+    }
+  }
+  touchMode = null;
 }, { passive: true });
 
-stageWrap.addEventListener('touchend', () => { touchMode = null; }, { passive: true });
-
 // ============================================================
-//  КЛИК ПО CANVAS
+//  КЛИК (мышь): постановка / выделение / удаление
 // ============================================================
-function clientToImage(clientX, clientY) {
-  const rect = stageEl.getBoundingClientRect();
-  const x = (clientX - rect.left) / zoom;
-  const y = (clientY - rect.top) / zoom;
-  return { x: Math.floor(x), y: Math.floor(y) };
-}
+function addPointAt(x, y) {
+  const img = getActiveImage();
+  const layer = getActiveLayer();
+  if (!img || !layer) return;
+  if (x < 0 || y < 0 || x >= img.width || y >= img.height) return;
 
-// -------- ТОЧКИ-ОРИЕНТИРЫ: постановка / выбор / удаление --------
-stageWrap.addEventListener('click', (e) => {
-  if (!imgWidth) return;
-  if (isDragging) return;
+  // спрашиваем имя
+  const defaultLabel = suggestNextLabel();
+  const input = prompt('Имя 3D-точки (одинаковое на всех ракурсах):', defaultLabel);
+  if (input === null) return;
+  const label = input.trim();
+  if (!label) return;
 
-  const { x, y } = clientToImage(e.clientX, e.clientY);
-  if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) return;
-
-  // режим добавления ориентира
-  if (addLandmarkMode) {
-    landmarks.push({ x, y });
-    selectedLandmarkIndex = landmarks.length - 1;
-    drawOverlay();
-    renderLandmarkList();
+  // проверка: на этом ракурсе уже есть такая точка?
+  const existing = findPointOnImage(label, img.id);
+  if (existing) {
+    alert(`Точка «${label}» уже есть на ракурсе «${img.name}».`);
     return;
   }
 
-  // обычный режим: клик по существующему ориентиру — выбрать/удалить
-  const rl = 15 / zoom;
-  let hitLm = -1;
-  for (let i = landmarks.length - 1; i >= 0; i--) {
-    const p = landmarks[i];
-    const dx = p.x - x, dy = p.y - y;
-    if (dx * dx + dy * dy < rl * rl) { hitLm = i; break; }
+  const p = {
+    id: nextPointId++,
+    label,
+    imageId: img.id,
+    layerId: layer.id,
+    x, y
+  };
+  points.push(p);
+  selectedPointId = p.id;
+
+  drawOverlay();
+  renderPointList();
+  renderThumbs();
+  renderLayerList();
+}
+
+function suggestNextLabel() {
+  // если есть выделенная точка — предлагаем её label (для доразметки того же имени на другом ракурсе)
+  if (selectedPointId) {
+    const p = getPoint(selectedPointId);
+    if (p && !findPointOnImage(p.label, activeImageId)) return p.label;
   }
-  if (hitLm !== -1) {
-    if (hitLm === selectedLandmarkIndex) {
-      landmarks.splice(hitLm, 1);
-      selectedLandmarkIndex = -1;
+  return 'point_' + (uniqueLabels().length + 1);
+}
+
+stageWrap.addEventListener('click', (e) => {
+  const img = getActiveImage();
+  if (!img) return;
+  if (isDragging) return;
+
+  const { x, y } = clientToImage(e.clientX, e.clientY);
+  if (x < 0 || y < 0 || x >= img.width || y >= img.height) return;
+
+  if (addLandmarkMode) {
+    addPointAt(x, y);
+    return;
+  }
+
+  const hit = hitTestPoint(x, y);
+  if (hit) {
+    if (hit.id === selectedPointId) {
+      // повторный клик — удалить эту точку только с текущего ракурса
+      points = points.filter(p => p.id !== hit.id);
+      selectedPointId = null;
+      drawOverlay();
+      renderPointList();
+      renderThumbs();
+      renderLayerList();
     } else {
-      selectedLandmarkIndex = hitLm;
+      selectedPointId = hit.id;
+      drawOverlay();
+      renderPointList();
     }
-    drawOverlay();
-    renderLandmarkList();
-  } else {
-    selectedLandmarkIndex = -1;
-    drawOverlay();
-    renderLandmarkList();
+    return;
   }
+  selectedPointId = null;
+  drawOverlay();
+  renderPointList();
 });
-// -------- /ТОЧКИ-ОРИЕНТИРЫ --------
 
 // ============================================================
-//  КНОПКИ ОРИЕНТИРОВ
+//  КНОПКИ
 // ============================================================
-// -------- ТОЧКИ-ОРИЕНТИРЫ: управление режимом --------
 addLandmarkBtn.addEventListener('click', () => {
   addLandmarkMode = !addLandmarkMode;
   addLandmarkBtn.classList.toggle('active', addLandmarkMode);
   updateCursor();
 });
 
-clearLandmarksBtn.addEventListener('click', () => {
-  landmarks = [];
-  selectedLandmarkIndex = -1;
-  closedLoop = false;
-  closeLandmarksBtn.classList.remove('active');
+clearImagePointsBtn.addEventListener('click', () => {
+  const img = getActiveImage();
+  if (!img) return;
+  const cnt = points.filter(p => p.imageId === img.id).length;
+  if (cnt === 0) return;
+  if (!confirm(`Удалить ${cnt} точек с ракурса «${img.name}»?`)) return;
+  points = points.filter(p => p.imageId !== img.id);
+  if (selectedPointId && !getPoint(selectedPointId)) selectedPointId = null;
   drawOverlay();
-  renderLandmarkList();
+  renderPointList();
+  renderThumbs();
+  renderLayerList();
 });
 
-closeLandmarksBtn.addEventListener('click', () => {
-  closedLoop = !closedLoop;
-  closeLandmarksBtn.classList.toggle('active', closedLoop);
+addLayerBtn.addEventListener('click', () => {
+  const layer = createLayer();
+  activeLayerId = layer.id;
+  renderLayerList();
   drawOverlay();
 });
-// -------- /ТОЧКИ-ОРИЕНТИРЫ: управление режимом --------
+
+// ============================================================
+//  ЭКСПОРТ
+// ============================================================
+function download(filename, content, mime = 'application/json') {
+  const blob = new Blob([content], { type: mime });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+exportJsonBtn.addEventListener('click', () => {
+  if (points.length === 0 && images.length === 0) {
+    alert('Нечего экспортировать — нет изображений и точек.');
+    return;
+  }
+  const data = {
+    version: 1,
+    createdAt: new Date().toISOString(),
+    images: images.map(i => ({
+      id: i.id,
+      name: i.name,
+      width: i.width,
+      height: i.height
+    })),
+    layers: layers.map(l => ({
+      id: l.id,
+      name: l.name,
+      color: l.color,
+      visible: l.visible
+    })),
+    // точки в «плоском» виде — совместимо с большинством парсеров
+    points: points.map(p => ({
+      id: p.id,
+      label: p.label,
+      imageId: p.imageId,
+      layerId: p.layerId,
+      x: p.x,
+      y: p.y
+    })),
+    // сгруппированно по label — для 3D-обработки
+    pointsByLabel: (() => {
+      const map = {};
+      for (const p of points) {
+        if (!map[p.label]) map[p.label] = [];
+        map[p.label].push({ imageId: p.imageId, x: p.x, y: p.y, layerId: p.layerId });
+      }
+      return map;
+    })()
+  };
+  download('points3d.json', JSON.stringify(data, null, 2), 'application/json');
+});
+
+exportCsvBtn.addEventListener('click', () => {
+  if (points.length === 0) {
+    alert('Нет точек для экспорта.');
+    return;
+  }
+  const imgById = new Map(images.map(i => [i.id, i]));
+  const layerById = new Map(layers.map(l => [l.id, l]));
+  const rows = [['label', 'image', 'image_id', 'x', 'y', 'layer', 'layer_id']];
+  for (const p of points) {
+    const im = imgById.get(p.imageId);
+    const ly = layerById.get(p.layerId);
+    rows.push([
+      p.label,
+      im ? im.name : '',
+      p.imageId,
+      Math.round(p.x * 100) / 100,
+      Math.round(p.y * 100) / 100,
+      ly ? ly.name : '',
+      p.layerId
+    ]);
+  }
+  const csv = rows.map(r => r.map(escapeCsv).join(',')).join('\n');
+  download('points3d.csv', csv, 'text/csv;charset=utf-8');
+});
+
+function escapeCsv(v) {
+  const s = String(v ?? '');
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
 
 // ============================================================
 //  INIT
 // ============================================================
+createLayer('Объект');
+renderLayerList();
+renderPointList();
+renderThumbs();
 updateCursor();
-renderLandmarkList();
 </script>
 </body>
 </html>
