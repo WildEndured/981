@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>3D-разметка · Пропорции персонажа</title>
+<title>3D-разметка · Перетаскивание · Пропорции</title>
 <style>
   :root {
     color-scheme: dark;
@@ -85,9 +85,11 @@
     overflow: hidden;
     touch-action: none;
     cursor: grab;
+    user-select: none;
   }
   .stage-wrap.dragging { cursor: grabbing; }
   .stage-wrap.hovering-point { cursor: move; }
+  .stage-wrap.moving-point { cursor: grabbing; }
 
   .stage {
     position: absolute;
@@ -143,6 +145,7 @@
     max-width: 900px; text-align: center; line-height: 1.5;
     padding: 0 8px;
   }
+  .hint code { background: #232830; padding: 1px 5px; border-radius: 4px; }
 
   .point-list { max-height: 400px; overflow-y: auto; font-size: 13px; }
   .point-item {
@@ -221,7 +224,6 @@
   }
   .layer-actions button:hover { background: var(--accent); border-color: var(--accent); }
 
-  /* ---- Пропорции ---- */
   .prop-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -302,8 +304,9 @@
 </div>
 
 <p class="hint">
-  Размечайте анатомические ориентиры с <b>каноническими именами</b> (например <code>head_top</code>, <code>chin</code>, <code>shoulder_l</code>, <code>hip_r</code>, …) — панель «Пропорции» посчитает отношения автоматически.
-  Можно загрузить шаблон кнопками ниже. Перетаскивание точек — ЛКМ/пальцем. СКМ/ПКМ — панорама.
+  <b>Перетаскивание:</b> зажмите ЛКМ (или палец) на точке и ведите — точка следует за курсором. Отпустите — фиксируется.<br>
+  <b>Постановка:</b> включите «📍 Точка», затем <b>клик</b> по изображению — появится окно имени. Простой клик <b>без</b> режима «Точка» ничего не ставит.<br>
+  <b>Удаление:</b> выделите точку кликом и нажмите ✕ в списке или клавишу Delete. Панорама — СКМ/ПКМ, зум — колесо.
 </p>
 
 <div class="panel">
@@ -320,12 +323,12 @@
   <div class="panel-section">
     <h3>Быстрая разметка</h3>
     <div class="tpl-row" id="tplRow">
-      <button data-tpl="head">🗣 Голова (6)</button>
+      <button data-tpl="head">🗣 Голова (7)</button>
       <button data-tpl="body17">🧍 Фигура (17)</button>
       <button data-tpl="face68">😐 Лицо (68)</button>
     </div>
     <div class="prop-empty" style="margin-top:8px;">
-      После загрузки шаблона пройдитесь по точкам на фото и расставьте их в правильных местах — их имена уже предзаполнены.
+      Точки шаблона создаются в центре кадра — перетащите их на нужные места.
     </div>
   </div>
 </div>
@@ -335,7 +338,7 @@
   <div class="panel-section">
     <h3>Расчёт по активному ракурсу</h3>
     <div class="prop-grid" id="propGrid">
-      <div class="prop-empty">Разметьте нужные ориентиры, чтобы увидеть пропорции.</div>
+      <div class="prop-empty">Разметьте ориентиры, чтобы увидеть пропорции.</div>
     </div>
   </div>
 </div>
@@ -415,25 +418,23 @@ let nextPointId = 1;
 let selectedPointId = null;
 let addLandmarkMode = false;
 
-// перетаскивание
-let movingPoint = false;
+// перетаскивание через pointer events
 let movingPointId = null;
-let moveStartX = 0, moveStartY = 0;
-let moveOrigX = 0, moveOrigY = 0;
-let moveThreshold = 3;
 let didMove = false;
-let suppressClick = false;
+let startX = 0, startY = 0;
+const MOVE_THRESHOLD = 4;
+
+// панорама
+let panning = false;
+let panStartX = 0, panStartY = 0;
+let panStartPanX = 0, panStartPanY = 0;
 
 // зум/пан
 let zoom = 1, panX = 0, panY = 0;
-let fitZoom = 1;
-let isDragging = false, dragStartX = 0, dragStartY = 0;
-let dragStartPanX = 0, dragStartPanY = 0;
 
 // ============================================================
-//  ШАБЛОНЫ ОРИЕНТИРОВ
+//  ШАБЛОНЫ
 // ============================================================
-// label -> подсказка (не используется в анализе, но полезна)
 const TEMPLATES = {
   head: {
     name: 'Голова',
@@ -441,7 +442,6 @@ const TEMPLATES = {
   },
   body17: {
     name: 'Фигура (17)',
-    // порядок как в COCO keypoints
     labels: [
       'nose',
       'eye_l', 'eye_r',
@@ -484,9 +484,9 @@ function uniqueLabels() { return Array.from(new Set(points.map(p => p.label))); 
 function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
 function updateCursor() {
-  if (isDragging) { stageWrap.style.cursor = 'grabbing'; return; }
-  if (movingPoint) { stageWrap.style.cursor = 'move'; return; }
-  if (addLandmarkMode) { stageWrap.style.cursor = 'copy'; return; }
+  if (panning) { stageWrap.style.cursor = 'grabbing'; return; }
+  if (movingPointId !== null) { stageWrap.style.cursor = 'grabbing'; return; }
+  if (addLandmarkMode) { stageWrap.style.cursor = 'crosshair'; return; }
   stageWrap.style.cursor = 'grab';
   stageWrap.classList.remove('hovering-point');
 }
@@ -601,7 +601,7 @@ function renderLayerList() {
 }
 
 // ============================================================
-//  ЗАГРУЗКА ИЗОБРАЖЕНИЙ
+//  ЗАГРУЗКА
 // ============================================================
 fileInput.addEventListener('change', async (e) => {
   const files = Array.from(e.target.files || []);
@@ -695,6 +695,7 @@ function loadActiveImageOnCanvas() {
   requestAnimationFrame(() => {
     fitToView();
     drawOverlay();
+    renderProportions();
   });
 }
 
@@ -732,12 +733,12 @@ function drawOverlay() {
 
     layerPoints.forEach(p => {
       const isSel = p.id === selectedPointId;
-      const isMoving = movingPoint && p.id === movingPointId;
+      const isMoving = p.id === movingPointId;
 
       if (isMoving) {
         overlayCtx.beginPath();
-        overlayCtx.arc(p.x, p.y, 14, 0, Math.PI * 2);
-        overlayCtx.fillStyle = 'rgba(255,255,255,0.15)';
+        overlayCtx.arc(p.x, p.y, 16, 0, Math.PI * 2);
+        overlayCtx.fillStyle = 'rgba(255,255,255,0.2)';
         overlayCtx.fill();
       }
 
@@ -764,15 +765,12 @@ function drawOverlay() {
   overlayCtx.textAlign = 'start';
   overlayCtx.textBaseline = 'alphabetic';
 
-  // Пропорции: вспомогательные линии (рост, ширина плеч, голова)
   drawProportionHelpers(img);
 }
 
 function drawProportionHelpers(img) {
   const P = collectPointsMap(img.id);
-  const need = ['head_top', 'chin', 'shoulder_l', 'shoulder_r', 'hip_l', 'hip_r', 'ankle_l', 'ankle_r'];
-  const available = need.filter(k => P[k]);
-  if (available.length < 2) return;
+  if (Object.keys(P).length < 2) return;
 
   overlayCtx.save();
   overlayCtx.globalAlpha = 0.35;
@@ -780,13 +778,11 @@ function drawProportionHelpers(img) {
   overlayCtx.lineWidth = 1.2;
   overlayCtx.setLineDash([3, 5]);
 
-  // вертикаль от head_top до ankle_l/ankle_r (средняя)
   if (P['head_top']) {
     let bottomY = null;
     if (P['ankle_l'] && P['ankle_r']) bottomY = (P['ankle_l'].y + P['ankle_r'].y) / 2;
     else if (P['ankle_l']) bottomY = P['ankle_l'].y;
     else if (P['ankle_r']) bottomY = P['ankle_r'].y;
-
     if (bottomY !== null) {
       overlayCtx.beginPath();
       overlayCtx.moveTo(P['head_top'].x, P['head_top'].y);
@@ -795,7 +791,6 @@ function drawProportionHelpers(img) {
     }
   }
 
-  // линия плеч
   if (P['shoulder_l'] && P['shoulder_r']) {
     overlayCtx.strokeStyle = '#ffb300';
     overlayCtx.beginPath();
@@ -803,7 +798,6 @@ function drawProportionHelpers(img) {
     overlayCtx.lineTo(P['shoulder_r'].x, P['shoulder_r'].y);
     overlayCtx.stroke();
   }
-  // линия таза
   if (P['hip_l'] && P['hip_r']) {
     overlayCtx.strokeStyle = '#ff5252';
     overlayCtx.beginPath();
@@ -811,7 +805,6 @@ function drawProportionHelpers(img) {
     overlayCtx.lineTo(P['hip_r'].x, P['hip_r'].y);
     overlayCtx.stroke();
   }
-
   overlayCtx.restore();
 }
 
@@ -833,10 +826,8 @@ function renderProportions() {
     return;
   }
   const P = collectPointsMap(img.id);
-
   const cards = [];
 
-  // ---- Рост ----
   let heightPx = null;
   if (P['head_top']) {
     let bottom = null;
@@ -846,107 +837,41 @@ function renderProportions() {
     if (bottom !== null) heightPx = Math.abs(bottom - P['head_top'].y);
   }
 
-  // ---- Высота головы ----
   let headH = null;
   if (P['head_top'] && P['chin']) headH = dist(P['head_top'], P['chin']);
 
-  // ---- Отношение головы к росту (канон 1:7…1:8) ----
   if (heightPx && headH) {
     const ratio = heightPx / headH;
-    cards.push(makeCard(
-      'Голова к росту',
-      ratio.toFixed(2) + ' : 1',
-      'канон: 7.0 – 8.0',
-      ratio,
-      7.0, 8.0, 1.0
-    ));
+    cards.push(makeCard('Голова к росту', ratio.toFixed(2) + ' : 1', 'канон: 7.0 – 8.0', ratio, 7.0, 8.0, 1.0));
   }
-
-  // ---- Размах рук к росту (канон ≈1:1) ----
   if (heightPx && P['wrist_l'] && P['wrist_r']) {
-    const span = dist(P['wrist_l'], P['wrist_r']);
-    const ratio = span / heightPx;
-    cards.push(makeCard(
-      'Размах рук к росту',
-      ratio.toFixed(2),
-      'канон: 0.95 – 1.05',
-      ratio, 0.95, 1.05, 0.07
-    ));
+    const ratio = dist(P['wrist_l'], P['wrist_r']) / heightPx;
+    cards.push(makeCard('Размах рук к росту', ratio.toFixed(2), 'канон: 0.95 – 1.05', ratio, 0.95, 1.05, 0.07));
   }
-
-  // ---- Ширина плеч к голове (канон ≈2.0–2.5) ----
   if (headH && P['shoulder_l'] && P['shoulder_r']) {
-    const sw = dist(P['shoulder_l'], P['shoulder_r']);
-    const ratio = sw / headH;
-    cards.push(makeCard(
-      'Ширина плеч к голове',
-      ratio.toFixed(2),
-      'канон: 2.0 – 2.5',
-      ratio, 2.0, 2.5, 0.4
-    ));
+    const ratio = dist(P['shoulder_l'], P['shoulder_r']) / headH;
+    cards.push(makeCard('Ширина плеч к голове', ratio.toFixed(2), 'канон: 2.0 – 2.5', ratio, 2.0, 2.5, 0.4));
   }
-
-  // ---- Длина ног к росту (канон ≈0.47–0.53) ----
   if (heightPx && P['hip_l'] && P['ankle_l']) {
-    const leg = dist(P['hip_l'], P['ankle_l']);
-    const ratio = leg / heightPx;
-    cards.push(makeCard(
-      'Нога к росту',
-      ratio.toFixed(2),
-      'канон: 0.47 – 0.53',
-      ratio, 0.47, 0.53, 0.07
-    ));
+    const ratio = dist(P['hip_l'], P['ankle_l']) / heightPx;
+    cards.push(makeCard('Нога к росту', ratio.toFixed(2), 'канон: 0.47 – 0.53', ratio, 0.47, 0.53, 0.07));
   }
-
-  // ---- Плечо–локоть к росту (≈0.19) ----
   if (heightPx && P['shoulder_l'] && P['elbow_l']) {
-    const v = dist(P['shoulder_l'], P['elbow_l']);
-    const ratio = v / heightPx;
-    cards.push(makeCard(
-      'Плечо–локоть к росту',
-      ratio.toFixed(2),
-      'канон ≈ 0.18 – 0.20',
-      ratio, 0.18, 0.20, 0.04
-    ));
+    const ratio = dist(P['shoulder_l'], P['elbow_l']) / heightPx;
+    cards.push(makeCard('Плечо–локоть к росту', ratio.toFixed(2), 'канон ≈ 0.18 – 0.20', ratio, 0.18, 0.20, 0.04));
   }
-
-  // ---- Локоть–запястье к росту (≈0.15) ----
   if (heightPx && P['elbow_l'] && P['wrist_l']) {
-    const v = dist(P['elbow_l'], P['wrist_l']);
-    const ratio = v / heightPx;
-    cards.push(makeCard(
-      'Предплечье к росту',
-      ratio.toFixed(2),
-      'канон ≈ 0.14 – 0.16',
-      ratio, 0.14, 0.16, 0.04
-    ));
+    const ratio = dist(P['elbow_l'], P['wrist_l']) / heightPx;
+    cards.push(makeCard('Предплечье к росту', ratio.toFixed(2), 'канон ≈ 0.14 – 0.16', ratio, 0.14, 0.16, 0.04));
   }
-
-  // ---- Бедро к росту (≈0.245) ----
   if (heightPx && P['hip_l'] && P['knee_l']) {
-    const v = dist(P['hip_l'], P['knee_l']);
-    const ratio = v / heightPx;
-    cards.push(makeCard(
-      'Бедро к росту',
-      ratio.toFixed(2),
-      'канон ≈ 0.23 – 0.26',
-      ratio, 0.23, 0.26, 0.04
-    ));
+    const ratio = dist(P['hip_l'], P['knee_l']) / heightPx;
+    cards.push(makeCard('Бедро к росту', ratio.toFixed(2), 'канон ≈ 0.23 – 0.26', ratio, 0.23, 0.26, 0.04));
   }
-
-  // ---- Голень к росту (≈0.246) ----
   if (heightPx && P['knee_l'] && P['ankle_l']) {
-    const v = dist(P['knee_l'], P['ankle_l']);
-    const ratio = v / heightPx;
-    cards.push(makeCard(
-      'Голень к росту',
-      ratio.toFixed(2),
-      'канон ≈ 0.23 – 0.26',
-      ratio, 0.23, 0.26, 0.04
-    ));
+    const ratio = dist(P['knee_l'], P['ankle_l']) / heightPx;
+    cards.push(makeCard('Голень к росту', ratio.toFixed(2), 'канон ≈ 0.23 – 0.26', ratio, 0.23, 0.26, 0.04));
   }
-
-  // ---- Золотое сечение: пупок ↔ пол / рост (≈0.618) ----
   if (heightPx && P['hip_l'] && P['hip_r'] && P['head_top']) {
     let bottom = null;
     if (P['ankle_l'] && P['ankle_r']) bottom = (P['ankle_l'].y + P['ankle_r'].y) / 2;
@@ -954,38 +879,24 @@ function renderProportions() {
     else if (P['ankle_r']) bottom = P['ankle_r'].y;
     if (bottom !== null) {
       const navelY = (P['hip_l'].y + P['hip_r'].y) / 2;
-      const lower = Math.abs(bottom - navelY);
-      const ratio = lower / heightPx;
-      cards.push(makeCard(
-        'Золотое сечение (низ)',
-        ratio.toFixed(3),
-        'канон ≈ 0.618',
-        ratio, 0.60, 0.64, 0.05
-      ));
+      const ratio = Math.abs(bottom - navelY) / heightPx;
+      cards.push(makeCard('Золотое сечение (низ)', ratio.toFixed(3), 'канон ≈ 0.618', ratio, 0.60, 0.64, 0.05));
     }
   }
-
-  // ---- Ширина таза к плечам (≈0.75–0.85) ----
   if (P['shoulder_l'] && P['shoulder_r'] && P['hip_l'] && P['hip_r']) {
     const sw = dist(P['shoulder_l'], P['shoulder_r']);
     const hw = dist(P['hip_l'], P['hip_r']);
     if (sw > 0) {
       const ratio = hw / sw;
-      cards.push(makeCard(
-        'Таз к плечам',
-        ratio.toFixed(2),
-        'канон: 0.72 – 0.88',
-        ratio, 0.72, 0.88, 0.08
-      ));
+      cards.push(makeCard('Таз к плечам', ratio.toFixed(2), 'канон: 0.72 – 0.88', ratio, 0.72, 0.88, 0.08));
     }
   }
 
-  // Если ни одной карточки — подсказка
   if (cards.length === 0) {
     propGrid.innerHTML = `
       <div class="prop-empty">
         Недостаточно ориентиров. Минимум: <code>head_top</code> + (<code>ankle_l</code> или <code>ankle_r</code>) + <code>chin</code>.
-        Используйте шаблон «🧍 Фигура (17)» и расставьте точки.
+        Используйте шаблон «🧍 Фигура (17)».
       </div>`;
     return;
   }
@@ -1059,7 +970,6 @@ function renderPointList() {
       const c = document.createElement('span');
       c.className = 'cov' + (has ? ' on' : '');
       c.textContent = im.name.slice(0, 8) + (has ? ' ✓' : '');
-      c.title = im.name + (has ? ' — размечено' : ' — не размечено');
       c.addEventListener('click', (ev) => {
         ev.stopPropagation();
         if (im.id !== activeImageId) {
@@ -1107,8 +1017,7 @@ function fitToView() {
   if (!img) return;
   const wrapW = stageWrap.clientWidth;
   const wrapH = stageWrap.clientHeight;
-  fitZoom = Math.min(wrapW / img.width, wrapH / img.height) * 0.98;
-  zoom = fitZoom;
+  zoom = Math.min(wrapW / img.width, wrapH / img.height) * 0.98;
   panX = (wrapW - img.width * zoom) / 2;
   panY = (wrapH - img.height * zoom) / 2;
   applyTransform();
@@ -1162,72 +1071,77 @@ function clientToImage(clientX, clientY) {
 function hitTestPoint(x, y) {
   const img = getActiveImage();
   if (!img) return null;
-  const rl = 15 / zoom;
+  // радиус попадания в экранных px делим на зум
+  const rl = 18 / zoom;
   const rl2 = rl * rl;
-  for (let i = points.length - 1; i >= 0; i--) {
-    const p = points[i];
+  let best = null;
+  let bestDist2 = rl2;
+  for (const p of points) {
     if (p.imageId !== img.id) continue;
     const layer = getLayer(p.layerId);
     if (layer && !layer.visible) continue;
     const dx = p.x - x, dy = p.y - y;
-    if (dx * dx + dy * dy < rl2) return p;
+    const d2 = dx * dx + dy * dy;
+    if (d2 <= bestDist2) { bestDist2 = d2; best = p; }
   }
-  return null;
+  return best;
 }
 
 // ============================================================
-//  МЫШЬ: панорама / перетаскивание
+//  POINTER EVENTS: перетаскивание точки + панорама
 // ============================================================
-stageWrap.addEventListener('mousedown', (e) => {
+stageWrap.addEventListener('pointerdown', (e) => {
+  // панорама: СКМ или ПКМ
   if (e.button === 1 || e.button === 2) {
     e.preventDefault();
-    isDragging = true;
-    dragStartX = e.clientX; dragStartY = e.clientY;
-    dragStartPanX = panX; dragStartPanY = panY;
+    panning = true;
+    panStartX = e.clientX; panStartY = e.clientY;
+    panStartPanX = panX; panStartPanY = panY;
     stageWrap.classList.add('dragging');
-    stageWrap.style.cursor = 'grabbing';
+    stageWrap.setPointerCapture(e.pointerId);
+    updateCursor();
     return;
   }
 
   if (e.button !== 0) return;
   if (!getActiveImage()) return;
 
+  // ЛКМ: если попали в точку — начинаем перетаскивание
   const { x, y } = clientToImage(e.clientX, e.clientY);
   const hit = hitTestPoint(x, y);
 
   if (hit) {
     e.preventDefault();
-    movingPoint = true;
     movingPointId = hit.id;
-    moveStartX = e.clientX;
-    moveStartY = e.clientY;
-    moveOrigX = hit.x;
-    moveOrigY = hit.y;
     didMove = false;
-
+    startX = e.clientX;
+    startY = e.clientY;
     selectedPointId = hit.id;
     if (activeLayerId !== hit.layerId) {
       activeLayerId = hit.layerId;
       renderLayerList();
     }
+    stageWrap.setPointerCapture(e.pointerId);
     drawOverlay();
     renderPointList();
-    stageWrap.style.cursor = 'move';
+    updateCursor();
   }
 });
 
-window.addEventListener('mousemove', (e) => {
-  if (isDragging) {
-    panX = dragStartPanX + (e.clientX - dragStartX);
-    panY = dragStartPanY + (e.clientY - dragStartY);
+stageWrap.addEventListener('pointermove', (e) => {
+  // панорама
+  if (panning) {
+    panX = panStartPanX + (e.clientX - panStartX);
+    panY = panStartPanY + (e.clientY - panStartY);
     applyTransform();
     return;
   }
 
-  if (movingPoint) {
-    const dxScreen = e.clientX - moveStartX;
-    const dyScreen = e.clientY - moveStartY;
-    if (!didMove && Math.hypot(dxScreen, dyScreen) >= moveThreshold) didMove = true;
+  // перетаскивание точки
+  if (movingPointId !== null) {
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (!didMove && Math.hypot(dx, dy) >= MOVE_THRESHOLD) didMove = true;
     if (didMove) {
       const img = getActiveImage();
       if (!img) return;
@@ -1244,7 +1158,8 @@ window.addEventListener('mousemove', (e) => {
     return;
   }
 
-  if (!addLandmarkMode && !isDragging && getActiveImage()) {
+  // ховер
+  if (!addLandmarkMode && !panning && getActiveImage()) {
     const { x, y } = clientToImage(e.clientX, e.clientY);
     const hit = hitTestPoint(x, y);
     if (hit) {
@@ -1257,184 +1172,57 @@ window.addEventListener('mousemove', (e) => {
   }
 });
 
-window.addEventListener('mouseup', () => {
-  if (isDragging) {
-    isDragging = false;
+stageWrap.addEventListener('pointerup', (e) => {
+  if (panning) {
+    panning = false;
     stageWrap.classList.remove('dragging');
+    try { stageWrap.releasePointerCapture(e.pointerId); } catch (_) {}
     updateCursor();
+    return;
   }
-  if (movingPoint) {
-    const wasRealDrag = didMove;
-    movingPoint = false;
+
+  if (movingPointId !== null) {
+    const wasDrag = didMove;
     movingPointId = null;
     didMove = false;
-    if (wasRealDrag) {
-      suppressClick = true;
-      setTimeout(() => { suppressClick = false; }, 0);
+    try { stageWrap.releasePointerCapture(e.pointerId); } catch (_) {}
+
+    if (wasDrag) {
       renderThumbs();
+      // блокируем возможный последующий click
+      suppressNextClick();
     }
     updateCursor();
   }
 });
 
+stageWrap.addEventListener('pointercancel', (e) => {
+  if (panning) {
+    panning = false;
+    stageWrap.classList.remove('dragging');
+  }
+  if (movingPointId !== null) {
+    movingPointId = null;
+    didMove = false;
+  }
+  try { stageWrap.releasePointerCapture(e.pointerId); } catch (_) {}
+  updateCursor();
+});
+
+// блокировка «фантомного» click после drag
+let _suppressClickUntil = 0;
+function suppressNextClick() {
+  _suppressClickUntil = performance.now() + 250;
+}
+
 stageWrap.addEventListener('contextmenu', (e) => e.preventDefault());
 
 // ============================================================
-//  TOUCH
-// ============================================================
-let touchMode = null;
-let touchStartDist = 0, touchStartZoom = 1;
-let touchStartX = 0, touchStartY = 0;
-let touchStartPanX = 0, touchStartPanY = 0;
-let touchMoved = false;
-
-stageWrap.addEventListener('touchstart', (e) => {
-  if (e.touches.length === 1) {
-    const t = e.touches[0];
-    const img = getActiveImage();
-    const { x, y } = clientToImage(t.clientX, t.clientY);
-    const hit = img ? hitTestPoint(x, y) : null;
-
-    if (hit && !addLandmarkMode) {
-      touchMode = 'movePoint';
-      movingPoint = true;
-      movingPointId = hit.id;
-      moveStartX = t.clientX;
-      moveStartY = t.clientY;
-      moveOrigX = hit.x;
-      moveOrigY = hit.y;
-      didMove = false;
-      selectedPointId = hit.id;
-      if (activeLayerId !== hit.layerId) {
-        activeLayerId = hit.layerId;
-        renderLayerList();
-      }
-      drawOverlay();
-      renderPointList();
-      updateCursor();
-    } else {
-      touchMode = 'pan';
-      touchMoved = false;
-      touchStartX = t.clientX; touchStartY = t.clientY;
-      touchStartPanX = panX; touchStartPanY = panY;
-    }
-  } else if (e.touches.length === 2) {
-    touchMode = 'pinch';
-    const [a, b] = e.touches;
-    touchStartDist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    touchStartZoom = zoom;
-  }
-}, { passive: true });
-
-stageWrap.addEventListener('touchmove', (e) => {
-  if (touchMode === 'movePoint' && e.touches.length === 1) {
-    const t = e.touches[0];
-    const dxScreen = t.clientX - moveStartX;
-    const dyScreen = t.clientY - moveStartY;
-    if (!didMove && Math.hypot(dxScreen, dyScreen) >= moveThreshold) didMove = true;
-    if (didMove) {
-      const img = getActiveImage();
-      if (img) {
-        const { x, y } = clientToImage(t.clientX, t.clientY);
-        const p = getPoint(movingPointId);
-        if (p) {
-          p.x = Math.max(0, Math.min(img.width - 1, x));
-          p.y = Math.max(0, Math.min(img.height - 1, y));
-          drawOverlay();
-          renderPointList();
-          renderProportions();
-        }
-      }
-    }
-    e.preventDefault();
-  } else if (touchMode === 'pan' && e.touches.length === 1) {
-    touchMoved = true;
-    panX = touchStartPanX + (e.touches[0].clientX - touchStartX);
-    panY = touchStartPanY + (e.touches[0].clientY - touchStartY);
-    applyTransform();
-  } else if (touchMode === 'pinch' && e.touches.length === 2) {
-    const [a, b] = e.touches;
-    const distAB = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    const factor = distAB / touchStartDist;
-    const newZoom = Math.max(0.05, Math.min(20, touchStartZoom * factor));
-    const mx = (a.clientX + b.clientX) / 2;
-    const my = (a.clientY + b.clientY) / 2;
-    const rect = stageWrap.getBoundingClientRect();
-    const localX = mx - rect.left;
-    const localY = my - rect.top;
-    const k = newZoom / zoom;
-    panX = localX - k * (localX - panX);
-    panY = localY - k * (localY - panY);
-    zoom = newZoom;
-    applyTransform();
-  }
-}, { passive: false });
-
-stageWrap.addEventListener('touchend', (e) => {
-  if (touchMode === 'movePoint') {
-    const wasRealDrag = didMove;
-    const pointId = movingPointId;
-    movingPoint = false;
-    movingPointId = null;
-    didMove = false;
-    updateCursor();
-
-    if (wasRealDrag) {
-      renderThumbs();
-    } else {
-      const p = getPoint(pointId);
-      if (p) {
-        if (p.id === selectedPointId) {
-          points = points.filter(x => x.id !== p.id);
-          selectedPointId = null;
-          drawOverlay();
-          renderPointList();
-          renderThumbs();
-          renderLayerList();
-          renderProportions();
-        } else {
-          selectedPointId = p.id;
-          drawOverlay();
-          renderPointList();
-        }
-      }
-    }
-  }
-
-  if (touchMode === 'pan' && !touchMoved) {
-    const img = getActiveImage();
-    if (img) {
-      const t = e.changedTouches[0];
-      const { x, y } = clientToImage(t.clientX, t.clientY);
-      const hit = hitTestPoint(x, y);
-      if (hit) {
-        if (hit.id === selectedPointId) {
-          points = points.filter(p => p.id !== hit.id);
-          selectedPointId = null;
-        } else {
-          selectedPointId = hit.id;
-        }
-        drawOverlay();
-        renderPointList();
-        renderThumbs();
-        renderProportions();
-      } else if (addLandmarkMode) {
-        addPointAt(x, y);
-      }
-    }
-  }
-  touchMode = null;
-}, { passive: true });
-
-// ============================================================
-//  CLICK
+//  CLICK: постановка точки / выделение
 // ============================================================
 stageWrap.addEventListener('click', (e) => {
-  if (suppressClick) {
-    suppressClick = false;
-    return;
-  }
-  if (isDragging) return;
+  if (performance.now() < _suppressClickUntil) return;
+  if (panning) return;
 
   const img = getActiveImage();
   if (!img) return;
@@ -1442,31 +1230,40 @@ stageWrap.addEventListener('click', (e) => {
   const { x, y } = clientToImage(e.clientX, e.clientY);
   if (x < 0 || y < 0 || x >= img.width || y >= img.height) return;
 
+  // если включён режим «Точка» — ставим точку
   if (addLandmarkMode) {
     addPointAt(x, y);
     return;
   }
 
+  // иначе — только выделение (или снятие выделения)
   const hit = hitTestPoint(x, y);
   if (hit) {
-    if (hit.id === selectedPointId) {
-      points = points.filter(p => p.id !== hit.id);
-      selectedPointId = null;
-      drawOverlay();
-      renderPointList();
-      renderThumbs();
-      renderLayerList();
-      renderProportions();
-    } else {
-      selectedPointId = hit.id;
-      drawOverlay();
-      renderPointList();
-    }
-    return;
+    selectedPointId = hit.id;
+  } else {
+    selectedPointId = null;
   }
-  selectedPointId = null;
   drawOverlay();
   renderPointList();
+});
+
+// удаление выделенной точки клавишей Delete / Backspace
+window.addEventListener('keydown', (e) => {
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedPointId) {
+    // не мешаем вводу в поля
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    e.preventDefault();
+    const p = getPoint(selectedPointId);
+    if (!p) return;
+    points = points.filter(x => x.id !== p.id);
+    selectedPointId = null;
+    drawOverlay();
+    renderPointList();
+    renderThumbs();
+    renderLayerList();
+    renderProportions();
+  }
 });
 
 // ============================================================
@@ -1516,7 +1313,7 @@ function suggestNextLabel() {
 }
 
 // ============================================================
-//  ШАБЛОНЫ: применение
+//  ШАБЛОНЫ
 // ============================================================
 tplRow.addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-tpl]');
@@ -1532,23 +1329,28 @@ tplRow.addEventListener('click', (e) => {
     return;
   }
 
-  // проверяем, сколько уже есть
   const existing = tpl.labels.filter(l => findPointOnImage(l, img.id)).length;
   if (existing > 0) {
-    if (!confirm(`На ракурсе уже размечено ${existing} из ${tpl.labels.length} точек шаблона «${tpl.name}». Продолжить? Будут добавлены только недостающие.`)) return;
+    if (!confirm(`Уже размечено ${existing} из ${tpl.labels.length} точек. Добавить недостающие?`)) return;
   }
 
   let added = 0;
-  for (const label of tpl.labels) {
+  const cols = Math.ceil(Math.sqrt(tpl.labels.length));
+  for (let i = 0; i < tpl.labels.length; i++) {
+    const label = tpl.labels[i];
     if (findPointOnImage(label, img.id)) continue;
-    // создаём точку в центре изображения — её потом перетащат на место
+    // раскладываем по сетке в левой верхней части кадра, чтобы не накладывались
+    const cellW = img.width / (cols + 2);
+    const cellH = img.height / (cols + 2);
+    const gx = (i % cols) + 1;
+    const gy = Math.floor(i / cols) + 1;
     points.push({
       id: nextPointId++,
       label,
       imageId: img.id,
       layerId: layer.id,
-      x: img.width / 2,
-      y: img.height / 2
+      x: cellW * gx,
+      y: cellH * gy
     });
     added++;
   }
@@ -1560,9 +1362,9 @@ tplRow.addEventListener('click', (e) => {
   renderProportions();
 
   if (added > 0) {
-    alert(`Добавлено ${added} точек в центре кадра. Перетащите их на нужные места.`);
+    alert(`Добавлено ${added} точек. Перетащите их на нужные места.`);
   } else {
-    alert('Все точки шаблона уже есть на этом ракурсе.');
+    alert('Все точки шаблона уже есть.');
   }
 });
 
@@ -1609,11 +1411,9 @@ function download(filename, content, mime = 'application/json') {
   URL.revokeObjectURL(a.href);
 }
 
-// вычисление всех пропорций в объект (для экспорта)
 function computeProportionsObject(imageId) {
   const P = collectPointsMap(imageId);
   const out = {};
-
   let heightPx = null;
   if (P['head_top']) {
     let bottom = null;
@@ -1623,33 +1423,17 @@ function computeProportionsObject(imageId) {
     if (bottom !== null) heightPx = Math.abs(bottom - P['head_top'].y);
   }
   out.height_px = heightPx;
-
   let headH = null;
   if (P['head_top'] && P['chin']) headH = dist(P['head_top'], P['chin']);
   out.head_height_px = headH;
-
   if (heightPx && headH) out.head_to_height = +(heightPx / headH).toFixed(3);
-  if (heightPx && P['wrist_l'] && P['wrist_r']) {
-    out.armspan_to_height = +(dist(P['wrist_l'], P['wrist_r']) / heightPx).toFixed(3);
-  }
-  if (headH && P['shoulder_l'] && P['shoulder_r']) {
-    out.shoulders_to_head = +(dist(P['shoulder_l'], P['shoulder_r']) / headH).toFixed(3);
-  }
-  if (heightPx && P['hip_l'] && P['ankle_l']) {
-    out.leg_to_height = +(dist(P['hip_l'], P['ankle_l']) / heightPx).toFixed(3);
-  }
-  if (heightPx && P['shoulder_l'] && P['elbow_l']) {
-    out.upperarm_to_height = +(dist(P['shoulder_l'], P['elbow_l']) / heightPx).toFixed(3);
-  }
-  if (heightPx && P['elbow_l'] && P['wrist_l']) {
-    out.forearm_to_height = +(dist(P['elbow_l'], P['wrist_l']) / heightPx).toFixed(3);
-  }
-  if (heightPx && P['hip_l'] && P['knee_l']) {
-    out.thigh_to_height = +(dist(P['hip_l'], P['knee_l']) / heightPx).toFixed(3);
-  }
-  if (heightPx && P['knee_l'] && P['ankle_l']) {
-    out.shin_to_height = +(dist(P['knee_l'], P['ankle_l']) / heightPx).toFixed(3);
-  }
+  if (heightPx && P['wrist_l'] && P['wrist_r']) out.armspan_to_height = +(dist(P['wrist_l'], P['wrist_r']) / heightPx).toFixed(3);
+  if (headH && P['shoulder_l'] && P['shoulder_r']) out.shoulders_to_head = +(dist(P['shoulder_l'], P['shoulder_r']) / headH).toFixed(3);
+  if (heightPx && P['hip_l'] && P['ankle_l']) out.leg_to_height = +(dist(P['hip_l'], P['ankle_l']) / heightPx).toFixed(3);
+  if (heightPx && P['shoulder_l'] && P['elbow_l']) out.upperarm_to_height = +(dist(P['shoulder_l'], P['elbow_l']) / heightPx).toFixed(3);
+  if (heightPx && P['elbow_l'] && P['wrist_l']) out.forearm_to_height = +(dist(P['elbow_l'], P['wrist_l']) / heightPx).toFixed(3);
+  if (heightPx && P['hip_l'] && P['knee_l']) out.thigh_to_height = +(dist(P['hip_l'], P['knee_l']) / heightPx).toFixed(3);
+  if (heightPx && P['knee_l'] && P['ankle_l']) out.shin_to_height = +(dist(P['knee_l'], P['ankle_l']) / heightPx).toFixed(3);
   if (P['shoulder_l'] && P['shoulder_r'] && P['hip_l'] && P['hip_r']) {
     const sw = dist(P['shoulder_l'], P['shoulder_r']);
     const hw = dist(P['hip_l'], P['hip_r']);
@@ -1664,9 +1448,7 @@ exportJsonBtn.addEventListener('click', () => {
     return;
   }
   const proportions = {};
-  for (const im of images) {
-    proportions[im.name] = computeProportionsObject(im.id);
-  }
+  for (const im of images) proportions[im.name] = computeProportionsObject(im.id);
 
   const data = {
     version: 2,
