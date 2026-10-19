@@ -2,70 +2,124 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Anime Face Detector — face + eyes only</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Anime Face Detector — canvas + zones</title>
 <style>
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: system-ui, sans-serif; background: #1e1e24; color: #e5e5ea; }
-  header { padding: 12px 20px; background: #2a2a33; border-bottom: 1px solid #3a3a45; }
-  h1 { margin: 0; font-size: 18px; }
-  .wrap { display: grid; grid-template-columns: 300px 1fr; gap: 16px; padding: 16px; }
-  .panel { background: #26262e; padding: 14px; border-radius: 10px; }
-  .panel h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #9a9aa8; }
-  .methods label { display: block; padding: 8px 10px; border-radius: 6px; cursor: pointer; margin-bottom: 6px; background: #1e1e24; border: 1px solid transparent; font-size: 13px; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: #1e1e24; color: #e5e5ea; overflow: hidden; display: flex; flex-direction: column; }
+  header { padding: 8px 14px; background: #2a2a33; border-bottom: 1px solid #3a3a45; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+  h1 { margin: 0; font-size: 16px; }
+  .hint { font-size: 11px; color: #9a9aa8; }
+  .app { display: grid; grid-template-columns: 300px 1fr; flex: 1; min-height: 0; }
+  @media (max-width: 720px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .side { max-height: 45vh; overflow-y: auto; border-right: none !important; border-bottom: 1px solid #3a3a45; }
+  }
+  .side { background: #23232b; border-right: 1px solid #3a3a45; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .panel { background: #26262e; padding: 10px 12px; border-radius: 8px; flex-shrink: 0; }
+  .panel h2 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #9a9aa8; }
+  .methods label { display: block; padding: 6px 8px; border-radius: 6px; cursor: pointer; margin-bottom: 4px; background: #1e1e24; border: 1px solid transparent; font-size: 12px; }
   .methods label:hover { background: #2f2f3a; }
   .methods input { margin-right: 8px; }
   .methods label.active { border-color: #4f9dff; background: #2b3550; }
-  .desc { font-size: 12px; color: #9a9aa8; margin-top: 12px; line-height: 1.5; }
-  .canvasBox { position: relative; background: #15151a; border-radius: 10px; overflow: hidden; display: flex; justify-content: center; align-items: center; min-height: 400px; }
-  canvas { max-width: 100%; max-height: 75vh; display: block; }
-  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
-  input[type="range"] { flex: 1; min-width: 100px; }
-  button { background: #4f9dff; color: #fff; border: 0; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+  .desc { font-size: 11px; color: #9a9aa8; margin-top: 6px; line-height: 1.4; }
+  .row { display: flex; gap: 6px; margin-top: 6px; }
+  .row button { flex: 1; }
+  button { background: #4f9dff; color: #fff; border: 0; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; }
   button:hover { background: #6aabff; }
   button:disabled { opacity: .4; cursor: default; }
-  .stat { font-size: 12px; color: #b0b0be; margin-top: 8px; line-height: 1.4; }
-  .slider-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; }
+  button.gray { background: #3a3a45; }
+  button.gray:hover { background: #4a4a55; }
+  button.active { background: #ff9d4f; }
+  .stat { font-size: 11px; color: #b0b0be; margin-top: 8px; line-height: 1.4; }
+  .slider-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; }
   .slider-row span { width: 40px; text-align: right; color: #9a9aa8; }
-  .toggle { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; color: #c0c0cc; cursor: pointer; user-select: none; }
+  .toggle { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: #c0c0cc; cursor: pointer; user-select: none; }
   .toggle input { cursor: pointer; }
-  .legend { font-size: 11px; color: #88889a; margin-top: 10px; line-height: 1.9; }
+  .legend { font-size: 11px; color: #88889a; margin-top: 8px; line-height: 1.7; }
   .legend .l { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px solid; vertical-align: middle; }
+  .legend .d { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px dashed; vertical-align: middle; }
+  .zone-info { font-size: 11px; color: #9a9aa8; margin-top: 6px; line-height: 1.5; }
+  .canvasWrap { position: relative; overflow: hidden; background: #0f0f14; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; min-width: 0; min-height: 0; }
+  .canvasWrap.panning { cursor: grabbing; }
+  .canvasWrap.empty::after { content: 'Перетащите картинку сюда, Ctrl+V или «Пример»'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #55556a; font-size: 13px; pointer-events: none; text-align: center; padding: 20px; }
+  .canvasWrap.drag { box-shadow: inset 0 0 0 3px #4f9dff; }
+  .canvasWrap.drawing { cursor: crosshair; }
+  #cv { position: absolute; top: 0; left: 0; transform-origin: 0 0; image-rendering: auto; will-change: transform; pointer-events: none; display: block; }
+  .zoomBar { position: absolute; bottom: 12px; right: 12px; display: flex; gap: 4px; background: rgba(30,30,36,0.92); border: 1px solid #3a3a45; border-radius: 8px; padding: 4px; align-items: center; z-index: 5; }
+  .zoomBar button { width: 32px; height: 32px; padding: 0; background: #2a2a33; font-size: 16px; line-height: 1; }
+  .zoomBar button:hover { background: #3a3a45; }
+  .zoomBar .level { font-size: 11px; color: #b0b0be; min-width: 48px; text-align: center; }
 </style>
 </head>
 <body>
-<header><h1>🎨 Anime Face Detector — face + eyes only</h1></header>
-<div class="wrap">
-  <div>
+<header>
+  <h1>🎨 Anime Face Detector — canvas + zones</h1>
+  <span class="hint">колесо/пинч — зум · 2 пальца / пробел — пан · Enter — искать · Z — разметка</span>
+</header>
+
+<div class="app">
+  <aside class="side">
+    <!-- 1. Изображение -->
+    <div class="panel">
+      <h2>Изображение</h2>
+      <input type="file" id="file" accept="image/*" style="width:100%; font-size:11px; margin-bottom:6px;">
+      <div class="row" style="margin-top:0;">
+        <button id="btn2" class="gray">Пример</button>
+        <button id="btnSave" class="gray" disabled>PNG</button>
+      </div>
+      <div class="slider-row"><label>Порог</label><input type="range" id="thr" min="1" max="100" value="50" style="flex:1"><span id="thrV">50</span></div>
+    </div>
+
+    <!-- 2. Метод -->
     <div class="panel">
       <h2>Метод-детектор</h2>
       <div class="methods" id="methods">
-        <label class="active"><input type="radio" name="m" value="skin" checked>1. Skin (YCbCr) + блобы</label>
+        <label class="active"><input type="radio" name="m" value="skin" checked>1. Skin (YCbCr)</label>
         <label><input type="radio" name="m" value="eyes">2. Глаза + геометрия</label>
         <label><input type="radio" name="m" value="ncc">3. Template Matching (NCC)</label>
-        <label><input type="radio" name="m" value="sym">4. Симметрия (верификатор)</label>
+        <label><input type="radio" name="m" value="sym">4. Симметрия</label>
         <label><input type="radio" name="m" value="all">5. Все + NMS</label>
       </div>
       <div class="desc" id="desc"></div>
+      <label class="toggle"><input type="checkbox" id="verify" checked> Верификация глазами</label>
     </div>
 
-    <div class="panel" style="margin-top:12px">
-      <h2>Параметры</h2>
-      <input type="file" id="file" accept="image/*" style="width:100%; font-size:12px;">
-      <div class="slider-row"><label>Порог</label><input type="range" id="thr" min="1" max="100" value="50" style="flex:1"><span id="thrV">50</span></div>
-      <label class="toggle"><input type="checkbox" id="verify" checked> Верификация глазами (отсев без глаз)</label>
+    <!-- 3. Зоны -->
+    <div class="panel">
+      <h2>Зоны поиска</h2>
+      <button id="btnZoneMode" class="gray" style="width:100%">🖊 Разметка (Z)</button>
+      <div class="row">
+        <button id="btnAutoZones" class="gray">Авто-зоны</button>
+        <button id="btnClearZones" class="gray">Очистить</button>
+      </div>
+      <div class="zone-info" id="zoneInfo">Зон: 0</div>
+    </div>
+
+    <div class="panel">
       <div class="stat" id="stat">Загрузите картинку</div>
       <div class="legend">
         <span class="l" style="border-color:#4f9dff"></span>лицо
-        <span class="l" style="border-color:#ff4f9d; margin-left:8px"></span>глаза
+        <span class="l" style="border-color:#ff4f9d; margin-left:6px"></span>глаза<br>
+        <span class="d" style="border-color:#ffd24f"></span>зона
+        <span class="l" style="border-color:#ff9d4f; margin-left:6px"></span>рисуемая
       </div>
     </div>
-  </div>
 
-  <div>
-    <div class="canvasBox"><canvas id="cv"></canvas></div>
-    <div class="controls">
-      <button id="btn">Искать</button>
-      <button id="btn2" style="background:#3a3a45">Пример</button>
+    <div class="row" style="padding: 0 2px;">
+      <button id="btn" style="flex:2">Искать (Enter)</button>
+    </div>
+  </aside>
+
+  <div class="canvasWrap empty" id="wrap">
+    <canvas id="cv"></canvas>
+    <div class="zoomBar">
+      <button id="zOut" title="Уменьшить">−</button>
+      <span class="level" id="zLevel">100%</span>
+      <button id="zIn" title="Увеличить">+</button>
+      <button id="zFit" title="Вписать" style="font-size:11px;">⤢</button>
+      <button id="z1" title="1:1" style="font-size:11px;">1:1</button>
     </div>
   </div>
 </div>
@@ -76,8 +130,30 @@
 // ============================================================
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
+const wrap = document.getElementById('wrap');
+
 let imgData = null, W = 0, H = 0;
 let srcImage = null;
+let lastBoxes = [];
+
+// viewport
+const view = { scale: 1, tx: 0, ty: 0 };
+const MIN_SCALE = 0.05, MAX_SCALE = 32;
+
+// зоны
+let zones = [];
+let drawingMode = false;
+let drawing = null;
+let selectedZone = -1;
+let interaction = null;
+const HANDLE_R_PX = 14;
+const CORNER_HIT_PX = 22;
+
+// жесты
+const pointers = new Map();
+let gesture = null;
+let spaceDown = false;
+let lastTap = { time: 0, x: 0, y: 0 };
 
 const DESCR = {
   skin: "Маска кожи YCbCr → компоненты → фильтр формы. Затем внутри каждого бокса ищем пару глаз; без пары — отсев.",
@@ -86,6 +162,46 @@ const DESCR = {
   sym:  "Skin-кандидаты + проверка симметрии. Верификация глазами отсеивает несимметричные/безглазые.",
   all:  "Объединение skin+eyes+NCC, симметрия как верификатор, затем проверка глаз и NMS."
 };
+
+// ============================================================
+// VIEWPORT
+// ============================================================
+function applyView() {
+  cv.style.transform = `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`;
+  document.getElementById('zLevel').textContent = Math.round(view.scale * 100) + '%';
+}
+function fitToScreen() {
+  if (!W || !H) return;
+  const rw = Math.max(100, wrap.clientWidth);
+  const rh = Math.max(100, wrap.clientHeight);
+  const s = Math.min(rw / W, rh / H) * 0.96;
+  view.scale = s;
+  view.tx = (rw - W * s) / 2;
+  view.ty = (rh - H * s) / 2;
+  applyView();
+}
+function setZoom(newScale, cx, cy) {
+  if (cx === undefined) cx = wrap.clientWidth / 2;
+  if (cy === undefined) cy = wrap.clientHeight / 2;
+  const s = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+  const wx = (cx - view.tx) / view.scale;
+  const wy = (cy - view.ty) / view.scale;
+  view.scale = s;
+  view.tx = cx - wx * s;
+  view.ty = cy - wy * s;
+  applyView();
+}
+function zoomBy(f, cx, cy) { setZoom(view.scale * f, cx, cy); }
+function localPoint(e) {
+  const r = wrap.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+function screenToImage(sx, sy) {
+  return { x: (sx - view.tx) / view.scale, y: (sy - view.ty) / view.scale };
+}
+function imageToScreen(ix, iy) {
+  return { x: ix * view.scale + view.tx, y: iy * view.scale + view.ty };
+}
 
 // ============================================================
 // ЗАГРУЗКА
@@ -121,23 +237,28 @@ function loadImage(src) {
   const im = new Image();
   im.onload = () => {
     srcImage = im;
-    const maxW = 800;
-    const scale = Math.min(1, maxW / im.width);
-    W = Math.round(im.width * scale);
-    H = Math.round(im.height * scale);
+    W = im.width; H = im.height;
     cv.width = W; cv.height = H;
-    ctx.drawImage(im, 0, 0, W, H);
+    ctx.drawImage(im, 0, 0);
     imgData = ctx.getImageData(0, 0, W, H);
-    document.getElementById('stat').textContent = `Готово: ${W}×${H}. Нажмите «Искать».`;
+
+    lastBoxes = []; zones = []; selectedZone = -1;
+    updateZoneInfo();
+    wrap.classList.remove('empty');
+    document.getElementById('btnSave').disabled = true;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { fitToScreen(); drawAll(); });
+    });
+    document.getElementById('stat').textContent = `Готово: ${W}×${H}`;
   };
   im.src = src;
 }
+window.addEventListener('resize', () => { if (W) applyView(); });
 
 // ============================================================
 // УТИЛИТЫ
 // ============================================================
-function redraw() { if (srcImage) ctx.drawImage(srcImage, 0, 0, W, H); }
-
 function grayPixels() {
   const g = new Uint8Array(W * H);
   const d = imgData.data;
@@ -153,14 +274,12 @@ function iou(a, b) {
   const inter = iw*ih;
   return inter / (a.w*a.h + b.w*b.h - inter || 1);
 }
-
 function nms(boxes, thr = 0.3) {
   const sorted = [...boxes].sort((a, b) => (b.score||0) - (a.score||0));
   const keep = [];
   for (const b of sorted) if (keep.every(k => iou(k, b) < thr)) keep.push(b);
   return keep;
 }
-
 function erode(mask, w, h) {
   const out = new Uint8Array(w*h);
   for (let y = 1; y < h-1; y++) for (let x = 1; x < w-1; x++) {
@@ -172,7 +291,6 @@ function erode(mask, w, h) {
   }
   return out;
 }
-
 function dilate(mask, w, h) {
   const out = new Uint8Array(w*h);
   for (let y = 1; y < h-1; y++) for (let x = 1; x < w-1; x++) {
@@ -184,7 +302,6 @@ function dilate(mask, w, h) {
   }
   return out;
 }
-
 function connectedComponents(mask, w, h, minArea = 20) {
   const labels = new Int32Array(w*h).fill(-1);
   const comps = [];
@@ -217,7 +334,7 @@ function connectedComponents(mask, w, h, minArea = 20) {
 }
 
 // ============================================================
-// МЕТОДЫ-ДЕТЕКТОРЫ
+// МЕТОДЫ-ДЕТЕКТОРЫ (те же, что в рабочей версии)
 // ============================================================
 function methodSkin(threshold = 0.5) {
   const d = imgData.data;
@@ -359,7 +476,7 @@ function methodAll(threshold = 0.5) {
 }
 
 // ============================================================
-// ПОИСК ГЛАЗ В ROI + ВЕРИФИКАЦИЯ ЛИЦА
+// ПОИСК ГЛАЗ В ROI + ВЕРИФИКАЦИЯ (те же, что в рабочей)
 // ============================================================
 function findEyesInROI(gray, roi) {
   const rx = Math.max(0, roi.x | 0);
@@ -426,13 +543,109 @@ function verifyFaceByEyes(gray, faceBox) {
   const fw = Math.max(eyeSpan * 1.7, faceBox.w * 0.8);
   const fh = fw * 1.25;
   return {
-    x: cx - fw/2,
-    y: cyEyes - fh * 0.40,
-    w: fw,
-    h: fh,
+    x: cx - fw/2, y: cyEyes - fh * 0.40, w: fw, h: fh,
     score: Math.max(0, Math.min(1, (faceBox.score||0.5) * 0.5 + 0.5 + res.score*0.05)),
     eyes: res.pair
   };
+}
+
+// ============================================================
+// ЗОНЫ (без фильтрации результатов — только разметка)
+// ============================================================
+function updateZoneInfo() {
+  const el = document.getElementById('zoneInfo');
+  el.textContent = zones.length
+    ? `Зон: ${zones.length} · тап — выбрать, тянуть за ручки`
+    : 'Зон: 0';
+}
+
+function getScreenHandles(zone) {
+  const x0 = zone.x * view.scale + view.tx;
+  const y0 = zone.y * view.scale + view.ty;
+  const x1 = (zone.x + zone.w) * view.scale + view.tx;
+  const y1 = (zone.y + zone.h) * view.scale + view.ty;
+  const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+  return {
+    nw: { x: x0, y: y0 }, n: { x: mx, y: y0 }, ne: { x: x1, y: y0 },
+    w:  { x: x0, y: my },                     e:  { x: x1, y: my },
+    sw: { x: x0, y: y1 }, s: { x: mx, y: y1 }, se: { x: x1, y: y1 }
+  };
+}
+function hitZone(sx, sy) {
+  if (selectedZone >= 0 && selectedZone < zones.length) {
+    const h = getScreenHandles(zones[selectedZone]);
+    for (const key in h) {
+      const dx = sx - h[key].x, dy = sy - h[key].y;
+      if (dx*dx + dy*dy < CORNER_HIT_PX * CORNER_HIT_PX)
+        return { type: 'resize', idx: selectedZone, handle: key };
+    }
+  }
+  for (let i = zones.length - 1; i >= 0; i--) {
+    const z = zones[i];
+    const s = imageToScreen(z.x, z.y);
+    const x1 = s.x + z.w * view.scale;
+    const y1 = s.y + z.h * view.scale;
+    if (sx >= s.x && sx <= x1 && sy >= s.y && sy <= y1)
+      return { type: 'move', idx: i };
+  }
+  return null;
+}
+
+// ============================================================
+// РИСОВАНИЕ
+// ============================================================
+function drawAll() {
+  if (!srcImage) return;
+  ctx.clearRect(0, 0, W, H);
+  ctx.drawImage(srcImage, 0, 0);
+
+  for (const b of lastBoxes) {
+    ctx.lineWidth = 2 / view.scale;
+    ctx.strokeStyle = '#4f9dff';
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
+    ctx.fillStyle = '#4f9dff';
+    const fs = Math.max(10, 12 / view.scale);
+    ctx.font = `bold ${fs}px sans-serif`;
+    ctx.fillText(Math.round((b.score||0) * 100) + '%',
+      b.x, Math.max(fs, b.y - 4 / view.scale));
+    if (b.eyes) {
+      ctx.strokeStyle = '#ff4f9d';
+      for (const e of b.eyes) ctx.strokeRect(e.x, e.y, e.w, e.h);
+    }
+  }
+
+  for (let i = 0; i < zones.length; i++) {
+    const z = zones[i];
+    const isSel = i === selectedZone;
+    ctx.setLineDash([6/view.scale, 4/view.scale]);
+    ctx.lineWidth = (isSel ? 3 : 2) / view.scale;
+    ctx.strokeStyle = isSel ? '#ffd24f' : 'rgba(255,210,79,0.75)';
+    ctx.strokeRect(z.x, z.y, z.w, z.h);
+    if (isSel) {
+      ctx.fillStyle = 'rgba(255,210,79,0.08)';
+      ctx.fillRect(z.x, z.y, z.w, z.h);
+      ctx.setLineDash([]);
+      const sh = getScreenHandles(z);
+      const rImg = HANDLE_R_PX / view.scale;
+      for (const k in sh) {
+        const ix = (sh[k].x - view.tx) / view.scale;
+        const iy = (sh[k].y - view.ty) / view.scale;
+        ctx.fillStyle = '#ffd24f';
+        ctx.beginPath(); ctx.arc(ix, iy, rImg, 0, 7); ctx.fill();
+        ctx.strokeStyle = '#1e1e24'; ctx.lineWidth = 2 / view.scale;
+        ctx.beginPath(); ctx.arc(ix, iy, rImg, 0, 7); ctx.stroke();
+      }
+    }
+    ctx.setLineDash([]);
+  }
+
+  if (drawing) {
+    ctx.setLineDash([6/view.scale, 4/view.scale]);
+    ctx.lineWidth = 2 / view.scale;
+    ctx.strokeStyle = '#ff9d4f';
+    ctx.strokeRect(drawing.x, drawing.y, drawing.w, drawing.h);
+    ctx.setLineDash([]);
+  }
 }
 
 // ============================================================
@@ -447,7 +660,7 @@ document.querySelectorAll('input[name="m"]').forEach(r => {
     document.querySelectorAll('.methods label').forEach(l =>
       l.classList.toggle('active', l.querySelector('input').checked));
     document.getElementById('desc').textContent = DESCR[currentMethod];
-    redraw();
+    drawAll();
     if (imgData) run();
   });
 });
@@ -459,23 +672,272 @@ document.getElementById('thr').addEventListener('input', e =>
 document.getElementById('btn').addEventListener('click', run);
 document.getElementById('verify').addEventListener('change', () => { if (imgData) run(); });
 
-function drawResults(boxes) {
-  redraw();
-  for (const b of boxes) {
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#4f9dff';
-    ctx.strokeRect(b.x, b.y, b.w, b.h);
-    ctx.fillStyle = '#4f9dff';
-    ctx.font = 'bold 12px sans-serif';
-    ctx.fillText(Math.round((b.score||0) * 100) + '%', b.x, Math.max(12, b.y - 4));
-    if (b.eyes) {
-      ctx.strokeStyle = '#ff4f9d';
-      ctx.lineWidth = 2;
-      for (const e of b.eyes) ctx.strokeRect(e.x, e.y, e.w, e.h);
+document.getElementById('btnZoneMode').addEventListener('click', () => {
+  drawingMode = !drawingMode;
+  const btn = document.getElementById('btnZoneMode');
+  btn.classList.toggle('active', drawingMode);
+  btn.textContent = drawingMode ? '🖊 Разметка (ВКЛ)' : '🖊 Разметка (Z)';
+  wrap.classList.toggle('drawing', drawingMode);
+  if (!drawingMode) selectedZone = -1;
+  drawAll();
+});
+document.getElementById('btnAutoZones').addEventListener('click', () => {
+  // просто копируем найденные лица в зоны — удобно для последующей работы
+  if (!lastBoxes.length) return;
+  zones = lastBoxes.map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h }));
+  selectedZone = zones.length ? 0 : -1;
+  updateZoneInfo(); drawAll();
+});
+document.getElementById('btnClearZones').addEventListener('click', () => {
+  zones = []; selectedZone = -1;
+  updateZoneInfo(); drawAll();
+});
+
+document.getElementById('zIn').addEventListener('click', () => zoomBy(1.25));
+document.getElementById('zOut').addEventListener('click', () => zoomBy(0.8));
+document.getElementById('zFit').addEventListener('click', fitToScreen);
+document.getElementById('z1').addEventListener('click', () => {
+  const rw = wrap.clientWidth, rh = wrap.clientHeight;
+  const cx = rw / 2, cy = rh / 2;
+  const wx = (cx - view.tx) / view.scale;
+  const wy = (cy - view.ty) / view.scale;
+  view.scale = 1;
+  view.tx = cx - wx;
+  view.ty = cy - wy;
+  applyView();
+});
+
+// ============================================================
+// ВЗАИМОДЕЙСТВИЕ
+// ============================================================
+wrap.addEventListener('wheel', e => {
+  if (!imgData) return;
+  e.preventDefault();
+  const p = localPoint(e);
+  zoomBy(Math.exp(-e.deltaY * 0.0015), p.x, p.y);
+}, { passive: false });
+
+wrap.addEventListener('pointerdown', e => {
+  if (!imgData) return;
+  e.preventDefault();
+  try { wrap.setPointerCapture(e.pointerId); } catch (_) {}
+  const p = localPoint(e);
+  pointers.set(e.pointerId, p);
+
+  if (pointers.size === 2) {
+    const pts = [...pointers.values()];
+    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    const center = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+    gesture = { kind: 'pinch', startDist: dist, startCenter: center,
+                startScale: view.scale, startTx: view.tx, startTy: view.ty };
+    drawing = null; interaction = null;
+    drawAll();
+    return;
+  }
+  if (e.button === 1 || spaceDown) {
+    gesture = { kind: 'pan', startX: p.x, startY: p.y, startTx: view.tx, startTy: view.ty };
+    wrap.classList.add('panning');
+    return;
+  }
+  if (pointers.size !== 1) return;
+
+  const now = Date.now();
+  if (now - lastTap.time < 320 &&
+      Math.abs(p.x - lastTap.x) < 25 && Math.abs(p.y - lastTap.y) < 25) {
+    const hit = hitZone(p.x, p.y);
+    if (hit) {
+      zones.splice(hit.idx, 1);
+      selectedZone = -1;
+      updateZoneInfo(); drawAll();
+      lastTap.time = 0;
+      return;
+    } else {
+      fitToScreen();
+      lastTap.time = 0;
+      return;
     }
   }
-}
+  lastTap = { time: now, x: p.x, y: p.y };
 
+  if (drawingMode) {
+    const hit = hitZone(p.x, p.y);
+    if (hit && hit.type === 'resize') {
+      const z = zones[hit.idx];
+      interaction = { type: 'resize', idx: hit.idx, handle: hit.handle,
+                      startImg: screenToImage(p.x, p.y),
+                      orig: { x: z.x, y: z.y, w: z.w, h: z.h } };
+      return;
+    }
+    if (hit && hit.type === 'move') {
+      selectedZone = hit.idx;
+      const z = zones[hit.idx];
+      interaction = { type: 'move', idx: hit.idx,
+                      startImg: screenToImage(p.x, p.y),
+                      orig: { x: z.x, y: z.y, w: z.w, h: z.h } };
+      drawAll();
+      return;
+    }
+    const ip = screenToImage(p.x, p.y);
+    drawing = { x: ip.x, y: ip.y, w: 0, h: 0 };
+    selectedZone = -1;
+    drawAll();
+  } else {
+    const hit = hitZone(p.x, p.y);
+    if (hit) {
+      selectedZone = hit.idx;
+      drawAll();
+    } else {
+      selectedZone = -1;
+      gesture = { kind: 'pan', startX: p.x, startY: p.y, startTx: view.tx, startTy: view.ty };
+      wrap.classList.add('panning');
+      drawAll();
+    }
+  }
+});
+
+wrap.addEventListener('pointermove', e => {
+  if (!pointers.has(e.pointerId)) return;
+  const p = localPoint(e);
+  pointers.set(e.pointerId, p);
+
+  if (gesture && gesture.kind === 'pinch' && pointers.size >= 2) {
+    const pts = [...pointers.values()];
+    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    const center = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+    const scaleFactor = dist / gesture.startDist;
+    const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, gesture.startScale * scaleFactor));
+    const wx = (gesture.startCenter.x - gesture.startTx) / gesture.startScale;
+    const wy = (gesture.startCenter.y - gesture.startTy) / gesture.startScale;
+    view.scale = newScale;
+    view.tx = center.x - wx * newScale;
+    view.ty = center.y - wy * newScale;
+    applyView(); drawAll();
+    return;
+  }
+  if (gesture && gesture.kind === 'pan') {
+    view.tx = gesture.startTx + (p.x - gesture.startX);
+    view.ty = gesture.startTy + (p.y - gesture.startY);
+    applyView(); drawAll();
+    return;
+  }
+  if (pointers.size !== 1) return;
+
+  if (drawing) {
+    const ip = screenToImage(p.x, p.y);
+    drawing.w = ip.x - drawing.x;
+    drawing.h = ip.y - drawing.y;
+    drawAll();
+    return;
+  }
+  if (interaction) {
+    const ip = screenToImage(p.x, p.y);
+    const dx = ip.x - interaction.startImg.x;
+    const dy = ip.y - interaction.startImg.y;
+    const o = interaction.orig;
+    if (interaction.type === 'move') {
+      zones[interaction.idx] = {
+        x: Math.max(0, Math.min(W - o.w, o.x + dx)),
+        y: Math.max(0, Math.min(H - o.h, o.y + dy)),
+        w: o.w, h: o.h
+      };
+    } else if (interaction.type === 'resize') {
+      let x1 = o.x, y1 = o.y, x2 = o.x + o.w, y2 = o.y + o.h;
+      const hd = interaction.handle;
+      if (hd.includes('w')) x1 = o.x + dx;
+      if (hd.includes('e')) x2 = o.x + o.w + dx;
+      if (hd.includes('n')) y1 = o.y + dy;
+      if (hd.includes('s')) y2 = o.y + o.h + dy;
+      let nx = Math.min(x1, x2), ny = Math.min(y1, y2);
+      let nw = Math.abs(x2 - x1), nh = Math.abs(y2 - y1);
+      nx = Math.max(0, Math.min(W - 10, nx));
+      ny = Math.max(0, Math.min(H - 10, ny));
+      nw = Math.max(10, Math.min(W - nx, nw));
+      nh = Math.max(10, Math.min(H - ny, nh));
+      zones[interaction.idx] = { x: nx, y: ny, w: nw, h: nh };
+    }
+    drawAll();
+  }
+});
+
+function endPointer(e) {
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2 && gesture && gesture.kind === 'pinch') gesture = null;
+  if (pointers.size === 0 && gesture && gesture.kind === 'pan') {
+    gesture = null;
+    wrap.classList.remove('panning');
+  }
+  if (drawing) {
+    if (drawing.w < 0) { drawing.x += drawing.w; drawing.w = -drawing.w; }
+    if (drawing.h < 0) { drawing.y += drawing.h; drawing.h = -drawing.h; }
+    if (drawing.w > 8 && drawing.h > 8) {
+      zones.push({ ...drawing });
+      selectedZone = zones.length - 1;
+    }
+    drawing = null;
+    updateZoneInfo(); drawAll();
+  }
+  if (interaction) {
+    interaction = null;
+    updateZoneInfo();
+  }
+}
+wrap.addEventListener('pointerup', endPointer);
+wrap.addEventListener('pointercancel', endPointer);
+
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !spaceDown && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+    spaceDown = true; wrap.style.cursor = 'grab'; e.preventDefault();
+  }
+  if (e.key === 'Enter' && imgData && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') run();
+  if ((e.key === 'z' || e.key === 'Z') && imgData && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA')
+    document.getElementById('btnZoneMode').click();
+  if ((e.key === 'Delete' || e.key === 'Backspace') && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+    zones = []; selectedZone = -1;
+    updateZoneInfo(); drawAll();
+  }
+  if (e.key === '0') { if (imgData) fitToScreen(); }
+  if (e.key === '1') { if (imgData) document.getElementById('z1').click(); }
+});
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space') { spaceDown = false; wrap.style.cursor = ''; }
+});
+
+document.getElementById('btnSave').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.download = 'faces.png';
+  a.href = cv.toDataURL('image/png');
+  a.click();
+});
+
+['dragenter','dragover'].forEach(ev => wrap.addEventListener(ev, e => {
+  e.preventDefault(); wrap.classList.add('drag');
+}));
+['dragleave','drop'].forEach(ev => wrap.addEventListener(ev, e => {
+  e.preventDefault(); wrap.classList.remove('drag');
+}));
+wrap.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) {
+    const r = new FileReader();
+    r.onload = ev => loadImage(ev.target.result);
+    r.readAsDataURL(f);
+  }
+});
+window.addEventListener('paste', e => {
+  for (const item of e.clipboardData.items) {
+    if (item.type.startsWith('image/')) {
+      const f = item.getAsFile();
+      const r = new FileReader();
+      r.onload = ev => loadImage(ev.target.result);
+      r.readAsDataURL(f);
+      break;
+    }
+  }
+});
+
+// ============================================================
+// ЗАПУСК
+// ============================================================
 function run() {
   if (!imgData) return;
   const thr = +document.getElementById('thr').value / 100;
@@ -500,15 +962,18 @@ function run() {
         boxes = candidates;
       }
 
-      drawResults(boxes);
+      lastBoxes = boxes;
+      drawAll();
+      document.getElementById('btnSave').disabled = boxes.length === 0;
 
       const dt = (performance.now() - t0).toFixed(0);
       document.getElementById('stat').textContent =
         `Метод: ${currentMethod} | кандидатов: ${candidates.length} | ` +
         `после ${needVerify ? 'верификации' : 'NMS'}: ${boxes.length} | ${dt} мс`;
-    } catch (e) {
-      document.getElementById('stat').textContent = 'Ошибка: ' + e.message;
-      console.error(e);
+    } catch (err) {
+      drawAll();
+      document.getElementById('stat').textContent = 'Ошибка: ' + err.message;
+      console.error(err);
     }
     document.getElementById('btn').disabled = false;
   }, 10);
