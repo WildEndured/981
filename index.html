@@ -6,8 +6,17 @@
 <title>Anime Face Detector — zoom + pan + zones</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body { margin: 0; font-family: system-ui, sans-serif; background: #1e1e24; color: #e5e5ea; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
-  header { padding: 8px 14px; background: #2a2a33; border-bottom: 1px solid #3a3a45; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; font-family: system-ui, sans-serif;
+    background: #1e1e24; color: #e5e5ea;
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  header {
+    padding: 8px 14px; background: #2a2a33; border-bottom: 1px solid #3a3a45;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 6px; flex-shrink: 0;
+  }
   h1 { margin: 0; font-size: 16px; }
   .hint { font-size: 11px; color: #9a9aa8; }
 
@@ -17,17 +26,29 @@
     .side { max-height: 42vh; overflow-y: auto; border-right: none !important; border-bottom: 1px solid #3a3a45; }
   }
 
-  .side { background: #23232b; border-right: 1px solid #3a3a45; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .side {
+    background: #23232b; border-right: 1px solid #3a3a45;
+    overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px;
+  }
   .panel { background: #26262e; padding: 10px 12px; border-radius: 8px; flex-shrink: 0; }
-  .panel h2 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #9a9aa8; }
-  .methods label { display: block; padding: 6px 8px; border-radius: 6px; cursor: pointer; margin-bottom: 4px; background: #1e1e24; border: 1px solid transparent; font-size: 12px; }
+  .panel h2 {
+    margin: 0 0 8px; font-size: 12px; text-transform: uppercase;
+    letter-spacing: 1px; color: #9a9aa8;
+  }
+  .methods label {
+    display: block; padding: 6px 8px; border-radius: 6px; cursor: pointer;
+    margin-bottom: 4px; background: #1e1e24; border: 1px solid transparent; font-size: 12px;
+  }
   .methods label:hover { background: #2f2f3a; }
   .methods input { margin-right: 8px; }
   .methods label.active { border-color: #4f9dff; background: #2b3550; }
   .desc { font-size: 11px; color: #9a9aa8; margin-top: 6px; line-height: 1.4; }
   .row { display: flex; gap: 6px; margin-top: 6px; }
   .row button { flex: 1; }
-  button { background: #4f9dff; color: #fff; border: 0; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; }
+  button {
+    background: #4f9dff; color: #fff; border: 0; padding: 7px 12px;
+    border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px;
+  }
   button:hover { background: #6aabff; }
   button:disabled { opacity: .4; cursor: default; }
   button.gray { background: #3a3a45; }
@@ -37,48 +58,48 @@
   .stat b { color: #e5e5ea; }
   .slider-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; }
   .slider-row span { width: 40px; text-align: right; color: #9a9aa8; }
-  .toggle { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: #c0c0cc; cursor: pointer; user-select: none; }
+  .toggle {
+    display: flex; align-items: center; gap: 6px; margin-top: 6px;
+    font-size: 12px; color: #c0c0cc; cursor: pointer; user-select: none;
+  }
   .toggle input { cursor: pointer; }
   .legend { font-size: 11px; color: #88889a; margin-top: 8px; line-height: 1.7; }
   .legend .l { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px solid; vertical-align: middle; }
   .legend .d { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px dashed; vertical-align: middle; }
   .zone-info { font-size: 11px; color: #9a9aa8; margin-top: 6px; line-height: 1.5; }
 
-  /* ===== область холста ===== */
+  /* =============== ОБЛАСТЬ ХОЛСТА =============== */
   .canvasWrap {
-    position: relative;
+    position: relative;              /* ОБЯЗАТЕЛЬНО */
     overflow: hidden;
     background: #0f0f14;
-    touch-action: none;              /* жесты обрабатываем сами */
-    user-select: none; -webkit-user-select: none;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: grab;
+    min-width: 0;
+    min-height: 0;
   }
+  .canvasWrap.panning { cursor: grabbing; }
   .canvasWrap.empty::after {
     content: 'Перетащите картинку сюда, Ctrl+V или «Пример»';
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     color: #55556a; font-size: 13px; pointer-events: none; text-align: center; padding: 20px;
   }
   .canvasWrap.drag { box-shadow: inset 0 0 0 3px #4f9dff; }
+  .canvasWrap.drawing { cursor: crosshair; }
 
-  /* сам холст = реальный размер изображения, масштабируется через transform */
+  /* КЛЮЧЕВОЕ: канвас не ловит события — все идут в wrap */
   #cv {
-    position: absolute; top: 0; left: 0;
+    position: absolute;
+    top: 0; left: 0;
     transform-origin: 0 0;
     image-rendering: auto;
     will-change: transform;
-    touch-action: none;
-  }
-  /* сетка-шахматка под прозрачность — на фоне wrap */
-  .canvasWrap.transparent {
-    background-image:
-      linear-gradient(45deg, #1a1a20 25%, transparent 25%),
-      linear-gradient(-45deg, #1a1a20 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, #1a1a20 75%),
-      linear-gradient(-45deg, transparent 75%, #1a1a20 75%);
-    background-size: 16px 16px;
-    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    pointer-events: none;            /* ВАЖНО */
+    display: block;
   }
 
-  /* зум-панель */
   .zoomBar {
     position: absolute; bottom: 12px; right: 12px;
     display: flex; gap: 4px; background: rgba(30,30,36,0.92);
@@ -95,8 +116,8 @@
 </head>
 <body>
 <header>
-  <h1>🎨 Anime Face Detector — zoom + pan</h1>
-  <span class="hint">колесо/пинч — зум · 2 пальца / пробел / средняя кнопка — пан · Enter — искать</span>
+  <h1>🎨 Anime Face Detector</h1>
+  <span class="hint">колесо/пинч — зум · 2 пальца / пробел / средняя кнопка — пан · Enter — искать · Z — разметка</span>
 </header>
 
 <div class="app">
@@ -143,6 +164,10 @@
       <button id="btn2" class="gray">Пример</button>
       <button id="btnSave" class="gray" disabled>PNG</button>
     </div>
+
+    <div class="row" style="padding: 0 2px;">
+      <button id="btn" style="flex:2">Искать</button>
+    </div>
   </aside>
 
   <div class="canvasWrap empty" id="wrap">
@@ -170,23 +195,24 @@ let srcImage = null;
 let _grayCache = null;
 let lastBoxes = [];
 
-// --- viewport (зум/пан) ---
+// viewport
 const view = { scale: 1, tx: 0, ty: 0 };
-const MIN_SCALE = 0.1, MAX_SCALE = 16;
+const MIN_SCALE = 0.05, MAX_SCALE = 32;
 
-// --- зоны ---
+// зоны
 let zones = [];
 let drawingMode = false;
-let drawing = null;              // создаваемая зона (в координатах изображения)
+let drawing = null;
 let selectedZone = -1;
-let interaction = null;          // { type:'create'|'move'|'resize', idx, handle, startImg, orig }
+let interaction = null;
 const HANDLE_R_PX = 14;
 const CORNER_HIT_PX = 22;
 
-// --- жесты ---
-const pointers = new Map();      // pointerId -> {sx, sy} в экранных коорд. относительно wrap
-let gesture = null;              // { kind:'pinch'|'pan', startDist, startCenter, startScale, startTx, startTy, ... }
+// жесты
+const pointers = new Map();
+let gesture = null;
 let spaceDown = false;
+let lastTap = { time: 0, x: 0, y: 0 };
 
 const DESCR = {
   skin: "Маска кожи YCbCr → компоненты → фильтр формы. Верификация глазами.",
@@ -197,7 +223,7 @@ const DESCR = {
 };
 
 // ============================================================
-// VIEWPORT: применение transform
+// VIEWPORT
 // ============================================================
 function applyView() {
   cv.style.transform = `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`;
@@ -206,7 +232,9 @@ function applyView() {
 
 function fitToScreen() {
   if (!W || !H) return;
-  const rw = wrap.clientWidth, rh = wrap.clientHeight;
+  // используем размеры контейнера, но минимум 100x100 (если ещё не отрисован)
+  const rw = Math.max(100, wrap.clientWidth);
+  const rh = Math.max(100, wrap.clientHeight);
   const s = Math.min(rw / W, rh / H) * 0.96;
   view.scale = s;
   view.tx = (rw - W * s) / 2;
@@ -215,8 +243,8 @@ function fitToScreen() {
 }
 
 function setZoom(newScale, cx, cy) {
-  // cx,cy — экранные коорд. относительно wrap (центр зума)
-  if (cx === undefined) { cx = wrap.clientWidth / 2; cy = wrap.clientHeight / 2; }
+  if (cx === undefined) cx = wrap.clientWidth / 2;
+  if (cy === undefined) cy = wrap.clientHeight / 2;
   const s = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
   const wx = (cx - view.tx) / view.scale;
   const wy = (cy - view.ty) / view.scale;
@@ -225,21 +253,16 @@ function setZoom(newScale, cx, cy) {
   view.ty = cy - wy * s;
   applyView();
 }
+function zoomBy(f, cx, cy) { setZoom(view.scale * f, cx, cy); }
 
-function zoomBy(factor, cx, cy) { setZoom(view.scale * factor, cx, cy); }
-
-// экранные коорд. (clientX/Y) → координаты изображения
-function clientToImage(clientX, clientY) {
+function localPoint(e) {
   const r = wrap.getBoundingClientRect();
-  const sx = clientX - r.left;
-  const sy = clientY - r.top;
-  return {
-    x: (sx - view.tx) / view.scale,
-    y: (sy - view.ty) / view.scale,
-    sx, sy                      // экранные относит. wrap
-  };
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
 }
-// координаты изображения → экранные относительно wrap
+
+function screenToImage(sx, sy) {
+  return { x: (sx - view.tx) / view.scale, y: (sy - view.ty) / view.scale };
+}
 function imageToScreen(ix, iy) {
   return { x: ix * view.scale + view.tx, y: iy * view.scale + view.ty };
 }
@@ -278,8 +301,7 @@ function loadImage(src) {
   const im = new Image();
   im.onload = () => {
     srcImage = im;
-    W = im.width;
-    H = im.height;
+    W = im.width; H = im.height;
     cv.width = W; cv.height = H;
     ctx.drawImage(im, 0, 0);
     imgData = ctx.getImageData(0, 0, W, H);
@@ -290,21 +312,22 @@ function loadImage(src) {
     wrap.classList.remove('empty');
     document.getElementById('btnSave').disabled = true;
 
-    // подгоняем масштаб под окно
-    fitToScreen();
+    // даём браузеру посчитать layout и только потом fitToScreen
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        fitToScreen();
+        drawAll();
+      });
+    });
 
     document.getElementById('stat').textContent = `Готово: ${W}×${H}`;
-    drawAll();
   };
   im.src = src;
 }
 
-// ресайз окна → сохранить/подогнать вид
-let resizeTO = null;
 window.addEventListener('resize', () => {
   if (!W) return;
-  clearTimeout(resizeTO);
-  resizeTO = setTimeout(() => { /* оставляем текущий зум, только обновим позицию */ applyView(); }, 100);
+  applyView();
 });
 
 // ============================================================
@@ -460,7 +483,6 @@ function updateZoneInfo() {
     : 'Зон: 0 (поиск по всему изображению)';
 }
 
-// ручки выбранной зоны в ЭКРАННЫХ координатах (не зависят от зума)
 function getScreenHandles(zone) {
   const x0 = zone.x * view.scale + view.tx;
   const y0 = zone.y * view.scale + view.ty;
@@ -475,7 +497,6 @@ function getScreenHandles(zone) {
 }
 
 function hitZone(sx, sy) {
-  // ручки выбранной зоны (экранные px)
   if (selectedZone >= 0 && selectedZone < zones.length) {
     const h = getScreenHandles(zones[selectedZone]);
     for (const key in h) {
@@ -484,7 +505,6 @@ function hitZone(sx, sy) {
         return { type: 'resize', idx: selectedZone, handle: key };
     }
   }
-  // сами зоны (по центру, в координатах изображения)
   for (let i = zones.length - 1; i >= 0; i--) {
     const z = zones[i];
     const s = imageToScreen(z.x, z.y);
@@ -500,16 +520,20 @@ function hitZone(sx, sy) {
 // РИСОВАНИЕ
 // ============================================================
 function drawAll() {
+  if (!srcImage) return;
+  ctx.clearRect(0, 0, W, H);
   ctx.drawImage(srcImage, 0, 0);
 
   // боксы
   for (const b of lastBoxes) {
-    ctx.lineWidth = 2 / view.scale;    // постоянная толщина на экране
+    ctx.lineWidth = 2 / view.scale;
     ctx.strokeStyle = '#4f9dff';
     ctx.strokeRect(b.x, b.y, b.w, b.h);
     ctx.fillStyle = '#4f9dff';
-    ctx.font = `bold ${Math.max(10, 12 / view.scale)}px sans-serif`;
-    ctx.fillText(Math.round((b.score||0) * 100) + '%', b.x, Math.max(12/view.scale, b.y - 4/view.scale));
+    const fs = Math.max(10, 12 / view.scale);
+    ctx.font = `bold ${fs}px sans-serif`;
+    ctx.fillText(Math.round((b.score||0) * 100) + '%',
+      b.x, Math.max(fs, b.y - 4 / view.scale));
     if (b.eyes) {
       ctx.strokeStyle = '#ff4f9d';
       for (const e of b.eyes) ctx.strokeRect(e.x, e.y, e.w, e.h);
@@ -529,7 +553,6 @@ function drawAll() {
       ctx.fillRect(z.x, z.y, z.w, z.h);
       ctx.setLineDash([]);
 
-      // ручки — в экранных пикселях, постоянный размер
       const sh = getScreenHandles(z);
       const rImg = HANDLE_R_PX / view.scale;
       for (const k in sh) {
@@ -544,7 +567,6 @@ function drawAll() {
     ctx.setLineDash([]);
   }
 
-  // текущая новая зона
   if (drawing) {
     ctx.setLineDash([6/view.scale, 4/view.scale]);
     ctx.lineWidth = 2 / view.scale;
@@ -555,7 +577,7 @@ function drawAll() {
 }
 
 // ============================================================
-// МЕТОДЫ-ДЕТЕКТОРЫ
+// ДЕТЕКТОРЫ (сокращены — те же, что в предыдущей версии)
 // ============================================================
 function methodSkin(threshold = 0.5) {
   const d = imgData.data;
@@ -704,9 +726,7 @@ function methodAll(threshold = 0.5) {
   return nms(all.filter(b => symmetryScore(g, b) > 0.65), 0.3);
 }
 
-// ============================================================
-// ГЛАЗА В ROI + ВЕРИФИКАЦИЯ
-// ============================================================
+// глаза в ROI + верификация
 function roiLooksLikeFace(gray, roi) {
   const rx = Math.max(0, roi.x|0), ry = Math.max(0, roi.y|0);
   const rw = Math.min(W - rx, roi.w|0), rh = Math.min(H - ry, roi.h|0);
@@ -774,7 +794,6 @@ function findEyesInROI(gray, roi) {
       }
       colorBonus /= 2;
     }
-
     const score = (1 - Math.abs(rel - 2) / 2.5) - dy / sAvg * 1.5 - (sRatio - 1) * 1.5 + colorBonus * 0.6;
     if (score > bestScore) {
       bestScore = score;
@@ -834,6 +853,7 @@ document.getElementById('btnZoneMode').addEventListener('click', () => {
   const btn = document.getElementById('btnZoneMode');
   btn.classList.toggle('active', drawingMode);
   btn.textContent = drawingMode ? '🖊 Разметка (ВКЛ)' : '🖊 Разметка (Z)';
+  wrap.classList.toggle('drawing', drawingMode);
   if (!drawingMode) selectedZone = -1;
   drawAll();
 });
@@ -852,15 +872,12 @@ document.getElementById('btnClearZones').addEventListener('click', () => {
   if (imgData) run();
 });
 
-// зум-кнопки
 document.getElementById('zIn').addEventListener('click', () => zoomBy(1.25));
 document.getElementById('zOut').addEventListener('click', () => zoomBy(0.8));
 document.getElementById('zFit').addEventListener('click', fitToScreen);
 document.getElementById('z1').addEventListener('click', () => {
-  // 1:1 — центрируем на текущей видимой области
   const rw = wrap.clientWidth, rh = wrap.clientHeight;
   const cx = rw / 2, cy = rh / 2;
-  // точка изображения под центром экрана сейчас:
   const wx = (cx - view.tx) / view.scale;
   const wy = (cy - view.ty) / view.scale;
   view.scale = 1;
@@ -870,33 +887,26 @@ document.getElementById('z1').addEventListener('click', () => {
 });
 
 // ============================================================
-// ЖЕСТЫ (wheel, pinch, pan) + разметка зон
+// ВЗАИМОДЕЙСТВИЕ
+// ВСЕ события — на wrap. Канвас имеет pointer-events: none.
 // ============================================================
-let lastTap = { time: 0, x: 0, y: 0 };
-
-function localPoint(e) {
-  const r = wrap.getBoundingClientRect();
-  return { x: e.clientX - r.left, y: e.clientY - r.top };
-}
-
-// колесо
 wrap.addEventListener('wheel', e => {
   if (!imgData) return;
   e.preventDefault();
   const p = localPoint(e);
-  const factor = Math.exp(-e.deltaY * 0.0015);   // плавный зум
+  const factor = Math.exp(-e.deltaY * 0.0015);
   zoomBy(factor, p.x, p.y);
 }, { passive: false });
 
 wrap.addEventListener('pointerdown', e => {
   if (!imgData) return;
   e.preventDefault();
-  wrap.setPointerCapture(e.pointerId);
+  try { wrap.setPointerCapture(e.pointerId); } catch (_) {}
 
   const p = localPoint(e);
   pointers.set(e.pointerId, p);
 
-  // 2+ пальца → pinch/pan жест
+  // пинч двумя пальцами
   if (pointers.size === 2) {
     const pts = [...pointers.values()];
     const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
@@ -909,15 +919,15 @@ wrap.addEventListener('pointerdown', e => {
       startTx: view.tx,
       startTy: view.ty
     };
-    // отменяем активное рисование
     drawing = null; interaction = null;
     drawAll();
     return;
   }
 
-  // средняя кнопка мыши / пробел → пан
+  // средняя кнопка / пробел → пан
   if (e.button === 1 || spaceDown) {
     gesture = { kind: 'pan', startX: p.x, startY: p.y, startTx: view.tx, startTy: view.ty };
+    wrap.classList.add('panning');
     return;
   }
 
@@ -929,14 +939,12 @@ wrap.addEventListener('pointerdown', e => {
       Math.abs(p.x - lastTap.x) < 25 && Math.abs(p.y - lastTap.y) < 25) {
     const hit = hitZone(p.x, p.y);
     if (hit) {
-      // двойной тап по зоне — удалить
       zones.splice(hit.idx, 1);
       selectedZone = -1;
       updateZoneInfo(); drawAll();
       lastTap.time = 0;
       return;
     } else {
-      // двойной тап по пустоте — сброс зума
       fitToScreen();
       lastTap.time = 0;
       return;
@@ -944,14 +952,14 @@ wrap.addEventListener('pointerdown', e => {
   }
   lastTap = { time: now, x: p.x, y: p.y };
 
-  // режим разметки: ручки/перемещение/новая зона
+  // режим разметки
   if (drawingMode) {
     const hit = hitZone(p.x, p.y);
     if (hit && hit.type === 'resize') {
       const z = zones[hit.idx];
       interaction = {
         type: 'resize', idx: hit.idx, handle: hit.handle,
-        startImg: { x: (p.x - view.tx) / view.scale, y: (p.y - view.ty) / view.scale },
+        startImg: screenToImage(p.x, p.y),
         orig: { x: z.x, y: z.y, w: z.w, h: z.h }
       };
       return;
@@ -961,20 +969,17 @@ wrap.addEventListener('pointerdown', e => {
       const z = zones[hit.idx];
       interaction = {
         type: 'move', idx: hit.idx,
-        startImg: { x: (p.x - view.tx) / view.scale, y: (p.y - view.ty) / view.scale },
+        startImg: screenToImage(p.x, p.y),
         orig: { x: z.x, y: z.y, w: z.w, h: z.h }
       };
       drawAll();
       return;
     }
-    // новая зона
-    const ix = (p.x - view.tx) / view.scale;
-    const iy = (p.y - view.ty) / view.scale;
-    drawing = { x: ix, y: iy, w: 0, h: 0 };
+    const ip = screenToImage(p.x, p.y);
+    drawing = { x: ip.x, y: ip.y, w: 0, h: 0 };
     selectedZone = -1;
     drawAll();
   } else {
-    // выбор зоны или пан-жест за пустоту
     const hit = hitZone(p.x, p.y);
     if (hit) {
       selectedZone = hit.idx;
@@ -982,6 +987,7 @@ wrap.addEventListener('pointerdown', e => {
     } else {
       selectedZone = -1;
       gesture = { kind: 'pan', startX: p.x, startY: p.y, startTx: view.tx, startTy: view.ty };
+      wrap.classList.add('panning');
       drawAll();
     }
   }
@@ -992,15 +998,12 @@ wrap.addEventListener('pointermove', e => {
   const p = localPoint(e);
   pointers.set(e.pointerId, p);
 
-  // пинч
   if (gesture && gesture.kind === 'pinch' && pointers.size >= 2) {
     const pts = [...pointers.values()];
     const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
     const center = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
-
     const scaleFactor = dist / gesture.startDist;
     const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, gesture.startScale * scaleFactor));
-    // точка под startCenter должна оказаться под center
     const wx = (gesture.startCenter.x - gesture.startTx) / gesture.startScale;
     const wy = (gesture.startCenter.y - gesture.startTy) / gesture.startScale;
     view.scale = newScale;
@@ -1011,7 +1014,6 @@ wrap.addEventListener('pointermove', e => {
     return;
   }
 
-  // пан
   if (gesture && gesture.kind === 'pan') {
     view.tx = gesture.startTx + (p.x - gesture.startX);
     view.ty = gesture.startTy + (p.y - gesture.startY);
@@ -1022,22 +1024,18 @@ wrap.addEventListener('pointermove', e => {
 
   if (pointers.size !== 1) return;
 
-  // создание зоны
   if (drawing) {
-    const ix = (p.x - view.tx) / view.scale;
-    const iy = (p.y - view.ty) / view.scale;
-    drawing.w = ix - drawing.x;
-    drawing.h = iy - drawing.y;
+    const ip = screenToImage(p.x, p.y);
+    drawing.w = ip.x - drawing.x;
+    drawing.h = ip.y - drawing.y;
     drawAll();
     return;
   }
 
-  // ресайз / перенос
   if (interaction) {
-    const ix = (p.x - view.tx) / view.scale;
-    const iy = (p.y - view.ty) / view.scale;
-    const dx = ix - interaction.startImg.x;
-    const dy = iy - interaction.startImg.y;
+    const ip = screenToImage(p.x, p.y);
+    const dx = ip.x - interaction.startImg.x;
+    const dy = ip.y - interaction.startImg.y;
     const o = interaction.orig;
 
     if (interaction.type === 'move') {
@@ -1066,14 +1064,11 @@ wrap.addEventListener('pointermove', e => {
 });
 
 function endPointer(e) {
-  if (!pointers.has(e.pointerId) && !gesture) return;
   pointers.delete(e.pointerId);
-
-  if (pointers.size < 2 && gesture && gesture.kind === 'pinch') {
-    gesture = null;
-  }
+  if (pointers.size < 2 && gesture && gesture.kind === 'pinch') gesture = null;
   if (pointers.size === 0 && gesture && gesture.kind === 'pan') {
     gesture = null;
+    wrap.classList.remove('panning');
   }
 
   if (drawing) {
@@ -1097,19 +1092,28 @@ function endPointer(e) {
 
 wrap.addEventListener('pointerup', endPointer);
 wrap.addEventListener('pointercancel', endPointer);
+wrap.addEventListener('pointerleave', e => {
+  // не завершаем, если захвачен
+});
 
-// пробел → пан мышью
+// пробел для пана
 window.addEventListener('keydown', e => {
-  if (e.code === 'Space' && !spaceDown && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+  if (e.code === 'Space' && !spaceDown &&
+      e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
     spaceDown = true;
     wrap.style.cursor = 'grab';
     e.preventDefault();
   }
-  if (e.key === 'Enter' && imgData && e.target.tagName !== 'INPUT') run();
-  if ((e.key === 'z' || e.key === 'Z') && imgData && e.target.tagName !== 'INPUT') {
+  if (e.key === 'Enter' && imgData &&
+      e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+    run();
+  }
+  if ((e.key === 'z' || e.key === 'Z') && imgData &&
+      e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
     document.getElementById('btnZoneMode').click();
   }
-  if ((e.key === 'Delete' || e.key === 'Backspace') && e.target.tagName !== 'INPUT') {
+  if ((e.key === 'Delete' || e.key === 'Backspace') &&
+      e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
     zones = []; selectedZone = -1;
     updateZoneInfo(); drawAll();
     if (imgData) run();
@@ -1121,9 +1125,7 @@ window.addEventListener('keyup', e => {
   if (e.code === 'Space') { spaceDown = false; wrap.style.cursor = ''; }
 });
 
-// ============================================================
-// ФАЙЛЫ / DRAG&DROP / PASTE
-// ============================================================
+// drag&drop / paste / save
 document.getElementById('btnSave').addEventListener('click', () => {
   const a = document.createElement('a');
   a.download = 'faces.png';
@@ -1159,7 +1161,7 @@ window.addEventListener('paste', e => {
 });
 
 // ============================================================
-// ЗАПУСК ДЕТЕКТОРА
+// ЗАПУСК
 // ============================================================
 function run() {
   if (!imgData) return;
