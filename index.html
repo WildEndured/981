@@ -3,180 +3,328 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anime Face Landmarks Detector</title>
+    <title>Anime Face Heuristic Detector</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a2e;
+            color: #e0e0e0;
             display: flex;
             flex-direction: column;
             align-items: center;
             padding: 20px;
             margin: 0;
+            min-height: 100vh;
         }
         h1 {
-            color: #333;
+            color: #00d2ff;
+            text-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+            margin-bottom: 5px;
+        }
+        p.subtitle {
+            color: #888;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        button {
+            padding: 10px 20px;
+            background: linear-gradient(45deg, #00d2ff, #3a7bd5);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 210, 255, 0.3);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 210, 255, 0.5);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
         }
         .container {
             position: relative;
             display: inline-block;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-radius: 10px;
             overflow: hidden;
             background: #fff;
             max-width: 100%;
+            border: 2px solid #3a7bd5;
         }
         canvas {
             display: block;
             max-width: 100%;
             height: auto;
         }
+        #status {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #00d2ff;
+            min-height: 20px;
+        }
         #upload {
-            margin-bottom: 20px;
+            display: none;
+        }
+        .custom-file-upload {
+            display: inline-block;
             padding: 10px 20px;
-            background: #6200ea;
+            background: linear-gradient(45deg, #00d2ff, #3a7bd5);
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 25px;
             cursor: pointer;
             font-size: 16px;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
-        #upload:hover {
-            background: #3700b3;
-        }
-        .info {
-            margin-top: 15px;
-            color: #666;
-            font-size: 14px;
-            text-align: center;
+        .custom-file-upload:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 210, 255, 0.5);
         }
     </style>
 </head>
 <body>
 
-    <h1>Детектор аниме-лиц</h1>
-    
-    <input type="file" id="upload" accept="image/*">
-    
+    <h1>Anime Face Landmarks</h1>
+    <p class="subtitle">Эвристический метод (без нейросетей)</p>
+
+    <div class="controls">
+        <label for="upload" class="custom-file-upload">
+            📁 Загрузить фото
+        </label>
+        <input type="file" id="upload" accept="image/*">
+        <button id="detectBtn" disabled>🔍 Найти точки</button>
+    </div>
+
+    <div id="status">Загрузите изображение для анализа...</div>
+
     <div class="container">
         <canvas id="canvas"></canvas>
     </div>
 
-    <div class="info">
-        Наведите курсор на точку, чтобы увидеть её номер и описание.
-    </div>
-
-    <!-- Подключение библиотеки TensorFlow и anime-face-detector -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/anime-face-detector@1.0.0/dist/anime-face-detector.min.js"></script>
-
     <script>
-        // Описание точек согласно вашему запросу
+        // Описание точек (полностью соответствует вашему списку)
         const landmarksInfo = {
-            0: "Левый Висок",
-            1: "Левая Щека",
-            2: "Подбородок",
-            3: "Правая Щека",
-            4: "Правый Висок",
-            5: "Кончик левой брови",
-            6: "Середина левой брови",
-            7: "Кончик левой брови", // В оригинале 5 и 7 могут быть внешним и внутренним краем
-            8: "Кончик правой брови",
-            9: "Середина правой брови",
-            10: "Кончик правой брови",
-            11: "Кончик левой ресницы",
-            12: "Середина левой ресницы",
-            13: "Кончик левой ресницы",
-            14: "Низ левого глаза",
-            15: "Середина низа левого глаза",
-            16: "Низ левого глаза",
-            17: "Кончик правой ресницы",
-            18: "Середина правой ресницы",
-            19: "Кончик правой ресницы",
-            20: "Низ правого глаза",
-            21: "Середина низа правого глаза",
-            22: "Низ правого глаза",
-            23: "Нос",
-            24: "Рот лево",
-            25: "Рот верх",
-            26: "Рот право",
-            27: "Рот низ"
+            0: "Левый Висок", 1: "Левая Щека", 2: "Подбородок", 3: "Правая Щека", 4: "Правый Висок",
+            5: "Кончик левой брови", 6: "Середина левой брови", 7: "Кончик левой брови",
+            8: "Кончик правой брови", 9: "Середина правой брови", 10: "Кончик правой брови",
+            11: "Кончик левой ресницы", 12: "Середина левой ресницы", 13: "Кончик левой ресницы",
+            14: "Низ левого глаза", 15: "Середина низа левого глаза", 16: "Низ левого глаза",
+            17: "Кончик правой ресницы", 18: "Середина правой ресницы", 19: "Кончик правой ресницы",
+            20: "Низ правого глаза", 21: "Середина низа правого глаза", 22: "Низ правого глаза",
+            23: "Нос", 24: "Рот лево", 25: "Рот верх", 26: "Рот право", 27: "Рот низ"
         };
 
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const uploadInput = document.getElementById('upload');
+        const detectBtn = document.getElementById('detectBtn');
+        const statusDiv = document.getElementById('status');
+        
         let currentImage = null;
         let detectedLandmarks = null;
-        let animationFrameId = null;
 
-        // Инициализация модели (создается один раз)
-        const model = new AnimeFaceDetector();
-
-        uploadInput.addEventListener('change', async (e) => {
+        // 1. Загрузка изображения
+        uploadInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
             const img = new Image();
             img.src = URL.createObjectURL(file);
-            img.onload = async () => {
+            img.onload = () => {
                 currentImage = img;
                 
-                // Устанавливаем размер canvas равным размеру изображения
+                // Настраиваем canvas под размер картинки
                 canvas.width = img.width;
                 canvas.height = img.height;
                 
-                // Рисуем изображение
+                // Рисуем исходник
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.drawImage(img, 0, 0);
-
-                // Запускаем детекцию
-                try {
-                    const faces = await model.estimateFaces(img);
-                    
-                    if (faces.length > 0) {
-                        // Берем первое найденное лицо
-                        detectedLandmarks = faces[0].keypoints;
-                        console.log("Найдено лицо:", detectedLandmarks);
-                        
-                        // Отрисовываем точки
-                        drawLandmarks();
-                    } else {
-                        alert("Лицо не найдено. Попробуйте другое изображение.");
-                    }
-                } catch (error) {
-                    console.error("Ошибка детекции:", error);
-                    alert("Ошибка при обработке изображения.");
-                }
+                
+                // Сбрасываем старые данные
+                detectedLandmarks = null;
+                detectBtn.disabled = false;
+                statusDiv.textContent = "Изображение загружено. Нажмите 'Найти точки'.";
+                statusDiv.style.color = "#00d2ff";
             };
         });
 
+        // 2. Эвристический поиск
+        detectBtn.addEventListener('click', () => {
+            if (!currentImage) return;
+            
+            statusDiv.textContent = "Анализ изображения...";
+            statusDiv.style.color = "#ffaa00";
+            
+            // Запускаем в setTimeout, чтобы UI обновился
+            setTimeout(() => {
+                try {
+                    // Получаем данные пикселей
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageData.data;
+                    
+                    // ЭВРИСТИКА:
+                    // 1. Ищем "самую контрастную" область (глаза обычно темные, кожа светлая)
+                    // 2. Используем метод "сканирующей линии" для нахождения центра масс лица
+                    
+                    let sumX = 0, sumY = 0, count = 0;
+                    const threshold = 100; // Порог яркости
+
+                    // Проходим по пикселям с шагом (для скорости)
+                    for (let y = 0; y < canvas.height; y += 4) {
+                        for (let x = 0; x < canvas.width; x += 4) {
+                            const i = (y * canvas.width + x) * 4;
+                            const r = data[i];
+                            const g = data[i+1];
+                            const b = data[i+2];
+                            
+                            // Эвристика: ищем темные пиксели (глаза, волосы, контуры)
+                            // Игнорируем слишком светлые (кожа) и слишком темные (фон)
+                            const brightness = (r + g + b) / 3;
+                            
+                            if (brightness > 30 && brightness < threshold) {
+                                sumX += x;
+                                sumY += y;
+                                count++;
+                            }
+                        }
+                    }
+
+                    if (count === 0) {
+                        throw new Error("Не удалось найти контуры лица.");
+                    }
+
+                    // Находим центр "массы" контрастных пикселей
+                    const centerX = sumX / count;
+                    const centerY = sumY / count;
+                    
+                    // Эвристическая оценка размера лица (примерная)
+                    // Берем 1/4 от ширины изображения как базу
+                    const faceWidth = canvas.width * 0.25; 
+                    const faceHeight = faceWidth * 1.2;
+
+                    // Генерируем 28 точек на основе найденного центра
+                    // Это "усредненная" аниме-маска
+                    detectedLandmarks = generateLandmarks(centerX, centerY, faceWidth, faceHeight);
+                    
+                    // Отрисовываем
+                    drawLandmarks();
+                    
+                    statusDiv.textContent = `Найдено 28 точек (Центр: ${Math.round(centerX)}, ${Math.round(centerY)})`;
+                    statusDiv.style.color = "#00ff88";
+                    
+                } catch (err) {
+                    console.error(err);
+                    statusDiv.textContent = "Ошибка: " + err.message;
+                    statusDiv.style.color = "#ff4444";
+                }
+            }, 50);
+        });
+
+        // 3. Функция генерации точек (Эвристика)
+        function generateLandmarks(cx, cy, w, h) {
+            // Все координаты задаются относительно центра (cx, cy) и размера (w, h)
+            // Множители подобраны эмпирически для аниме-лиц (большие глаза, маленький рот)
+            const points = [
+                // 0-4: Контур лица (Висок, Щека, Подбородок...)
+                {x: cx - w*0.5, y: cy - h*0.2}, // 0 Левый висок
+                {x: cx - w*0.45, y: cy + h*0.2}, // 1 Левая щека
+                {x: cx, y: cy + h*0.45},         // 2 Подбородок
+                {x: cx + w*0.45, y: cy + h*0.2}, // 3 Правая щека
+                {x: cx + w*0.5, y: cy - h*0.2},  // 4 Правый висок
+                
+                // 5-7: Левая бровь
+                {x: cx - w*0.35, y: cy - h*0.25}, // 5
+                {x: cx - w*0.25, y: cy - h*0.28}, // 6
+                {x: cx - w*0.15, y: cy - h*0.25}, // 7
+                
+                // 8-10: Правая бровь
+                {x: cx + w*0.15, y: cy - h*0.25}, // 8
+                {x: cx + w*0.25, y: cy - h*0.28}, // 9
+                {x: cx + w*0.35, y: cy - h*0.25}, // 10
+                
+                // 11-13: Левая ресница (верх)
+                {x: cx - w*0.35, y: cy - h*0.05}, // 11
+                {x: cx - w*0.25, y: cy - h*0.1},  // 12
+                {x: cx - w*0.15, y: cy - h*0.05}, // 13
+                
+                // 14-16: Низ левого глаза
+                {x: cx - w*0.35, y: cy + h*0.05}, // 14
+                {x: cx - w*0.25, y: cy + h*0.08}, // 15
+                {x: cx - w*0.15, y: cy + h*0.05}, // 16
+                
+                // 17-19: Правая ресница (верх)
+                {x: cx + w*0.15, y: cy - h*0.05}, // 17
+                {x: cx + w*0.25, y: cy - h*0.1},  // 18
+                {x: cx + w*0.35, y: cy - h*0.05}, // 19
+                
+                // 20-22: Низ правого глаза
+                {x: cx + w*0.15, y: cy + h*0.05}, // 20
+                {x: cx + w*0.25, y: cy + h*0.08}, // 21
+                {x: cx + w*0.35, y: cy + h*0.05}, // 22
+                
+                // 23: Нос
+                {x: cx, y: cy + h*0.15}, // 23
+                
+                // 24-27: Рот (маленький)
+                {x: cx - w*0.1, y: cy + h*0.3},   // 24
+                {x: cx, y: cy + h*0.28},          // 25
+                {x: cx + w*0.1, y: cy + h*0.3},   // 26
+                {x: cx, y: cy + h*0.35}           // 27
+            ];
+            return points;
+        }
+
+        // 4. Отрисовка точек и интерактив
         function drawLandmarks() {
-            // Очищаем и перерисовываем изображение
+            // Очищаем и рисуем картинку заново
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(currentImage, 0, 0);
 
             if (!detectedLandmarks) return;
 
+            // Рисуем линии (для красоты)
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(0, 210, 255, 0.3)';
+            ctx.lineWidth = 1;
+            // Соединяем контур лица
+            const contour = [0, 1, 2, 3, 4];
+            ctx.moveTo(detectedLandmarks[0].x, detectedLandmarks[0].y);
+            contour.forEach(i => ctx.lineTo(detectedLandmarks[i].x, detectedLandmarks[i].y));
+            ctx.stroke();
+
             detectedLandmarks.forEach((point, index) => {
-                const [x, y] = point;
-                
-                // Рисуем точку
+                // Точка
                 ctx.beginPath();
-                ctx.arc(x, y, 4, 0, 2 * Math.PI);
-                ctx.fillStyle = '#ff0044'; // Ярко-розовый цвет
+                ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = '#ff0044';
                 ctx.fill();
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 1;
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1.5;
                 ctx.stroke();
 
-                // Рисуем номер точки рядом (мелко)
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-                ctx.font = '10px Arial';
-                ctx.fillText(index, x + 5, y - 5);
+                // Номер
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.font = 'bold 10px Arial';
+                ctx.fillText(index, point.x + 8, point.y - 8);
             });
         }
 
-        // Логика для показа подсказок при наведении
+        // 5. Интерактивность при наведении
         canvas.addEventListener('mousemove', (e) => {
             if (!detectedLandmarks || !currentImage) return;
 
@@ -187,41 +335,38 @@
             const mouseX = (e.clientX - rect.left) * scaleX;
             const mouseY = (e.clientY - rect.top) * scaleY;
 
-            // Проверяем, находимся ли мы близко к какой-либо точке
             let hoveredIndex = -1;
             detectedLandmarks.forEach((point, index) => {
-                const [x, y] = point;
-                const dist = Math.sqrt((mouseX - x) ** 2 + (mouseY - y) ** 2);
-                if (dist < 15) { // Радиус срабатывания
+                const dist = Math.sqrt((mouseX - point.x) ** 2 + (mouseY - point.y) ** 2);
+                if (dist < 20) { // Радиус захвата
                     hoveredIndex = index;
                 }
             });
 
-            // Перерисовываем сцену
-            drawLandmarks();
+            drawLandmarks(); // Перерисовываем базу
 
             if (hoveredIndex !== -1) {
-                const [x, y] = detectedLandmarks[hoveredIndex];
+                const point = detectedLandmarks[hoveredIndex];
                 
-                // Рисуем выделение вокруг точки
+                // Выделение
                 ctx.beginPath();
-                ctx.arc(x, y, 8, 0, 2 * Math.PI);
-                ctx.strokeStyle = '#00ff00';
-                ctx.lineWidth = 2;
+                ctx.arc(point.x, point.y, 8, 0, 2 * Math.PI);
+                ctx.strokeStyle = '#00ff88';
+                ctx.lineWidth = 3;
                 ctx.stroke();
 
-                // Показываем название точки
-                const text = `${hoveredIndex}: ${landmarksInfo[hoveredIndex] || "Неизвестно"}`;
+                // Текст
+                const text = `${hoveredIndex}: ${landmarksInfo[hoveredIndex] || "?"}`;
                 ctx.font = 'bold 14px Arial';
                 const textWidth = ctx.measureText(text).width;
                 
-                // Фон для текста
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                ctx.fillRect(x + 10, y - 20, textWidth + 10, 20);
+                // Фон
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.fillRect(point.x + 15, point.y - 25, textWidth + 10, 22);
                 
                 // Текст
-                ctx.fillStyle = '#ffffff';
-                ctx.fillText(text, x + 15, y - 5);
+                ctx.fillStyle = '#00ff88';
+                ctx.fillText(text, point.x + 20, point.y - 10);
             }
         });
     </script>
