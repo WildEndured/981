@@ -25,6 +25,7 @@
     color: transparent;
   }
   .subtitle { color: #8b93a7; font-size: 0.9rem; margin-bottom: 24px; }
+
   .dropzone {
     border: 2px dashed #2a3242;
     border-radius: 16px;
@@ -34,6 +35,7 @@
     transition: all .2s;
     background: #161b24;
     margin-bottom: 20px;
+    display: block;
   }
   .dropzone:hover, .dropzone.dragover {
     border-color: #7dd3fc;
@@ -42,14 +44,32 @@
   .dropzone p { margin: 6px 0; color: #8b93a7; }
   .dropzone strong { color: #e6e8ee; }
   input[type=file] { display: none; }
-  #preview {
+
+  .canvas-wrap {
+    position: relative;
+    display: none;
     max-width: 100%;
-    max-height: 400px;
+    margin: 0 auto 20px;
+    text-align: center;
+  }
+  .canvas-wrap.visible { display: block; }
+  #canvas {
+    max-width: 100%;
+    height: auto;
     border-radius: 12px;
     display: block;
-    margin: 0 auto 20px;
+    margin: 0 auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
   }
-  #canvas { display: none; }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 8px;
+  }
   .btn {
     display: inline-block;
     padding: 12px 24px;
@@ -64,6 +84,44 @@
   }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .btn:hover:not(:disabled) { opacity: 0.9; }
+  .btn.ghost {
+    background: transparent;
+    border: 1px solid #2a3242;
+    color: #e6e8ee;
+    font-weight: 500;
+  }
+  .btn.ghost:hover:not(:disabled) {
+    border-color: #7dd3fc;
+    color: #7dd3fc;
+  }
+
+  .slider-row {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    justify-content: center;
+    margin: 0 auto 20px;
+    max-width: 560px;
+    padding: 12px 16px;
+    background: #161b24;
+    border: 1px solid #2a3242;
+    border-radius: 12px;
+  }
+  .slider-row.visible { display: flex; }
+  .slider-row label { font-size: 0.85rem; color: #8b93a7; white-space: nowrap; }
+  .slider-row input[type=range] {
+    flex: 1;
+    accent-color: #7dd3fc;
+    min-width: 80px;
+  }
+  .slider-row .val {
+    color: #7dd3fc;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.9rem;
+    min-width: 32px;
+    text-align: right;
+  }
+
   .results {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -93,7 +151,13 @@
     background-clip: text;
     color: transparent;
   }
-  .metric { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #222a38; font-size: 0.9rem; }
+  .metric {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid #222a38;
+    font-size: 0.9rem;
+  }
   .metric:last-child { border-bottom: none; }
   .metric span:last-child { color: #7dd3fc; font-variant-numeric: tabular-nums; }
   .bar {
@@ -111,12 +175,29 @@
   }
   .desc { font-size: 0.9rem; color: #8b93a7; line-height: 1.5; margin-top: 8px; }
   #loading { display: none; text-align: center; padding: 20px; color: #8b93a7; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+    margin: 20px 0 0;
+    font-size: 0.82rem;
+    color: #8b93a7;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i {
+    display: inline-block;
+    width: 14px;
+    height: 3px;
+    border-radius: 2px;
+  }
 </style>
 </head>
 <body>
 <div class="container">
   <h1>Определение художественной перспективы</h1>
-  <p class="subtitle">Загрузите картину или фото — алгоритм проанализирует линии, сходимость и цветовые градиенты</p>
+  <p class="subtitle">Загрузите картину или фото — алгоритм найдёт линии, точку схода и горизонт</p>
 
   <label class="dropzone" id="dropzone">
     <input type="file" id="fileInput" accept="image/*">
@@ -124,14 +205,30 @@
     <p>PNG, JPG, WEBP</p>
   </label>
 
-  <img id="preview" style="display:none">
-  <canvas id="canvas"></canvas>
+  <div class="canvas-wrap" id="canvasWrap">
+    <canvas id="canvas"></canvas>
+  </div>
 
-  <div style="text-align:center">
+  <div class="controls">
     <button class="btn" id="analyzeBtn" disabled>Анализировать</button>
+    <button class="btn ghost" id="toggleLinesBtn" style="display:none">Скрыть линии</button>
+  </div>
+
+  <div class="slider-row" id="sliderRow">
+    <label>Порог Хафа</label>
+    <input type="range" id="thresholdSlider" min="600" max="6000" step="200" value="800">
+    <span class="val" id="thresholdVal">800</span>
   </div>
 
   <div id="loading">Анализ изображения…</div>
+
+  <div class="legend" id="legend" style="display:none">
+    <span><i style="background:#7dd3fc"></i>Вертикали</span>
+    <span><i style="background:#a78bfa"></i>Горизонтали</span>
+    <span><i style="background:#facc15"></i>Диагонали</span>
+    <span><i style="background:#ff3c5a; height:10px; width:10px; border-radius:50%"></i>Точка схода</span>
+    <span><i style="background:#7dd3fc; background-image:repeating-linear-gradient(90deg,#7dd3fc 0 4px,transparent 4px 8px)"></i>Горизонт</span>
+  </div>
 
   <div class="results" id="results" style="display:none"></div>
 </div>
