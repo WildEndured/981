@@ -2,13 +2,13 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Anime Face Detector — eyes + nose + mouth</title>
+<title>Anime Face Detector — eyes + nose + mouth (circles)</title>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; font-family: system-ui, sans-serif; background: #1e1e24; color: #e5e5ea; }
   header { padding: 12px 20px; background: #2a2a33; border-bottom: 1px solid #3a3a45; }
   h1 { margin: 0; font-size: 18px; }
-  .wrap { display: grid; grid-template-columns: 300px 1fr; gap: 16px; padding: 16px; }
+  .wrap { display: grid; grid-template-columns: 310px 1fr; gap: 16px; padding: 16px; }
   .panel { background: #26262e; padding: 14px; border-radius: 10px; }
   .panel h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #9a9aa8; }
   .methods label { display: block; padding: 8px 10px; border-radius: 6px; cursor: pointer; margin-bottom: 6px; background: #1e1e24; border: 1px solid transparent; font-size: 13px; }
@@ -28,14 +28,17 @@
   .slider-row span { width: 40px; text-align: right; color: #9a9aa8; }
   .toggle { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: #c0c0cc; cursor: pointer; user-select: none; }
   .toggle input { cursor: pointer; }
-  .legend { font-size: 11px; color: #88889a; margin-top: 10px; line-height: 1.8; }
+  .legend { font-size: 11px; color: #88889a; margin-top: 10px; line-height: 1.9; }
   .legend .l { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px solid; vertical-align: middle; }
+  .legend .d { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px dashed; vertical-align: middle; }
+  select { background: #1e1e24; color: #e5e5ea; border: 1px solid #3a3a45; border-radius: 4px; padding: 3px 6px; font-size: 12px; }
   .slider-row.small { font-size: 12px; }
-  .slider-row.small input { max-width: 100px; }
+  .slider-row.small input { max-width: 120px; }
+  .slider-row.small label { min-width: 60px; }
 </style>
 </head>
 <body>
-<header><h1>🎨 Anime Face Detector — eyes + nose + mouth verification</h1></header>
+<header><h1>🎨 Anime Face Detector — eyes + nose + mouth (circular search)</h1></header>
 <div class="wrap">
   <div>
     <div class="panel">
@@ -53,8 +56,22 @@
     <div class="panel" style="margin-top:12px">
       <h2>Верификация</h2>
       <label class="toggle"><input type="checkbox" id="vEyes" checked> Глаза (обязательно)</label>
-      <label class="toggle"><input type="checkbox" id="vNose" checked> Нос</label>
-      <label class="toggle"><input type="checkbox" id="vMouth" checked> Рот</label>
+      <div class="slider-row small">
+        <label>Нос:</label>
+        <select id="vNose">
+          <option value="weight" selected>учитывать (мягко)</option>
+          <option value="require">требовать</option>
+          <option value="off">выкл</option>
+        </select>
+      </div>
+      <div class="slider-row small">
+        <label>Рот:</label>
+        <select id="vMouth">
+          <option value="weight" selected>учитывать (мягко)</option>
+          <option value="require">требовать</option>
+          <option value="off">выкл</option>
+        </select>
+      </div>
       <div class="slider-row small">
         <label>Мин. балл</label>
         <input type="range" id="vScore" min="0" max="100" value="55" style="flex:1">
@@ -71,7 +88,9 @@
         <span class="l" style="border-color:#4f9dff"></span>лицо
         <span class="l" style="border-color:#ff4f9d; margin-left:8px"></span>глаза
         <span class="l" style="border-color:#ffd24f; margin-left:8px"></span>нос
-        <span class="l" style="border-color:#4fffa1; margin-left:8px"></span>рот
+        <span class="l" style="border-color:#4fffa1; margin-left:8px"></span>рот<br>
+        <span class="d" style="border-color:#ffd24f"></span>зона носа
+        <span class="d" style="border-color:#4fffa1; margin-left:8px"></span>зона рта
       </div>
     </div>
   </div>
@@ -80,6 +99,7 @@
     <div class="canvasBox"><canvas id="cv"></canvas></div>
     <div class="controls">
       <button id="btn">Искать</button>
+      <button id="btnZones" style="background:#3a3a45">Зоны</button>
       <button id="btn2" style="background:#3a3a45">Пример</button>
     </div>
   </div>
@@ -93,10 +113,11 @@ const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 let imgData = null, W = 0, H = 0;
 let srcImage = null;
+let showZones = false;
 
 const DESCR = {
-  skin: "Маска кожи YCbCr → компоненты → фильтр формы. Далее верификация глазами/носом/ртом внутри ROI.",
-  eyes: "Тёмные блобы → пары 'глаз' по геометрии → бокс лица. Верификация подтверждает пару внутри ROI + нос + рот.",
+  skin: "Маска кожи YCbCr → компоненты → фильтр формы. Затем верификация глазами/носом/ртом.",
+  eyes: "Тёмные блобы → пары 'глаз' по геометрии → бокс лица. Верификация подтверждает пару + нос + рот.",
   ncc:  "NCC с шаблоном глаза → боксы лица. Верификация ищет независимые глаза/нос/рот внутри ROI.",
   sym:  "Skin-кандидаты + проверка симметрии. Верификация глазами/носом/ртом отсеивает остальное.",
   all:  "Объединение skin+eyes+NCC + симметрия, затем верификация тремя органами + NMS."
@@ -113,32 +134,26 @@ document.getElementById('file').addEventListener('change', e => {
 });
 
 document.getElementById('btn2').addEventListener('click', () => {
-  // синтетическое аниме-лицо с глазами, носом и ртом
   const c = document.createElement('canvas'); c.width = 500; c.height = 500;
   const g = c.getContext('2d');
   g.fillStyle = '#c8d8e8'; g.fillRect(0, 0, 500, 500);
-  // волосы
   g.fillStyle = '#3a2545'; g.beginPath(); g.ellipse(250, 250, 190, 230, 0, 0, 7); g.fill();
-  // лицо
   g.fillStyle = '#ffe0c8'; g.beginPath(); g.ellipse(250, 250, 140, 170, 0, 0, 7); g.fill();
-  // глаза
   g.fillStyle = '#1a1a3a';
   g.beginPath(); g.ellipse(195, 220, 30, 40, 0, 0, 7); g.fill();
   g.beginPath(); g.ellipse(305, 220, 30, 40, 0, 0, 7); g.fill();
-  // радужка
   g.fillStyle = '#4f9dff';
   g.beginPath(); g.ellipse(195, 225, 18, 24, 0, 0, 7); g.fill();
   g.beginPath(); g.ellipse(305, 225, 18, 24, 0, 0, 7); g.fill();
-  // блики
   g.fillStyle = '#fff';
   g.beginPath(); g.arc(186, 210, 10, 0, 7); g.fill();
   g.beginPath(); g.arc(296, 210, 10, 0, 7); g.fill();
-  // НОС — маленький тёмный штрих по центру
+  // нос
   g.fillStyle = '#e0b090';
   g.beginPath(); g.ellipse(250, 280, 8, 12, 0, 0, 7); g.fill();
   g.fillStyle = '#8a5540';
   g.beginPath(); g.ellipse(250, 288, 6, 3, 0, 0, 7); g.fill();
-  // РОТ — горизонтальная линия
+  // рот
   g.strokeStyle = '#c04060'; g.lineWidth = 5;
   g.beginPath(); g.moveTo(225, 330); g.quadraticCurveTo(250, 345, 275, 330); g.stroke();
   loadImage(c.toDataURL());
@@ -244,7 +259,7 @@ function connectedComponents(mask, w, h, minArea = 20) {
 }
 
 // ============================================================
-// МЕТОДЫ-ДЕТЕКТОРЫ (без изменений)
+// МЕТОДЫ-ДЕТЕКТОРЫ
 // ============================================================
 function methodSkin(threshold = 0.5) {
   const d = imgData.data;
@@ -386,7 +401,7 @@ function methodAll(threshold = 0.5) {
 }
 
 // ============================================================
-// ПОИСК ГЛАЗ В ROI (как было)
+// ПОИСК ГЛАЗ В ROI
 // ============================================================
 function findEyesInROI(gray, roi) {
   const rx = Math.max(0, roi.x | 0);
@@ -444,156 +459,177 @@ function findEyesInROI(gray, roi) {
 }
 
 // ============================================================
-// НОС: маленький компактный блоб ниже центра глаз, по центру X
+// МАСКА КОЖИ (для носа/рта)
 // ============================================================
-function findNoseInROI(gray, roi, eyes) {
-  if (!eyes || eyes.length < 2) return null;
+function buildSkinMask() {
+  const d = imgData.data;
+  const mask = new Uint8Array(W * H);
+  for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+    const r = d[i], g = d[i+1], b = d[i+2];
+    const cb = 128 - 0.168736*r - 0.331264*g + 0.5*b;
+    const cr = 128 + 0.5*r - 0.418688*g - 0.081312*b;
+    if (cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173) mask[j] = 1;
+  }
+  return mask;
+}
+
+// ============================================================
+// ГЕОМЕТРИЯ ЛИЦА ОТ ГЛАЗ
+// ============================================================
+function eyeGeometry(eyes) {
   const [e1, e2] = eyes;
-  const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
-  const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
-  const eyeSpan = Math.abs((e1.x + e1.w/2) - (e2.x + e2.w/2)) + (e1.w + e2.w)/2;
+  const c1x = e1.x + e1.w/2, c1y = e1.y + e1.h/2;
+  const c2x = e2.x + e2.w/2, c2y = e2.y + e2.h/2;
+  const cx = (c1x + c2x) / 2;
+  const cy = (c1y + c2y) / 2;
+  const dx = Math.abs(c1x - c2x);
+  const eyeW = (e1.w + e2.w) / 2;
+  const span = dx + eyeW;
+  return { cx, cy, span, eyeW };
+}
 
-  // зона носа: по X ±35% eyeSpan от центра, по Y от глаз до ~+1.2 eyeSpan вниз
-  const noseZone = {
-    x: Math.max(0, cx - eyeSpan * 0.35),
-    y: Math.max(0, cyEyes + eyeSpan * 0.15),
-    w: Math.min(W - Math.max(0, cx - eyeSpan*0.35), eyeSpan * 0.7),
-    h: Math.min(H - Math.max(0, cyEyes + eyeSpan*0.15), eyeSpan * 0.9)
-  };
-  if (noseZone.w < 6 || noseZone.h < 6) return null;
+// ============================================================
+// КРУГОВОЙ СКАН: маска не-кожи + тёмное/красное
+// ============================================================
+function scanCircle(gray, skin, cx, cy, radius, options = {}) {
+  const { redBias = 0, darkBias = 1 } = options;
+  const x0 = Math.max(0, Math.floor(cx - radius));
+  const y0 = Math.max(0, Math.floor(cy - radius));
+  const x1 = Math.min(W, Math.ceil(cx + radius));
+  const y1 = Math.min(H, Math.ceil(cy + radius));
+  const w = x1 - x0, h = y1 - y0;
+  if (w < 6 || h < 6) return null;
 
-  const rx = noseZone.x | 0, ry = noseZone.y | 0;
-  const rw = noseZone.w | 0, rh = noseZone.h | 0;
-  let sum = 0;
-  for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
-    sum += gray[(ry + y)*W + (rx + x)];
-  const mean = sum / (rw * rh);
-  const t = Math.min(130, mean * 0.7);
+  let sumG = 0, cnt = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const ddx = x0 + x - cx, ddy = y0 + y - cy;
+    if (ddx*ddx + ddy*ddy > radius*radius) continue;
+    sumG += gray[(y0+y)*W + (x0+x)]; cnt++;
+  }
+  const meanG = cnt ? sumG / cnt : 128;
 
-  const mask = new Uint8Array(rw * rh);
-  for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
-    if (gray[(ry + y)*W + (rx + x)] < t) mask[y*rw + x] = 1;
+  const d = imgData.data;
+  const mask = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const ddx = x0 + x - cx, ddy = y0 + y - cy;
+    if (ddx*ddx + ddy*ddy > radius*radius) continue;
+    const gx = x0 + x, gy = y0 + y;
+    const idx = gy*W + gx;
+    if (skin[idx]) continue;
+    const r = d[idx*4], g = d[idx*4+1], b = d[idx*4+2];
+    const cr = 128 + 0.5*r - 0.418688*g - 0.081312*b;
+    const isReddish = redBias > 0 && cr > 148;
+    const isDark = gray[idx] < meanG * (1 - 0.25 * darkBias);
+    if (isReddish || isDark) mask[y*w + x] = 1;
+  }
+  return { mask, w, h, x0, y0, meanG };
+}
 
-  const m2 = erode(mask, rw, rh), m3 = dilate(m2, rw, rh);
-  const comps = connectedComponents(m3, rw, rh, 4);
+// ============================================================
+// НОС: круг под центром глаз
+// ============================================================
+function findNoseInCircle(gray, skin, eyes) {
+  const { cx, cy, span } = eyeGeometry(eyes);
+  const radius = Math.max(6, span * 0.35);
+  const expectY = cy + span * 0.35;
 
-  // фильтр: маленький, компактный, ближе к центру по X
+  const sc = scanCircle(gray, skin, cx, expectY, radius, { redBias: 0, darkBias: 1 });
+  if (!sc) return null;
+
+  const m2 = erode(sc.mask, sc.w, sc.h);
+  const m3 = dilate(m2, sc.w, sc.h);
+  const comps = connectedComponents(m3, sc.w, sc.h, 3);
+  if (!comps.length) return null;
+
   let best = null, bestScore = -Infinity;
   for (const c of comps) {
-    const ccx = c.x + c.w/2;
+    const ccx = c.x + c.w/2, ccy = c.y + c.h/2;
     const ar = c.w / c.h;
     const fill = c.area / (c.w * c.h);
-    const areaRatio = c.area / (rw * rh);
-    // нос: не слишком широкий, заполненный, среднего размера
-    if (ar < 0.4 || ar > 2.0) continue;
+    if (ar < 0.35 || ar > 2.2) continue;
     if (fill < 0.4) continue;
-    if (areaRatio < 0.02 || areaRatio > 0.4) continue;
-    const centerDist = Math.abs(ccx - rw/2) / (rw/2);   // 0..1
-    if (centerDist > 0.7) continue;
-    const score = fill * 0.6 + (1 - centerDist) * 0.4;
+    const ddx = (sc.x0 + ccx) - cx;
+    const ddy = (sc.y0 + ccy) - expectY;
+    const dist = Math.sqrt(ddx*ddx + ddy*ddy) / radius;
+    if (dist > 1.05) continue;
+    const score = fill * 0.5 + (1 - dist) * 0.5;
     if (score > bestScore) {
       bestScore = score;
-      best = { x: rx + c.x, y: ry + c.y, w: c.w, h: c.h, score: Math.min(1, score) };
+      best = { x: sc.x0 + c.x, y: sc.y0 + c.y, w: c.w, h: c.h, score: Math.min(1, score) };
     }
   }
   return best;
 }
 
 // ============================================================
-// РОТ: горизонтальный блоб ниже носа
+// РОТ: круг под носом (или под глазами)
 // ============================================================
-function findMouthInROI(gray, roi, eyes, nose) {
-  if (!eyes || eyes.length < 2) return null;
-  const [e1, e2] = eyes;
-  const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
-  const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
-  const eyeSpan = Math.abs((e1.x + e1.w/2) - (e2.x + e2.w/2)) + (e1.w + e2.w)/2;
+function findMouthInCircle(gray, skin, eyes, nose) {
+  const { cx, cy, span } = eyeGeometry(eyes);
 
-  // старт зоны рта: от носа вниз (или от глаз, если носа нет)
-  const noseBottom = nose ? nose.y + nose.h : cyEyes + eyeSpan * 0.5;
-  const zoneY = Math.max(0, noseBottom + eyeSpan * 0.05);
-  const zoneH = Math.min(H - zoneY, eyeSpan * 0.7);
-  const zoneW = Math.min(eyeSpan * 1.0, roi.w);
-  const zoneX = Math.max(0, cx - zoneW / 2);
+  let baseY;
+  if (nose) baseY = nose.y + nose.h + span * 0.15;
+  else      baseY = cy + span * 0.70;
 
-  if (zoneW < 8 || zoneH < 6) return null;
+  const radius = Math.max(8, span * 0.45);
+  const expectY = baseY + radius * 0.4;
 
-  const rx = zoneX | 0, ry = zoneY | 0;
-  const rw = Math.min(W - rx, zoneW | 0), rh = Math.min(H - ry, zoneH | 0);
-  if (rw < 8 || rh < 6) return null;
+  const sc = scanCircle(gray, skin, cx, expectY, radius, { redBias: 1, darkBias: 1 });
+  if (!sc) return null;
 
-  let sum = 0;
-  for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
-    sum += gray[(ry + y)*W + (rx + x)];
-  const mean = sum / (rw * rh);
-  const t = Math.min(140, mean * 0.75);
-
-  const mask = new Uint8Array(rw * rh);
-  for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
-    if (gray[(ry + y)*W + (rx + x)] < t) mask[y*rw + x] = 1;
-
-  // для рта закрытие по горизонтали лучше открытия
-  const m1 = dilate(mask, rw, rh);
-  const comps = connectedComponents(m1, rw, rh, 6);
+  const m1 = dilate(sc.mask, sc.w, sc.h);
+  const m2 = dilate(m1, sc.w, sc.h);
+  const comps = connectedComponents(m2, sc.w, sc.h, 5);
+  if (!comps.length) return null;
 
   let best = null, bestScore = -Infinity;
   for (const c of comps) {
-    const ccx = c.x + c.w/2;
+    const ccx = c.x + c.w/2, ccy = c.y + c.h/2;
     const ar = c.w / c.h;
     const fill = c.area / (c.w * c.h);
-    // рот: шире, чем выше (ar>1.2), заполненный, ближе к центру
-    if (ar < 1.2 || ar > 8) continue;
-    if (fill < 0.3) continue;
-    if (c.area < 8) continue;
-    const centerDist = Math.abs(ccx - rw/2) / (rw/2);
-    if (centerDist > 0.6) continue;
-    const score = Math.min(1, ar / 3) * 0.5 + (1 - centerDist) * 0.3 + fill * 0.2;
+    if (ar < 1.1) continue;
+    if (fill < 0.22) continue;
+    if (c.area < 5) continue;
+    const ddx = (sc.x0 + ccx) - cx;
+    const ddy = (sc.y0 + ccy) - expectY;
+    const dist = Math.sqrt(ddx*ddx + ddy*ddy) / radius;
+    if (dist > 1.1) continue;
+    const score = Math.min(1, ar / 3) * 0.5 + (1 - dist) * 0.35 + fill * 0.15;
     if (score > bestScore) {
       bestScore = score;
-      best = { x: rx + c.x, y: ry + c.y, w: c.w, h: c.h, score: Math.min(1, score) };
+      best = { x: sc.x0 + c.x, y: sc.y0 + c.y, w: c.w, h: c.h, score: Math.min(1, score) };
     }
   }
   return best;
 }
 
 // ============================================================
-// ПОЛНАЯ ВЕРИФИКАЦИЯ ЛИЦА
+// ПОЛНАЯ ВЕРИФИКАЦИЯ
 // ============================================================
-function verifyFaceFull(gray, faceBox, opts) {
+function verifyFaceFull(gray, skin, faceBox, opts) {
   const eyesRes = findEyesInROI(gray, faceBox);
-  if (!eyesRes) return null;             // глаза — обязательное условие
+  if (!eyesRes) return null;
   const eyes = eyesRes.pair;
 
-  const nose  = opts.needNose  ? findNoseInROI(gray, faceBox, eyes)  : null;
-  const mouth = opts.needMouth ? findMouthInROI(gray, faceBox, eyes, nose) : null;
+  const nose  = opts.noseMode  !== 'off' ? findNoseInCircle(gray, skin, eyes) : null;
+  const mouth = opts.mouthMode !== 'off' ? findMouthInCircle(gray, skin, eyes, nose) : null;
 
-  // балльная система
-  let score = 0.45;                       // глаза найдены = база
-  score += Math.min(0.15, Math.max(0, eyesRes.score * 0.15));
-  if (nose)  score += 0.20 + nose.score * 0.10;
-  if (mouth) score += 0.20 + mouth.score * 0.10;
+  if (opts.noseMode  === 'require' && !nose)  return null;
+  if (opts.mouthMode === 'require' && !mouth) return null;
+
+  let score = 0.40 + Math.min(0.15, Math.max(0, eyesRes.score * 0.15));
+  if (opts.noseMode  !== 'off') score += nose  ? 0.15 + nose.score  * 0.10 : -0.05;
+  if (opts.mouthMode !== 'off') score += mouth ? 0.15 + mouth.score * 0.10 : -0.05;
   score = Math.max(0, Math.min(1, score));
-
-  // если пользователь ВКЛючил модуль — он должен что-то найти
-  if (opts.needNose  && !nose)  return null;
-  if (opts.needMouth && !mouth) return null;
   if (score < opts.minScore) return null;
 
-  // уточнение бокса лица по глазам
-  const [e1, e2] = eyes;
-  const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
-  const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
-  const eyeSpan = Math.abs((e1.x + e1.w/2) - (e2.x + e2.w/2)) + (e1.w + e2.w)/2;
-  const fw = Math.max(eyeSpan * 1.7, faceBox.w * 0.8);
+  const { cx, cy, span } = eyeGeometry(eyes);
+  const fw = Math.max(span * 1.7, faceBox.w * 0.8);
   const fh = fw * 1.25;
 
   return {
-    x: cx - fw/2,
-    y: cyEyes - fh * 0.40,
-    w: fw,
-    h: fh,
-    score,
-    eyes, nose, mouth
+    x: cx - fw/2, y: cy - fh * 0.40, w: fw, h: fh,
+    score, eyes, nose, mouth
   };
 }
 
@@ -615,19 +651,49 @@ document.querySelectorAll('input[name="m"]').forEach(r => {
 });
 document.getElementById('desc').textContent = DESCR[currentMethod];
 
-document.getElementById('thr').addEventListener('input', e => {
-  document.getElementById('thrV').textContent = e.target.value;
-});
-document.getElementById('vScore').addEventListener('input', e => {
-  document.getElementById('vScoreV').textContent = e.target.value;
-});
-['vEyes','vNose','vMouth'].forEach(id => document.getElementById(id)
-  .addEventListener('change', () => { if (imgData) run(); }));
-document.getElementById('btn').addEventListener('click', run);
+document.getElementById('thr').addEventListener('input', e =>
+  document.getElementById('thrV').textContent = e.target.value);
+document.getElementById('vScore').addEventListener('input', e =>
+  document.getElementById('vScoreV').textContent = e.target.value);
 
+['vEyes', 'vNose', 'vMouth'].forEach(id => document.getElementById(id)
+  .addEventListener('change', () => { if (imgData) run(); }));
+
+document.getElementById('btn').addEventListener('click', run);
+document.getElementById('btnZones').addEventListener('click', () => {
+  showZones = !showZones;
+  if (imgData) run();
+});
+
+// ============================================================
+// РИСОВАНИЕ
+// ============================================================
 function drawResults(boxes) {
   redraw();
+
   for (const b of boxes) {
+    // зоны диагностики
+    if (showZones && b.eyes) {
+      const { cx, cy, span } = eyeGeometry(b.eyes);
+
+      ctx.setLineDash([4, 4]);
+
+      // зона носа
+      ctx.strokeStyle = 'rgba(255,210,79,0.5)';
+      const rN = Math.max(6, span * 0.35);
+      const yN = cy + span * 0.35;
+      ctx.beginPath(); ctx.arc(cx, yN, rN, 0, 7); ctx.stroke();
+
+      // зона рта
+      ctx.strokeStyle = 'rgba(79,255,161,0.5)';
+      const rM = Math.max(8, span * 0.45);
+      const baseY = b.nose ? b.nose.y + b.nose.h + span * 0.15 : cy + span * 0.70;
+      const yM = baseY + rM * 0.4;
+      ctx.beginPath(); ctx.arc(cx, yM, rM, 0, 7); ctx.stroke();
+
+      ctx.setLineDash([]);
+    }
+
     // лицо
     ctx.lineWidth = 2; ctx.strokeStyle = '#4f9dff';
     ctx.strokeRect(b.x, b.y, b.w, b.h);
@@ -653,13 +719,16 @@ function drawResults(boxes) {
   }
 }
 
+// ============================================================
+// ЗАПУСК
+// ============================================================
 function run() {
   if (!imgData) return;
   const thr = +document.getElementById('thr').value / 100;
-  const needEyes  = document.getElementById('vEyes').checked;
-  const needNose  = document.getElementById('vNose').checked;
-  const needMouth = document.getElementById('vMouth').checked;
-  const minScore  = +document.getElementById('vScore').value / 100;
+  const needEyes = document.getElementById('vEyes').checked;
+  const noseMode = document.getElementById('vNose').value;
+  const mouthMode = document.getElementById('vMouth').value;
+  const minScore = +document.getElementById('vScore').value / 100;
 
   document.getElementById('btn').disabled = true;
   const t0 = performance.now();
@@ -669,11 +738,12 @@ function run() {
       const candidates = methods[currentMethod](thr);
       let boxes = candidates;
 
-      if (needEyes || needNose || needMouth) {
+      if (candidates.length && (needEyes || noseMode !== 'off' || mouthMode !== 'off')) {
         const gray = grayPixels();
+        const skin = buildSkinMask();
         const verified = [];
         for (const b of candidates) {
-          const v = verifyFaceFull(gray, b, { needNose, needMouth, minScore });
+          const v = verifyFaceFull(gray, skin, b, { noseMode, mouthMode, minScore });
           if (v) verified.push(v);
         }
         boxes = nms(verified, 0.3);
