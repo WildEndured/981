@@ -2,14 +2,19 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Anime Face Detector — zones</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Anime Face Detector — zones (touch)</title>
 <style>
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { margin: 0; font-family: system-ui, sans-serif; background: #1e1e24; color: #e5e5ea; }
-  header { padding: 12px 20px; background: #2a2a33; border-bottom: 1px solid #3a3a45; display: flex; justify-content: space-between; align-items: center; }
+  header { padding: 12px 20px; background: #2a2a33; border-bottom: 1px solid #3a3a45; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
   h1 { margin: 0; font-size: 18px; }
   .hint { font-size: 11px; color: #9a9aa8; }
   .wrap { display: grid; grid-template-columns: 300px 1fr; gap: 16px; padding: 16px; }
+  @media (max-width: 720px) {
+    .wrap { grid-template-columns: 1fr; padding: 10px; gap: 10px; }
+    .panel { padding: 10px; }
+  }
   .panel { background: #26262e; padding: 14px; border-radius: 10px; }
   .panel h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #9a9aa8; }
   .methods label { display: block; padding: 8px 10px; border-radius: 6px; cursor: pointer; margin-bottom: 6px; background: #1e1e24; border: 1px solid transparent; font-size: 13px; }
@@ -17,11 +22,24 @@
   .methods input { margin-right: 8px; }
   .methods label.active { border-color: #4f9dff; background: #2b3550; }
   .desc { font-size: 12px; color: #9a9aa8; margin-top: 12px; line-height: 1.5; }
-  .canvasBox { position: relative; background: #15151a; border-radius: 10px; overflow: hidden; display: flex; justify-content: center; align-items: center; min-height: 400px; transition: box-shadow .15s; }
+  .canvasBox {
+    position: relative; background: #15151a; border-radius: 10px;
+    overflow: hidden; display: flex; justify-content: center; align-items: center;
+    min-height: 400px; transition: box-shadow .15s;
+    touch-action: none;                 /* критично для тача */
+  }
   .canvasBox.drag { box-shadow: inset 0 0 0 3px #4f9dff; }
   .canvasBox.drawing { cursor: crosshair; }
-  .canvasBox.empty::after { content: 'Перетащите картинку сюда, Ctrl+V или «Пример»'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #55556a; font-size: 13px; pointer-events: none; text-align: center; padding: 20px; }
-  canvas { max-width: 100%; max-height: 75vh; display: block; }
+  .canvasBox.empty::after {
+    content: 'Перетащите картинку сюда, Ctrl+V или «Пример»';
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #55556a; font-size: 13px; pointer-events: none; text-align: center; padding: 20px;
+  }
+  canvas {
+    max-width: 100%; max-height: 70vh; display: block;
+    touch-action: none;                 /* критично: не скроллить при рисовании */
+    user-select: none; -webkit-user-select: none;
+  }
   .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
   input[type="range"] { flex: 1; min-width: 100px; }
   button { background: #4f9dff; color: #fff; border: 0; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
@@ -39,13 +57,13 @@
   .legend { font-size: 11px; color: #88889a; margin-top: 10px; line-height: 1.9; }
   .legend .l { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px solid; vertical-align: middle; }
   .legend .d { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px dashed; vertical-align: middle; }
-  .zone-info { font-size: 11px; color: #9a9aa8; margin-top: 6px; }
+  .zone-info { font-size: 11px; color: #9a9aa8; margin-top: 6px; line-height: 1.5; }
 </style>
 </head>
 <body>
 <header>
-  <h1>🎨 Anime Face Detector — zones</h1>
-  <span class="hint">Enter — искать · Z — разметка · Delete — очистить</span>
+  <h1>🎨 Anime Face Detector — zones (touch)</h1>
+  <span class="hint">Z — разметка · тап/клик по зоне — выбрать · двойной — удалить</span>
 </header>
 <div class="wrap">
   <div>
@@ -91,7 +109,7 @@
   <div>
     <div class="canvasBox empty" id="box"><canvas id="cv"></canvas></div>
     <div class="controls">
-      <button id="btn">Искать (Enter)</button>
+      <button id="btn">Искать</button>
       <button id="btn2" class="gray">Пример</button>
       <button id="btnSave" class="gray" disabled>Скачать PNG</button>
     </div>
@@ -107,13 +125,18 @@ const ctx = cv.getContext('2d');
 const boxEl = document.getElementById('box');
 let imgData = null, W = 0, H = 0;
 let srcImage = null;
-let _grayCache = null, _skinCache = null;
+let _grayCache = null;
 let lastBoxes = [];
 
 // зоны
-let zones = [];
+let zones = [];                 // [{x,y,w,h}]
 let drawingMode = false;
-let drawing = null;
+let drawing = null;             // текущая новая зона
+let selectedZone = -1;          // индекс выбранной зоны
+let interaction = null;         // {type:'create'|'move'|'resize', idx, handle, startX, startY, orig}
+
+const HANDLE_R_PX = 14;         // радиус ручки на экране (для пальца)
+const CORNER_HIT_PX = 22;
 
 const DESCR = {
   skin: "Маска кожи YCbCr → компоненты → фильтр формы. Верификация глазами.",
@@ -157,20 +180,22 @@ function loadImage(src) {
   const im = new Image();
   im.onload = () => {
     srcImage = im;
-    const maxW = 800;
+    const maxW = Math.min(900, window.innerWidth - 40);
     const scale = Math.min(1, maxW / im.width);
     W = Math.round(im.width * scale);
     H = Math.round(im.height * scale);
     cv.width = W; cv.height = H;
     ctx.drawImage(im, 0, 0, W, H);
     imgData = ctx.getImageData(0, 0, W, H);
-    _grayCache = null; _skinCache = null;
+    _grayCache = null;
     lastBoxes = [];
     zones = [];
+    selectedZone = -1;
     updateZoneInfo();
     boxEl.classList.remove('empty');
     document.getElementById('btnSave').disabled = true;
     document.getElementById('stat').textContent = `Готово: ${W}×${H}.`;
+    drawAll();
   };
   im.src = src;
 }
@@ -297,7 +322,7 @@ function colorEyeScore(r, g, b) {
 }
 
 // ============================================================
-// ЗОНЫ
+// ЗОНЫ: геометрия и взаимодействие
 // ============================================================
 function inAnyZone(box) {
   if (!zones.length) return true;
@@ -320,7 +345,6 @@ function makeAutoZones() {
   }
   const m2 = erode(mask, W, H), m3 = dilate(m2, W, H);
   const comps = connectedComponents(m3, W, H, Math.round(W*H*0.005));
-
   const zs = [];
   for (const c of comps) {
     const fill = c.area / (c.w*c.h);
@@ -341,28 +365,68 @@ function makeAutoZones() {
 function updateZoneInfo() {
   const el = document.getElementById('zoneInfo');
   el.textContent = zones.length
-    ? `Зон: ${zones.length} (поиск только внутри)`
+    ? `Зон: ${zones.length} (тап — выбрать, тяните за углы — ресайз, двойной тап — удалить)`
     : 'Зон: 0 (поиск по всему изображению)';
 }
 
-// ============================================================
-// РИСОВАНИЕ ЗОН + БОКСОВ
-// ============================================================
-function drawZonesPreview() {
-  redraw();
-  // зоны
-  ctx.setLineDash([6, 4]);
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = 'rgba(255,210,79,0.9)';
-  for (const z of zones) ctx.strokeRect(z.x, z.y, z.w, z.h);
-  // текущая
-  if (drawing) {
-    ctx.strokeStyle = '#ff9d4f';
-    ctx.strokeRect(drawing.x, drawing.y, drawing.w, drawing.h);
-  }
-  ctx.setLineDash([]);
+// экранные координаты указателя → координаты изображения
+function pointerToCanvas(ev) {
+  const r = cv.getBoundingClientRect();
+  return {
+    x: (ev.clientX - r.left) * (W / r.width),
+    y: (ev.clientY - r.top)  * (H / r.height)
+  };
+}
+// то же, но в пикселях экрана (для хит-теста ручек)
+function pointerToScreen(ev) {
+  const r = cv.getBoundingClientRect();
+  return { x: ev.clientX - r.left, y: ev.clientY - r.top, r };
+}
 
-  // перерисовываем результаты поверх
+// координаты ручек зоны в пикселях экрана
+function getHandles(zone, rect) {
+  const sx = rect.width / W, sy = rect.height / H;
+  const x0 = zone.x * sx, y0 = zone.y * sy;
+  const x1 = (zone.x + zone.w) * sx, y1 = (zone.y + zone.h) * sy;
+  const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+  return {
+    nw: { x: x0, y: y0 }, n: { x: mx, y: y0 }, ne: { x: x1, y: y0 },
+    w:  { x: x0, y: my },                        e:  { x: x1, y: my },
+    sw: { x: x0, y: y1 }, s: { x: mx, y: y1 }, se: { x: x1, y: y1 }
+  };
+}
+
+function hitZone(px, py, rect) {
+  // сначала ручки выбранной зоны
+  if (selectedZone >= 0 && selectedZone < zones.length) {
+    const h = getHandles(zones[selectedZone], rect);
+    for (const key in h) {
+      const dx = px - h[key].x, dy = py - h[key].y;
+      if (dx*dx + dy*dy < CORNER_HIT_PX * CORNER_HIT_PX) {
+        return { type: 'resize', idx: selectedZone, handle: key };
+      }
+    }
+  }
+  // затем сами зоны (по центру)
+  for (let i = zones.length - 1; i >= 0; i--) {
+    const z = zones[i];
+    const sx = rect.width / W, sy = rect.height / H;
+    const x0 = z.x * sx, y0 = z.y * sy;
+    const x1 = (z.x + z.w) * sx, y1 = (z.y + z.h) * sy;
+    if (px >= x0 && px <= x1 && py >= y0 && py <= y1) {
+      return { type: 'move', idx: i };
+    }
+  }
+  return null;
+}
+
+// ============================================================
+// РИСОВАНИЕ
+// ============================================================
+function drawAll() {
+  redraw();
+
+  // итоговые боксы
   for (const b of lastBoxes) {
     ctx.lineWidth = 2;
     ctx.strokeStyle = '#4f9dff';
@@ -374,6 +438,47 @@ function drawZonesPreview() {
       ctx.strokeStyle = '#ff4f9d';
       for (const e of b.eyes) ctx.strokeRect(e.x, e.y, e.w, e.h);
     }
+  }
+
+  // зоны
+  const rect = cv.getBoundingClientRect();
+  const sx = rect.width / W, sy = rect.height / H;
+
+  zones.forEach((z, i) => {
+    const isSel = i === selectedZone;
+    ctx.setLineDash([6, 4]);
+    ctx.lineWidth = isSel ? 3 : 2;
+    ctx.strokeStyle = isSel ? '#ffd24f' : 'rgba(255,210,79,0.75)';
+    ctx.strokeRect(z.x, z.y, z.w, z.h);
+
+    // затемняем выбранную зону
+    if (isSel) {
+      ctx.fillStyle = 'rgba(255,210,79,0.08)';
+      ctx.fillRect(z.x, z.y, z.w, z.h);
+      ctx.setLineDash([]);
+
+      // ручки
+      const h = getHandles(z, rect);
+      const rPx = HANDLE_R_PX;               // радиус ручки в экранных px
+      const rImg = rPx / Math.min(sx, sy);   // в координатах изображения
+      for (const key in h) {
+        const hx = h[key].x / sx, hy = h[key].y / sy;   // обратно в изображение
+        ctx.fillStyle = '#ffd24f';
+        ctx.beginPath(); ctx.arc(hx, hy, rImg, 0, 7); ctx.fill();
+        ctx.strokeStyle = '#1e1e24'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(hx, hy, rImg, 0, 7); ctx.stroke();
+      }
+    }
+    ctx.setLineDash([]);
+  });
+
+  // текущая новая зона
+  if (drawing) {
+    ctx.setLineDash([6, 4]);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#ff9d4f';
+    ctx.strokeRect(drawing.x, drawing.y, drawing.w, drawing.h);
+    ctx.setLineDash([]);
   }
 }
 
@@ -620,10 +725,7 @@ function verifyFaceByEyes(gray, faceBox) {
   const fw = Math.max(eyeSpan * 1.7, faceBox.w * 0.8);
   const fh = fw * 1.25;
   return {
-    x: cx - fw/2,
-    y: cyEyes - fh * 0.40,
-    w: fw,
-    h: fh,
+    x: cx - fw/2, y: cyEyes - fh * 0.40, w: fw, h: fh,
     score: Math.max(0, Math.min(1, (faceBox.score||0.5) * 0.5 + 0.5 + res.score*0.05)),
     eyes: res.pair
   };
@@ -641,7 +743,7 @@ document.querySelectorAll('input[name="m"]').forEach(r => {
     document.querySelectorAll('.methods label').forEach(l =>
       l.classList.toggle('active', l.querySelector('input').checked));
     document.getElementById('desc').textContent = DESCR[currentMethod];
-    drawZonesPreview();
+    drawAll();
     if (imgData) run();
   });
 });
@@ -655,53 +757,168 @@ document.getElementById('verify').addEventListener('change', () => { if (imgData
 document.getElementById('colorEyes').addEventListener('change', () => { if (imgData) run(); });
 document.getElementById('zoneSoft').addEventListener('change', () => { if (imgData) run(); });
 
-// зоны: режим
 document.getElementById('btnZoneMode').addEventListener('click', () => {
   drawingMode = !drawingMode;
   const btn = document.getElementById('btnZoneMode');
   btn.classList.toggle('active', drawingMode);
   btn.textContent = drawingMode ? '🖊 Разметка (ВКЛ)' : '🖊 Разметка (Z)';
   boxEl.classList.toggle('drawing', drawingMode);
+  if (!drawingMode) selectedZone = -1;
+  drawAll();
 });
 
 document.getElementById('btnAutoZones').addEventListener('click', () => {
   if (!imgData) return;
   zones = makeAutoZones();
+  selectedZone = zones.length ? 0 : -1;
   updateZoneInfo();
-  drawZonesPreview();
+  drawAll();
   if (zones.length) run();
 });
 
 document.getElementById('btnClearZones').addEventListener('click', () => {
   zones = [];
+  selectedZone = -1;
   updateZoneInfo();
-  drawZonesPreview();
+  drawAll();
   if (imgData) run();
 });
 
-// рисование зон
-cv.addEventListener('mousedown', e => {
-  if (!drawingMode || !imgData) return;
+// ============================================================
+// ВЗАИМОДЕЙСТВИЕ: pointer events (мышь + тач)
+// ============================================================
+let lastTap = { time: 0, x: 0, y: 0 };
+
+cv.addEventListener('pointerdown', e => {
+  if (!imgData) return;
+  e.preventDefault();
+  cv.setPointerCapture(e.pointerId);
+
+  const scr = pointerToScreen(e);
   const r = cv.getBoundingClientRect();
-  const sx = W / r.width, sy = H / r.height;
-  drawing = { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy, w: 0, h: 0 };
+
+  // двойной тап/клик — удалить зону
+  const now = Date.now();
+  if (now - lastTap.time < 320 &&
+      Math.abs(scr.x - lastTap.x) < 25 && Math.abs(scr.y - lastTap.y) < 25) {
+    const hit = hitZone(scr.x, scr.y, r);
+    if (hit) {
+      zones.splice(hit.idx, 1);
+      selectedZone = -1;
+      updateZoneInfo();
+      drawAll();
+      lastTap.time = 0;
+      return;
+    }
+  }
+  lastTap = { time: now, x: scr.x, y: scr.y };
+
+  if (drawingMode) {
+    // в режиме разметки:
+    // сначала проверяем, не тянем ли ручку/зону (если уже есть выбранная)
+    const hit = hitZone(scr.x, scr.y, r);
+    if (hit && hit.type === 'resize') {
+      const z = zones[hit.idx];
+      interaction = {
+        type: 'resize', idx: hit.idx, handle: hit.handle,
+        startImg: pointerToCanvas(e),
+        orig: { x: z.x, y: z.y, w: z.w, h: z.h }
+      };
+      return;
+    }
+    if (hit && hit.type === 'move') {
+      const z = zones[hit.idx];
+      selectedZone = hit.idx;
+      interaction = {
+        type: 'move', idx: hit.idx,
+        startImg: pointerToCanvas(e),
+        orig: { x: z.x, y: z.y, w: z.w, h: z.h }
+      };
+      drawAll();
+      return;
+    }
+    // иначе — создаём новую зону
+    const p = pointerToCanvas(e);
+    drawing = { x: p.x, y: p.y, w: 0, h: 0 };
+    selectedZone = -1;
+    drawAll();
+  } else {
+    // вне режима разметки — просто выбор зоны
+    const hit = hitZone(scr.x, scr.y, r);
+    selectedZone = hit ? hit.idx : -1;
+    drawAll();
+  }
 });
-cv.addEventListener('mousemove', e => {
-  if (!drawing) return;
-  const r = cv.getBoundingClientRect();
-  const sx = W / r.width, sy = H / r.height;
-  drawing.w = (e.clientX - r.left) * sx - drawing.x;
-  drawing.h = (e.clientY - r.top) * sy - drawing.y;
-  drawZonesPreview();
+
+cv.addEventListener('pointermove', e => {
+  if (!imgData || !interaction && !drawing) return;
+  e.preventDefault();
+
+  if (drawing) {
+    const p = pointerToCanvas(e);
+    drawing.w = p.x - drawing.x;
+    drawing.h = p.y - drawing.y;
+    drawAll();
+    return;
+  }
+
+  if (interaction) {
+    const p = pointerToCanvas(e);
+    const dx = p.x - interaction.startImg.x;
+    const dy = p.y - interaction.startImg.y;
+    const o = interaction.orig;
+
+    if (interaction.type === 'move') {
+      zones[interaction.idx] = {
+        x: Math.max(0, Math.min(W - o.w, o.x + dx)),
+        y: Math.max(0, Math.min(H - o.h, o.y + dy)),
+        w: o.w, h: o.h
+      };
+    } else if (interaction.type === 'resize') {
+      let x1 = o.x, y1 = o.y, x2 = o.x + o.w, y2 = o.y + o.h;
+      const hd = interaction.handle;
+      if (hd.includes('w')) x1 = o.x + dx;
+      if (hd.includes('e')) x2 = o.x + o.w + dx;
+      if (hd.includes('n')) y1 = o.y + dy;
+      if (hd.includes('s')) y2 = o.y + o.h + dy;
+      // нормализация
+      let nx = Math.min(x1, x2), ny = Math.min(y1, y2);
+      let nw = Math.abs(x2 - x1), nh = Math.abs(y2 - y1);
+      // границы
+      nx = Math.max(0, Math.min(W - 10, nx));
+      ny = Math.max(0, Math.min(H - 10, ny));
+      nw = Math.max(20, Math.min(W - nx, nw));
+      nh = Math.max(20, Math.min(H - ny, nh));
+      zones[interaction.idx] = { x: nx, y: ny, w: nw, h: nh };
+    }
+    drawAll();
+  }
 });
-window.addEventListener('mouseup', () => {
-  if (!drawing) return;
-  if (drawing.w < 0) { drawing.x += drawing.w; drawing.w = -drawing.w; }
-  if (drawing.h < 0) { drawing.y += drawing.h; drawing.h = -drawing.h; }
-  if (drawing.w > 20 && drawing.h > 20) zones.push(drawing);
+
+cv.addEventListener('pointerup', e => {
+  if (!imgData) return;
+  if (drawing) {
+    if (drawing.w < 0) { drawing.x += drawing.w; drawing.w = -drawing.w; }
+    if (drawing.h < 0) { drawing.y += drawing.h; drawing.h = -drawing.h; }
+    if (drawing.w > 15 && drawing.h > 15) {
+      zones.push(drawing);
+      selectedZone = zones.length - 1;
+    }
+    drawing = null;
+    updateZoneInfo();
+    drawAll();
+  }
+  if (interaction) {
+    interaction = null;
+    updateZoneInfo();
+    if (imgData) run();
+  }
+});
+
+cv.addEventListener('pointercancel', () => {
   drawing = null;
-  updateZoneInfo();
-  drawZonesPreview();
+  interaction = null;
+  drawAll();
 });
 
 document.getElementById('btnSave').addEventListener('click', () => {
@@ -711,22 +928,16 @@ document.getElementById('btnSave').addEventListener('click', () => {
   a.click();
 });
 
-// горячие клавиши
 window.addEventListener('keydown', e => {
   if (e.key === 'Enter' && imgData) run();
-  if ((e.key === 'z' || e.key === 'Z' || e.key === 'я' || e.key === 'Я') && imgData) {
-    document.getElementById('btnZoneMode').click();
-  }
-  if (e.key === 'Delete' || e.key === 'Backspace') {
-    if (e.target.tagName === 'INPUT') return;
-    zones = [];
-    updateZoneInfo();
-    drawZonesPreview();
+  if ((e.key === 'z' || e.key === 'Z') && imgData) document.getElementById('btnZoneMode').click();
+  if ((e.key === 'Delete' || e.key === 'Backspace') && e.target.tagName !== 'INPUT') {
+    zones = []; selectedZone = -1;
+    updateZoneInfo(); drawAll();
     if (imgData) run();
   }
 });
 
-// drag&drop
 ['dragenter','dragover'].forEach(ev => boxEl.addEventListener(ev, e => {
   e.preventDefault(); boxEl.classList.add('drag');
 }));
@@ -742,7 +953,6 @@ boxEl.addEventListener('drop', e => {
   }
 });
 
-// paste
 window.addEventListener('paste', e => {
   for (const item of e.clipboardData.items) {
     if (item.type.startsWith('image/')) {
@@ -754,15 +964,6 @@ window.addEventListener('paste', e => {
     }
   }
 });
-
-// ============================================================
-// РИСОВАНИЕ РЕЗУЛЬТАТОВ
-// ============================================================
-function drawResults(boxes) {
-  lastBoxes = boxes;
-  drawZonesPreview();
-  document.getElementById('btnSave').disabled = boxes.length === 0;
-}
 
 // ============================================================
 // ЗАПУСК
@@ -798,24 +999,23 @@ function run() {
       }
       const tVer = performance.now() - t2;
 
-      // фильтр по зонам
-      let inZones, outZones;
+      let inZones = boxes.length, outZones = 0;
       if (zones.length) {
         if (soft) {
           boxes = boxes.map(b => ({ ...b, score: (b.score||0) + (inAnyZone(b) ? 0.15 : 0) }));
           inZones = boxes.filter(inAnyZone).length;
           outZones = boxes.length - inZones;
         } else {
+          const before = boxes.length;
           boxes = boxes.filter(inAnyZone);
           inZones = boxes.length;
-          outZones = candidates.length - boxes.length;
+          outZones = before - inZones;
         }
-      } else {
-        inZones = boxes.length;
-        outZones = 0;
       }
 
-      drawResults(boxes);
+      lastBoxes = boxes;
+      drawAll();
+      document.getElementById('btnSave').disabled = boxes.length === 0;
 
       const dt = (performance.now() - t0).toFixed(0);
       document.getElementById('stat').innerHTML =
@@ -825,7 +1025,7 @@ function run() {
         `детектор: ${tDet.toFixed(0)} мс · верификация: ${tVer.toFixed(0)} мс · всего: ${dt} мс`;
     } catch (e) {
       redraw();
-      drawZonesPreview();
+      drawAll();
       document.getElementById('stat').textContent = 'Ошибка: ' + e.message;
       console.error(e);
     }
@@ -834,4 +1034,4 @@ function run() {
 }
 </script>
 </body>
-</html>
+ </html>
