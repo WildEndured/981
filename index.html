@@ -1,1158 +1,229 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Маска фона · Worker · Zoom/Pan</title>
-<style>
-  :root {
-    color-scheme: dark;
-    --bg: #14161a; --panel: #1d2027; --panel-2: #14161a;
-    --border: #2b2f37; --accent: #2b6cb0;
-    --text: #e6e6e6; --muted: #8b93a1; --muted-2: #b9c3d1;
-  }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body {
-    margin: 0; padding: 0;
-    background: var(--bg); color: var(--text);
-    font-family: system-ui, -apple-system, sans-serif;
-    overscroll-behavior: none;
-  }
-  body {
-    display: flex; flex-direction: column; align-items: center;
-    padding: 8px 8px 40px; gap: 10px; min-height: 100vh;
-  }
-  .topbar {
-    width: 100%; max-width: 1100px;
-    display: flex; gap: 6px; align-items: center;
-    background: var(--panel); border-radius: 12px;
-    padding: 6px 8px; overflow-x: auto; scrollbar-width: none;
-  }
-  .topbar::-webkit-scrollbar { display: none; }
-  .topbar .file-label {
-    flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px;
-    padding: 0 12px; height: 38px; border-radius: 8px;
-    background: var(--accent); color: #fff;
-    font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;
-  }
-  .topbar input[type="file"] { display: none; }
-  .topbar button {
-    flex-shrink: 0; height: 38px; padding: 0 12px;
-    font-size: 13px; white-space: nowrap;
-    border-radius: 8px; border: 1px solid #333a44;
-    background: #232830; color: var(--text); cursor: pointer;
-  }
-  .topbar button:hover, .topbar button.active {
-    background: var(--accent); border-color: var(--accent); color: #fff;
-  }
-  .topbar button:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .stage-wrap {
-    position: relative;
-    width: min(96vw, 1100px);
-    height: min(70vh, 800px);
-    background: #0b0c0f;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-    touch-action: none;
-    cursor: grab;
-  }
-  .stage-wrap.dragging { cursor: grabbing; }
-  .stage-wrap.hide-base { background: #000; }
-
-  .stage {
-    position: absolute;
-    top: 0; left: 0;
-    transform-origin: 0 0;
-    line-height: 0;
-    will-change: transform;
-  }
-  .stage canvas { display: block; }
-  .stage canvas#overlay { position: absolute; inset: 0; pointer-events: none; }
-  .stage.hide-base canvas#base { visibility: hidden; }
-
-  .progress-overlay {
-    position: absolute; inset: 0;
-    display: none; align-items: center; justify-content: center;
-    background: rgba(0, 0, 0, 0.55);
-    z-index: 10; pointer-events: none;
-    font-size: 14px; color: #fff; gap: 12px;
-  }
-  .progress-overlay.visible { display: flex; }
-  .progress-overlay .spinner {
-    width: 22px; height: 22px;
-    border: 3px solid #444;
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .zoom-bar {
-    position: absolute;
-    right: 10px; bottom: 10px;
-    display: flex; flex-direction: column; gap: 6px;
-    z-index: 5;
-  }
-  .zoom-bar button {
-    width: 36px; height: 36px;
-    border-radius: 8px; border: 1px solid #333a44;
-    background: rgba(29, 32, 39, 0.9); color: var(--text);
-    font-size: 16px; cursor: pointer;
-  }
-  .zoom-bar button:hover { background: var(--accent); border-color: var(--accent); }
-
-  .panel {
-    width: 100%; max-width: 1100px;
-    background: var(--panel); border-radius: 12px;
-    padding: 14px 16px;
-  }
-  .panel h2 {
-    margin: 0 0 10px; font-size: 14px;
-    color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;
-  }
-  .panel-section {
-    background: var(--panel-2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 12px; margin-bottom: 10px;
-  }
-  .panel-section:last-child { margin-bottom: 0; }
-  .panel-section h3 {
-    margin: 0 0 10px; font-size: 13px;
-    color: #ffcc00; font-weight: 600;
-  }
-  .row {
-    display: flex; flex-wrap: wrap; gap: 8px;
-    align-items: center; margin-bottom: 8px;
-  }
-  .row:last-child { margin-bottom: 0; }
-  .row label {
-    font-size: 13px; display: flex; align-items: center;
-    gap: 6px; color: var(--muted-2); cursor: pointer;
-  }
-  input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
-  input[type="range"] {
-    width: 100%; height: 28px; margin: 0;
-    background: transparent; -webkit-appearance: none; appearance: none;
-  }
-  input[type="range"]:disabled { opacity: 0.4; cursor: not-allowed; }
-  input[type="range"]::-webkit-slider-runnable-track {
-    height: 6px; background: #2b2f37; border-radius: 3px;
-  }
-  input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none; appearance: none;
-    width: 22px; height: 22px; border-radius: 50%;
-    background: var(--accent); border: 2px solid #fff;
-    margin-top: -8px; cursor: pointer;
-  }
-  input[type="range"]::-moz-range-track {
-    height: 6px; background: #2b2f37; border-radius: 3px;
-  }
-  input[type="range"]::-moz-range-thumb {
-    width: 22px; height: 22px; border-radius: 50%;
-    background: var(--accent); border: 2px solid #fff; cursor: pointer;
-  }
-  .slider-row { display: flex; flex-direction: column; gap: 2px; padding: 4px 0; }
-  .slider-row .label-line {
-    display: flex; justify-content: space-between;
-    font-size: 12px; color: var(--muted-2);
-  }
-  .kv {
-    display: flex; justify-content: space-between; gap: 10px;
-    padding: 5px 0; border-bottom: 1px dashed var(--border); font-size: 13px;
-  }
-  .kv:last-child { border-bottom: none; }
-  .kv span:first-child { color: var(--muted); }
-  .kv span:last-child { color: var(--text); font-variant-numeric: tabular-nums; }
-  .hint {
-    font-size: 12px; color: var(--muted);
-    max-width: 900px; text-align: center; line-height: 1.5;
-    padding: 0 8px;
-  }
-  .point-list { max-height: 240px; overflow-y: auto; font-size: 13px; }
-  .point-item {
-    display: flex; justify-content: space-between; align-items: center;
-    gap: 8px; padding: 6px 8px; border-radius: 6px;
-  }
-  .point-item:hover { background: #232830; }
-  .point-item.selected { background: #232830; outline: 1px solid var(--accent); }
-  .point-item .left {
-    display: flex; align-items: center; gap: 6px;
-    cursor: pointer; flex: 1; min-width: 0;
-  }
-  .point-item .dot {
-    display: inline-block; width: 10px; height: 10px;
-    border-radius: 50%; background: #ffcc00; flex-shrink: 0;
-  }
-  .point-item .coords {
-    color: var(--muted); font-variant-numeric: tabular-nums;
-    white-space: nowrap; font-size: 12px;
-  }
-  .point-item .remove {
-    background: transparent; border: none; color: #ff6060;
-    font-size: 18px; padding: 6px 10px; cursor: pointer;
-    line-height: 1; border-radius: 6px;
-  }
-  .sample-list { display: flex; flex-wrap: wrap; gap: 8px; }
-  .sample-chip {
-    display: flex; align-items: center; gap: 6px;
-    padding: 6px 10px; border-radius: 8px;
-    background: var(--panel-2); border: 1px solid var(--border);
-    font-size: 12px;
-  }
-  .sample-chip button.remove {
-    background: transparent; border: none; color: #ff6060;
-    font-size: 16px; padding: 4px 8px; cursor: pointer; line-height: 1;
-  }
-  .sample-empty { color: var(--muted); font-size: 12px; }
-
-  .seg {
-    display: inline-flex;
-    border: 1px solid #333a44; border-radius: 8px;
-    overflow: hidden;
-  }
-  .seg button {
-    background: #232830; color: var(--text);
-    border: none; padding: 0 12px; height: 30px;
-    font-size: 12px; cursor: pointer;
-    border-right: 1px solid #333a44;
-  }
-  .seg button:last-child { border-right: none; }
-  .seg button.active { background: var(--accent); color: #fff; }
-
-  @media (max-width: 600px) {
-    body { padding: 6px 6px 30px; gap: 8px; }
-    .topbar button, .topbar .file-label { height: 36px; padding: 0 10px; font-size: 12px; }
-    .stage-wrap { height: 55vh; }
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anime Face Landmarks Detector</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 {
+            color: #333;
+        }
+        .container {
+            position: relative;
+            display: inline-block;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            border-radius: 8px;
+            overflow: hidden;
+            background: #fff;
+            max-width: 100%;
+        }
+        canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+        #upload {
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            background: #6200ea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #upload:hover {
+            background: #3700b3;
+        }
+        .info {
+            margin-top: 15px;
+            color: #666;
+            font-size: 14px;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
 
-<div class="topbar">
-  <label class="file-label">
-    📷 Файл
-    <input id="file" type="file" accept="image/*" />
-  </label>
-  <button id="autoThresholdBtn">⚡ Авто</button>
-  <button id="pickBgColorBtn">🎨 Цвет фона</button>
-  <button id="addPointBtn">🎯 Точка</button>
-  <button id="clearPointsBtn">✕ Очистить точки</button>
-  <button id="toggleImageBtn">👁 Маска</button>
-  <button id="exportMaskBtn">💾 Маска</button>
-  <button id="exportCutBtn">🖼 Вырезать</button>
-</div>
-
-<div class="stage-wrap" id="stageWrap">
-  <div class="stage" id="stage">
-    <canvas id="base"></canvas>
-    <canvas id="overlay"></canvas>
-  </div>
-  <div class="progress-overlay" id="progressOverlay">
-    <div class="spinner"></div>
-    <span>Обработка…</span>
-  </div>
-  <div class="zoom-bar">
-    <button id="zoomInBtn" title="Приблизить">+</button>
-    <button id="zoomOutBtn" title="Отдалить">−</button>
-    <button id="zoomFitBtn" title="Вписать">⤢</button>
-    <button id="zoomResetBtn" title="1:1">1:1</button>
-  </div>
-</div>
-
-<p class="hint">
-  ЛКМ — точка / пипетка (в зависимости от режима). СКМ или ПКМ — панорама. Колесо — зум.
-</p>
-
-<div class="panel">
-  <h2>1 · Изображение</h2>
-  <div class="panel-section">
-    <div class="kv"><span>Размер</span><span id="infoSize">—</span></div>
-    <div class="kv"><span>Режим</span><span id="infoMode">—</span></div>
-    <div class="kv"><span>Масштаб</span><span id="infoZoom">100%</span></div>
-  </div>
-</div>
-
-<div class="panel">
-  <h2>2 · Маска фона</h2>
-  <div class="panel-section">
-    <h3>Режим поиска фона</h3>
-    <div class="row">
-      <div class="seg" id="modeSeg">
-        <button data-mode="lum" class="active">Яркость</button>
-        <button data-mode="color">Цвет</button>
-        <button data-mode="region">Регион</button>
-      </div>
+    <h1>Детектор аниме-лиц</h1>
+    
+    <input type="file" id="upload" accept="image/*">
+    
+    <div class="container">
+        <canvas id="canvas"></canvas>
     </div>
-  </div>
 
-  <div class="panel-section">
-    <h3>Пороги</h3>
-    <div class="slider-row" id="lumSliderRow">
-      <div class="label-line"><span>Порог яркости</span><span id="bgLumVal">200</span></div>
-      <input id="bgLum" type="range" min="0" max="255" value="200" />
+    <div class="info">
+        Наведите курсор на точку, чтобы увидеть её номер и описание.
     </div>
-    <div class="slider-row" id="colorSliderRow" style="display:none;">
-      <div class="label-line"><span>Порог цвета</span><span id="bgDistVal">30</span></div>
-      <input id="bgDist" type="range" min="1" max="150" value="30" />
-    </div>
-    <div class="slider-row" id="regionSliderRow" style="display:none;">
-      <div class="label-line"><span>Толерантность региона</span><span id="regionTolVal">25</span></div>
-      <input id="regionTol" type="range" min="1" max="100" value="25" />
-    </div>
-    <div class="row">
-      <label><input id="invert" type="checkbox" /> Инверт</label>
-    </div>
-  </div>
 
-  <div class="panel-section">
-    <h3>Постобработка</h3>
-    <div class="row">
-      <label><input id="useSmooth" type="checkbox" checked /> Сглаж.</label>
-    </div>
-    <div class="slider-row">
-      <div class="label-line"><span>Сглаживание</span><span id="smoothIterVal">1</span></div>
-      <input id="smoothIter" type="range" min="0" max="4" value="1" />
-    </div>
-    <div class="slider-row">
-      <div class="label-line"><span>Открытие</span><span id="morphOpenVal">0</span></div>
-      <input id="morphOpen" type="range" min="0" max="4" value="0" />
-    </div>
-    <div class="slider-row">
-      <div class="label-line"><span>Закрытие</span><span id="morphCloseVal">0</span></div>
-      <input id="morphClose" type="range" min="0" max="4" value="0" />
-    </div>
-  </div>
-
-  <div class="panel-section">
-    <h3>Итоги</h3>
-    <div class="kv"><span>Фон</span><span id="infoBgPct">—</span></div>
-    <div class="kv"><span>Персонаж</span><span id="infoCharPct">—</span></div>
-  </div>
-</div>
-
-<div class="panel">
-  <h2>3 · Точки-источники</h2>
-  <div class="panel-section">
-    <h3>Список точек <span id="infoPointsCount" style="color:var(--muted);font-weight:400;">(0)</span></h3>
-    <div class="point-list" id="pointList">
-      <div style="color:var(--muted);font-size:12px;padding:4px 0;">Точки не заданы.</div>
-    </div>
-  </div>
-  <div class="panel-section">
-    <h3>Образцы фона</h3>
-    <div class="sample-list" id="samplesList">
-      <span class="sample-empty">Образцы не заданы.</span>
-    </div>
-  </div>
-</div>
-
-<script>
-// ============================================================
-//  DOM
-// ============================================================
-const fileInput = document.getElementById('file');
-const baseCanvas = document.getElementById('base');
-const overlay = document.getElementById('overlay');
-const stageEl = document.getElementById('stage');
-const stageWrap = document.getElementById('stageWrap');
-const progressOverlay = document.getElementById('progressOverlay');
-
-const bgLumEl = document.getElementById('bgLum');
-const bgLumVal = document.getElementById('bgLumVal');
-const bgDistEl = document.getElementById('bgDist');
-const bgDistVal = document.getElementById('bgDistVal');
-const regionTolEl = document.getElementById('regionTol');
-const regionTolVal = document.getElementById('regionTolVal');
-const invertEl = document.getElementById('invert');
-const useSmoothEl = document.getElementById('useSmooth');
-const smoothIterEl = document.getElementById('smoothIter');
-const smoothIterVal = document.getElementById('smoothIterVal');
-const morphOpenEl = document.getElementById('morphOpen');
-const morphOpenVal = document.getElementById('morphOpenVal');
-const morphCloseEl = document.getElementById('morphClose');
-const morphCloseVal = document.getElementById('morphCloseVal');
-
-const autoThresholdBtn = document.getElementById('autoThresholdBtn');
-const pickBgColorBtn = document.getElementById('pickBgColorBtn');
-const addPointBtn = document.getElementById('addPointBtn');
-const clearPointsBtn = document.getElementById('clearPointsBtn');
-const toggleImageBtn = document.getElementById('toggleImageBtn');
-const exportMaskBtn = document.getElementById('exportMaskBtn');
-const exportCutBtn = document.getElementById('exportCutBtn');
-
-const lumSliderRow = document.getElementById('lumSliderRow');
-const colorSliderRow = document.getElementById('colorSliderRow');
-const regionSliderRow = document.getElementById('regionSliderRow');
-const modeSeg = document.getElementById('modeSeg');
-
-const infoSize = document.getElementById('infoSize');
-const infoMode = document.getElementById('infoMode');
-const infoZoom = document.getElementById('infoZoom');
-const infoBgPct = document.getElementById('infoBgPct');
-const infoCharPct = document.getElementById('infoCharPct');
-const infoPointsCount = document.getElementById('infoPointsCount');
-const pointList = document.getElementById('pointList');
-const samplesList = document.getElementById('samplesList');
-
-const zoomInBtn = document.getElementById('zoomInBtn');
-const zoomOutBtn = document.getElementById('zoomOutBtn');
-const zoomFitBtn = document.getElementById('zoomFitBtn');
-const zoomResetBtn = document.getElementById('zoomResetBtn');
-
-const baseCtx = baseCanvas.getContext('2d', { willReadFrequently: true });
-const overlayCtx = overlay.getContext('2d');
-
-// ============================================================
-//  СОСТОЯНИЕ
-// ============================================================
-let imgWidth = 0, imgHeight = 0;
-let lum = null, isBg = null, imgDataRef = null, histogram = null;
-let selectedPointIndex = -1;
-let mode = 'lum';
-let colorSamples = [];
-let bgColorMode = false, addPointMode = false;
-let sourcePoints = [];
-let hideImage = false;
-let bgCount = 0;
-
-let zoom = 1, panX = 0, panY = 0;
-let fitZoom = 1;
-let isDragging = false, dragStartX = 0, dragStartY = 0;
-let dragStartPanX = 0, dragStartPanY = 0;
-
-let worker = null;
-let workerBusy = false;
-let pendingBuild = false;
-
-let _seedsCache = null;
-function invalidateSeeds() { _seedsCache = null; }
-
-// ============================================================
-//  УТИЛИТЫ
-// ============================================================
-function debounce(fn, ms = 80) {
-  let t = null;
-  return (...args) => {
-    clearTimeout(t);
-    t = setTimeout(() => fn(...args), ms);
-  };
-}
-
-function updateCursor() {
-  if (isDragging) return;
-  if (addPointMode) stageWrap.style.cursor = 'copy';
-  else if (bgColorMode) stageWrap.style.cursor = 'crosshair';
-  else stageWrap.style.cursor = 'grab';
-}
-
-// ============================================================
-//  WEB WORKER
-// ============================================================
-function initWorker() {
-  if (worker) return;
-  try {
-    worker = new Worker('worker.js');
-  } catch (err) {
-    console.error('[main] Worker creation failed:', err);
-    alert('Не удалось создать Worker. Проверьте, что worker.js лежит рядом с index.html.');
-    return;
-  }
-  worker.onmessage = (e) => {
-    const { type, payload } = e.data;
-    console.log('[main] worker message:', type);
-    if (type === 'mask') {
-      isBg = payload.mask instanceof Uint8Array
-        ? payload.mask
-        : new Uint8Array(payload.mask);
-      bgCount = payload.bgCount;
-      drawOverlay();
-      updateInfo();
-      workerBusy = false;
-      hideProgress();
-      if (pendingBuild) {
-        pendingBuild = false;
-        rebuildAll();
-      }
-    } else if (type === 'error') {
-      console.error('[main] worker error:', payload);
-      workerBusy = false;
-      hideProgress();
-    }
-  };
-  worker.onerror = (err) => {
-    console.error('[main] worker onerror:', err);
-    workerBusy = false;
-    hideProgress();
-  };
-  console.log('[main] worker initialized');
-}
-
-function showProgress() { progressOverlay.classList.add('visible'); }
-function hideProgress() { progressOverlay.classList.remove('visible'); }
-
-// ============================================================
-//  АВТО-ПОРОГ ПО МЕТОДУ ОЦУ
-// ============================================================
-function otsuThreshold(hist, N) {
-  let sum = 0;
-  for (let i = 0; i < 256; i++) sum += i * hist[i];
-  let sumB = 0, wB = 0, maxVar = 0, best = 0;
-  for (let t = 0; t < 256; t++) {
-    wB += hist[t];
-    if (wB === 0) continue;
-    const wF = N - wB;
-    if (wF === 0) break;
-    sumB += t * hist[t];
-    const mB = sumB / wB;
-    const mF = (sum - sumB) / wF;
-    const varBetween = wB * wF * (mB - mF) * (mB - mF);
-    if (varBetween > maxVar) { maxVar = varBetween; best = t; }
-  }
-  return best;
-}
-
-function autoPickThreshold() {
-  if (!histogram) return;
-  const N = imgWidth * imgHeight;
-  const t = otsuThreshold(histogram, N);
-  bgLumEl.value = t;
-  bgLumVal.textContent = t;
-  invalidateSeeds();
-}
-
-// ============================================================
-//  ЗАГРУЗКА ИЗОБРАЖЕНИЯ
-// ============================================================
-fileInput.addEventListener('change', e => {
-  const file = e.target.files && e.target.files[0];
-  if (!file) {
-    console.log('[main] no file selected');
-    return;
-  }
-  console.log('[main] file selected:', file.name, file.size, file.type);
-
-  const img = new Image();
-  img.onload = () => {
-    try {
-      console.log('[main] image loaded:', img.naturalWidth, 'x', img.naturalHeight);
-      imgWidth = img.naturalWidth;
-      imgHeight = img.naturalHeight;
-      [baseCanvas, overlay].forEach(c => { c.width = imgWidth; c.height = imgHeight; });
-      baseCtx.clearRect(0, 0, imgWidth, imgHeight);
-      baseCtx.drawImage(img, 0, 0);
-      imgDataRef = baseCtx.getImageData(0, 0, imgWidth, imgHeight);
-      computeLuminance(imgDataRef);
-      computeHistogram();
-      sourcePoints = [];
-      selectedPointIndex = -1;
-      colorSamples = [];
-      invalidateSeeds();
-      autoPickThreshold();
-      renderSamplesList();
-
-      // Сначала вписываем изображение в область, чтобы transform был корректным
-      requestAnimationFrame(() => {
-        fitToView();
-        rebuildAll();
-      });
-    } catch (err) {
-      console.error('[main] onload error:', err);
-      alert('Ошибка при обработке изображения: ' + (err.message || err));
-    }
-  };
-  img.onerror = (err) => {
-    console.error('[main] image load error:', err);
-    alert('Не удалось загрузить изображение');
-  };
-  img.src = URL.createObjectURL(file);
-});
-
-function computeLuminance(data) {
-  const d = data.data;
-  const N = imgWidth * imgHeight;
-  lum = new Float32Array(N);
-  for (let i = 0, p = 0; i < N; i++, p += 4) {
-    if (d[p + 3] < 20) { lum[i] = 255; continue; }
-    lum[i] = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2];
-  }
-}
-
-function computeHistogram() {
-  histogram = new Uint32Array(256);
-  const N = imgWidth * imgHeight;
-  for (let i = 0; i < N; i++) {
-    const v = Math.max(0, Math.min(255, Math.round(lum[i])));
-    histogram[v]++;
-  }
-}
-
-// ============================================================
-//  АВТО-СЕМЕНА (в главном потоке)
-// ============================================================
-function isPixelBgMain(idx) {
-  if (mode === 'lum' || mode === 'region') {
-    const matched = lum[idx] >= +bgLumEl.value;
-    return invertEl.checked ? !matched : matched;
-  }
-  if (colorSamples.length === 0) return invertEl.checked;
-  const p = idx * 4;
-  const d = imgDataRef.data;
-  const r = d[p], g = d[p + 1], b = d[p + 2];
-  const t = +bgDistEl.value;
-  const t2 = t * t * 3;
-  for (const s of colorSamples) {
-    const dr = r - s.r, dg = g - s.g, db = b - s.b;
-    if (dr * dr + dg * dg + db * db <= t2) return !invertEl.checked;
-  }
-  return invertEl.checked;
-}
-
-function findIsolatedBgSeeds(minSize = 30) {
-  const w = imgWidth, h = imgHeight;
-  const N = w * h;
-  const visited = new Uint8Array(N);
-  const seeds = [];
-  const queue = new Int32Array(N);
-  const region = [];
-
-  for (let start = 0; start < N; start++) {
-    if (visited[start]) continue;
-    if (!isPixelBgMain(start)) { visited[start] = 1; continue; }
-
-    let head = 0, tail = 0;
-    queue[tail++] = start;
-    visited[start] = 1;
-    region.length = 0;
-    let touchesBorder = false;
-
-    while (head < tail) {
-      const cur = queue[head++];
-      region.push(cur);
-      const cx = cur % w;
-      const cy = (cur / w) | 0;
-      if (cx === 0 || cy === 0 || cx === w - 1 || cy === h - 1) touchesBorder = true;
-
-      if (cx > 0)     { const n = cur - 1; if (!visited[n] && isPixelBgMain(n)) { visited[n] = 1; queue[tail++] = n; } }
-      if (cx < w - 1) { const n = cur + 1; if (!visited[n] && isPixelBgMain(n)) { visited[n] = 1; queue[tail++] = n; } }
-      if (cy > 0)     { const n = cur - w; if (!visited[n] && isPixelBgMain(n)) { visited[n] = 1; queue[tail++] = n; } }
-      if (cy < h - 1) { const n = cur + w; if (!visited[n] && isPixelBgMain(n)) { visited[n] = 1; queue[tail++] = n; } }
-    }
-
-    if (!touchesBorder && region.length >= minSize) {
-      const centerIdx = region[Math.floor(region.length / 2)];
-      seeds.push({ x: centerIdx % w, y: (centerIdx / w) | 0 });
-    }
-  }
-  return seeds;
-}
-
-function getAutoSeeds() {
-  if (_seedsCache) return _seedsCache;
-  _seedsCache = findIsolatedBgSeeds(30);
-  return _seedsCache;
-}
-
-// ============================================================
-//  ПЕРЕСЧЁТ МАСКИ (через Worker)
-// ============================================================
-function rebuildAll() {
-  if (!lum || !imgDataRef) {
-    console.log('[main] rebuildAll skipped: no image');
-    return;
-  }
-  if (!worker) {
-    console.error('[main] worker not initialized');
-    initWorker();
-    if (!worker) return;
-  }
-  if (workerBusy) {
-    console.log('[main] worker busy, queue pending');
-    pendingBuild = true;
-    return;
-  }
-  workerBusy = true;
-  showProgress();
-
-  let autoSeeds = [];
-  if (sourcePoints.length === 0) {
-    autoSeeds = getAutoSeeds();
-  }
-
-  // Копируем данные изображения — без transfer, чтобы не терять буфер
-  const dataCopy = new Uint8ClampedArray(imgDataRef.data);
-
-  console.log('[main] posting buildMask to worker');
-  worker.postMessage({
-    type: 'buildMask',
-    payload: {
-      imageData: { data: dataCopy, width: imgWidth, height: imgHeight },
-      width: imgWidth,
-      height: imgHeight,
-      mode,
-      thresholdLum: +bgLumEl.value,
-      colorSamples,
-      thresholdDist: +bgDistEl.value,
-      invert: invertEl.checked,
-      sourcePoints,
-      autoSeeds,
-      useSmooth: useSmoothEl.checked,
-      smoothIter: +smoothIterEl.value,
-      morphOpen: +morphOpenEl.value,
-      morphClose: +morphCloseEl.value,
-      regionTolerance: +regionTolEl.value
-    }
-  });
-}
-
-const rebuildAllDebounced = debounce(rebuildAll, 80);
-
-// ============================================================
-//  ОТРИСОВКА ОВЕРЛЕЯ
-// ============================================================
-function drawOverlay() {
-  const w = imgWidth, h = imgHeight;
-  if (!w) return;
-  overlayCtx.clearRect(0, 0, w, h);
-
-  if (isBg) {
-    const img = overlayCtx.createImageData(w, h);
-    const data = img.data;
-    for (let i = 0, j = 0; i < w * h; i++, j += 4) {
-      if (!isBg[i]) {
-        data[j] = 255; data[j+1] = 60; data[j+2] = 60; data[j+3] = 100;
-      }
-    }
-    overlayCtx.putImageData(img, 0, 0);
-  }
-
-  sourcePoints.forEach((p, i) => {
-    const isSelected = i === selectedPointIndex;
-    overlayCtx.beginPath();
-    overlayCtx.arc(p.x, p.y, isSelected ? 10 : 8, 0, Math.PI * 2);
-    overlayCtx.fillStyle = isSelected ? '#ff5050' : '#ffcc00';
-    overlayCtx.fill();
-    overlayCtx.lineWidth = 2;
-    overlayCtx.strokeStyle = '#000';
-    overlayCtx.stroke();
-  });
-}
-
-// ============================================================
-//  UI
-// ============================================================
-function updateInfo() {
-  if (!lum) return;
-  const N = imgWidth * imgHeight;
-  const charCount = N - bgCount;
-  infoSize.textContent = `${imgWidth} × ${imgHeight}`;
-  infoMode.textContent = mode === 'lum' ? 'яркость' : mode === 'color' ? 'цвет' : 'регион';
-  infoBgPct.textContent = ((bgCount / N) * 100).toFixed(1) + '%';
-  infoCharPct.textContent = ((charCount / N) * 100).toFixed(1) + '%';
-  infoPointsCount.textContent = `(${sourcePoints.length})`;
-  renderPointList();
-}
-
-function renderPointList() {
-  if (sourcePoints.length === 0) {
-    pointList.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:4px 0;">Точки не заданы.</div>';
-    return;
-  }
-  pointList.innerHTML = '';
-  sourcePoints.forEach((p, i) => {
-    const item = document.createElement('div');
-    item.className = 'point-item' + (i === selectedPointIndex ? ' selected' : '');
-    const left = document.createElement('div');
-    left.className = 'left';
-    const dotColor = (i === selectedPointIndex) ? '#ff5050' : '#ffcc00';
-    left.innerHTML = `<span class="dot" style="background:${dotColor}"></span><span>#${i + 1}</span><span class="coords">x=${p.x}, y=${p.y}</span>`;
-    left.addEventListener('click', () => {
-      selectedPointIndex = i;
-      drawOverlay();
-      renderPointList();
-    });
-    const btn = document.createElement('button');
-    btn.className = 'remove';
-    btn.textContent = '✕';
-    btn.addEventListener('click', (ev) => { ev.stopPropagation(); removePoint(i); });
-    item.appendChild(left);
-    item.appendChild(btn);
-    pointList.appendChild(item);
-  });
-}
-
-function renderSamplesList() {
-  samplesList.innerHTML = '';
-  if (colorSamples.length === 0) {
-    samplesList.innerHTML = '<span class="sample-empty">Образцы не заданы.</span>';
-    return;
-  }
-  colorSamples.forEach((s, i) => {
-    const chip = document.createElement('div');
-    chip.className = 'sample-chip';
-    chip.innerHTML = `
-      <span style="display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid #555;background:rgb(${s.r},${s.g},${s.b})"></span>
-      <span>rgb(${s.r}, ${s.g}, ${s.b})</span>
-      <button class="remove" title="Удалить">✕</button>`;
-    chip.querySelector('.remove').addEventListener('click', () => {
-      colorSamples.splice(i, 1);
-      renderSamplesList();
-      invalidateSeeds();
-      if (lum) rebuildAll();
-    });
-    samplesList.appendChild(chip);
-  });
-}
-
-// ============================================================
-//  ZOOM / PAN
-// ============================================================
-function applyTransform() {
-  stageEl.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
-  infoZoom.textContent = Math.round(zoom * 100) + '%';
-}
-
-function fitToView() {
-  if (!imgWidth) return;
-  const wrapW = stageWrap.clientWidth;
-  const wrapH = stageWrap.clientHeight;
-  fitZoom = Math.min(wrapW / imgWidth, wrapH / imgHeight) * 0.98;
-  zoom = fitZoom;
-  panX = (wrapW - imgWidth * zoom) / 2;
-  panY = (wrapH - imgHeight * zoom) / 2;
-  applyTransform();
-}
-
-function resetZoom() {
-  zoom = 1;
-  panX = (stageWrap.clientWidth - imgWidth) / 2;
-  panY = (stageWrap.clientHeight - imgHeight) / 2;
-  applyTransform();
-}
-
-function zoomAt(factor, clientX, clientY) {
-  const rect = stageWrap.getBoundingClientRect();
-  const mx = clientX - rect.left;
-  const my = clientY - rect.top;
-  const newZoom = Math.max(0.05, Math.min(20, zoom * factor));
-  const k = newZoom / zoom;
-  panX = mx - k * (mx - panX);
-  panY = my - k * (my - panY);
-  zoom = newZoom;
-  applyTransform();
-}
-
-zoomInBtn.addEventListener('click', () => {
-  const rect = stageWrap.getBoundingClientRect();
-  zoomAt(1.25, rect.left + stageWrap.clientWidth / 2, rect.top + stageWrap.clientHeight / 2);
-});
-zoomOutBtn.addEventListener('click', () => {
-  const rect = stageWrap.getBoundingClientRect();
-  zoomAt(1 / 1.25, rect.left + stageWrap.clientWidth / 2, rect.top + stageWrap.clientHeight / 2);
-});
-zoomFitBtn.addEventListener('click', fitToView);
-zoomResetBtn.addEventListener('click', resetZoom);
-
-stageWrap.addEventListener('wheel', (e) => {
-  e.preventDefault();
-  const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-  zoomAt(factor, e.clientX, e.clientY);
-}, { passive: false });
-
-stageWrap.addEventListener('mousedown', (e) => {
-  if (e.button === 1 || e.button === 2) {
-    e.preventDefault();
-    isDragging = true;
-    dragStartX = e.clientX;
-    dragStartY = e.clientY;
-    dragStartPanX = panX;
-    dragStartPanY = panY;
-    stageWrap.classList.add('dragging');
-    stageWrap.style.cursor = 'grabbing';
-  }
-});
-
-window.addEventListener('mousemove', (e) => {
-  if (!isDragging) return;
-  panX = dragStartPanX + (e.clientX - dragStartX);
-  panY = dragStartPanY + (e.clientY - dragStartY);
-  applyTransform();
-});
-
-window.addEventListener('mouseup', () => {
-  if (!isDragging) return;
-  isDragging = false;
-  stageWrap.classList.remove('dragging');
-  updateCursor();
-});
-
-stageWrap.addEventListener('contextmenu', (e) => e.preventDefault());
-
-let touchMode = null;
-let touchStartDist = 0, touchStartZoom = 1;
-let touchStartX = 0, touchStartY = 0;
-let touchStartPanX = 0, touchStartPanY = 0;
-
-stageWrap.addEventListener('touchstart', (e) => {
-  if (e.touches.length === 1) {
-    touchMode = 'pan';
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-    touchStartPanX = panX;
-    touchStartPanY = panY;
-  } else if (e.touches.length === 2) {
-    touchMode = 'pinch';
-    const [a, b] = e.touches;
-    touchStartDist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    touchStartZoom = zoom;
-  }
-}, { passive: true });
-
-stageWrap.addEventListener('touchmove', (e) => {
-  if (touchMode === 'pan' && e.touches.length === 1) {
-    panX = touchStartPanX + (e.touches[0].clientX - touchStartX);
-    panY = touchStartPanY + (e.touches[0].clientY - touchStartY);
-    applyTransform();
-  } else if (touchMode === 'pinch' && e.touches.length === 2) {
-    const [a, b] = e.touches;
-    const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    const factor = dist / touchStartDist;
-    const newZoom = Math.max(0.05, Math.min(20, touchStartZoom * factor));
-    const mx = (a.clientX + b.clientX) / 2;
-    const my = (a.clientY + b.clientY) / 2;
-    const rect = stageWrap.getBoundingClientRect();
-    const localX = mx - rect.left;
-    const localY = my - rect.top;
-    const k = newZoom / zoom;
-    panX = localX - k * (localX - panX);
-    panY = localY - k * (localY - panY);
-    zoom = newZoom;
-    applyTransform();
-  }
-}, { passive: true });
-
-stageWrap.addEventListener('touchend', () => { touchMode = null; }, { passive: true });
-
-// ============================================================
-//  КЛИК ПО CANVAS
-// ============================================================
-function clientToImage(clientX, clientY) {
-  const rect = stageEl.getBoundingClientRect();
-  const x = (clientX - rect.left) / zoom;
-  const y = (clientY - rect.top) / zoom;
-  return { x: Math.floor(x), y: Math.floor(y) };
-}
-
-stageWrap.addEventListener('click', (e) => {
-  if (!lum) return;
-  if (isDragging) return;
-
-  const { x, y } = clientToImage(e.clientX, e.clientY);
-  if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) return;
-
-  if (bgColorMode) {
-    const idx = y * imgWidth + x;
-    const dp = idx * 4;
-    const d = imgDataRef.data;
-    colorSamples.push({ r: d[dp], g: d[dp + 1], b: d[dp + 2] });
-    if (mode !== 'color') setMode('color');
-    renderSamplesList();
-    invalidateSeeds();
-    bgColorMode = false;
-    pickBgColorBtn.classList.remove('active');
-    updateCursor();
-    rebuildAll();
-    return;
-  }
-
-  if (addPointMode) {
-    sourcePoints.push({ x, y });
-    selectedPointIndex = sourcePoints.length - 1;
-    invalidateSeeds();
-  } else {
-    let hit = -1;
-    const r = 15 / zoom;
-    for (let i = sourcePoints.length - 1; i >= 0; i--) {
-      const p = sourcePoints[i];
-      const dx = p.x - x, dy = p.y - y;
-      if (dx * dx + dy * dy < r * r) { hit = i; break; }
-    }
-    if (hit === -1) selectedPointIndex = -1;
-    else if (hit === selectedPointIndex) {
-      sourcePoints.splice(hit, 1);
-      selectedPointIndex = -1;
-      invalidateSeeds();
-    } else selectedPointIndex = hit;
-  }
-  rebuildAll();
-});
-
-function removePoint(index) {
-  sourcePoints.splice(index, 1);
-  if (selectedPointIndex === index) selectedPointIndex = -1;
-  else if (selectedPointIndex > index) selectedPointIndex--;
-  invalidateSeeds();
-  rebuildAll();
-}
-
-// ============================================================
-//  РЕЖИМЫ
-// ============================================================
-function setMode(newMode) {
-  mode = newMode;
-  modeSeg.querySelectorAll('button').forEach(b => {
-    b.classList.toggle('active', b.dataset.mode === newMode);
-  });
-  lumSliderRow.style.display = (newMode === 'lum') ? '' : 'none';
-  colorSliderRow.style.display = (newMode === 'color') ? '' : 'none';
-  regionSliderRow.style.display = (newMode === 'region') ? '' : 'none';
-  invalidateSeeds();
-}
-
-modeSeg.addEventListener('click', (e) => {
-  const btn = e.target.closest('button[data-mode]');
-  if (!btn) return;
-  setMode(btn.dataset.mode);
-  if (lum) rebuildAll();
-});
-
-autoThresholdBtn.addEventListener('click', () => {
-  if (!histogram) return;
-  autoPickThreshold();
-  if (mode === 'lum' || mode === 'region') rebuildAll();
-});
-
-// ============================================================
-//  КУРСОР
-// ============================================================
-addPointBtn.addEventListener('click', () => {
-  addPointMode = !addPointMode;
-  if (addPointMode) {
-    bgColorMode = false;
-    pickBgColorBtn.classList.remove('active');
-  }
-  addPointBtn.classList.toggle('active', addPointMode);
-  updateCursor();
-});
-
-pickBgColorBtn.addEventListener('click', () => {
-  bgColorMode = !bgColorMode;
-  if (bgColorMode) {
-    addPointMode = false;
-    addPointBtn.classList.remove('active');
-  }
-  pickBgColorBtn.classList.toggle('active', bgColorMode);
-  updateCursor();
-});
-
-clearPointsBtn.addEventListener('click', () => {
-  sourcePoints = [];
-  selectedPointIndex = -1;
-  invalidateSeeds();
-  if (lum) rebuildAll();
-});
-
-// ============================================================
-//  СКРЫТИЕ / ЭКСПОРТ
-// ============================================================
-toggleImageBtn.addEventListener('click', () => {
-  hideImage = !hideImage;
-  stageEl.classList.toggle('hide-base', hideImage);
-  toggleImageBtn.classList.toggle('active', hideImage);
-  toggleImageBtn.textContent = hideImage ? '👁 Показать' : '👁 Маска';
-});
-
-function downloadCanvasPNG(canvas, filename) {
-  canvas.toBlob(blob => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }, 'image/png');
-}
-
-exportMaskBtn.addEventListener('click', () => {
-  if (!isBg) return;
-  const w = imgWidth, h = imgHeight;
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const ctx = c.getContext('2d');
-  const out = ctx.createImageData(w, h);
-  const d = out.data;
-  for (let i = 0, j = 0; i < w * h; i++, j += 4) {
-    const v = isBg[i] ? 0 : 255;
-    d[j] = v; d[j+1] = v; d[j+2] = v; d[j+3] = 255;
-  }
-  ctx.putImageData(out, 0, 0);
-  downloadCanvasPNG(c, 'mask.png');
-});
-
-exportCutBtn.addEventListener('click', () => {
-  if (!isBg || !imgDataRef) return;
-  const w = imgWidth, h = imgHeight;
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const ctx = c.getContext('2d');
-  const out = ctx.createImageData(w, h);
-  const src = imgDataRef.data;
-  const d = out.data;
-  for (let i = 0, j = 0; i < w * h; i++, j += 4) {
-    d[j]   = src[j];
-    d[j+1] = src[j+1];
-    d[j+2] = src[j+2];
-    d[j+3] = isBg[i] ? 0 : 255;
-  }
-  ctx.putImageData(out, 0, 0);
-  downloadCanvasPNG(c, 'cutout.png');
-});
-
-// ============================================================
-//  СЛУШАТЕЛИ
-// ============================================================
-bgLumEl.addEventListener('input', () => {
-  bgLumVal.textContent = bgLumEl.value;
-  invalidateSeeds();
-  if (mode === 'lum' || mode === 'region') rebuildAllDebounced();
-});
-bgDistEl.addEventListener('input', () => {
-  bgDistVal.textContent = bgDistEl.value;
-  invalidateSeeds();
-  if (mode === 'color') rebuildAllDebounced();
-});
-regionTolEl.addEventListener('input', () => {
-  regionTolVal.textContent = regionTolEl.value;
-  if (mode === 'region') rebuildAllDebounced();
-});
-invertEl.addEventListener('change', () => {
-  invalidateSeeds();
-  if (lum) rebuildAll();
-});
-useSmoothEl.addEventListener('change', () => {
-  smoothIterEl.disabled = !useSmoothEl.checked;
-  if (lum) rebuildAll();
-});
-smoothIterEl.addEventListener('input', () => {
-  smoothIterVal.textContent = smoothIterEl.value;
-  if (lum && useSmoothEl.checked) rebuildAllDebounced();
-});
-morphOpenEl.addEventListener('input', () => {
-  morphOpenVal.textContent = morphOpenEl.value;
-  if (lum) rebuildAllDebounced();
-});
-morphCloseEl.addEventListener('input', () => {
-  morphCloseVal.textContent = morphCloseEl.value;
-  if (lum) rebuildAllDebounced();
-});
-
-// ============================================================
-//  INIT
-// ============================================================
-initWorker();
-smoothIterEl.disabled = !useSmoothEl.checked;
-updateCursor();
-
-console.log('[main] script loaded, worker =', !!worker);
-</script>
+    <!-- Подключение библиотеки TensorFlow и anime-face-detector -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/anime-face-detector@1.0.0/dist/anime-face-detector.min.js"></script>
+
+    <script>
+        // Описание точек согласно вашему запросу
+        const landmarksInfo = {
+            0: "Левый Висок",
+            1: "Левая Щека",
+            2: "Подбородок",
+            3: "Правая Щека",
+            4: "Правый Висок",
+            5: "Кончик левой брови",
+            6: "Середина левой брови",
+            7: "Кончик левой брови", // В оригинале 5 и 7 могут быть внешним и внутренним краем
+            8: "Кончик правой брови",
+            9: "Середина правой брови",
+            10: "Кончик правой брови",
+            11: "Кончик левой ресницы",
+            12: "Середина левой ресницы",
+            13: "Кончик левой ресницы",
+            14: "Низ левого глаза",
+            15: "Середина низа левого глаза",
+            16: "Низ левого глаза",
+            17: "Кончик правой ресницы",
+            18: "Середина правой ресницы",
+            19: "Кончик правой ресницы",
+            20: "Низ правого глаза",
+            21: "Середина низа правого глаза",
+            22: "Низ правого глаза",
+            23: "Нос",
+            24: "Рот лево",
+            25: "Рот верх",
+            26: "Рот право",
+            27: "Рот низ"
+        };
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const uploadInput = document.getElementById('upload');
+        let currentImage = null;
+        let detectedLandmarks = null;
+        let animationFrameId = null;
+
+        // Инициализация модели (создается один раз)
+        const model = new AnimeFaceDetector();
+
+        uploadInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            img.onload = async () => {
+                currentImage = img;
+                
+                // Устанавливаем размер canvas равным размеру изображения
+                canvas.width = img.width;
+                canvas.height = img.height;
+                
+                // Рисуем изображение
+                ctx.drawImage(img, 0, 0);
+
+                // Запускаем детекцию
+                try {
+                    const faces = await model.estimateFaces(img);
+                    
+                    if (faces.length > 0) {
+                        // Берем первое найденное лицо
+                        detectedLandmarks = faces[0].keypoints;
+                        console.log("Найдено лицо:", detectedLandmarks);
+                        
+                        // Отрисовываем точки
+                        drawLandmarks();
+                    } else {
+                        alert("Лицо не найдено. Попробуйте другое изображение.");
+                    }
+                } catch (error) {
+                    console.error("Ошибка детекции:", error);
+                    alert("Ошибка при обработке изображения.");
+                }
+            };
+        });
+
+        function drawLandmarks() {
+            // Очищаем и перерисовываем изображение
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(currentImage, 0, 0);
+
+            if (!detectedLandmarks) return;
+
+            detectedLandmarks.forEach((point, index) => {
+                const [x, y] = point;
+                
+                // Рисуем точку
+                ctx.beginPath();
+                ctx.arc(x, y, 4, 0, 2 * Math.PI);
+                ctx.fillStyle = '#ff0044'; // Ярко-розовый цвет
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Рисуем номер точки рядом (мелко)
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.font = '10px Arial';
+                ctx.fillText(index, x + 5, y - 5);
+            });
+        }
+
+        // Логика для показа подсказок при наведении
+        canvas.addEventListener('mousemove', (e) => {
+            if (!detectedLandmarks || !currentImage) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            const mouseX = (e.clientX - rect.left) * scaleX;
+            const mouseY = (e.clientY - rect.top) * scaleY;
+
+            // Проверяем, находимся ли мы близко к какой-либо точке
+            let hoveredIndex = -1;
+            detectedLandmarks.forEach((point, index) => {
+                const [x, y] = point;
+                const dist = Math.sqrt((mouseX - x) ** 2 + (mouseY - y) ** 2);
+                if (dist < 15) { // Радиус срабатывания
+                    hoveredIndex = index;
+                }
+            });
+
+            // Перерисовываем сцену
+            drawLandmarks();
+
+            if (hoveredIndex !== -1) {
+                const [x, y] = detectedLandmarks[hoveredIndex];
+                
+                // Рисуем выделение вокруг точки
+                ctx.beginPath();
+                ctx.arc(x, y, 8, 0, 2 * Math.PI);
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Показываем название точки
+                const text = `${hoveredIndex}: ${landmarksInfo[hoveredIndex] || "Неизвестно"}`;
+                ctx.font = 'bold 14px Arial';
+                const textWidth = ctx.measureText(text).width;
+                
+                // Фон для текста
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(x + 10, y - 20, textWidth + 10, 20);
+                
+                // Текст
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(text, x + 15, y - 5);
+            }
+        });
+    </script>
 </body>
 </html>
