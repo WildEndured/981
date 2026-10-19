@@ -2,103 +2,83 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: linear-gradient(135deg, #1e1e2f 0%, #2d1b4e 100%);
+  background: #1a1a2e;
   color: #eaeaea;
-  min-height: 100vh;
-  padding: 20px;
+  padding: 15px;
 }
 
-header { text-align: center; margin-bottom: 30px; }
-h1 { font-size: 2.5rem; margin-bottom: 10px; }
-.subtitle { color: #a0a0b8; }
+header { text-align: center; margin-bottom: 20px; }
+h1 { font-size: 1.8rem; margin-bottom: 5px; }
+.subtitle { color: #a0a0b8; font-size: .9rem; }
 
 main { max-width: 1100px; margin: 0 auto; }
 
-/* Поиск */
-.search-box {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 25px;
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  align-items: center;
 }
 
-.search-box input,
-.search-box select {
-  padding: 12px 16px;
-  border-radius: 10px;
-  border: 1px solid #444;
+.btn {
   background: #2a2a3e;
   color: #fff;
-  font-size: 1rem;
-  outline: none;
-  transition: border .2s;
-}
-
-.search-box input:focus,
-.search-box select:focus { border-color: #7c3aed; }
-
-/* Карточки */
-.results {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 18px;
-  margin-bottom: 30px;
-}
-
-.card {
-  background: #2a2a3e;
-  border-radius: 14px;
-  padding: 18px;
   border: 1px solid #3a3a55;
-  transition: transform .2s, box-shadow .2s;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: .9rem;
+  transition: all .2s;
+}
+
+.btn:hover { background: #3a3a55; }
+.btn.active { background: #7c3aed; border-color: #7c3aed; }
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .9rem;
+  color: #b0b0c8;
   cursor: pointer;
 }
 
-.card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.3);
-  border-color: #7c3aed;
-}
-
-.card h3 { color: #a78bfa; margin-bottom: 8px; }
-.card .category {
-  display: inline-block;
-  font-size: .75rem;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: #3a3a55;
-  margin-bottom: 10px;
-  color: #c4b5fd;
-}
-.card p { font-size: .9rem; color: #b0b0c8; line-height: 1.5; }
-.card .metrics {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 12px;
-  font-size: .85rem;
-  color: #a0a0b8;
-}
-.rating { color: #fbbf24; font-weight: bold; }
-.growth { color: #34d399; }
-
-/* Статистика */
-.stats {
-  display: flex;
-  gap: 20px;
-  justify-content: center;
-  padding: 15px;
-  background: #2a2a3e;
+.canvas-wrap {
+  position: relative;
+  background: #0f0f1a;
+  border: 2px dashed #3a3a55;
   border-radius: 12px;
-  color: #a0a0b8;
-  font-size: .95rem;
+  min-height: 400px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
 }
-.stats span { color: #a78bfa; font-weight: bold; }
 
-footer { text-align: center; margin-top: 40px; color: #666; font-size: .85rem; }
-footer a { color: #a78bfa; }
-
-/* Мобильные */
-@media (max-width: 700px) {
-  .search-box { grid-template-columns: 1fr; }
-  h1 { font-size: 1.8rem; }
+#canvas {
+  max-width: 100%;
+  display: block;
+  cursor: crosshair;
 }
+
+.placeholder {
+  position: absolute;
+  color: #666;
+  pointer-events: none;
+}
+
+.info {
+  margin-top: 15px;
+  background: #2a2a3e;
+  padding: 15px;
+  border-radius: 10px;
+  font-size: .9rem;
+  line-height: 1.6;
+  color: #b0b0c8;
+}
+
+.info b { color: #a78bfa; }
+.info ol { padding-left: 20px; }
+
+footer { text-align: center; margin-top: 25px; color: #666; font-size: .85rem; }
