@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Anime Face Detector — canvas + zones + chin</title>
+<title>Anime Face Detector — chin (5 methods + voting)</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; }
@@ -57,7 +57,7 @@
 </head>
 <body>
 <header>
-  <h1>🎨 Anime Face Detector — canvas + zones + chin</h1>
+  <h1>🎨 Anime Face Detector — chin (5 methods + voting)</h1>
   <span class="hint">колесо/пинч — зум · 2 пальца / пробел — пан · Enter — искать · Z — разметка</span>
 </header>
 
@@ -87,15 +87,16 @@
     </div>
 
     <div class="panel">
-      <h2>Подбородок</h2>
-      <label class="toggle"><input type="checkbox" id="useChin" checked> Искать (голосование)</label>
+      <h2>Подбородок (голосование)</h2>
+      <label class="toggle"><input type="checkbox" id="useChin" checked> Искать подбородок</label>
       <label class="toggle"><input type="checkbox" id="showChinCandidates"> Показать всех кандидатов</label>
       <div class="legend">
         <span class="p" style="background:#ffd24f"></span>proj
         <span class="p" style="background:#ff9d4f; margin-left:6px"></span>shadow
         <span class="p" style="background:#4fd2ff; margin-left:6px"></span>wedge
         <span class="p" style="background:#ff7ad2; margin-left:6px"></span>mask<br>
-        <span class="l" style="border-color:#7affd2; margin-top:4px"></span>итоговый подбородок
+        <span class="p" style="background:#a67cff"></span>prop (пропорции)
+        <span class="l" style="border-color:#7affd2; margin-left:6px"></span>итог
       </div>
     </div>
 
@@ -222,9 +223,7 @@ document.getElementById('btn2').addEventListener('click', () => {
   const c = document.createElement('canvas'); c.width = 500; c.height = 400;
   const g = c.getContext('2d');
   g.fillStyle = '#c8d8e8'; g.fillRect(0, 0, 500, 400);
-  // волосы
   g.fillStyle = '#3a2545'; g.beginPath(); g.ellipse(250, 220, 170, 210, 0, 0, 7); g.fill();
-  // лицо (V-образный подбородок)
   g.fillStyle = '#ffe0c8';
   g.beginPath();
   g.moveTo(120, 220);
@@ -233,17 +232,14 @@ document.getElementById('btn2').addEventListener('click', () => {
   g.quadraticCurveTo(380, 70, 250, 60);
   g.quadraticCurveTo(120, 70, 120, 220);
   g.fill();
-  // контур лица (жирный — как в аниме)
   g.strokeStyle = '#8a6050'; g.lineWidth = 3;
   g.beginPath();
   g.moveTo(120, 220);
   g.quadraticCurveTo(120, 380, 250, 385);
   g.quadraticCurveTo(380, 380, 380, 220);
   g.stroke();
-  // шея (того же цвета, чтобы «проекция кожи» ломалась и голосование спасало)
   g.fillStyle = '#ffe0c8';
   g.fillRect(215, 375, 70, 30);
-  // глаза
   g.fillStyle = '#1a1a3a';
   g.beginPath(); g.ellipse(200, 200, 28, 38, 0, 0, 7); g.fill();
   g.beginPath(); g.ellipse(300, 200, 28, 38, 0, 0, 7); g.fill();
@@ -253,7 +249,6 @@ document.getElementById('btn2').addEventListener('click', () => {
   g.fillStyle = '#fff';
   g.beginPath(); g.arc(192, 190, 9, 0, 7); g.fill();
   g.beginPath(); g.arc(292, 190, 9, 0, 7); g.fill();
-  // рот
   g.strokeStyle = '#c04060'; g.lineWidth = 4;
   g.beginPath(); g.arc(250, 290, 22, 0.2, Math.PI - 0.2); g.stroke();
   loadImage(c.toDataURL());
@@ -521,7 +516,8 @@ function methodAll(threshold = 0.5) {
 }
 
 // ============================================================
-// ГЛАЗА В ROI + ВЕРИФИКАЦИЯ// ============================================================
+// ГЛАЗА В ROI + ВЕРИФИКАЦИЯ
+// ============================================================
 function findEyesInROI(gray, roi) {
   const rx = Math.max(0, roi.x | 0);
   const ry = Math.max(0, roi.y | 0);
@@ -592,7 +588,6 @@ function eyeGeometry(eyes) {
 function verifyFaceByEyes(gray, faceBox) {
   const res = findEyesInROI(gray, faceBox);
   if (!res) return null;
-  const [e1, e2] = res.pair;
   const { cx, cy, span } = eyeGeometry(res.pair);
   const fw = Math.max(span * 1.7, faceBox.w * 0.8);
   const fh = fw * 1.25;
@@ -604,7 +599,7 @@ function verifyFaceByEyes(gray, faceBox) {
 }
 
 // ============================================================
-// ПОДБОРОДОК — 4 МЕТОДА + ГОЛОСОВАНИЕ
+// ПОДБОРОДОК — 5 МЕТОДОВ + ГОЛОСОВАНИЕ
 // ============================================================
 
 // 1. Проекция кожи вниз
@@ -612,16 +607,12 @@ function findChinByProjection(skin, eyes) {
   const { cx, cy, span } = eyeGeometry(eyes);
   const x = Math.round(cx);
   if (x < 0 || x >= W) return null;
-
   const yStart = Math.round(cy + span * 0.2);
   const yMax = Math.min(H - 1, Math.round(cy + span * 3.0));
   let lastSkinY = -1, brokeAfter = 0;
   for (let y = yStart; y <= yMax; y++) {
     if (skin[y * W + x]) { lastSkinY = y; brokeAfter = 0; }
-    else {
-      brokeAfter++;
-      if (brokeAfter >= 3 && lastSkinY >= 0) break;
-    }
+    else { brokeAfter++; if (brokeAfter >= 3 && lastSkinY >= 0) break; }
   }
   if (lastSkinY < 0) return null;
   const dy = lastSkinY - cy;
@@ -636,7 +627,6 @@ function findChinByShadow(gray, eyes) {
   const yStart = Math.round(cy + span * 0.8);
   const yEnd = Math.min(H - 1, Math.round(cy + span * 2.8));
   if (yEnd <= yStart) return null;
-
   const dx = Math.round(span * 0.3);
   const prof = [];
   for (let y = yStart; y <= yEnd; y++) {
@@ -651,11 +641,9 @@ function findChinByShadow(gray, eyes) {
     if (prof[i].v < prof[i-1].v && prof[i].v < prof[i+1].v)
       mins.push({ y: prof[i].y, v: prof[i].v });
   if (!mins.length) return null;
-
   let avg = 0;
   for (const p of prof) avg += p.v;
   avg /= prof.length;
-
   const strong = mins.filter(m => m.v < avg * 0.85);
   if (!strong.length) return null;
   strong.sort((a, b) => a.v - b.v);
@@ -675,7 +663,6 @@ function sobelMagnitude(gray) {
   }
   return g;
 }
-
 function findChinByWedge(gray, skin, eyes) {
   const { cx, cy, span } = eyeGeometry(eyes);
   const mag = sobelMagnitude(gray);
@@ -683,7 +670,6 @@ function findChinByWedge(gray, skin, eyes) {
   const yBot = Math.min(H - 1, Math.round(cy + span * 2.8));
   const x = Math.round(cx);
   if (x < 0 || x >= W || yBot <= yTop) return null;
-
   const side = Math.max(3, Math.round(span * 0.35));
   let best = null, bestScore = 0;
   for (let y = yTop; y <= yBot; y++) {
@@ -713,7 +699,6 @@ function findChinByMask(skin, eyes) {
   const xR = Math.min(W - 1, Math.round(cx) + dx);
   const yStart = Math.round(cy + span * 0.3);
   const yEnd = Math.min(H - 1, Math.round(cy + span * 3.0));
-
   let bestY = -1;
   for (let y = yEnd; y >= yStart; y--) {
     let skinCount = 0;
@@ -725,22 +710,83 @@ function findChinByMask(skin, eyes) {
   return { x: cx, y: bestY, src: 'mask' };
 }
 
-// Голосование
-function findChin(gray, skin, eyes) {
+// 5. Анатомические пропорции (глаза ≈ на середине головы, у чиби — ниже)
+// Авто-адаптация под чиби по размеру глаз.
+function findChinByProportions(gray, skin, eyes, faceBox) {
+  const { cx, cy, span, eyeW } = eyeGeometry(eyes);
+  const x = Math.round(cx);
+  if (x < 0 || x >= W) return null;
+
+  // Определяем чиби: большие глаза относительно ширины лица
+  let faceW = faceBox ? faceBox.w : span * 1.7;
+  const eyeToFace = eyeW / faceW;     // у чиби > 0.25, у обычного 0.12–0.2
+  const isChibi = eyeToFace > 0.25;
+
+  // Диапазон коэффициентов (в span от линии глаз вниз)
+  const ks = isChibi
+    ? [0.70, 0.85, 1.00, 1.15]
+    : [1.00, 1.15, 1.30, 1.45];
+
+  const candidates = [];
+  for (const k of ks) {
+    const yExpect = Math.round(cy + span * k);
+    if (yExpect >= H) continue;
+
+    const halfW = Math.max(4, Math.round(span * 0.18));
+    let bestY = -1;
+
+    // Ищем "край кожи": над точкой много кожи, под — мало
+    for (let dy = -Math.round(span * 0.2); dy <= Math.round(span * 0.2); dy++) {
+      const y = yExpect + dy;
+      if (y < 1 || y >= H) continue;
+
+      let skinAbove = 0, skinBelow = 0, total = 0;
+      for (let xx = Math.max(0, x - halfW); xx <= Math.min(W - 1, x + halfW); xx++) {
+        if (skin[(y - 1) * W + xx]) skinAbove++;
+        if (skin[(y + 1) * W + xx]) skinBelow++;
+        total++;
+      }
+      if (total === 0) continue;
+
+      const aboveRatio = skinAbove / total;
+      const belowRatio = skinBelow / total;
+      if (aboveRatio > 0.55 && belowRatio < 0.45) { bestY = y; break; }
+    }
+
+    if (bestY > 0) {
+      const dy = bestY - cy;
+      // допустимые пределы: от 0.7 span (чиби) до 1.7 span (обычный)
+      if (dy < span * 0.7 || dy > span * 1.7) continue;
+      candidates.push({ y: bestY, k });
+    }
+  }
+
+  if (!candidates.length) return null;
+
+  // Берём ближайший к "идеалу" в зависимости от чиби
+  const ideal = isChibi ? 0.9 : 1.2;
+  candidates.sort((a, b) => Math.abs(a.k - ideal) - Math.abs(b.k - ideal));
+  return { x: cx, y: candidates[0].y, src: 'prop' };
+}
+
+// Голосование: 5 методов
+function findChin(gray, skin, eyes, faceBox) {
   const { cx, span } = eyeGeometry(eyes);
   const candidates = [];
   const c1 = findChinByProjection(skin, eyes);
   const c2 = findChinByShadow(gray, eyes);
   const c3 = findChinByWedge(gray, skin, eyes);
   const c4 = findChinByMask(skin, eyes);
+  const c5 = findChinByProportions(gray, skin, eyes, faceBox);
   if (c1) candidates.push(c1);
   if (c2) candidates.push(c2);
   if (c3) candidates.push(c3);
   if (c4) candidates.push(c4);
+  if (c5) candidates.push(c5);
 
   if (!candidates.length) return { chin: null, candidates: [] };
 
-  // кластеризация по Y с допуском ±0.25 span
+  // Кластеризация по Y с допуском ±0.25 span
   let bestCluster = null, bestCount = 0, bestAvgY = 0;
   for (const c of candidates) {
     const cluster = candidates.filter(x => Math.abs(x.y - c.y) < span * 0.25);
@@ -819,6 +865,7 @@ const SRC_COLORS = {
   shadow: '#ff9d4f',
   wedge:  '#4fd2ff',
   mask:   '#ff7ad2',
+  prop:   '#a67cff',
   vote:   '#7affd2'
 };
 
@@ -830,7 +877,6 @@ function drawAll() {
   const showCandidates = document.getElementById('showChinCandidates').checked;
 
   for (const b of lastBoxes) {
-    // лицо
     ctx.lineWidth = 2 / view.scale;
     ctx.strokeStyle = '#4f9dff';
     ctx.strokeRect(b.x, b.y, b.w, b.h);
@@ -840,13 +886,11 @@ function drawAll() {
     ctx.fillText(Math.round((b.score||0) * 100) + '%',
       b.x, Math.max(fs, b.y - 4 / view.scale));
 
-    // глаза
     if (b.eyes) {
       ctx.strokeStyle = '#ff4f9d';
       for (const e of b.eyes) ctx.strokeRect(e.x, e.y, e.w, e.h);
     }
 
-    // кандидаты подбородка
     if (showCandidates && b.chinCandidates) {
       for (const c of b.chinCandidates) {
         const col = SRC_COLORS[c.src] || '#888';
@@ -859,7 +903,6 @@ function drawAll() {
       }
     }
 
-    // итоговый подбородок
     if (b.chin) {
       ctx.fillStyle = '#7affd2';
       ctx.beginPath();
@@ -871,7 +914,6 @@ function drawAll() {
       ctx.moveTo(b.chin.x - b.chin.w/2, b.chin.y);
       ctx.lineTo(b.chin.x + b.chin.w/2, b.chin.y);
       ctx.stroke();
-      // подпись
       ctx.fillStyle = '#7affd2';
       ctx.font = `${Math.max(8, 10 / view.scale)}px sans-serif`;
       const label = b.chin.src === 'vote'
@@ -881,7 +923,6 @@ function drawAll() {
     }
   }
 
-  // зоны
   for (let i = 0; i < zones.length; i++) {
     const z = zones[i];
     const isSel = i === selectedZone;
@@ -1260,7 +1301,6 @@ function run() {
         boxes = candidates;
       }
 
-      // фильтр по зонам
       let inZonesCount = boxes.length, outZonesCount = 0;
       if (zones.length) {
         const before = boxes.length;
@@ -1269,13 +1309,12 @@ function run() {
         outZonesCount = before - inZonesCount;
       }
 
-      // подбородок (после фильтрации зон — только для итоговых лиц)
       if (useChin) {
         const gray = grayCached();
         const skin = skinCached();
         for (const b of boxes) {
           if (!b.eyes) continue;
-          const res = findChin(gray, skin, b.eyes);
+          const res = findChin(gray, skin, b.eyes, b);
           b.chin = res.chin;
           b.chinCandidates = res.candidates;
           if (res.chin) b.score = Math.min(1, (b.score||0) + 0.1);
