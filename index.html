@@ -3,52 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Anime Face Detector — skin + symmetry</title>
+<title>Anime Face Detector — fast + accurate</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; }
-  body {
-    margin: 0; font-family: system-ui, sans-serif;
-    background: #1e1e24; color: #e5e5ea;
-    overflow: hidden; display: flex; flex-direction: column;
-  }
-  header {
-    padding: 8px 14px; background: #2a2a33; border-bottom: 1px solid #3a3a45;
-    display: flex; justify-content: space-between; align-items: center;
-    flex-wrap: wrap; gap: 6px; flex-shrink: 0;
-  }
+  body { margin: 0; font-family: system-ui, sans-serif; background: #1e1e24; color: #e5e5ea; overflow: hidden; display: flex; flex-direction: column; }
+  header { padding: 8px 14px; background: #2a2a33; border-bottom: 1px solid #3a3a45; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
   h1 { margin: 0; font-size: 16px; }
   .hint { font-size: 11px; color: #9a9aa8; }
-
   .app { display: grid; grid-template-columns: 300px 1fr; flex: 1; min-height: 0; }
   @media (max-width: 720px) {
     .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
     .side { max-height: 42vh; overflow-y: auto; border-right: none !important; border-bottom: 1px solid #3a3a45; }
   }
-
-  .side {
-    background: #23232b; border-right: 1px solid #3a3a45;
-    overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px;
-  }
+  .side { background: #23232b; border-right: 1px solid #3a3a45; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
   .panel { background: #26262e; padding: 10px 12px; border-radius: 8px; flex-shrink: 0; }
-  .panel h2 {
-    margin: 0 0 8px; font-size: 12px; text-transform: uppercase;
-    letter-spacing: 1px; color: #9a9aa8;
-  }
-  .methods label {
-    display: block; padding: 6px 8px; border-radius: 6px; cursor: pointer;
-    margin-bottom: 4px; background: #1e1e24; border: 1px solid transparent; font-size: 12px;
-  }
+  .panel h2 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #9a9aa8; }
+  .methods label { display: block; padding: 6px 8px; border-radius: 6px; cursor: pointer; margin-bottom: 4px; background: #1e1e24; border: 1px solid transparent; font-size: 12px; }
   .methods label:hover { background: #2f2f3a; }
   .methods input { margin-right: 8px; }
   .methods label.active { border-color: #4f9dff; background: #2b3550; }
   .desc { font-size: 11px; color: #9a9aa8; margin-top: 6px; line-height: 1.4; }
   .row { display: flex; gap: 6px; margin-top: 6px; }
   .row button { flex: 1; }
-  button {
-    background: #4f9dff; color: #fff; border: 0; padding: 7px 12px;
-    border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px;
-  }
+  button { background: #4f9dff; color: #fff; border: 0; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; }
   button:hover { background: #6aabff; }
   button:disabled { opacity: .4; cursor: default; }
   button.gray { background: #3a3a45; }
@@ -58,63 +36,27 @@
   .stat b { color: #e5e5ea; }
   .slider-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; }
   .slider-row span { width: 40px; text-align: right; color: #9a9aa8; }
-  .toggle {
-    display: flex; align-items: center; gap: 6px; margin-top: 6px;
-    font-size: 12px; color: #c0c0cc; cursor: pointer; user-select: none;
-  }
+  .toggle { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: #c0c0cc; cursor: pointer; user-select: none; }
   .toggle input { cursor: pointer; }
   .legend { font-size: 11px; color: #88889a; margin-top: 8px; line-height: 1.7; }
   .legend .l { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px solid; vertical-align: middle; }
   .legend .d { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px dashed; vertical-align: middle; }
   .zone-info { font-size: 11px; color: #9a9aa8; margin-top: 6px; line-height: 1.5; }
-
-  .canvasWrap {
-    position: relative;
-    overflow: hidden;
-    background: #0f0f14;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
-    cursor: grab;
-    min-width: 0;
-    min-height: 0;
-  }
+  .canvasWrap { position: relative; overflow: hidden; background: #0f0f14; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; min-width: 0; min-height: 0; }
   .canvasWrap.panning { cursor: grabbing; }
-  .canvasWrap.empty::after {
-    content: 'Перетащите картинку сюда, Ctrl+V или «Пример»';
-    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-    color: #55556a; font-size: 13px; pointer-events: none; text-align: center; padding: 20px;
-  }
+  .canvasWrap.empty::after { content: 'Перетащите картинку сюда, Ctrl+V или «Пример»'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #55556a; font-size: 13px; pointer-events: none; text-align: center; padding: 20px; }
   .canvasWrap.drag { box-shadow: inset 0 0 0 3px #4f9dff; }
   .canvasWrap.drawing { cursor: crosshair; }
-
-  #cv {
-    position: absolute;
-    top: 0; left: 0;
-    transform-origin: 0 0;
-    image-rendering: auto;
-    will-change: transform;
-    pointer-events: none;
-    display: block;
-  }
-
-  .zoomBar {
-    position: absolute; bottom: 12px; right: 12px;
-    display: flex; gap: 4px; background: rgba(30,30,36,0.92);
-    border: 1px solid #3a3a45; border-radius: 8px; padding: 4px;
-    align-items: center; z-index: 5;
-  }
-  .zoomBar button {
-    width: 32px; height: 32px; padding: 0;
-    background: #2a2a33; font-size: 16px; line-height: 1;
-  }
+  #cv { position: absolute; top: 0; left: 0; transform-origin: 0 0; image-rendering: auto; will-change: transform; pointer-events: none; display: block; }
+  .zoomBar { position: absolute; bottom: 12px; right: 12px; display: flex; gap: 4px; background: rgba(30,30,36,0.92); border: 1px solid #3a3a45; border-radius: 8px; padding: 4px; align-items: center; z-index: 5; }
+  .zoomBar button { width: 32px; height: 32px; padding: 0; background: #2a2a33; font-size: 16px; line-height: 1; }
   .zoomBar button:hover { background: #3a3a45; }
   .zoomBar .level { font-size: 11px; color: #b0b0be; min-width: 48px; text-align: center; }
 </style>
 </head>
 <body>
 <header>
-  <h1>🎨 Anime Face Detector</h1>
+  <h1>🎨 Anime Face Detector — fast</h1>
   <span class="hint">колесо/пинч — зум · 2 пальца / пробел — пан · Enter — искать · Z — разметка</span>
 </header>
 
@@ -124,8 +66,10 @@
       <h2>Метод-детектор</h2>
       <div class="methods" id="methods">
         <label class="active"><input type="radio" name="m" value="skin" checked>1. Skin (YCbCr)</label>
-        <label><input type="radio" name="m" value="sym">2. Skin + симметрия</label>
-        <label><input type="radio" name="m" value="all">3. Все + NMS</label>
+        <label><input type="radio" name="m" value="skinMulti">2. Skin мультимасштаб</label>
+        <label><input type="radio" name="m" value="sym">3. Skin + симметрия</label>
+        <label><input type="radio" name="m" value="consensus">4. Консенсус skin+sym</label>
+        <label><input type="radio" name="m" value="all">5. Все + NMS</label>
       </div>
       <div class="desc" id="desc"></div>
     </div>
@@ -146,7 +90,11 @@
       <div class="slider-row"><label>Порог</label><input type="range" id="thr" min="1" max="100" value="50" style="flex:1"><span id="thrV">50</span></div>
       <label class="toggle"><input type="checkbox" id="verify" checked> Верификация глазами</label>
       <label class="toggle"><input type="checkbox" id="colorEyes" checked> Цветовой бонус глаз</label>
+      <label class="toggle"><input type="checkbox" id="hueCheck" checked> Проверка hue радужки</label>
+      <label class="toggle"><input type="checkbox" id="noseBridge" checked> Проверка переносицы</label>
+      <label class="toggle"><input type="checkbox" id="chinBonus" checked> Бонус за подбородок</label>
       <label class="toggle"><input type="checkbox" id="zoneSoft"> Мягкий режим зон</label>
+      <label class="toggle"><input type="checkbox" id="downscale"> Даунскейл &gt;1200px</label>
       <div class="stat" id="stat">Загрузите картинку</div>
       <div class="legend">
         <span class="l" style="border-color:#4f9dff"></span>лицо
@@ -160,7 +108,6 @@
       <button id="btn2" class="gray">Пример</button>
       <button id="btnSave" class="gray" disabled>PNG</button>
     </div>
-
     <div class="row" style="padding: 0 2px;">
       <button id="btn" style="flex:2">Искать</button>
     </div>
@@ -188,7 +135,7 @@ const wrap = document.getElementById('wrap');
 
 let imgData = null, W = 0, H = 0;
 let srcImage = null;
-let _grayCache = null;
+let _grayCache = null, _skinCache = null;
 let lastBoxes = [];
 
 const view = { scale: 1, tx: 0, ty: 0 };
@@ -208,9 +155,11 @@ let spaceDown = false;
 let lastTap = { time: 0, x: 0, y: 0 };
 
 const DESCR = {
-  skin: "Маска кожи YCbCr → компоненты → фильтр формы (aspect, fill). Затем верификация глазами.",
-  sym:  "Skin-кандидаты, отфильтрованные по симметрии левой/правой половины бокса (порог 0.72).",
-  all:  "Skin-кандидаты + симметрия как дополнительный балл, затем NMS и верификация глазами."
+  skin:       "Маска кожи YCbCr → компоненты → фильтр формы.",
+  skinMulti:  "То же, но на двух разрешениях — ловит мелкие лица.",
+  sym:        "Skin + фильтр по симметрии (>0.72).",
+  consensus:  "Оставляем только skin-боксы, пересекающиеся с sym-боксами (IoU>0.3).",
+  all:        "Skin-кандидаты + симметрия как балл + NMS."
 };
 
 // ============================================================
@@ -220,7 +169,6 @@ function applyView() {
   cv.style.transform = `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`;
   document.getElementById('zLevel').textContent = Math.round(view.scale * 100) + '%';
 }
-
 function fitToScreen() {
   if (!W || !H) return;
   const rw = Math.max(100, wrap.clientWidth);
@@ -231,7 +179,6 @@ function fitToScreen() {
   view.ty = (rh - H * s) / 2;
   applyView();
 }
-
 function setZoom(newScale, cx, cy) {
   if (cx === undefined) cx = wrap.clientWidth / 2;
   if (cy === undefined) cy = wrap.clientHeight / 2;
@@ -244,7 +191,6 @@ function setZoom(newScale, cx, cy) {
   applyView();
 }
 function zoomBy(f, cx, cy) { setZoom(view.scale * f, cx, cy); }
-
 function localPoint(e) {
   const r = wrap.getBoundingClientRect();
   return { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -295,24 +241,19 @@ function loadImage(src) {
     ctx.drawImage(im, 0, 0);
     imgData = ctx.getImageData(0, 0, W, H);
 
-    _grayCache = null;
+    _grayCache = null; _skinCache = null;
     lastBoxes = []; zones = []; selectedZone = -1;
     updateZoneInfo();
     wrap.classList.remove('empty');
     document.getElementById('btnSave').disabled = true;
 
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        fitToScreen();
-        drawAll();
-      });
+      requestAnimationFrame(() => { fitToScreen(); drawAll(); });
     });
-
     document.getElementById('stat').textContent = `Готово: ${W}×${H}`;
   };
   im.src = src;
 }
-
 window.addEventListener('resize', () => { if (W) applyView(); });
 
 // ============================================================
@@ -329,6 +270,21 @@ function grayCached() {
   if (!_grayCache) _grayCache = grayPixels();
   return _grayCache;
 }
+function buildSkinMask() {
+  const d = imgData.data;
+  const mask = new Uint8Array(W * H);
+  for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+    const r = d[i], g = d[i+1], b = d[i+2];
+    const cb = 128 - 0.168736*r - 0.331264*g + 0.5*b;
+    const cr = 128 + 0.5*r - 0.418688*g - 0.081312*b;
+    if (cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173) mask[j] = 1;
+  }
+  return mask;
+}
+function skinCached() {
+  if (!_skinCache) _skinCache = buildSkinMask();
+  return _skinCache;
+}
 function iou(a, b) {
   const x1 = Math.max(a.x, b.x), y1 = Math.max(a.y, b.y);
   const x2 = Math.min(a.x+a.w, b.x+b.w), y2 = Math.min(a.y+a.h, b.y+b.h);
@@ -336,13 +292,31 @@ function iou(a, b) {
   const inter = iw*ih;
   return inter / (a.w*a.h + b.w*b.h - inter || 1);
 }
-function nms(boxes, thr = 0.3) {
+
+// быстрый NMS через грид
+function nms(boxes, thr = 0.3, cell = 64) {
   if (!boxes.length) return boxes;
   const sorted = [...boxes].sort((a, b) => (b.score||0) - (a.score||0));
+  const grid = new Map();
   const keep = [];
-  for (const b of sorted) if (keep.every(k => iou(k, b) < thr)) keep.push(b);
+  for (const b of sorted) {
+    const gx = Math.floor(b.x / cell), gy = Math.floor(b.y / cell);
+    let suppressed = false;
+    for (let dy = -1; dy <= 1 && !suppressed; dy++)
+      for (let dx = -1; dx <= 1 && !suppressed; dx++) {
+        const arr = grid.get((gx+dx) + ',' + (gy+dy));
+        if (arr) for (const k of arr) if (iou(k, b) > thr) { suppressed = true; break; }
+      }
+    if (!suppressed) {
+      keep.push(b);
+      const key = gx + ',' + gy;
+      if (!grid.has(key)) grid.set(key, []);
+      grid.get(key).push(b);
+    }
+  }
   return keep;
 }
+
 function erode(mask, w, h) {
   const out = new Uint8Array(w*h);
   for (let y = 1; y < h-1; y++) for (let x = 1; x < w-1; x++) {
@@ -413,16 +387,19 @@ function otsuThreshold(gray, x0, y0, w, h) {
   }
   return thr;
 }
+function hueOf(r, g, b) {
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  if (max === min) return 0;
+  let h;
+  if (max === r) h = 60*(((g-b)/(max-min))%6);
+  else if (max === g) h = 60*((b-r)/(max-min)+2);
+  else h = 60*((r-g)/(max-min)+4);
+  return h < 0 ? h + 360 : h;
+}
 function colorEyeScore(r, g, b) {
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
   const s = max === 0 ? 0 : (max - min) / max;
-  let h = 0;
-  if (max !== min) {
-    if (max === r) h = 60 * (((g - b) / (max - min)) % 6);
-    else if (max === g) h = 60 * ((b - r) / (max - min) + 2);
-    else h = 60 * ((r - g) / (max - min) + 4);
-  }
-  if (h < 0) h += 360;
+  const h = hueOf(r, g, b);
   return (s > 0.35 && (h < 15 || h > 50)) ? 1 : 0;
 }
 function symmetryScore(g, b) {
@@ -435,6 +412,252 @@ function symmetryScore(g, b) {
   }
   if (!n) return 0;
   return Math.max(0, Math.min(1, 1 - (sad / n) / 255));
+}
+
+// ============================================================
+// МЕТОДЫ
+// ============================================================
+function methodSkin(threshold = 0.5) {
+  const d = imgData.data;
+  const mask = new Uint8Array(W*H);
+  for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+    const r = d[i], g = d[i+1], b = d[i+2];
+    const cb = 128 - 0.168736*r - 0.331264*g + 0.5*b;
+    const cr = 128 + 0.5*r - 0.418688*g - 0.081312*b;
+    if (cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173) mask[j] = 1;
+  }
+  const m2 = erode(mask, W, H), m3 = dilate(m2, W, H);
+  const comps = connectedComponents(m3, W, H, 300);
+  const boxes = [];
+  for (const c of comps) {
+    const ar = c.h / c.w;
+    if (ar < 0.4 || ar > 1.6) continue;
+    const fill = c.area / (c.w*c.h);
+    if (fill < 0.35) continue;
+    boxes.push({ x: c.x, y: c.y, w: c.w, h: c.h, score: Math.min(1, fill*1.2) });
+  }
+  return nms(boxes, 0.4);
+}
+
+function methodSkinMulti(threshold = 0.5) {
+  const orig = methodSkin(threshold);
+  // уменьшенная копия в 2 раза
+  const sw = Math.max(60, Math.round(W/2));
+  const sh = Math.max(60, Math.round(H/2));
+  const tmp = document.createElement('canvas');
+  tmp.width = sw; tmp.height = sh;
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(cv, 0, 0, sw, sh);
+  const smallData = tctx.getImageData(0, 0, sw, sh);
+
+  const saved = { W, H, imgData };
+  W = sw; H = sh; imgData = smallData;
+  const small = methodSkin(threshold).map(b => ({
+    x: b.x*2, y: b.y*2, w: b.w*2, h: b.h*2, score: b.score*0.85
+  }));
+  W = saved.W; H = saved.H; imgData = saved.imgData;
+
+  return nms([...orig, ...small], 0.4);
+}
+
+function methodSymmetry(threshold = 0.5) {
+  const g = grayCached();
+  const base = methodSkin(threshold);
+  const out = [];
+  for (const b of base) {
+    const s = symmetryScore(g, b);
+    if (s > 0.72) out.push({ ...b, score: s });
+  }
+  return out;
+}
+
+function methodConsensus(threshold = 0.5) {
+  const a = methodSkin(threshold);
+  const b = methodSymmetry(threshold);
+  const out = [];
+  for (const x of a) {
+    for (const y of b) {
+      if (iou(x, y) > 0.3) {
+        out.push({ ...x, score: Math.max(x.score, y.score) });
+        break;
+      }
+    }
+  }
+  return nms(out, 0.3);
+}
+
+function methodAll(threshold = 0.5) {
+  const g = grayCached();
+  const base = methodSkin(threshold);
+  const scored = base.map(x => ({
+    ...x,
+    score: (x.score||0) * 0.5 + symmetryScore(g, x) * 0.5
+  }));
+  return nms(scored, 0.3);
+}
+
+// ============================================================
+// ВЕРИФИКАЦИЯ ГЛАЗАМИ (улучшенная)
+// ============================================================
+function roiLooksLikeFace(gray, roi) {
+  const rx = Math.max(0, roi.x|0), ry = Math.max(0, roi.y|0);
+  const rw = Math.min(W - rx, roi.w|0), rh = Math.min(H - ry, roi.h|0);
+  if (rw < 20 || rh < 20) return false;
+  let dark = 0, total = 0, min = 255, max = 0;
+  for (let y = 0; y < rh; y += 2) for (let x = 0; x < rw; x += 2) {
+    const v = gray[(ry+y)*W + (rx+x)];
+    if (v < 90) dark++;
+    if (v < min) min = v;
+    if (v > max) max = v;
+    total++;
+  }
+  const darkRatio = dark / total;
+  return (max - min) > 50 && darkRatio > 0.005 && darkRatio < 0.6;
+}
+
+function checkNoseBridge(skin, e1, e2) {
+  const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
+  const cy = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
+  const span = Math.abs((e1.x+e1.w/2) - (e2.x+e2.w/2));
+  let skinCount = 0, total = 0;
+  for (let dx = -span*0.15; dx <= span*0.15; dx += 1) {
+    const x = Math.round(cx + dx), y = Math.round(cy);
+    if (x >= 0 && x < W && y >= 0 && y < H) {
+      if (skin[y*W+x]) skinCount++;
+      total++;
+    }
+  }
+  return total > 0 && skinCount / total > 0.5;
+}
+
+function chinBonus(skin, b) {
+  const cx = b.x + b.w/2;
+  const yBot = b.y + b.h * 0.85;
+  let hits = 0, total = 0;
+  for (let y = Math.max(0, yBot); y < Math.min(H, b.y + b.h); y += 2) {
+    for (let x = cx - b.w*0.2; x < cx + b.w*0.2; x += 2) {
+      if (x >= 0 && x < W) {
+        if (skin[y*W + Math.round(x)]) hits++;
+        total++;
+      }
+    }
+  }
+  return total > 0 ? (hits / total) * 0.15 : 0;
+}
+
+function findEyesInROI(gray, roi) {
+  // сужаем ROI до верхних 55% — глаза всегда вверху
+  const eyeRoi = {
+    x: roi.x + roi.w * 0.05,
+    y: roi.y + roi.h * 0.10,
+    w: roi.w * 0.90,
+    h: roi.h * 0.55
+  };
+  const rx = Math.max(0, eyeRoi.x | 0);
+  const ry = Math.max(0, eyeRoi.y | 0);
+  const rw = Math.min(W - rx, eyeRoi.w | 0);
+  const rh = Math.min(H - ry, eyeRoi.h | 0);
+  if (rw < 20 || rh < 20) return null;
+  if (!roiLooksLikeFace(gray, eyeRoi)) return null;
+
+  const t = Math.min(115, Math.max(40, otsuThreshold(gray, rx, ry, rw, rh)));
+  const mask = new Uint8Array(rw * rh);
+  for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
+    if (gray[(ry + y)*W + (rx + x)] < t) mask[y*rw + x] = 1;
+
+  const m2 = erode(mask, rw, rh), m3 = dilate(m2, rw, rh);
+  const comps = connectedComponents(m3, rw, rh, 20);
+  const eyes = comps.filter(c => {
+    const ar = c.w / c.h;
+    const fill = c.area / (c.w * c.h);
+    const areaRatio = c.area / (rw * rh);
+    return ar > 0.35 && ar < 3.0 && fill > 0.3 &&
+           areaRatio > 0.004 && areaRatio < 0.25;
+  });
+  if (eyes.length < 2) return null;
+
+  const useColor = document.getElementById('colorEyes').checked;
+  const useHue = document.getElementById('hueCheck').checked;
+  const useBridge = document.getElementById('noseBridge').checked;
+  const d = imgData.data;
+  const skin = skinCached();
+
+  let best = null, bestScore = -Infinity;
+  for (let i = 0; i < eyes.length; i++) for (let j = i + 1; j < eyes.length; j++) {
+    const a = eyes[i], b = eyes[j];
+    const ax = a.x + a.w/2, ay = a.y + a.h/2;
+    const bx = b.x + b.w/2, by = b.y + b.h/2;
+    const dx = Math.abs(ax - bx), dy = Math.abs(ay - by);
+    const sAvg = (a.w + b.w) / 2;
+    const sRatio = Math.max(a.w, b.w) / Math.min(a.w, b.w);
+    if (sAvg < 3) continue;
+    if (dy > sAvg * 0.7) continue;
+    const rel = dx / sAvg;
+    if (rel < 1.0 || rel > 4.5) continue;
+    if (sRatio > 2.2) continue;
+    if (Math.max(ay, by) / rh > 0.75) continue;
+
+    const ea = { x: rx + a.x, y: ry + a.y, w: a.w, h: a.h };
+    const eb = { x: rx + b.x, y: ry + b.y, w: b.w, h: b.h };
+
+    // переносица
+    if (useBridge && !checkNoseBridge(skin, ea, eb)) continue;
+
+    let colorBonus = 0;
+    let hueA = 0, hueB = 0;
+    if (useColor || useHue) {
+      const getPix = e => {
+        const mx = e.x + (e.w>>1), my = e.y + (e.h>>1);
+        const idx = (my*W + mx) * 4;
+        return [d[idx], d[idx+1], d[idx+2]];
+      };
+      const pa = getPix(ea), pb = getPix(eb);
+      if (useColor) {
+        colorBonus = (colorEyeScore(pa[0], pa[1], pa[2]) +
+                      colorEyeScore(pb[0], pb[1], pb[2])) / 2;
+      }
+      if (useHue) {
+        hueA = hueOf(pa[0], pa[1], pa[2]);
+        hueB = hueOf(pb[0], pb[1], pb[2]);
+      }
+    }
+
+    let hueBonus = 0;
+    if (useHue) {
+      let dh = Math.abs(hueA - hueB);
+      if (dh > 180) dh = 360 - dh;
+      hueBonus = dh < 30 ? 0.3 : (dh < 60 ? 0.1 : -0.2);
+    }
+
+    const score = (1 - Math.abs(rel - 2) / 2.5) - dy / sAvg * 1.5 - (sRatio - 1) * 1.5
+                + colorBonus * 0.6 + hueBonus;
+    if (score > bestScore) {
+      bestScore = score;
+      best = [ea, eb];
+    }
+  }
+  return best ? { pair: best, score: Math.max(0, bestScore) } : null;
+}
+
+function verifyFaceByEyes(gray, faceBox) {
+  const res = findEyesInROI(gray, faceBox);
+  if (!res) return null;
+  const [e1, e2] = res.pair;
+  const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
+  const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
+  const eyeSpan = Math.abs((e1.x + e1.w/2) - (e2.x + e2.w/2)) + (e1.w + e2.w)/2;
+  const fw = Math.max(eyeSpan * 1.7, faceBox.w * 0.8);
+  const fh = fw * 1.25;
+
+  let score = Math.max(0, Math.min(1, (faceBox.score||0.5) * 0.5 + 0.5 + res.score*0.05));
+  if (document.getElementById('chinBonus').checked) {
+    score = Math.min(1, score + chinBonus(skinCached(), faceBox));
+  }
+
+  return {
+    x: cx - fw/2, y: cyEyes - fh * 0.40, w: fw, h: fh,
+    score, eyes: res.pair
+  };
 }
 
 // ============================================================
@@ -566,153 +789,9 @@ function drawAll() {
 }
 
 // ============================================================
-// МЕТОДЫ (skin / sym / all)
-// ============================================================
-function methodSkin(threshold = 0.5) {
-  const d = imgData.data;
-  const mask = new Uint8Array(W*H);
-  for (let i = 0, j = 0; i < d.length; i += 4, j++) {
-    const r = d[i], g = d[i+1], b = d[i+2];
-    const cb = 128 - 0.168736*r - 0.331264*g + 0.5*b;
-    const cr = 128 + 0.5*r - 0.418688*g - 0.081312*b;
-    if (cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173) mask[j] = 1;
-  }
-  const m2 = erode(mask, W, H), m3 = dilate(m2, W, H);
-  const comps = connectedComponents(m3, W, H, 300);
-  const boxes = [];
-  for (const c of comps) {
-    const ar = c.h / c.w;
-    if (ar < 0.4 || ar > 1.6) continue;
-    const fill = c.area / (c.w*c.h);
-    if (fill < 0.35) continue;
-    boxes.push({ x: c.x, y: c.y, w: c.w, h: c.h, score: Math.min(1, fill*1.2) });
-  }
-  return nms(boxes, 0.4);
-}
-
-function methodSymmetry(threshold = 0.5) {
-  const g = grayCached();
-  const base = methodSkin(threshold);
-  const out = [];
-  for (const b of base) {
-    const s = symmetryScore(g, b);
-    if (s > 0.72) out.push({ ...b, score: s });
-  }
-  return out;
-}
-
-function methodAll(threshold = 0.5) {
-  const g = grayCached();
-  const base = methodSkin(threshold);
-  const scored = base.map(x => ({
-    ...x,
-    score: (x.score||0) * 0.5 + symmetryScore(g, x) * 0.5
-  }));
-  return nms(scored, 0.3);
-}
-
-// ============================================================
-// ВЕРИФИКАЦИЯ ГЛАЗАМИ
-// ============================================================
-function roiLooksLikeFace(gray, roi) {
-  const rx = Math.max(0, roi.x|0), ry = Math.max(0, roi.y|0);
-  const rw = Math.min(W - rx, roi.w|0), rh = Math.min(H - ry, roi.h|0);
-  if (rw < 20 || rh < 20) return false;
-  let dark = 0, total = 0, min = 255, max = 0;
-  for (let y = 0; y < rh; y += 2) for (let x = 0; x < rw; x += 2) {
-    const v = gray[(ry+y)*W + (rx+x)];
-    if (v < 90) dark++;
-    if (v < min) min = v;
-    if (v > max) max = v;
-    total++;
-  }
-  const darkRatio = dark / total;
-  return (max - min) > 50 && darkRatio > 0.005 && darkRatio < 0.6;
-}
-
-function findEyesInROI(gray, roi) {
-  const rx = Math.max(0, roi.x | 0);
-  const ry = Math.max(0, roi.y | 0);
-  const rw = Math.min(W - rx, roi.w | 0);
-  const rh = Math.min(H - ry, roi.h | 0);
-  if (rw < 20 || rh < 20) return null;
-  if (!roiLooksLikeFace(gray, roi)) return null;
-
-  const t = Math.min(115, Math.max(40, otsuThreshold(gray, rx, ry, rw, rh)));
-  const mask = new Uint8Array(rw * rh);
-  for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
-    if (gray[(ry + y)*W + (rx + x)] < t) mask[y*rw + x] = 1;
-
-  const m2 = erode(mask, rw, rh), m3 = dilate(m2, rw, rh);
-  const comps = connectedComponents(m3, rw, rh, 20);
-  const eyes = comps.filter(c => {
-    const ar = c.w / c.h;
-    const fill = c.area / (c.w * c.h);
-    const areaRatio = c.area / (rw * rh);
-    return ar > 0.35 && ar < 3.0 && fill > 0.3 &&
-           areaRatio > 0.004 && areaRatio < 0.25;
-  });
-  if (eyes.length < 2) return null;
-
-  const useColor = document.getElementById('colorEyes').checked;
-  const d = imgData.data;
-
-  let best = null, bestScore = -Infinity;
-  for (let i = 0; i < eyes.length; i++) for (let j = i + 1; j < eyes.length; j++) {
-    const a = eyes[i], b = eyes[j];
-    const ax = a.x + a.w/2, ay = a.y + a.h/2;
-    const bx = b.x + b.w/2, by = b.y + b.h/2;
-    const dx = Math.abs(ax - bx), dy = Math.abs(ay - by);
-    const sAvg = (a.w + b.w) / 2;
-    const sRatio = Math.max(a.w, b.w) / Math.min(a.w, b.w);
-    if (sAvg < 3) continue;
-    if (dy > sAvg * 0.7) continue;
-    const rel = dx / sAvg;
-    if (rel < 1.0 || rel > 4.5) continue;
-    if (sRatio > 2.2) continue;
-    if (Math.max(ay, by) / rh > 0.75) continue;
-
-    let colorBonus = 0;
-    if (useColor) {
-      for (const e of [a, b]) {
-        const mx = rx + e.x + (e.w>>1), my = ry + e.y + (e.h>>1);
-        const idx = (my*W + mx) * 4;
-        colorBonus += colorEyeScore(d[idx], d[idx+1], d[idx+2]);
-      }
-      colorBonus /= 2;
-    }
-    const score = (1 - Math.abs(rel - 2) / 2.5) - dy / sAvg * 1.5 - (sRatio - 1) * 1.5 + colorBonus * 0.6;
-    if (score > bestScore) {
-      bestScore = score;
-      best = [
-        { x: rx + a.x, y: ry + a.y, w: a.w, h: a.h },
-        { x: rx + b.x, y: ry + b.y, w: b.w, h: b.h }
-      ];
-    }
-  }
-  return best ? { pair: best, score: Math.max(0, bestScore) } : null;
-}
-
-function verifyFaceByEyes(gray, faceBox) {
-  const res = findEyesInROI(gray, faceBox);
-  if (!res) return null;
-  const [e1, e2] = res.pair;
-  const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
-  const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
-  const eyeSpan = Math.abs((e1.x + e1.w/2) - (e2.x + e2.w/2)) + (e1.w + e2.w)/2;
-  const fw = Math.max(eyeSpan * 1.7, faceBox.w * 0.8);
-  const fh = fw * 1.25;
-  return {
-    x: cx - fw/2, y: cyEyes - fh * 0.40, w: fw, h: fh,
-    score: Math.max(0, Math.min(1, (faceBox.score||0.5) * 0.5 + 0.5 + res.score*0.05)),
-    eyes: res.pair
-  };
-}
-
-// ============================================================
 // UI
 // ============================================================
-const methods = { skin: methodSkin, sym: methodSymmetry, all: methodAll };
+const methods = { skin: methodSkin, skinMulti: methodSkinMulti, sym: methodSymmetry, consensus: methodConsensus, all: methodAll };
 let currentMethod = 'skin';
 
 document.querySelectorAll('input[name="m"]').forEach(r => {
@@ -727,13 +806,16 @@ document.querySelectorAll('input[name="m"]').forEach(r => {
 });
 document.getElementById('desc').textContent = DESCR[currentMethod];
 
-document.getElementById('thr').addEventListener('input', e =>
-  document.getElementById('thrV').textContent = e.target.value);
+let thrTimeout;
+document.getElementById('thr').addEventListener('input', e => {
+  document.getElementById('thrV').textContent = e.target.value;
+  clearTimeout(thrTimeout);
+  thrTimeout = setTimeout(() => { if (imgData) run(); }, 200);
+});
 
 document.getElementById('btn').addEventListener('click', run);
-document.getElementById('verify').addEventListener('change', () => { if (imgData) run(); });
-document.getElementById('colorEyes').addEventListener('change', () => { if (imgData) run(); });
-document.getElementById('zoneSoft').addEventListener('change', () => { if (imgData) run(); });
+['verify','colorEyes','hueCheck','noseBridge','chinBonus','zoneSoft'].forEach(id =>
+  document.getElementById(id).addEventListener('change', () => { if (imgData) run(); }));
 
 document.getElementById('btnZoneMode').addEventListener('click', () => {
   drawingMode = !drawingMode;
@@ -778,8 +860,7 @@ wrap.addEventListener('wheel', e => {
   if (!imgData) return;
   e.preventDefault();
   const p = localPoint(e);
-  const factor = Math.exp(-e.deltaY * 0.0015);
-  zoomBy(factor, p.x, p.y);
+  zoomBy(Math.exp(-e.deltaY * 0.0015), p.x, p.y);
 }, { passive: false });
 
 wrap.addEventListener('pointerdown', e => {
@@ -794,16 +875,12 @@ wrap.addEventListener('pointerdown', e => {
     const pts = [...pointers.values()];
     const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
     const center = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
-    gesture = {
-      kind: 'pinch',
-      startDist: dist, startCenter: center,
-      startScale: view.scale, startTx: view.tx, startTy: view.ty
-    };
+    gesture = { kind: 'pinch', startDist: dist, startCenter: center,
+                startScale: view.scale, startTx: view.tx, startTy: view.ty };
     drawing = null; interaction = null;
     drawAll();
     return;
   }
-
   if (e.button === 1 || spaceDown) {
     gesture = { kind: 'pan', startX: p.x, startY: p.y, startTx: view.tx, startTy: view.ty };
     wrap.classList.add('panning');
@@ -833,21 +910,17 @@ wrap.addEventListener('pointerdown', e => {
     const hit = hitZone(p.x, p.y);
     if (hit && hit.type === 'resize') {
       const z = zones[hit.idx];
-      interaction = {
-        type: 'resize', idx: hit.idx, handle: hit.handle,
-        startImg: screenToImage(p.x, p.y),
-        orig: { x: z.x, y: z.y, w: z.w, h: z.h }
-      };
+      interaction = { type: 'resize', idx: hit.idx, handle: hit.handle,
+                      startImg: screenToImage(p.x, p.y),
+                      orig: { x: z.x, y: z.y, w: z.w, h: z.h } };
       return;
     }
     if (hit && hit.type === 'move') {
       selectedZone = hit.idx;
       const z = zones[hit.idx];
-      interaction = {
-        type: 'move', idx: hit.idx,
-        startImg: screenToImage(p.x, p.y),
-        orig: { x: z.x, y: z.y, w: z.w, h: z.h }
-      };
+      interaction = { type: 'move', idx: hit.idx,
+                      startImg: screenToImage(p.x, p.y),
+                      orig: { x: z.x, y: z.y, w: z.w, h: z.h } };
       drawAll();
       return;
     }
@@ -908,7 +981,6 @@ wrap.addEventListener('pointermove', e => {
     const dx = ip.x - interaction.startImg.x;
     const dy = ip.y - interaction.startImg.y;
     const o = interaction.orig;
-
     if (interaction.type === 'move') {
       zones[interaction.idx] = {
         x: Math.max(0, Math.min(W - o.w, o.x + dx)),
@@ -961,19 +1033,13 @@ wrap.addEventListener('pointerup', endPointer);
 wrap.addEventListener('pointercancel', endPointer);
 
 window.addEventListener('keydown', e => {
-  if (e.code === 'Space' && !spaceDown &&
-      e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-    spaceDown = true;
-    wrap.style.cursor = 'grab';
-    e.preventDefault();
+  if (e.code === 'Space' && !spaceDown && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+    spaceDown = true; wrap.style.cursor = 'grab'; e.preventDefault();
   }
-  if (e.key === 'Enter' && imgData &&
-      e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') run();
-  if ((e.key === 'z' || e.key === 'Z') && imgData &&
-      e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA')
+  if (e.key === 'Enter' && imgData && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') run();
+  if ((e.key === 'z' || e.key === 'Z') && imgData && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA')
     document.getElementById('btnZoneMode').click();
-  if ((e.key === 'Delete' || e.key === 'Backspace') &&
-      e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+  if ((e.key === 'Delete' || e.key === 'Backspace') && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
     zones = []; selectedZone = -1;
     updateZoneInfo(); drawAll();
     if (imgData) run();
@@ -1026,11 +1092,28 @@ function run() {
   const thr = +document.getElementById('thr').value / 100;
   const needVerify = document.getElementById('verify').checked;
   const soft = document.getElementById('zoneSoft').checked;
+  const doDownscale = document.getElementById('downscale').checked;
+
   document.getElementById('btn').disabled = true;
   const t0 = performance.now();
 
   setTimeout(() => {
     try {
+      // даунскейл для больших картинок
+      let detectScale = 1;
+      const saved = { W, H, imgData, srcImage };
+      if (doDownscale && Math.max(W, H) > 1200) {
+        const s = 1200 / Math.max(W, H);
+        const dw = Math.round(W * s), dh = Math.round(H * s);
+        const tmp = document.createElement('canvas');
+        tmp.width = dw; tmp.height = dh;
+        tmp.getContext('2d').drawImage(cv, 0, 0, dw, dh);
+        W = dw; H = dh;
+        imgData = tmp.getContext('2d').getImageData(0, 0, dw, dh);
+        _grayCache = null; _skinCache = null;
+        detectScale = 1 / s;
+      }
+
       const t1 = performance.now();
       const candidates = methods[currentMethod](thr);
       const tDet = performance.now() - t1;
@@ -1049,6 +1132,21 @@ function run() {
         boxes = nms(boxes, 0.3);
       }
       const tVer = performance.now() - t2;
+
+      // масштабируем обратно в координаты оригинала
+      if (detectScale !== 1) {
+        boxes = boxes.map(b => ({
+          ...b,
+          x: b.x * detectScale, y: b.y * detectScale,
+          w: b.w * detectScale, h: b.h * detectScale,
+          eyes: b.eyes ? b.eyes.map(e => ({
+            x: e.x * detectScale, y: e.y * detectScale,
+            w: e.w * detectScale, h: e.h * detectScale
+          })) : undefined
+        }));
+        W = saved.W; H = saved.H; imgData = saved.imgData;
+        _grayCache = null; _skinCache = null;
+      }
 
       let inZones = boxes.length, outZones = 0;
       if (zones.length) {
@@ -1072,7 +1170,8 @@ function run() {
       document.getElementById('stat').innerHTML =
         `Метод: <b>${currentMethod}</b> | кандидатов: ${candidates.length} | ` +
         `итог: <b>${boxes.length}</b>` +
-        (zones.length ? ` (в зонах: ${inZones}, вне: ${outZones})` : '') + `<br>` +
+        (zones.length ? ` (в зонах: ${inZones}, вне: ${outZones})` : '') +
+        (detectScale !== 1 ? ` · downscale ×${(1/detectScale).toFixed(1)}` : '') + `<br>` +
         `детектор: ${tDet.toFixed(0)} мс · верификация: ${tVer.toFixed(0)} мс · всего: ${dt} мс`;
     } catch (err) {
       drawAll();
