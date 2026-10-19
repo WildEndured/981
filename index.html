@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Anime Face Detector — precision 1-6</title>
+<title>Anime Face Detector — soft verification</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; }
@@ -56,7 +56,7 @@
 </head>
 <body>
 <header>
-  <h1>🎨 Anime Face Detector — precision 1-6</h1>
+  <h1>🎨 Anime Face Detector — soft verification</h1>
   <span class="hint">колесо/пинч — зум · 2 пальца / пробел — пан · Enter — искать · Z — разметка</span>
 </header>
 
@@ -101,15 +101,15 @@
     <div class="panel">
       <h2>Верификация</h2>
       <label class="toggle"><input type="checkbox" id="verify" checked> Глазами (базовая)</label>
-      <label class="toggle"><input type="checkbox" id="colorEyes" checked> Цвет глаз</label>
-      <label class="toggle"><input type="checkbox" id="hueCheck" checked> Hue радужки</label>
+      <label class="toggle"><input type="checkbox" id="colorEyes" checked> Цвет глаз (бонус)</label>
+      <label class="toggle"><input type="checkbox" id="hueCheck" checked> Hue радужки (бонус)</label>
       <label class="toggle"><input type="checkbox" id="hetero" checked> Гетерохромия</label>
       <label class="toggle"><input type="checkbox" id="satPass" checked> Проход по насыщенности</label>
     </div>
 
     <!-- 5. ФОРМА -->
     <div class="panel">
-      <h2>Проверки формы (1-3)</h2>
+      <h2>Проверки формы (бонусы)</h2>
       <label class="toggle"><input type="checkbox" id="highlightCheck" checked> Блик в глазу</label>
       <label class="toggle"><input type="checkbox" id="lidsCheck" checked> Контур сверху</label>
       <label class="toggle"><input type="checkbox" id="skinUnderCheck" checked> Кожа под глазом</label>
@@ -118,7 +118,7 @@
 
     <!-- 6. УТОЧНЕНИЯ -->
     <div class="panel">
-      <h2>Уточнения (4-6)</h2>
+      <h2>Уточнения</h2>
       <label class="toggle"><input type="checkbox" id="mouthBonus" checked> Рот (+балл)</label>
       <label class="toggle"><input type="checkbox" id="noseBonus" checked> Нос (+балл)</label>
       <label class="toggle"><input type="checkbox" id="tiltAdaptive" checked> Адаптация к наклону</label>
@@ -131,6 +131,7 @@
       <label class="toggle"><input type="checkbox" id="chinBonus" checked> Бонус за подбородок</label>
       <label class="toggle"><input type="checkbox" id="zoneSoft"> Мягкий режим зон</label>
       <label class="toggle"><input type="checkbox" id="downscale"> Даунскейл &gt;1200px</label>
+      <label class="toggle"><input type="checkbox" id="debug"> Отладка в консоль</label>
       <div class="stat" id="stat">Загрузите картинку</div>
       <div class="legend">
         <span class="l" style="border-color:#4f9dff"></span>лицо
@@ -140,7 +141,6 @@
       </div>
     </div>
 
-    <!-- 8. ИСКАТЬ -->
     <div class="row" style="padding: 0 2px;">
       <button id="btn" style="flex:2">Искать (Enter)</button>
     </div>
@@ -160,7 +160,7 @@
 
 <script>
 // ============================================================
-// БЕЗОПАСНАЯ ОБЁРТКА ДЛЯ addEventListener
+// ОБЁРТКА
 // ============================================================
 function on(id, event, handler) {
   const el = document.getElementById(id);
@@ -179,6 +179,7 @@ let imgData = null, W = 0, H = 0;
 let srcImage = null;
 let _grayCache = null, _skinCache = null;
 let lastBoxes = [];
+let _rejectReasons = [];   // для отладки
 
 const view = { scale: 1, tx: 0, ty: 0 };
 const MIN_SCALE = 0.05, MAX_SCALE = 32;
@@ -260,20 +261,24 @@ on('btn2', 'click', () => {
   g.fillStyle = '#c8d8e8'; g.fillRect(0, 0, 500, 400);
   g.fillStyle = '#3a2545'; g.beginPath(); g.ellipse(250, 220, 170, 210, 0, 0, 7); g.fill();
   g.fillStyle = '#ffe0c8'; g.beginPath(); g.ellipse(250, 220, 130, 160, 0, 0, 7); g.fill();
+  // левый — синий
   g.fillStyle = '#1a1a3a';
   g.beginPath(); g.ellipse(200, 200, 28, 38, 0, 0, 7); g.fill();
   g.fillStyle = '#4f9dff';
   g.beginPath(); g.ellipse(200, 205, 16, 22, 0, 0, 7); g.fill();
   g.fillStyle = '#fff';
   g.beginPath(); g.arc(192, 188, 9, 0, 7); g.fill();
+  // правый — красный
   g.fillStyle = '#1a1a3a';
   g.beginPath(); g.ellipse(300, 200, 28, 38, 0, 0, 7); g.fill();
   g.fillStyle = '#ff4f4f';
   g.beginPath(); g.ellipse(300, 205, 16, 22, 0, 0, 7); g.fill();
   g.fillStyle = '#fff';
   g.beginPath(); g.arc(292, 188, 9, 0, 7); g.fill();
+  // нос
   g.fillStyle = '#c0906a';
   g.beginPath(); g.ellipse(250, 260, 6, 4, 0, 0, 7); g.fill();
+  // рот
   g.strokeStyle = '#c04060'; g.lineWidth = 4;
   g.beginPath(); g.arc(250, 290, 22, 0.2, Math.PI - 0.2); g.stroke();
   loadImage(c.toDataURL());
@@ -464,7 +469,7 @@ function symmetryScore(g, b) {
 }
 
 // ============================================================
-// ПРОВЕРКИ ФОРМЫ
+// ПРОВЕРКИ (возвращают boolean, используются как бонусы)
 // ============================================================
 function hasHighlight(d, e, minRatio = 0.008) {
   const x0 = e.x, y0 = e.y, w = e.w, h = e.h;
@@ -535,7 +540,7 @@ function skinBridge(skin, e1, e2, minRatio = 0.55) {
 }
 
 // ============================================================
-// НОС / РОТ — БОНУСЫ
+// НОС / РОТ / ПОЛНОТА / ПОДБОРОДОК — БОНУСЫ
 // ============================================================
 function mouthBonus(d, eyes) {
   const [e1, e2] = eyes;
@@ -702,7 +707,7 @@ function methodAll(threshold = 0.5) {
 }
 
 // ============================================================
-// ВЕРИФИКАЦИЯ
+// ВЕРИФИКАЦИЯ (мягкая — проверки дают бонусы)
 // ============================================================
 function roiLooksLikeFace(gray, roi) {
   const rx = Math.max(0, roi.x|0), ry = Math.max(0, roi.y|0);
@@ -717,31 +722,34 @@ function roiLooksLikeFace(gray, roi) {
     total++;
   }
   const darkRatio = dark / total;
-  return (max - min) > 50 && darkRatio > 0.005 && darkRatio < 0.6;
+  return (max - min) > 30 && darkRatio > 0.002 && darkRatio < 0.7;
 }
+
 function findEyesInROI(gray, roi) {
+  _rejectReasons = [];
+
   const eyeRoi = {
     x: roi.x + roi.w * 0.05,
     y: roi.y + roi.h * 0.10,
     w: roi.w * 0.90,
-    h: roi.h * 0.55
+    h: roi.h * 0.70
   };
   const rx = Math.max(0, eyeRoi.x | 0);
   const ry = Math.max(0, eyeRoi.y | 0);
   const rw = Math.min(W - rx, eyeRoi.w | 0);
   const rh = Math.min(H - ry, eyeRoi.h | 0);
-  if (rw < 20 || rh < 20) return null;
-  if (!roiLooksLikeFace(gray, eyeRoi)) return null;
+  if (rw < 20 || rh < 20) { _rejectReasons.push('roi<20'); return null; }
+  if (!roiLooksLikeFace(gray, eyeRoi)) { _rejectReasons.push('roi_looks_no_face'); return null; }
 
   const d = imgData.data;
   const useSat = document.getElementById('satPass')?.checked ?? false;
 
-  const t = Math.min(115, Math.max(40, otsuThreshold(gray, rx, ry, rw, rh)));
+  const t = Math.min(140, Math.max(70, otsuThreshold(gray, rx, ry, rw, rh)));
   const darkMask = new Uint8Array(rw * rh);
   for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
     if (gray[(ry + y)*W + (rx + x)] < t) darkMask[y*rw + x] = 1;
   const d2 = erode(darkMask, rw, rh), d3 = dilate(d2, rw, rh);
-  const darkComps = connectedComponents(d3, rw, rh, 20);
+  const darkComps = connectedComponents(d3, rw, rh, 12);
 
   let satComps = [];
   if (useSat) {
@@ -753,7 +761,7 @@ function findEyesInROI(gray, roi) {
       if (saturationOf(r, g, b) > 0.45) satMask[y*rw + x] = 1;
     }
     const s2 = erode(satMask, rw, rh), s3 = dilate(s2, rw, rh);
-    satComps = connectedComponents(s3, rw, rh, 15);
+    satComps = connectedComponents(s3, rw, rh, 12);
   }
 
   const allComps = [...darkComps];
@@ -768,12 +776,16 @@ function findEyesInROI(gray, roi) {
     if (!dup) allComps.push(sc);
   }
 
+  // мягкий фильтр компонентов
   const eyes = allComps.filter(c => {
     const ar = c.w / c.h;
     const fill = c.area / (c.w * c.h);
-    return ar > 0.35 && ar < 3.0 && fill > 0.25 && c.area >= 15;
+    return ar > 0.25 && ar < 4.0 && fill > 0.20 && c.area >= 8;
   });
-  if (eyes.length < 2) return null;
+  if (eyes.length < 2) {
+    _rejectReasons.push(`comps<2 (было ${eyes.length})`);
+    return null;
+  }
 
   const useColor = document.getElementById('colorEyes')?.checked ?? false;
   const useHue = document.getElementById('hueCheck')?.checked ?? false;
@@ -786,6 +798,8 @@ function findEyesInROI(gray, roi) {
   const skin = skinCached();
 
   let best = null, bestScore = -Infinity;
+  let pairsTried = 0;
+
   for (let i = 0; i < eyes.length; i++) for (let j = i + 1; j < eyes.length; j++) {
     const a = eyes[i], b = eyes[j];
     const ax = a.x + a.w/2, ay = a.y + a.h/2;
@@ -795,22 +809,28 @@ function findEyesInROI(gray, roi) {
     if (sAvg < 2) continue;
     const rel = dx / sAvg;
     const dyRel = dy / sAvg;
+    pairsTried++;
 
-    if (dyRel > 0.35) continue;
-    const lineBonus = dyRel < 0.10 ? 0.15
-                    : dyRel < 0.20 ? 0.05
-                    : -0.10 * (dyRel - 0.20) / 0.15;
+    // === ЖЁСТКИЕ ФИЛЬТРЫ (только геометрия и размер) ===
+    if (dyRel > 0.5) { _rejectReasons.push('dyRel>0.5'); continue; }
+    if (rel < 0.8 || rel > 5.0) { _rejectReasons.push('rel_out'); continue; }
+
+    const sRatio = Math.max(a.w, b.w) / Math.min(a.w, b.w);
+    if (sRatio > 2.5) { _rejectReasons.push('size_ratio>2.5'); continue; }
 
     const relWa = a.w / sAvg, relHa = a.h / sAvg;
     const relWb = b.w / sAvg, relHb = b.h / sAvg;
-    if (relWa < 0.15 || relWa > 0.7) continue;
-    if (relWb < 0.15 || relWb > 0.7) continue;
-    if (relHa < 0.2 || relHa > 1.1) continue;
-    if (relHb < 0.2 || relHb > 1.1) continue;
+    if (relWa < 0.08 || relWa > 0.9) { _rejectReasons.push('relW_a'); continue; }
+    if (relWb < 0.08 || relWb > 0.9) { _rejectReasons.push('relW_b'); continue; }
+    if (relHa < 0.1 || relHa > 1.5) { _rejectReasons.push('relH_a'); continue; }
+    if (relHb < 0.1 || relHb > 1.5) { _rejectReasons.push('relH_b'); continue; }
 
-    const sRatio = Math.max(a.w, b.w) / Math.min(a.w, b.w);
-    if (sRatio > 1.8) continue;
-    const sizeBonus = sRatio < 1.2 ? 0.1 : 0;
+    const ea = { x: rx + a.x, y: ry + a.y, w: a.w, h: a.h };
+    const eb = { x: rx + b.x, y: ry + b.y, w: b.w, h: b.h };
+
+    // === БОНУСЫ (не отсекают, только добавляют) ===
+    let bonus = 0;
+    const bonusDetails = {};
 
     const tiltFactor = useTiltAdapt ? Math.min(1, dyRel / 0.15) : 0;
     const hlMin = 0.008 * (1 - 0.5 * tiltFactor);
@@ -818,14 +838,36 @@ function findEyesInROI(gray, roi) {
     const underMin = 0.35 - 0.1 * tiltFactor;
     const bridgeMin = 0.55 - 0.1 * tiltFactor;
 
-    const ea = { x: rx + a.x, y: ry + a.y, w: a.w, h: a.h };
-    const eb = { x: rx + b.x, y: ry + b.y, w: b.w, h: b.h };
+    if (useHighlight) {
+      const ok = hasHighlight(d, ea, hlMin) && hasHighlight(d, eb, hlMin);
+      bonusDetails.highlight = ok;
+      if (ok) bonus += 0.10;
+    }
+    if (useLids) {
+      const ok = darkerTop(d, ea, lidFactor) && darkerTop(d, eb, lidFactor);
+      bonusDetails.lids = ok;
+      if (ok) bonus += 0.05;
+    }
+    if (useSkinUnder) {
+      const ok = skinUnderEye(skin, ea, sAvg, underMin) && skinUnderEye(skin, eb, sAvg, underMin);
+      bonusDetails.skinUnder = ok;
+      if (ok) bonus += 0.05;
+    }
+    if (useBridge) {
+      const ok = skinBridge(skin, ea, eb, bridgeMin);
+      bonusDetails.bridge = ok;
+      if (ok) bonus += 0.10;
+    }
 
-    if (useHighlight && (!hasHighlight(d, ea, hlMin) || !hasHighlight(d, eb, hlMin))) continue;
-    if (useLids && (!darkerTop(d, ea, lidFactor) || !darkerTop(d, eb, lidFactor))) continue;
-    if (useSkinUnder && (!skinUnderEye(skin, ea, sAvg, underMin) || !skinUnderEye(skin, eb, sAvg, underMin))) continue;
-    if (useBridge && !skinBridge(skin, ea, eb, bridgeMin)) continue;
+    // геометрические бонусы
+    const dyRelSafe = Math.min(dyRel, 0.5);
+    if (dyRel < 0.10) bonus += 0.15;
+    else if (dyRel < 0.20) bonus += 0.05;
+    else bonus -= 0.10 * (dyRel - 0.20) / 0.30;
 
+    if (sRatio < 1.2) bonus += 0.10;
+
+    // цвет
     let colorBonus = 0, hueA = 0, hueB = 0, satA = 0, satB = 0;
     if (useColor || useHue || useSat) {
       const getPix = e => {
@@ -849,22 +891,37 @@ function findEyesInROI(gray, roi) {
     if (useHue) {
       let dh = Math.abs(hueA - hueB);
       if (dh > 180) dh = 360 - dh;
-      if (dh < 30) hueBonus = 0.3;
-      else if (dh < 60) hueBonus = 0.1;
-      else hueBonus = useHetero ? 0 : -0.2;
+      if (dh < 30) hueBonus = 0.20;
+      else if (dh < 60) hueBonus = 0.05;
+      // при разном цвете — 0 (не штрафуем)
     }
-    const satBonus = (satA > 0.4 && satB > 0.4) ? 0.2 : 0;
+    const satBonus = (satA > 0.4 && satB > 0.4) ? 0.15 : 0;
 
-    const baseScore = (1 - Math.abs(rel - 2) / 2.5)
-                    + lineBonus + sizeBonus + colorBonus * 0.6
-                    + hueBonus + satBonus + 0.1;
+    // === ИТОГОВЫЙ БАЛЛ ===
+    const baseScore = (1 - Math.abs(rel - 2) / 3.0)   // мягче, чем раньше
+                    + bonus
+                    + colorBonus * 0.4
+                    + hueBonus
+                    + satBonus;
 
     if (baseScore > bestScore) {
       bestScore = baseScore;
       best = [ea, eb];
+      best._bonusDetails = bonusDetails;
     }
   }
-  return best ? { pair: best, score: Math.max(0, bestScore) } : null;
+
+  if (pairsTried === 0) _rejectReasons.push('no_pairs');
+
+  if (best) {
+    const dbg = document.getElementById('debug');
+    if (dbg && dbg.checked) {
+      console.log('[eyes] best pair bonus:', best._bonusDetails,
+                  'score:', bestScore.toFixed(3), 'reject reasons:', _rejectReasons.slice(-5));
+    }
+    return { pair: best, score: Math.max(0, bestScore) };
+  }
+  return null;
 }
 
 function verifyFaceByEyes(gray, faceBox) {
@@ -1329,6 +1386,7 @@ function run() {
   const needVerify = document.getElementById('verify')?.checked ?? true;
   const soft = document.getElementById('zoneSoft')?.checked ?? false;
   const doDownscale = document.getElementById('downscale')?.checked ?? false;
+  const debug = document.getElementById('debug')?.checked ?? false;
 
   const btn = document.getElementById('btn');
   if (btn) btn.disabled = true;
@@ -1356,12 +1414,14 @@ function run() {
 
       const t2 = performance.now();
       let boxes = candidates;
+      let allRejects = [];
       if (needVerify) {
         const gray = grayCached();
         const verified = [];
         for (const b of boxes) {
           const v = verifyFaceByEyes(gray, b);
           if (v) verified.push(v);
+          else allRejects.push(..._rejectReasons);
         }
         boxes = nms(verified, 0.3);
       } else {
@@ -1402,6 +1462,16 @@ function run() {
       const sb = document.getElementById('btnSave');
       if (sb) sb.disabled = boxes.length === 0;
 
+      // топ-3 причины отсева
+      let rejectHtml = '';
+      if (allRejects.length && boxes.length === 0) {
+        const summary = {};
+        allRejects.forEach(r => summary[r] = (summary[r] || 0) + 1);
+        const top = Object.entries(summary).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        rejectHtml = '<br><span style="color:#ff9d4f">Отсев:</span> ' +
+          top.map(([k, v]) => `${k}×${v}`).join(', ');
+      }
+
       const dt = (performance.now() - t0).toFixed(0);
       const st = document.getElementById('stat');
       if (st) st.innerHTML =
@@ -1409,7 +1479,14 @@ function run() {
         `итог: <b>${boxes.length}</b>` +
         (zones.length ? ` (в зонах: ${inZones}, вне: ${outZones})` : '') +
         (detectScale !== 1 ? ` · downscale ×${(1/detectScale).toFixed(1)}` : '') + `<br>` +
-        `детектор: ${tDet.toFixed(0)} мс · верификация: ${tVer.toFixed(0)} мс · всего: ${dt} мс`;
+        `детектор: ${tDet.toFixed(0)} мс · верификация: ${tVer.toFixed(0)} мс · всего: ${dt} мс` +
+        rejectHtml;
+
+      if (debug && allRejects.length) {
+        const summary = {};
+        allRejects.forEach(r => summary[r] = (summary[r] || 0) + 1);
+        console.log('Все причины отсева:', summary);
+      }
     } catch (err) {
       drawAll();
       const st = document.getElementById('stat');
@@ -1422,4 +1499,4 @@ function run() {
 }
 </script>
 </body>
-</html>
+ </html>
