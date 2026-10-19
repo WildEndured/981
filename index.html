@@ -2,283 +2,116 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Anime Face Detector — soft verification</title>
+<title>Anime Face Detector — face + eyes only</title>
 <style>
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; }
-  body { margin: 0; font-family: system-ui, sans-serif; background: #1e1e24; color: #e5e5ea; overflow: hidden; display: flex; flex-direction: column; }
-  header { padding: 8px 14px; background: #2a2a33; border-bottom: 1px solid #3a3a45; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
-  h1 { margin: 0; font-size: 16px; }
-  .hint { font-size: 11px; color: #9a9aa8; }
-  .app { display: grid; grid-template-columns: 300px 1fr; flex: 1; min-height: 0; }
-  @media (max-width: 720px) {
-    .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-    .side { max-height: 45vh; overflow-y: auto; border-right: none !important; border-bottom: 1px solid #3a3a45; }
-  }
-  .side { background: #23232b; border-right: 1px solid #3a3a45; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
-  .panel { background: #26262e; padding: 10px 12px; border-radius: 8px; flex-shrink: 0; }
-  .panel h2 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #9a9aa8; }
-  .methods label { display: block; padding: 6px 8px; border-radius: 6px; cursor: pointer; margin-bottom: 4px; background: #1e1e24; border: 1px solid transparent; font-size: 12px; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: #1e1e24; color: #e5e5ea; }
+  header { padding: 12px 20px; background: #2a2a33; border-bottom: 1px solid #3a3a45; }
+  h1 { margin: 0; font-size: 18px; }
+  .wrap { display: grid; grid-template-columns: 300px 1fr; gap: 16px; padding: 16px; }
+  .panel { background: #26262e; padding: 14px; border-radius: 10px; }
+  .panel h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #9a9aa8; }
+  .methods label { display: block; padding: 8px 10px; border-radius: 6px; cursor: pointer; margin-bottom: 6px; background: #1e1e24; border: 1px solid transparent; font-size: 13px; }
   .methods label:hover { background: #2f2f3a; }
   .methods input { margin-right: 8px; }
   .methods label.active { border-color: #4f9dff; background: #2b3550; }
-  .desc { font-size: 11px; color: #9a9aa8; margin-top: 6px; line-height: 1.4; }
-  .row { display: flex; gap: 6px; margin-top: 6px; }
-  .row button { flex: 1; }
-  button { background: #4f9dff; color: #fff; border: 0; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; }
+  .desc { font-size: 12px; color: #9a9aa8; margin-top: 12px; line-height: 1.5; }
+  .canvasBox { position: relative; background: #15151a; border-radius: 10px; overflow: hidden; display: flex; justify-content: center; align-items: center; min-height: 400px; }
+  canvas { max-width: 100%; max-height: 75vh; display: block; }
+  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  input[type="range"] { flex: 1; min-width: 100px; }
+  button { background: #4f9dff; color: #fff; border: 0; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
   button:hover { background: #6aabff; }
   button:disabled { opacity: .4; cursor: default; }
-  button.gray { background: #3a3a45; }
-  button.gray:hover { background: #4a4a55; }
-  button.active { background: #ff9d4f; }
-  .stat { font-size: 11px; color: #b0b0be; margin-top: 8px; line-height: 1.4; }
-  .stat b { color: #e5e5ea; }
-  .slider-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; }
+  .stat { font-size: 12px; color: #b0b0be; margin-top: 8px; line-height: 1.4; }
+  .slider-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; }
   .slider-row span { width: 40px; text-align: right; color: #9a9aa8; }
-  .toggle { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: #c0c0cc; cursor: pointer; user-select: none; }
+  .toggle { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; color: #c0c0cc; cursor: pointer; user-select: none; }
   .toggle input { cursor: pointer; }
-  .legend { font-size: 11px; color: #88889a; margin-top: 8px; line-height: 1.7; }
+  .legend { font-size: 11px; color: #88889a; margin-top: 10px; line-height: 1.9; }
   .legend .l { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px solid; vertical-align: middle; }
-  .legend .d { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px dashed; vertical-align: middle; }
-  .zone-info { font-size: 11px; color: #9a9aa8; margin-top: 6px; line-height: 1.5; }
-  .canvasWrap { position: relative; overflow: hidden; background: #0f0f14; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; min-width: 0; min-height: 0; }
-  .canvasWrap.panning { cursor: grabbing; }
-  .canvasWrap.empty::after { content: 'Перетащите картинку сюда, Ctrl+V или «Пример»'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #55556a; font-size: 13px; pointer-events: none; text-align: center; padding: 20px; }
-  .canvasWrap.drag { box-shadow: inset 0 0 0 3px #4f9dff; }
-  .canvasWrap.drawing { cursor: crosshair; }
-  #cv { position: absolute; top: 0; left: 0; transform-origin: 0 0; image-rendering: auto; will-change: transform; pointer-events: none; display: block; }
-  .zoomBar { position: absolute; bottom: 12px; right: 12px; display: flex; gap: 4px; background: rgba(30,30,36,0.92); border: 1px solid #3a3a45; border-radius: 8px; padding: 4px; align-items: center; z-index: 5; }
-  .zoomBar button { width: 32px; height: 32px; padding: 0; background: #2a2a33; font-size: 16px; line-height: 1; }
-  .zoomBar button:hover { background: #3a3a45; }
-  .zoomBar .level { font-size: 11px; color: #b0b0be; min-width: 48px; text-align: center; }
 </style>
 </head>
 <body>
-<header>
-  <h1>🎨 Anime Face Detector — soft verification</h1>
-  <span class="hint">колесо/пинч — зум · 2 пальца / пробел — пан · Enter — искать · Z — разметка</span>
-</header>
-
-<div class="app">
-  <aside class="side">
-    <!-- 1. ЗАГРУЗКА -->
-    <div class="panel">
-      <h2>Изображение</h2>
-      <input type="file" id="file" accept="image/*" style="width:100%; font-size:11px; margin-bottom:6px;">
-      <div class="row" style="margin-top:0;">
-        <button id="btn2" class="gray">Пример</button>
-        <button id="btnSave" class="gray" disabled>PNG</button>
-      </div>
-      <div class="slider-row"><label>Порог</label><input type="range" id="thr" min="1" max="100" value="50" style="flex:1"><span id="thrV">50</span></div>
-    </div>
-
-    <!-- 2. МЕТОД -->
+<header><h1>🎨 Anime Face Detector — face + eyes only</h1></header>
+<div class="wrap">
+  <div>
     <div class="panel">
       <h2>Метод-детектор</h2>
       <div class="methods" id="methods">
-        <label class="active"><input type="radio" name="m" value="skin" checked>1. Skin (YCbCr)</label>
-        <label><input type="radio" name="m" value="skinMulti">2. Skin мультимасштаб</label>
-        <label><input type="radio" name="m" value="sym">3. Skin + симметрия</label>
-        <label><input type="radio" name="m" value="consensus">4. Консенсус skin+sym</label>
+        <label class="active"><input type="radio" name="m" value="skin" checked>1. Skin (YCbCr) + блобы</label>
+        <label><input type="radio" name="m" value="eyes">2. Глаза + геометрия</label>
+        <label><input type="radio" name="m" value="ncc">3. Template Matching (NCC)</label>
+        <label><input type="radio" name="m" value="sym">4. Симметрия (верификатор)</label>
         <label><input type="radio" name="m" value="all">5. Все + NMS</label>
       </div>
       <div class="desc" id="desc"></div>
     </div>
 
-    <!-- 3. ЗОНЫ -->
-    <div class="panel">
-      <h2>Зоны поиска</h2>
-      <button id="btnZoneMode" class="gray" style="width:100%">🖊 Разметка (Z)</button>
-      <div class="row">
-        <button id="btnAutoZones" class="gray">Авто-зоны</button>
-        <button id="btnClearZones" class="gray">Очистить</button>
-      </div>
-      <div class="zone-info" id="zoneInfo">Зон: 0</div>
-    </div>
-
-    <!-- 4. ВЕРИФИКАЦИЯ -->
-    <div class="panel">
-      <h2>Верификация</h2>
-      <label class="toggle"><input type="checkbox" id="verify" checked> Глазами (базовая)</label>
-      <label class="toggle"><input type="checkbox" id="colorEyes" checked> Цвет глаз (бонус)</label>
-      <label class="toggle"><input type="checkbox" id="hueCheck" checked> Hue радужки (бонус)</label>
-      <label class="toggle"><input type="checkbox" id="hetero" checked> Гетерохромия</label>
-      <label class="toggle"><input type="checkbox" id="satPass" checked> Проход по насыщенности</label>
-    </div>
-
-    <!-- 5. ФОРМА -->
-    <div class="panel">
-      <h2>Проверки формы (бонусы)</h2>
-      <label class="toggle"><input type="checkbox" id="highlightCheck" checked> Блик в глазу</label>
-      <label class="toggle"><input type="checkbox" id="lidsCheck" checked> Контур сверху</label>
-      <label class="toggle"><input type="checkbox" id="skinUnderCheck" checked> Кожа под глазом</label>
-      <label class="toggle"><input type="checkbox" id="noseBridge" checked> Переносица</label>
-    </div>
-
-    <!-- 6. УТОЧНЕНИЯ -->
-    <div class="panel">
-      <h2>Уточнения</h2>
-      <label class="toggle"><input type="checkbox" id="mouthBonus" checked> Рот (+балл)</label>
-      <label class="toggle"><input type="checkbox" id="noseBonus" checked> Нос (+балл)</label>
-      <label class="toggle"><input type="checkbox" id="tiltAdaptive" checked> Адаптация к наклону</label>
-      <label class="toggle"><input type="checkbox" id="completeness" checked> Полнота лица</label>
-    </div>
-
-    <!-- 7. ПРОЧЕЕ -->
-    <div class="panel">
-      <h2>Прочее</h2>
-      <label class="toggle"><input type="checkbox" id="chinBonus" checked> Бонус за подбородок</label>
-      <label class="toggle"><input type="checkbox" id="zoneSoft"> Мягкий режим зон</label>
-      <label class="toggle"><input type="checkbox" id="downscale"> Даунскейл &gt;1200px</label>
-      <label class="toggle"><input type="checkbox" id="debug"> Отладка в консоль</label>
+    <div class="panel" style="margin-top:12px">
+      <h2>Параметры</h2>
+      <input type="file" id="file" accept="image/*" style="width:100%; font-size:12px;">
+      <div class="slider-row"><label>Порог</label><input type="range" id="thr" min="1" max="100" value="50" style="flex:1"><span id="thrV">50</span></div>
+      <label class="toggle"><input type="checkbox" id="verify" checked> Верификация глазами (отсев без глаз)</label>
       <div class="stat" id="stat">Загрузите картинку</div>
       <div class="legend">
         <span class="l" style="border-color:#4f9dff"></span>лицо
-        <span class="l" style="border-color:#ff4f9d; margin-left:6px"></span>глаза<br>
-        <span class="d" style="border-color:#ffd24f"></span>зона
-        <span class="l" style="border-color:#ff9d4f; margin-left:6px"></span>рисуемая
+        <span class="l" style="border-color:#ff4f9d; margin-left:8px"></span>глаза
       </div>
     </div>
+  </div>
 
-    <div class="row" style="padding: 0 2px;">
-      <button id="btn" style="flex:2">Искать (Enter)</button>
-    </div>
-  </aside>
-
-  <div class="canvasWrap empty" id="wrap">
-    <canvas id="cv"></canvas>
-    <div class="zoomBar">
-      <button id="zOut" title="Уменьшить">−</button>
-      <span class="level" id="zLevel">100%</span>
-      <button id="zIn" title="Увеличить">+</button>
-      <button id="zFit" title="Вписать" style="font-size:11px;">⤢</button>
-      <button id="z1" title="1:1" style="font-size:11px;">1:1</button>
+  <div>
+    <div class="canvasBox"><canvas id="cv"></canvas></div>
+    <div class="controls">
+      <button id="btn">Искать</button>
+      <button id="btn2" style="background:#3a3a45">Пример</button>
     </div>
   </div>
 </div>
 
 <script>
 // ============================================================
-// ОБЁРТКА
-// ============================================================
-function on(id, event, handler) {
-  const el = document.getElementById(id);
-  if (!el) { console.warn('[missing #' + id + ']'); return; }
-  el.addEventListener(event, handler);
-}
-
-// ============================================================
 // ГЛОБАЛЬНЫЕ
 // ============================================================
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
-const wrap = document.getElementById('wrap');
-
 let imgData = null, W = 0, H = 0;
 let srcImage = null;
-let _grayCache = null, _skinCache = null;
-let lastBoxes = [];
-let _rejectReasons = [];   // для отладки
-
-const view = { scale: 1, tx: 0, ty: 0 };
-const MIN_SCALE = 0.05, MAX_SCALE = 32;
-
-let zones = [];
-let drawingMode = false;
-let drawing = null;
-let selectedZone = -1;
-let interaction = null;
-const HANDLE_R_PX = 14;
-const CORNER_HIT_PX = 22;
-
-const pointers = new Map();
-let gesture = null;
-let spaceDown = false;
-let lastTap = { time: 0, x: 0, y: 0 };
 
 const DESCR = {
-  skin:       "Маска кожи YCbCr → компоненты → фильтр формы.",
-  skinMulti:  "То же, но на двух разрешениях — ловит мелкие лица.",
-  sym:        "Skin + фильтр по симметрии (>0.72).",
-  consensus:  "Оставляем только skin-боксы, пересекающиеся с sym-боксами (IoU>0.3).",
-  all:        "Skin-кандидаты + симметрия как балл + NMS."
+  skin: "Маска кожи YCbCr → компоненты → фильтр формы. Затем внутри каждого бокса ищем пару глаз; без пары — отсев.",
+  eyes: "Тёмные блобы → пары 'глаз' по геометрии → бокс лица. Верификация повторно подтверждает пару внутри ROI.",
+  ncc:  "NCC с синтетическим шаблоном глаза → боксы лица. Верификация ищет независимую пару глаз внутри ROI.",
+  sym:  "Skin-кандидаты + проверка симметрии. Верификация глазами отсеивает несимметричные/безглазые.",
+  all:  "Объединение skin+eyes+NCC, симметрия как верификатор, затем проверка глаз и NMS."
 };
-
-// ============================================================
-// VIEWPORT
-// ============================================================
-function applyView() {
-  cv.style.transform = `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`;
-  document.getElementById('zLevel').textContent = Math.round(view.scale * 100) + '%';
-}
-function fitToScreen() {
-  if (!W || !H) return;
-  const rw = Math.max(100, wrap.clientWidth);
-  const rh = Math.max(100, wrap.clientHeight);
-  const s = Math.min(rw / W, rh / H) * 0.96;
-  view.scale = s;
-  view.tx = (rw - W * s) / 2;
-  view.ty = (rh - H * s) / 2;
-  applyView();
-}
-function setZoom(newScale, cx, cy) {
-  if (cx === undefined) cx = wrap.clientWidth / 2;
-  if (cy === undefined) cy = wrap.clientHeight / 2;
-  const s = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
-  const wx = (cx - view.tx) / view.scale;
-  const wy = (cy - view.ty) / view.scale;
-  view.scale = s;
-  view.tx = cx - wx * s;
-  view.ty = cy - wy * s;
-  applyView();
-}
-function zoomBy(f, cx, cy) { setZoom(view.scale * f, cx, cy); }
-function localPoint(e) {
-  const r = wrap.getBoundingClientRect();
-  return { x: e.clientX - r.left, y: e.clientY - r.top };
-}
-function screenToImage(sx, sy) {
-  return { x: (sx - view.tx) / view.scale, y: (sy - view.ty) / view.scale };
-}
-function imageToScreen(ix, iy) {
-  return { x: ix * view.scale + view.tx, y: iy * view.scale + view.ty };
-}
 
 // ============================================================
 // ЗАГРУЗКА
 // ============================================================
-on('file', 'change', e => {
+document.getElementById('file').addEventListener('change', e => {
   const f = e.target.files[0]; if (!f) return;
   const r = new FileReader();
   r.onload = ev => loadImage(ev.target.result);
   r.readAsDataURL(f);
 });
 
-on('btn2', 'click', () => {
+document.getElementById('btn2').addEventListener('click', () => {
   const c = document.createElement('canvas'); c.width = 500; c.height = 400;
   const g = c.getContext('2d');
   g.fillStyle = '#c8d8e8'; g.fillRect(0, 0, 500, 400);
   g.fillStyle = '#3a2545'; g.beginPath(); g.ellipse(250, 220, 170, 210, 0, 0, 7); g.fill();
   g.fillStyle = '#ffe0c8'; g.beginPath(); g.ellipse(250, 220, 130, 160, 0, 0, 7); g.fill();
-  // левый — синий
   g.fillStyle = '#1a1a3a';
   g.beginPath(); g.ellipse(200, 200, 28, 38, 0, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(300, 200, 28, 38, 0, 0, 7); g.fill();
   g.fillStyle = '#4f9dff';
   g.beginPath(); g.ellipse(200, 205, 16, 22, 0, 0, 7); g.fill();
-  g.fillStyle = '#fff';
-  g.beginPath(); g.arc(192, 188, 9, 0, 7); g.fill();
-  // правый — красный
-  g.fillStyle = '#1a1a3a';
-  g.beginPath(); g.ellipse(300, 200, 28, 38, 0, 0, 7); g.fill();
-  g.fillStyle = '#ff4f4f';
   g.beginPath(); g.ellipse(300, 205, 16, 22, 0, 0, 7); g.fill();
   g.fillStyle = '#fff';
-  g.beginPath(); g.arc(292, 188, 9, 0, 7); g.fill();
-  // нос
-  g.fillStyle = '#c0906a';
-  g.beginPath(); g.ellipse(250, 260, 6, 4, 0, 0, 7); g.fill();
-  // рот
+  g.beginPath(); g.arc(192, 190, 9, 0, 7); g.fill();
+  g.beginPath(); g.arc(292, 190, 9, 0, 7); g.fill();
   g.strokeStyle = '#c04060'; g.lineWidth = 4;
   g.beginPath(); g.arc(250, 290, 22, 0.2, Math.PI - 0.2); g.stroke();
   loadImage(c.toDataURL());
@@ -288,31 +121,23 @@ function loadImage(src) {
   const im = new Image();
   im.onload = () => {
     srcImage = im;
-    W = im.width; H = im.height;
+    const maxW = 800;
+    const scale = Math.min(1, maxW / im.width);
+    W = Math.round(im.width * scale);
+    H = Math.round(im.height * scale);
     cv.width = W; cv.height = H;
-    ctx.drawImage(im, 0, 0);
+    ctx.drawImage(im, 0, 0, W, H);
     imgData = ctx.getImageData(0, 0, W, H);
-
-    _grayCache = null; _skinCache = null;
-    lastBoxes = []; zones = []; selectedZone = -1;
-    updateZoneInfo();
-    wrap.classList.remove('empty');
-    const sb = document.getElementById('btnSave');
-    if (sb) sb.disabled = true;
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => { fitToScreen(); drawAll(); });
-    });
-    const st = document.getElementById('stat');
-    if (st) st.textContent = `Готово: ${W}×${H}`;
+    document.getElementById('stat').textContent = `Готово: ${W}×${H}. Нажмите «Искать».`;
   };
   im.src = src;
 }
-window.addEventListener('resize', () => { if (W) applyView(); });
 
 // ============================================================
 // УТИЛИТЫ
 // ============================================================
+function redraw() { if (srcImage) ctx.drawImage(srcImage, 0, 0, W, H); }
+
 function grayPixels() {
   const g = new Uint8Array(W * H);
   const d = imgData.data;
@@ -320,25 +145,7 @@ function grayPixels() {
     g[j] = (0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2]) | 0;
   return g;
 }
-function grayCached() {
-  if (!_grayCache) _grayCache = grayPixels();
-  return _grayCache;
-}
-function buildSkinMask() {
-  const d = imgData.data;
-  const mask = new Uint8Array(W * H);
-  for (let i = 0, j = 0; i < d.length; i += 4, j++) {
-    const r = d[i], g = d[i+1], b = d[i+2];
-    const cb = 128 - 0.168736*r - 0.331264*g + 0.5*b;
-    const cr = 128 + 0.5*r - 0.418688*g - 0.081312*b;
-    if (cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173) mask[j] = 1;
-  }
-  return mask;
-}
-function skinCached() {
-  if (!_skinCache) _skinCache = buildSkinMask();
-  return _skinCache;
-}
+
 function iou(a, b) {
   const x1 = Math.max(a.x, b.x), y1 = Math.max(a.y, b.y);
   const x2 = Math.min(a.x+a.w, b.x+b.w), y2 = Math.min(a.y+a.h, b.y+b.h);
@@ -346,28 +153,14 @@ function iou(a, b) {
   const inter = iw*ih;
   return inter / (a.w*a.h + b.w*b.h - inter || 1);
 }
-function nms(boxes, thr = 0.3, cell = 64) {
-  if (!boxes.length) return boxes;
+
+function nms(boxes, thr = 0.3) {
   const sorted = [...boxes].sort((a, b) => (b.score||0) - (a.score||0));
-  const grid = new Map();
   const keep = [];
-  for (const b of sorted) {
-    const gx = Math.floor(b.x / cell), gy = Math.floor(b.y / cell);
-    let suppressed = false;
-    for (let dy = -1; dy <= 1 && !suppressed; dy++)
-      for (let dx = -1; dx <= 1 && !suppressed; dx++) {
-        const arr = grid.get((gx+dx) + ',' + (gy+dy));
-        if (arr) for (const k of arr) if (iou(k, b) > thr) { suppressed = true; break; }
-      }
-    if (!suppressed) {
-      keep.push(b);
-      const key = gx + ',' + gy;
-      if (!grid.has(key)) grid.set(key, []);
-      grid.get(key).push(b);
-    }
-  }
+  for (const b of sorted) if (keep.every(k => iou(k, b) < thr)) keep.push(b);
   return keep;
 }
+
 function erode(mask, w, h) {
   const out = new Uint8Array(w*h);
   for (let y = 1; y < h-1; y++) for (let x = 1; x < w-1; x++) {
@@ -379,6 +172,7 @@ function erode(mask, w, h) {
   }
   return out;
 }
+
 function dilate(mask, w, h) {
   const out = new Uint8Array(w*h);
   for (let y = 1; y < h-1; y++) for (let x = 1; x < w-1; x++) {
@@ -390,6 +184,7 @@ function dilate(mask, w, h) {
   }
   return out;
 }
+
 function connectedComponents(mask, w, h, minArea = 20) {
   const labels = new Int32Array(w*h).fill(-1);
   const comps = [];
@@ -420,219 +215,9 @@ function connectedComponents(mask, w, h, minArea = 20) {
   }
   return comps;
 }
-function otsuThreshold(gray, x0, y0, w, h) {
-  const hist = new Uint32Array(256);
-  let total = 0;
-  for (let y = y0; y < y0 + h; y++)
-    for (let x = x0; x < x0 + w; x++) { hist[gray[y*W + x]]++; total++; }
-  let sum = 0;
-  for (let i = 0; i < 256; i++) sum += i * hist[i];
-  let sumB = 0, wB = 0, maxVar = 0, thr = 128;
-  for (let t = 0; t < 256; t++) {
-    wB += hist[t]; if (!wB) continue;
-    const wF = total - wB; if (!wF) break;
-    sumB += t * hist[t];
-    const mB = sumB / wB, mF = (sum - sumB) / wF;
-    const v = wB * wF * (mB - mF) * (mB - mF);
-    if (v > maxVar) { maxVar = v; thr = t; }
-  }
-  return thr;
-}
-function hueOf(r, g, b) {
-  const max = Math.max(r,g,b), min = Math.min(r,g,b);
-  if (max === min) return 0;
-  let h;
-  if (max === r) h = 60*(((g-b)/(max-min))%6);
-  else if (max === g) h = 60*((b-r)/(max-min)+2);
-  else h = 60*((r-g)/(max-min)+4);
-  return h < 0 ? h + 360 : h;
-}
-function saturationOf(r, g, b) {
-  const max = Math.max(r,g,b), min = Math.min(r,g,b);
-  return max === 0 ? 0 : (max - min) / max;
-}
-function colorEyeScore(r, g, b) {
-  const s = saturationOf(r, g, b);
-  const h = hueOf(r, g, b);
-  return (s > 0.35 && (h < 15 || h > 50)) ? 1 : 0;
-}
-function symmetryScore(g, b) {
-  const x0 = Math.max(0, b.x), x1 = Math.min(W, b.x + b.w);
-  const y0 = Math.max(0, b.y), y1 = Math.min(H, b.y + b.h);
-  const bw = x1 - x0, half = Math.floor(bw / 2);
-  let sad = 0, n = 0;
-  for (let y = y0; y < y1; y++) for (let x = 0; x < half; x++) {
-    sad += Math.abs(g[y*W + x0+x] - g[y*W + x1-1-x]); n++;
-  }
-  if (!n) return 0;
-  return Math.max(0, Math.min(1, 1 - (sad / n) / 255));
-}
 
 // ============================================================
-// ПРОВЕРКИ (возвращают boolean, используются как бонусы)
-// ============================================================
-function hasHighlight(d, e, minRatio = 0.008) {
-  const x0 = e.x, y0 = e.y, w = e.w, h = e.h;
-  if (w < 3 || h < 3) return false;
-  let mean = 0, total = 0;
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const idx = ((y0 + y) * W + (x0 + x)) * 4;
-    mean += (d[idx] + d[idx+1] + d[idx+2]) / 3;
-    total++;
-  }
-  mean /= total;
-  let bright = 0;
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const idx = ((y0 + y) * W + (x0 + x)) * 4;
-    const v = (d[idx] + d[idx+1] + d[idx+2]) / 3;
-    if (v > mean + 50) bright++;
-  }
-  return bright / total > minRatio;
-}
-function darkerTop(d, e, factor = 0.95) {
-  const x0 = e.x, y0 = e.y, w = e.w, h = e.h;
-  if (h < 4) return true;
-  const third = Math.max(1, Math.floor(h / 3));
-  let top = 0, bot = 0, nTop = 0, nBot = 0;
-  for (let y = 0; y < third; y++) for (let x = 0; x < w; x++) {
-    const idx = ((y0 + y) * W + (x0 + x)) * 4;
-    top += (d[idx] + d[idx+1] + d[idx+2]) / 3; nTop++;
-  }
-  for (let y = h - third; y < h; y++) for (let x = 0; x < w; x++) {
-    const idx = ((y0 + y) * W + (x0 + x)) * 4;
-    bot += (d[idx] + d[idx+1] + d[idx+2]) / 3; nBot++;
-  }
-  if (!nTop || !nBot) return true;
-  return (top / nTop) <= (bot / nBot) * factor;
-}
-function skinUnderEye(skin, e, span, minRatio = 0.35) {
-  const x0 = e.x;
-  const y0 = e.y + e.h + Math.max(2, Math.round(span * 0.10));
-  const w = e.w;
-  const h = Math.max(3, Math.round(span * 0.15));
-  if (y0 + h >= H) return true;
-  let skinCount = 0, total = 0;
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const gx = x0 + x, gy = y0 + y;
-    if (gx >= 0 && gx < W && gy >= 0 && gy < H) {
-      if (skin[gy * W + gx]) skinCount++;
-      total++;
-    }
-  }
-  return total > 0 && skinCount / total > minRatio;
-}
-function skinBridge(skin, e1, e2, minRatio = 0.55) {
-  const cx1 = e1.x + e1.w/2, cx2 = e2.x + e2.w/2;
-  const cy = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
-  const span = Math.abs(cx1 - cx2);
-  const stripH = Math.max(2, Math.round(span * 0.08));
-  let skinCount = 0, total = 0;
-  for (let x = Math.round(Math.min(cx1, cx2)); x <= Math.round(Math.max(cx1, cx2)); x++) {
-    for (let dy = -stripH; dy <= stripH; dy++) {
-      const y = Math.round(cy + dy);
-      if (x >= 0 && x < W && y >= 0 && y < H) {
-        if (skin[y * W + x]) skinCount++;
-        total++;
-      }
-    }
-  }
-  return total > 0 && skinCount / total > minRatio;
-}
-
-// ============================================================
-// НОС / РОТ / ПОЛНОТА / ПОДБОРОДОК — БОНУСЫ
-// ============================================================
-function mouthBonus(d, eyes) {
-  const [e1, e2] = eyes;
-  const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
-  const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
-  const span = Math.abs((e1.x+e1.w/2) - (e2.x+e2.w/2)) + (e1.w+e2.w)/2;
-  const zy = Math.round(cyEyes + span * 0.7);
-  const zw = Math.round(span * 1.0);
-  const zx = Math.round(cx - zw / 2);
-  const zh = Math.round(span * 0.6);
-  if (zx < 0 || zy < 0 || zx + zw >= W || zy + zh >= H) return 0;
-  const rows = new Int32Array(zh);
-  for (let y = 0; y < zh; y++) for (let x = 0; x < zw; x++) {
-    const gx = zx + x, gy = zy + y;
-    const idx = (gy * W + gx) * 4;
-    const r = d[idx], g = d[idx+1], b = d[idx+2];
-    const bright = (r + g + b) / 3;
-    const cr = 128 + 0.5*r - 0.418688*g - 0.081312*b;
-    if (bright < 100 || cr > 150) rows[y]++;
-  }
-  let maxVal = 0;
-  for (let y = 0; y < zh; y++) if (rows[y] > maxVal) maxVal = rows[y];
-  const density = maxVal / zw;
-  if (density < 0.15) return 0;
-  if (density > 0.85) return 0;
-  return density > 0.3 ? 0.10 : 0.05;
-}
-function noseBonus(skin, eyes) {
-  const [e1, e2] = eyes;
-  const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
-  const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
-  const span = Math.abs((e1.x+e1.w/2) - (e2.x+e2.w/2)) + (e1.w+e2.w)/2;
-  const zx = Math.round(cx - span * 0.15);
-  const zy = Math.round(cyEyes + span * 0.15);
-  const zw = Math.round(span * 0.3);
-  const zh = Math.round(span * 0.5);
-  if (zx < 0 || zy < 0 || zx + zw >= W || zy + zh >= H) return 0;
-  let nonSkin = 0, total = 0;
-  for (let y = 0; y < zh; y++) for (let x = 0; x < zw; x++) {
-    const gx = zx + x, gy = zy + y;
-    if (!skin[gy * W + gx]) nonSkin++;
-    total++;
-  }
-  const ratio = nonSkin / total;
-  if (ratio < 0.05) return 0;
-  if (ratio > 0.6) return 0;
-  return 0.05;
-}
-function faceCompleteness(skin, eyes) {
-  const [e1, e2] = eyes;
-  const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
-  const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
-  const span = Math.abs((e1.x+e1.w/2) - (e2.x+e2.w/2)) + (e1.w+e2.w)/2;
-  const hY = Math.round(cyEyes);
-  const hX1 = Math.max(0, Math.round(cx - span * 0.6));
-  const hX2 = Math.min(W - 1, Math.round(cx + span * 0.6));
-  let hSkin = 0, hTotal = 0;
-  for (let x = hX1; x <= hX2; x++) {
-    if (skin[hY * W + x]) hSkin++;
-    hTotal++;
-  }
-  const hRatio = hTotal > 0 ? hSkin / hTotal : 0;
-  if (hRatio < 0.5) return 0;
-  const vTop = Math.round(cyEyes + span * 0.1);
-  const vBot = Math.min(H - 1, Math.round(cyEyes + span * 1.3));
-  let vSkin = 0, vTotal = 0;
-  const cxi = Math.round(cx);
-  for (let y = vTop; y <= vBot; y++) {
-    if (skin[y * W + cxi]) vSkin++;
-    vTotal++;
-  }
-  const vRatio = vTotal > 0 ? vSkin / vTotal : 0;
-  if (vRatio < 0.6) return 0;
-  return 0.05 + (hRatio > 0.7 ? 0.03 : 0) + (vRatio > 0.8 ? 0.02 : 0);
-}
-function chinBonusSimple(skin, b) {
-  const cx = b.x + b.w/2;
-  const yBot = b.y + b.h * 0.85;
-  let hits = 0, total = 0;
-  for (let y = Math.max(0, yBot); y < Math.min(H, b.y + b.h); y += 2) {
-    for (let x = cx - b.w*0.2; x < cx + b.w*0.2; x += 2) {
-      if (x >= 0 && x < W) {
-        if (skin[y*W + Math.round(x)]) hits++;
-        total++;
-      }
-    }
-  }
-  return total > 0 ? (hits / total) * 0.05 : 0;
-}
-
-// ============================================================
-// МЕТОДЫ
+// МЕТОДЫ-ДЕТЕКТОРЫ
 // ============================================================
 function methodSkin(threshold = 0.5) {
   const d = imgData.data;
@@ -655,25 +240,106 @@ function methodSkin(threshold = 0.5) {
   }
   return nms(boxes, 0.4);
 }
-function methodSkinMulti(threshold = 0.5) {
-  const orig = methodSkin(threshold);
-  const sw = Math.max(60, Math.round(W/2));
-  const sh = Math.max(60, Math.round(H/2));
-  const tmp = document.createElement('canvas');
-  tmp.width = sw; tmp.height = sh;
-  const tctx = tmp.getContext('2d');
-  tctx.drawImage(cv, 0, 0, sw, sh);
-  const smallData = tctx.getImageData(0, 0, sw, sh);
-  const saved = { W, H, imgData };
-  W = sw; H = sh; imgData = smallData;
-  const small = methodSkin(threshold).map(b => ({
-    x: b.x*2, y: b.y*2, w: b.w*2, h: b.h*2, score: b.score*0.85
-  }));
-  W = saved.W; H = saved.H; imgData = saved.imgData;
-  return nms([...orig, ...small], 0.4);
+
+function methodEyes(threshold = 0.5) {
+  const g = grayPixels();
+  const t = 60 + threshold * 40;
+  const mask = new Uint8Array(W*H);
+  for (let i = 0; i < g.length; i++) if (g[i] < t) mask[i] = 1;
+  const m2 = erode(mask, W, H);
+  const comps = connectedComponents(m2, W, H, 60);
+  const eyes = comps.filter(c => {
+    const ar = c.w / c.h;
+    const fill = c.area / (c.w*c.h);
+    return ar > 0.4 && ar < 2.5 && fill > 0.35 &&
+           c.area > 80 && c.area < W*H*0.05;
+  });
+  const boxes = [];
+  for (let i = 0; i < eyes.length; i++) for (let j = i+1; j < eyes.length; j++) {
+    const a = eyes[i], b = eyes[j];
+    const dy = Math.abs((a.y+a.h/2) - (b.y+b.h/2));
+    const dx = Math.abs((a.x+a.w/2) - (b.x+b.w/2));
+    const sizeAvg = (a.w + b.w) / 2;
+    if (dy > sizeAvg * 0.6) continue;
+    const ratio = dx / sizeAvg;
+    if (ratio < 1.2 || ratio > 4) continue;
+    if (Math.max(a.w,b.w) / Math.min(a.w,b.w) > 2) continue;
+    const cx = (a.x + a.w/2 + b.x + b.w/2) / 2;
+    const cyEyes = (a.y + a.h/2 + b.y + b.h/2) / 2;
+    const eyeSpan = dx + sizeAvg;
+    const fw = eyeSpan * 1.6, fh = fw * 1.3;
+    boxes.push({ x: cx - fw/2, y: cyEyes - fh * 0.42, w: fw, h: fh, score: 0.9 });
+  }
+  return nms(boxes, 0.3);
 }
+
+function makeEyeTemplate(size = 24) {
+  const t = new Float32Array(size*size);
+  const cx = size/2, cy = size/2;
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const dx = (x - cx) / (size*0.32), dy = (y - cy) / (size*0.45);
+    const r2 = dx*dx + dy*dy;
+    let v = r2 < 1 ? 0.15 : 0.9;
+    const bx = (x - cx*0.7) / (size*0.1), by = (y - cy*0.8) / (size*0.12);
+    if (bx*bx + by*by < 1) v = 1;
+    t[y*size + x] = v;
+  }
+  return { data: t, size };
+}
+
+function methodNCC(threshold = 0.5) {
+  const g = grayPixels();
+  const gF = new Float32Array(W*H);
+  for (let i = 0; i < g.length; i++) gF[i] = g[i] / 255;
+  const { data: T, size: S } = makeEyeTemplate(24);
+  const tMin = 0.45 + threshold * 0.3;
+  const I = new Float64Array((W+1)*(H+1));
+  const I2 = new Float64Array((W+1)*(H+1));
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const v = gF[y*W + x];
+    I[(y+1)*(W+1) + (x+1)]  = v   + I[y*(W+1)+(x+1)]     + I[(y+1)*(W+1)+x]     - I[y*(W+1)+x];
+    I2[(y+1)*(W+1) + (x+1)] = v*v + I2[y*(W+1)+(x+1)]    + I2[(y+1)*(W+1)+x]    - I2[y*(W+1)+x];
+  }
+  const STEP = 3, raw = [];
+  const sumT = T.reduce((a, b) => a + b, 0);
+  const sumT2 = T.reduce((a, b) => a + b*b, 0);
+  const N = S*S;
+  for (let y = 0; y + S < H; y += STEP) for (let x = 0; x + S < W; x += STEP) {
+    const a  = I[y*(W+1)+x],      b  = I[y*(W+1)+x+S];
+    const c  = I[(y+S)*(W+1)+x],  dd = I[(y+S)*(W+1)+x+S];
+    const sumI = dd - b - c + a;
+    const a2  = I2[y*(W+1)+x],     b2  = I2[y*(W+1)+x+S];
+    const c2  = I2[(y+S)*(W+1)+x], d2  = I2[(y+S)*(W+1)+x+S];
+    const sumI2 = d2 - b2 - c2 + a2;
+    let sumIT = 0;
+    for (let yy = 0; yy < S; yy++) for (let xx = 0; xx < S; xx++)
+      sumIT += gF[(y+yy)*W + (x+xx)] * T[yy*S + xx];
+    const num = sumIT - sumI*sumT/N;
+    const den = Math.sqrt((sumI2 - sumI*sumI/N) * (sumT2 - sumT*sumT/N));
+    const ncc = den > 1e-6 ? num / den : 0;
+    if (ncc > tMin) raw.push({ x, y, w: S, h: S, score: ncc });
+  }
+  const face = raw.map(b => {
+    const fw = b.w * 3, fh = fw * 1.3;
+    return { x: b.x - fw*0.28, y: b.y + b.h*0.1, w: fw, h: fh, score: b.score };
+  });
+  return nms(face, 0.25);
+}
+
+function symmetryScore(g, b) {
+  const x0 = Math.max(0, b.x), x1 = Math.min(W, b.x + b.w);
+  const y0 = Math.max(0, b.y), y1 = Math.min(H, b.y + b.h);
+  const bw = x1 - x0, half = Math.floor(bw / 2);
+  let sad = 0, n = 0;
+  for (let y = y0; y < y1; y++) for (let x = 0; x < half; x++) {
+    sad += Math.abs(g[y*W + x0+x] - g[y*W + x1-1-x]); n++;
+  }
+  if (!n) return 0;
+  return Math.max(0, Math.min(1, 1 - (sad / n) / 255));
+}
+
 function methodSymmetry(threshold = 0.5) {
-  const g = grayCached();
+  const g = grayPixels();
   const base = methodSkin(threshold);
   const out = [];
   for (const b of base) {
@@ -682,246 +348,72 @@ function methodSymmetry(threshold = 0.5) {
   }
   return out;
 }
-function methodConsensus(threshold = 0.5) {
-  const a = methodSkin(threshold);
-  const b = methodSymmetry(threshold);
-  const out = [];
-  for (const x of a) {
-    for (const y of b) {
-      if (iou(x, y) > 0.3) {
-        out.push({ ...x, score: Math.max(x.score, y.score) });
-        break;
-      }
-    }
-  }
-  return nms(out, 0.3);
-}
+
 function methodAll(threshold = 0.5) {
-  const g = grayCached();
-  const base = methodSkin(threshold);
-  const scored = base.map(x => ({
-    ...x,
-    score: (x.score||0) * 0.5 + symmetryScore(g, x) * 0.5
+  const g = grayPixels();
+  const a = methodSkin(threshold), b = methodEyes(threshold), c = methodNCC(threshold);
+  const all = [...a, ...b, ...c].map(x => ({
+    ...x, score: (x.score||0) * 0.5 + symmetryScore(g, x) * 0.5
   }));
-  return nms(scored, 0.3);
+  return nms(all.filter(b => symmetryScore(g, b) > 0.65), 0.3);
 }
 
 // ============================================================
-// ВЕРИФИКАЦИЯ (мягкая — проверки дают бонусы)
+// ПОИСК ГЛАЗ В ROI + ВЕРИФИКАЦИЯ ЛИЦА
 // ============================================================
-function roiLooksLikeFace(gray, roi) {
-  const rx = Math.max(0, roi.x|0), ry = Math.max(0, roi.y|0);
-  const rw = Math.min(W - rx, roi.w|0), rh = Math.min(H - ry, roi.h|0);
-  if (rw < 20 || rh < 20) return false;
-  let dark = 0, total = 0, min = 255, max = 0;
-  for (let y = 0; y < rh; y += 2) for (let x = 0; x < rw; x += 2) {
-    const v = gray[(ry+y)*W + (rx+x)];
-    if (v < 90) dark++;
-    if (v < min) min = v;
-    if (v > max) max = v;
-    total++;
-  }
-  const darkRatio = dark / total;
-  return (max - min) > 30 && darkRatio > 0.002 && darkRatio < 0.7;
-}
-
 function findEyesInROI(gray, roi) {
-  _rejectReasons = [];
+  const rx = Math.max(0, roi.x | 0);
+  const ry = Math.max(0, roi.y | 0);
+  const rw = Math.min(W - rx, roi.w | 0);
+  const rh = Math.min(H - ry, roi.h | 0);
+  if (rw < 20 || rh < 20) return null;
 
-  const eyeRoi = {
-    x: roi.x + roi.w * 0.05,
-    y: roi.y + roi.h * 0.10,
-    w: roi.w * 0.90,
-    h: roi.h * 0.70
-  };
-  const rx = Math.max(0, eyeRoi.x | 0);
-  const ry = Math.max(0, eyeRoi.y | 0);
-  const rw = Math.min(W - rx, eyeRoi.w | 0);
-  const rh = Math.min(H - ry, eyeRoi.h | 0);
-  if (rw < 20 || rh < 20) { _rejectReasons.push('roi<20'); return null; }
-  if (!roiLooksLikeFace(gray, eyeRoi)) { _rejectReasons.push('roi_looks_no_face'); return null; }
-
-  const d = imgData.data;
-  const useSat = document.getElementById('satPass')?.checked ?? false;
-
-  const t = Math.min(140, Math.max(70, otsuThreshold(gray, rx, ry, rw, rh)));
-  const darkMask = new Uint8Array(rw * rh);
+  let sum = 0;
   for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
-    if (gray[(ry + y)*W + (rx + x)] < t) darkMask[y*rw + x] = 1;
-  const d2 = erode(darkMask, rw, rh), d3 = dilate(d2, rw, rh);
-  const darkComps = connectedComponents(d3, rw, rh, 12);
+    sum += gray[(ry + y)*W + (rx + x)];
+  const mean = sum / (rw * rh);
+  const t = Math.min(115, mean * 0.6);
 
-  let satComps = [];
-  if (useSat) {
-    const satMask = new Uint8Array(rw * rh);
-    for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++) {
-      const gx = rx + x, gy = ry + y;
-      const idx = (gy * W + gx) * 4;
-      const r = d[idx], g = d[idx+1], b = d[idx+2];
-      if (saturationOf(r, g, b) > 0.45) satMask[y*rw + x] = 1;
-    }
-    const s2 = erode(satMask, rw, rh), s3 = dilate(s2, rw, rh);
-    satComps = connectedComponents(s3, rw, rh, 12);
-  }
+  const mask = new Uint8Array(rw * rh);
+  for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
+    if (gray[(ry + y)*W + (rx + x)] < t) mask[y*rw + x] = 1;
 
-  const allComps = [...darkComps];
-  for (const sc of satComps) {
-    let dup = false;
-    for (const dc of darkComps) {
-      const ix1 = Math.max(sc.x, dc.x), iy1 = Math.max(sc.y, dc.y);
-      const ix2 = Math.min(sc.x + sc.w, dc.x + dc.w);
-      const iy2 = Math.min(sc.y + sc.h, dc.y + dc.h);
-      if (ix2 > ix1 && iy2 > iy1) { dup = true; break; }
-    }
-    if (!dup) allComps.push(sc);
-  }
-
-  // мягкий фильтр компонентов
-  const eyes = allComps.filter(c => {
+  const m2 = erode(mask, rw, rh), m3 = dilate(m2, rw, rh);
+  const comps = connectedComponents(m3, rw, rh, 20);
+  const eyes = comps.filter(c => {
     const ar = c.w / c.h;
     const fill = c.area / (c.w * c.h);
-    return ar > 0.25 && ar < 4.0 && fill > 0.20 && c.area >= 8;
+    const areaRatio = c.area / (rw * rh);
+    return ar > 0.35 && ar < 3.0 && fill > 0.3 &&
+           areaRatio > 0.004 && areaRatio < 0.25;
   });
-  if (eyes.length < 2) {
-    _rejectReasons.push(`comps<2 (было ${eyes.length})`);
-    return null;
-  }
-
-  const useColor = document.getElementById('colorEyes')?.checked ?? false;
-  const useHue = document.getElementById('hueCheck')?.checked ?? false;
-  const useHetero = document.getElementById('hetero')?.checked ?? false;
-  const useBridge = document.getElementById('noseBridge')?.checked ?? false;
-  const useHighlight = document.getElementById('highlightCheck')?.checked ?? false;
-  const useLids = document.getElementById('lidsCheck')?.checked ?? false;
-  const useSkinUnder = document.getElementById('skinUnderCheck')?.checked ?? false;
-  const useTiltAdapt = document.getElementById('tiltAdaptive')?.checked ?? false;
-  const skin = skinCached();
+  if (eyes.length < 2) return null;
 
   let best = null, bestScore = -Infinity;
-  let pairsTried = 0;
-
   for (let i = 0; i < eyes.length; i++) for (let j = i + 1; j < eyes.length; j++) {
     const a = eyes[i], b = eyes[j];
     const ax = a.x + a.w/2, ay = a.y + a.h/2;
     const bx = b.x + b.w/2, by = b.y + b.h/2;
     const dx = Math.abs(ax - bx), dy = Math.abs(ay - by);
     const sAvg = (a.w + b.w) / 2;
-    if (sAvg < 2) continue;
-    const rel = dx / sAvg;
-    const dyRel = dy / sAvg;
-    pairsTried++;
-
-    // === ЖЁСТКИЕ ФИЛЬТРЫ (только геометрия и размер) ===
-    if (dyRel > 0.5) { _rejectReasons.push('dyRel>0.5'); continue; }
-    if (rel < 0.8 || rel > 5.0) { _rejectReasons.push('rel_out'); continue; }
-
     const sRatio = Math.max(a.w, b.w) / Math.min(a.w, b.w);
-    if (sRatio > 2.5) { _rejectReasons.push('size_ratio>2.5'); continue; }
-
-    const relWa = a.w / sAvg, relHa = a.h / sAvg;
-    const relWb = b.w / sAvg, relHb = b.h / sAvg;
-    if (relWa < 0.08 || relWa > 0.9) { _rejectReasons.push('relW_a'); continue; }
-    if (relWb < 0.08 || relWb > 0.9) { _rejectReasons.push('relW_b'); continue; }
-    if (relHa < 0.1 || relHa > 1.5) { _rejectReasons.push('relH_a'); continue; }
-    if (relHb < 0.1 || relHb > 1.5) { _rejectReasons.push('relH_b'); continue; }
-
-    const ea = { x: rx + a.x, y: ry + a.y, w: a.w, h: a.h };
-    const eb = { x: rx + b.x, y: ry + b.y, w: b.w, h: b.h };
-
-    // === БОНУСЫ (не отсекают, только добавляют) ===
-    let bonus = 0;
-    const bonusDetails = {};
-
-    const tiltFactor = useTiltAdapt ? Math.min(1, dyRel / 0.15) : 0;
-    const hlMin = 0.008 * (1 - 0.5 * tiltFactor);
-    const lidFactor = 0.95 + 0.1 * tiltFactor;
-    const underMin = 0.35 - 0.1 * tiltFactor;
-    const bridgeMin = 0.55 - 0.1 * tiltFactor;
-
-    if (useHighlight) {
-      const ok = hasHighlight(d, ea, hlMin) && hasHighlight(d, eb, hlMin);
-      bonusDetails.highlight = ok;
-      if (ok) bonus += 0.10;
-    }
-    if (useLids) {
-      const ok = darkerTop(d, ea, lidFactor) && darkerTop(d, eb, lidFactor);
-      bonusDetails.lids = ok;
-      if (ok) bonus += 0.05;
-    }
-    if (useSkinUnder) {
-      const ok = skinUnderEye(skin, ea, sAvg, underMin) && skinUnderEye(skin, eb, sAvg, underMin);
-      bonusDetails.skinUnder = ok;
-      if (ok) bonus += 0.05;
-    }
-    if (useBridge) {
-      const ok = skinBridge(skin, ea, eb, bridgeMin);
-      bonusDetails.bridge = ok;
-      if (ok) bonus += 0.10;
-    }
-
-    // геометрические бонусы
-    const dyRelSafe = Math.min(dyRel, 0.5);
-    if (dyRel < 0.10) bonus += 0.15;
-    else if (dyRel < 0.20) bonus += 0.05;
-    else bonus -= 0.10 * (dyRel - 0.20) / 0.30;
-
-    if (sRatio < 1.2) bonus += 0.10;
-
-    // цвет
-    let colorBonus = 0, hueA = 0, hueB = 0, satA = 0, satB = 0;
-    if (useColor || useHue || useSat) {
-      const getPix = e => {
-        const mx = e.x + (e.w>>1), my = e.y + (e.h>>1);
-        const idx = (my*W + mx) * 4;
-        return [d[idx], d[idx+1], d[idx+2]];
-      };
-      const pa = getPix(ea), pb = getPix(eb);
-      satA = saturationOf(pa[0], pa[1], pa[2]);
-      satB = saturationOf(pb[0], pb[1], pb[2]);
-      if (useColor) {
-        colorBonus = (colorEyeScore(pa[0], pa[1], pa[2]) +
-                      colorEyeScore(pb[0], pb[1], pb[2])) / 2;
-      }
-      if (useHue) {
-        hueA = hueOf(pa[0], pa[1], pa[2]);
-        hueB = hueOf(pb[0], pb[1], pb[2]);
-      }
-    }
-    let hueBonus = 0;
-    if (useHue) {
-      let dh = Math.abs(hueA - hueB);
-      if (dh > 180) dh = 360 - dh;
-      if (dh < 30) hueBonus = 0.20;
-      else if (dh < 60) hueBonus = 0.05;
-      // при разном цвете — 0 (не штрафуем)
-    }
-    const satBonus = (satA > 0.4 && satB > 0.4) ? 0.15 : 0;
-
-    // === ИТОГОВЫЙ БАЛЛ ===
-    const baseScore = (1 - Math.abs(rel - 2) / 3.0)   // мягче, чем раньше
-                    + bonus
-                    + colorBonus * 0.4
-                    + hueBonus
-                    + satBonus;
-
-    if (baseScore > bestScore) {
-      bestScore = baseScore;
-      best = [ea, eb];
-      best._bonusDetails = bonusDetails;
+    if (sAvg < 3) continue;
+    if (dy > sAvg * 0.7) continue;
+    const rel = dx / sAvg;
+    if (rel < 1.0 || rel > 4.5) continue;
+    if (sRatio > 2.2) continue;
+    const avgY = (ay + by) / 2;
+    if (avgY > rh * 0.8) continue;
+    const score = (1 - Math.abs(rel - 2) / 2.5) - dy / sAvg * 1.5 - (sRatio - 1) * 1.5;
+    if (score > bestScore) {
+      bestScore = score;
+      best = [
+        { x: rx + a.x, y: ry + a.y, w: a.w, h: a.h },
+        { x: rx + b.x, y: ry + b.y, w: b.w, h: b.h }
+      ];
     }
   }
-
-  if (pairsTried === 0) _rejectReasons.push('no_pairs');
-
-  if (best) {
-    const dbg = document.getElementById('debug');
-    if (dbg && dbg.checked) {
-      console.log('[eyes] best pair bonus:', best._bonusDetails,
-                  'score:', bestScore.toFixed(3), 'reject reasons:', _rejectReasons.slice(-5));
-    }
-    return { pair: best, score: Math.max(0, bestScore) };
-  }
-  return null;
+  return best ? { pair: best, score: Math.max(0, bestScore) } : null;
 }
 
 function verifyFaceByEyes(gray, faceBox) {
@@ -933,161 +425,20 @@ function verifyFaceByEyes(gray, faceBox) {
   const eyeSpan = Math.abs((e1.x + e1.w/2) - (e2.x + e2.w/2)) + (e1.w + e2.w)/2;
   const fw = Math.max(eyeSpan * 1.7, faceBox.w * 0.8);
   const fh = fw * 1.25;
-
-  let score = Math.max(0, Math.min(1, (faceBox.score||0.5) * 0.5 + 0.5 + res.score*0.05));
-
-  const d = imgData.data;
-  const skin = skinCached();
-
-  if (document.getElementById('mouthBonus')?.checked)
-    score = Math.min(1, score + mouthBonus(d, res.pair));
-  if (document.getElementById('noseBonus')?.checked)
-    score = Math.min(1, score + noseBonus(skin, res.pair));
-  if (document.getElementById('completeness')?.checked)
-    score = Math.min(1, score + faceCompleteness(skin, res.pair));
-  if (document.getElementById('chinBonus')?.checked)
-    score = Math.min(1, score + chinBonusSimple(skin, faceBox));
-
   return {
-    x: cx - fw/2, y: cyEyes - fh * 0.40, w: fw, h: fh,
-    score, eyes: res.pair
+    x: cx - fw/2,
+    y: cyEyes - fh * 0.40,
+    w: fw,
+    h: fh,
+    score: Math.max(0, Math.min(1, (faceBox.score||0.5) * 0.5 + 0.5 + res.score*0.05)),
+    eyes: res.pair
   };
-}
-
-// ============================================================
-// ЗОНЫ
-// ============================================================
-function inAnyZone(box) {
-  if (!zones.length) return true;
-  const cx = box.x + box.w/2, cy = box.y + box.h/2;
-  for (const z of zones)
-    if (cx >= z.x && cx <= z.x + z.w && cy >= z.y && cy <= z.y + z.h) return true;
-  return false;
-}
-function makeAutoZones() {
-  if (!imgData) return [];
-  const d = imgData.data;
-  const mask = new Uint8Array(W*H);
-  for (let i = 0, j = 0; i < d.length; i += 4, j++) {
-    const r = d[i], g = d[i+1], b = d[i+2];
-    const cb = 128 - 0.168736*r - 0.331264*g + 0.5*b;
-    const cr = 128 + 0.5*r - 0.418688*g - 0.081312*b;
-    if (cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173) mask[j] = 1;
-  }
-  const m2 = erode(mask, W, H), m3 = dilate(m2, W, H);
-  const comps = connectedComponents(m3, W, H, Math.round(W*H*0.005));
-  const zs = [];
-  for (const c of comps) {
-    const fill = c.area / (c.w*c.h);
-    const ar = c.h / c.w;
-    if (fill < 0.25) continue;
-    if (ar < 0.3 || ar > 2.5) continue;
-    const ex = c.w * 0.2, ey = c.h * 0.2;
-    const x = Math.max(0, c.x - ex), y = Math.max(0, c.y - ey);
-    zs.push({ x, y, w: Math.min(W - x, c.w + 2*ex), h: Math.min(H - y, c.h + 2*ey) });
-  }
-  return zs;
-}
-function updateZoneInfo() {
-  const el = document.getElementById('zoneInfo');
-  if (!el) return;
-  el.textContent = zones.length
-    ? `Зон: ${zones.length} · тап — выбрать, тянуть за ручки`
-    : 'Зон: 0 (поиск по всему изображению)';
-}
-function getScreenHandles(zone) {
-  const x0 = zone.x * view.scale + view.tx;
-  const y0 = zone.y * view.scale + view.ty;
-  const x1 = (zone.x + zone.w) * view.scale + view.tx;
-  const y1 = (zone.y + zone.h) * view.scale + view.ty;
-  const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
-  return {
-    nw: { x: x0, y: y0 }, n: { x: mx, y: y0 }, ne: { x: x1, y: y0 },
-    w:  { x: x0, y: my },                     e:  { x: x1, y: my },
-    sw: { x: x0, y: y1 }, s: { x: mx, y: y1 }, se: { x: x1, y: y1 }
-  };
-}
-function hitZone(sx, sy) {
-  if (selectedZone >= 0 && selectedZone < zones.length) {
-    const h = getScreenHandles(zones[selectedZone]);
-    for (const key in h) {
-      const dx = sx - h[key].x, dy = sy - h[key].y;
-      if (dx*dx + dy*dy < CORNER_HIT_PX * CORNER_HIT_PX)
-        return { type: 'resize', idx: selectedZone, handle: key };
-    }
-  }
-  for (let i = zones.length - 1; i >= 0; i--) {
-    const z = zones[i];
-    const s = imageToScreen(z.x, z.y);
-    const x1 = s.x + z.w * view.scale;
-    const y1 = s.y + z.h * view.scale;
-    if (sx >= s.x && sx <= x1 && sy >= s.y && sy <= y1)
-      return { type: 'move', idx: i };
-  }
-  return null;
-}
-
-// ============================================================
-// РИСОВАНИЕ
-// ============================================================
-function drawAll() {
-  if (!srcImage) return;
-  ctx.clearRect(0, 0, W, H);
-  ctx.drawImage(srcImage, 0, 0);
-
-  for (const b of lastBoxes) {
-    ctx.lineWidth = 2 / view.scale;
-    ctx.strokeStyle = '#4f9dff';
-    ctx.strokeRect(b.x, b.y, b.w, b.h);
-    ctx.fillStyle = '#4f9dff';
-    const fs = Math.max(10, 12 / view.scale);
-    ctx.font = `bold ${fs}px sans-serif`;
-    ctx.fillText(Math.round((b.score||0) * 100) + '%',
-      b.x, Math.max(fs, b.y - 4 / view.scale));
-    if (b.eyes) {
-      ctx.strokeStyle = '#ff4f9d';
-      for (const e of b.eyes) ctx.strokeRect(e.x, e.y, e.w, e.h);
-    }
-  }
-
-  for (let i = 0; i < zones.length; i++) {
-    const z = zones[i];
-    const isSel = i === selectedZone;
-    ctx.setLineDash([6/view.scale, 4/view.scale]);
-    ctx.lineWidth = (isSel ? 3 : 2) / view.scale;
-    ctx.strokeStyle = isSel ? '#ffd24f' : 'rgba(255,210,79,0.75)';
-    ctx.strokeRect(z.x, z.y, z.w, z.h);
-    if (isSel) {
-      ctx.fillStyle = 'rgba(255,210,79,0.08)';
-      ctx.fillRect(z.x, z.y, z.w, z.h);
-      ctx.setLineDash([]);
-      const sh = getScreenHandles(z);
-      const rImg = HANDLE_R_PX / view.scale;
-      for (const k in sh) {
-        const ix = (sh[k].x - view.tx) / view.scale;
-        const iy = (sh[k].y - view.ty) / view.scale;
-        ctx.fillStyle = '#ffd24f';
-        ctx.beginPath(); ctx.arc(ix, iy, rImg, 0, 7); ctx.fill();
-        ctx.strokeStyle = '#1e1e24'; ctx.lineWidth = 2 / view.scale;
-        ctx.beginPath(); ctx.arc(ix, iy, rImg, 0, 7); ctx.stroke();
-      }
-    }
-    ctx.setLineDash([]);
-  }
-
-  if (drawing) {
-    ctx.setLineDash([6/view.scale, 4/view.scale]);
-    ctx.lineWidth = 2 / view.scale;
-    ctx.strokeStyle = '#ff9d4f';
-    ctx.strokeRect(drawing.x, drawing.y, drawing.w, drawing.h);
-    ctx.setLineDash([]);
-  }
 }
 
 // ============================================================
 // UI
 // ============================================================
-const methods = { skin: methodSkin, skinMulti: methodSkinMulti, sym: methodSymmetry, consensus: methodConsensus, all: methodAll };
+const methods = { skin: methodSkin, eyes: methodEyes, ncc: methodNCC, sym: methodSymmetry, all: methodAll };
 let currentMethod = 'skin';
 
 document.querySelectorAll('input[name="m"]').forEach(r => {
@@ -1096,407 +447,72 @@ document.querySelectorAll('input[name="m"]').forEach(r => {
     document.querySelectorAll('.methods label').forEach(l =>
       l.classList.toggle('active', l.querySelector('input').checked));
     document.getElementById('desc').textContent = DESCR[currentMethod];
-    drawAll();
+    redraw();
     if (imgData) run();
   });
 });
 document.getElementById('desc').textContent = DESCR[currentMethod];
 
-let thrTimeout;
-on('thr', 'input', e => {
-  document.getElementById('thrV').textContent = e.target.value;
-  clearTimeout(thrTimeout);
-  thrTimeout = setTimeout(() => { if (imgData) run(); }, 200);
-});
+document.getElementById('thr').addEventListener('input', e =>
+  document.getElementById('thrV').textContent = e.target.value);
 
-on('btn', 'click', run);
-[
-  'verify','colorEyes','hueCheck','hetero','satPass',
-  'highlightCheck','lidsCheck','skinUnderCheck','noseBridge',
-  'mouthBonus','noseBonus','tiltAdaptive','completeness',
-  'chinBonus','zoneSoft','downscale'
-].forEach(id => on(id, 'change', () => { if (imgData) run(); }));
+document.getElementById('btn').addEventListener('click', run);
+document.getElementById('verify').addEventListener('change', () => { if (imgData) run(); });
 
-on('btnZoneMode', 'click', () => {
-  drawingMode = !drawingMode;
-  const btn = document.getElementById('btnZoneMode');
-  btn.classList.toggle('active', drawingMode);
-  btn.textContent = drawingMode ? '🖊 Разметка (ВКЛ)' : '🖊 Разметка (Z)';
-  wrap.classList.toggle('drawing', drawingMode);
-  if (!drawingMode) selectedZone = -1;
-  drawAll();
-});
-on('btnAutoZones', 'click', () => {
-  if (!imgData) return;
-  zones = makeAutoZones();
-  selectedZone = zones.length ? 0 : -1;
-  updateZoneInfo(); drawAll();
-  if (zones.length) run();
-});
-on('btnClearZones', 'click', () => {
-  zones = []; selectedZone = -1;
-  updateZoneInfo(); drawAll();
-  if (imgData) run();
-});
-
-on('zIn', 'click', () => zoomBy(1.25));
-on('zOut', 'click', () => zoomBy(0.8));
-on('zFit', 'click', fitToScreen);
-on('z1', 'click', () => {
-  const rw = wrap.clientWidth, rh = wrap.clientHeight;
-  const cx = rw / 2, cy = rh / 2;
-  const wx = (cx - view.tx) / view.scale;
-  const wy = (cy - view.ty) / view.scale;
-  view.scale = 1;
-  view.tx = cx - wx;
-  view.ty = cy - wy;
-  applyView();
-});
-
-// ============================================================
-// ВЗАИМОДЕЙСТВИЕ
-// ============================================================
-wrap.addEventListener('wheel', e => {
-  if (!imgData) return;
-  e.preventDefault();
-  const p = localPoint(e);
-  zoomBy(Math.exp(-e.deltaY * 0.0015), p.x, p.y);
-}, { passive: false });
-
-wrap.addEventListener('pointerdown', e => {
-  if (!imgData) return;
-  e.preventDefault();
-  try { wrap.setPointerCapture(e.pointerId); } catch (_) {}
-  const p = localPoint(e);
-  pointers.set(e.pointerId, p);
-  if (pointers.size === 2) {
-    const pts = [...pointers.values()];
-    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-    const center = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
-    gesture = { kind: 'pinch', startDist: dist, startCenter: center,
-                startScale: view.scale, startTx: view.tx, startTy: view.ty };
-    drawing = null; interaction = null;
-    drawAll();
-    return;
-  }
-  if (e.button === 1 || spaceDown) {
-    gesture = { kind: 'pan', startX: p.x, startY: p.y, startTx: view.tx, startTy: view.ty };
-    wrap.classList.add('panning');
-    return;
-  }
-  if (pointers.size !== 1) return;
-  const now = Date.now();
-  if (now - lastTap.time < 320 &&
-      Math.abs(p.x - lastTap.x) < 25 && Math.abs(p.y - lastTap.y) < 25) {
-    const hit = hitZone(p.x, p.y);
-    if (hit) {
-      zones.splice(hit.idx, 1);
-      selectedZone = -1;
-      updateZoneInfo(); drawAll();
-      lastTap.time = 0;
-      return;
-    } else {
-      fitToScreen();
-      lastTap.time = 0;
-      return;
+function drawResults(boxes) {
+  redraw();
+  for (const b of boxes) {
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#4f9dff';
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
+    ctx.fillStyle = '#4f9dff';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText(Math.round((b.score||0) * 100) + '%', b.x, Math.max(12, b.y - 4));
+    if (b.eyes) {
+      ctx.strokeStyle = '#ff4f9d';
+      ctx.lineWidth = 2;
+      for (const e of b.eyes) ctx.strokeRect(e.x, e.y, e.w, e.h);
     }
-  }
-  lastTap = { time: now, x: p.x, y: p.y };
-  if (drawingMode) {
-    const hit = hitZone(p.x, p.y);
-    if (hit && hit.type === 'resize') {
-      const z = zones[hit.idx];
-      interaction = { type: 'resize', idx: hit.idx, handle: hit.handle,
-                      startImg: screenToImage(p.x, p.y),
-                      orig: { x: z.x, y: z.y, w: z.w, h: z.h } };
-      return;
-    }
-    if (hit && hit.type === 'move') {
-      selectedZone = hit.idx;
-      const z = zones[hit.idx];
-      interaction = { type: 'move', idx: hit.idx,
-                      startImg: screenToImage(p.x, p.y),
-                      orig: { x: z.x, y: z.y, w: z.w, h: z.h } };
-      drawAll();
-      return;
-    }
-    const ip = screenToImage(p.x, p.y);
-    drawing = { x: ip.x, y: ip.y, w: 0, h: 0 };
-    selectedZone = -1;
-    drawAll();
-  } else {
-    const hit = hitZone(p.x, p.y);
-    if (hit) {
-      selectedZone = hit.idx;
-      drawAll();
-    } else {
-      selectedZone = -1;
-      gesture = { kind: 'pan', startX: p.x, startY: p.y, startTx: view.tx, startTy: view.ty };
-      wrap.classList.add('panning');
-      drawAll();
-    }
-  }
-});
-
-wrap.addEventListener('pointermove', e => {
-  if (!pointers.has(e.pointerId)) return;
-  const p = localPoint(e);
-  pointers.set(e.pointerId, p);
-  if (gesture && gesture.kind === 'pinch' && pointers.size >= 2) {
-    const pts = [...pointers.values()];
-    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-    const center = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
-    const scaleFactor = dist / gesture.startDist;
-    const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, gesture.startScale * scaleFactor));
-    const wx = (gesture.startCenter.x - gesture.startTx) / gesture.startScale;
-    const wy = (gesture.startCenter.y - gesture.startTy) / gesture.startScale;
-    view.scale = newScale;
-    view.tx = center.x - wx * newScale;
-    view.ty = center.y - wy * newScale;
-    applyView(); drawAll();
-    return;
-  }
-  if (gesture && gesture.kind === 'pan') {
-    view.tx = gesture.startTx + (p.x - gesture.startX);
-    view.ty = gesture.startTy + (p.y - gesture.startY);
-    applyView(); drawAll();
-    return;
-  }
-  if (pointers.size !== 1) return;
-  if (drawing) {
-    const ip = screenToImage(p.x, p.y);
-    drawing.w = ip.x - drawing.x;
-    drawing.h = ip.y - drawing.y;
-    drawAll();
-    return;
-  }
-  if (interaction) {
-    const ip = screenToImage(p.x, p.y);
-    const dx = ip.x - interaction.startImg.x;
-    const dy = ip.y - interaction.startImg.y;
-    const o = interaction.orig;
-    if (interaction.type === 'move') {
-      zones[interaction.idx] = {
-        x: Math.max(0, Math.min(W - o.w, o.x + dx)),
-        y: Math.max(0, Math.min(H - o.h, o.y + dy)),
-        w: o.w, h: o.h
-      };
-    } else if (interaction.type === 'resize') {
-      let x1 = o.x, y1 = o.y, x2 = o.x + o.w, y2 = o.y + o.h;
-      const hd = interaction.handle;
-      if (hd.includes('w')) x1 = o.x + dx;
-      if (hd.includes('e')) x2 = o.x + o.w + dx;
-      if (hd.includes('n')) y1 = o.y + dy;
-      if (hd.includes('s')) y2 = o.y + o.h + dy;
-      let nx = Math.min(x1, x2), ny = Math.min(y1, y2);
-      let nw = Math.abs(x2 - x1), nh = Math.abs(y2 - y1);
-      nx = Math.max(0, Math.min(W - 10, nx));
-      ny = Math.max(0, Math.min(H - 10, ny));
-      nw = Math.max(10, Math.min(W - nx, nw));
-      nh = Math.max(10, Math.min(H - ny, nh));
-      zones[interaction.idx] = { x: nx, y: ny, w: nw, h: nh };
-    }
-    drawAll();
-  }
-});
-
-function endPointer(e) {
-  pointers.delete(e.pointerId);
-  if (pointers.size < 2 && gesture && gesture.kind === 'pinch') gesture = null;
-  if (pointers.size === 0 && gesture && gesture.kind === 'pan') {
-    gesture = null;
-    wrap.classList.remove('panning');
-  }
-  if (drawing) {
-    if (drawing.w < 0) { drawing.x += drawing.w; drawing.w = -drawing.w; }
-    if (drawing.h < 0) { drawing.y += drawing.h; drawing.h = -drawing.h; }
-    if (drawing.w > 8 && drawing.h > 8) {
-      zones.push({ ...drawing });
-      selectedZone = zones.length - 1;
-    }
-    drawing = null;
-    updateZoneInfo(); drawAll();
-  }
-  if (interaction) {
-    interaction = null;
-    updateZoneInfo();
-    if (imgData) run();
   }
 }
-wrap.addEventListener('pointerup', endPointer);
-wrap.addEventListener('pointercancel', endPointer);
 
-window.addEventListener('keydown', e => {
-  if (e.code === 'Space' && !spaceDown && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-    spaceDown = true; wrap.style.cursor = 'grab'; e.preventDefault();
-  }
-  if (e.key === 'Enter' && imgData && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') run();
-  if ((e.key === 'z' || e.key === 'Z') && imgData && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA')
-    document.getElementById('btnZoneMode').click();
-  if ((e.key === 'Delete' || e.key === 'Backspace') && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-    zones = []; selectedZone = -1;
-    updateZoneInfo(); drawAll();
-    if (imgData) run();
-  }
-  if (e.key === '0') { if (imgData) fitToScreen(); }
-  if (e.key === '1') { if (imgData) document.getElementById('z1').click(); }
-});
-window.addEventListener('keyup', e => {
-  if (e.code === 'Space') { spaceDown = false; wrap.style.cursor = ''; }
-});
-
-on('btnSave', 'click', () => {
-  const a = document.createElement('a');
-  a.download = 'faces.png';
-  a.href = cv.toDataURL('image/png');
-  a.click();
-});
-
-['dragenter','dragover'].forEach(ev => wrap.addEventListener(ev, e => {
-  e.preventDefault(); wrap.classList.add('drag');
-}));
-['dragleave','drop'].forEach(ev => wrap.addEventListener(ev, e => {
-  e.preventDefault(); wrap.classList.remove('drag');
-}));
-wrap.addEventListener('drop', e => {
-  const f = e.dataTransfer.files[0];
-  if (f && f.type.startsWith('image/')) {
-    const r = new FileReader();
-    r.onload = ev => loadImage(ev.target.result);
-    r.readAsDataURL(f);
-  }
-});
-window.addEventListener('paste', e => {
-  for (const item of e.clipboardData.items) {
-    if (item.type.startsWith('image/')) {
-      const f = item.getAsFile();
-      const r = new FileReader();
-      r.onload = ev => loadImage(ev.target.result);
-      r.readAsDataURL(f);
-      break;
-    }
-  }
-});
-
-// ============================================================
-// ЗАПУСК
-// ============================================================
 function run() {
   if (!imgData) return;
-  const needVerify = document.getElementById('verify')?.checked ?? true;
-  const soft = document.getElementById('zoneSoft')?.checked ?? false;
-  const doDownscale = document.getElementById('downscale')?.checked ?? false;
-  const debug = document.getElementById('debug')?.checked ?? false;
-
-  const btn = document.getElementById('btn');
-  if (btn) btn.disabled = true;
+  const thr = +document.getElementById('thr').value / 100;
+  const needVerify = document.getElementById('verify').checked;
+  document.getElementById('btn').disabled = true;
   const t0 = performance.now();
 
   setTimeout(() => {
     try {
-      let detectScale = 1;
-      const saved = { W, H, imgData };
-      if (doDownscale && Math.max(W, H) > 1200) {
-        const s = 1200 / Math.max(W, H);
-        const dw = Math.round(W * s), dh = Math.round(H * s);
-        const tmp = document.createElement('canvas');
-        tmp.width = dw; tmp.height = dh;
-        tmp.getContext('2d').drawImage(cv, 0, 0, dw, dh);
-        W = dw; H = dh;
-        imgData = tmp.getContext('2d').getImageData(0, 0, dw, dh);
-        _grayCache = null; _skinCache = null;
-        detectScale = 1 / s;
-      }
+      const candidates = methods[currentMethod](thr);
+      let boxes;
 
-      const t1 = performance.now();
-      const candidates = methods[currentMethod](0.5);
-      const tDet = performance.now() - t1;
-
-      const t2 = performance.now();
-      let boxes = candidates;
-      let allRejects = [];
       if (needVerify) {
-        const gray = grayCached();
+        const gray = grayPixels();
         const verified = [];
-        for (const b of boxes) {
+        for (const b of candidates) {
           const v = verifyFaceByEyes(gray, b);
           if (v) verified.push(v);
-          else allRejects.push(..._rejectReasons);
         }
         boxes = nms(verified, 0.3);
       } else {
-        boxes = nms(boxes, 0.3);
-      }
-      const tVer = performance.now() - t2;
-
-      if (detectScale !== 1) {
-        boxes = boxes.map(b => ({
-          ...b,
-          x: b.x * detectScale, y: b.y * detectScale,
-          w: b.w * detectScale, h: b.h * detectScale,
-          eyes: b.eyes ? b.eyes.map(e => ({
-            x: e.x * detectScale, y: e.y * detectScale,
-            w: e.w * detectScale, h: e.h * detectScale
-          })) : undefined
-        }));
-        W = saved.W; H = saved.H; imgData = saved.imgData;
-        _grayCache = null; _skinCache = null;
+        boxes = candidates;
       }
 
-      let inZones = boxes.length, outZones = 0;
-      if (zones.length) {
-        if (soft) {
-          boxes = boxes.map(b => ({ ...b, score: (b.score||0) + (inAnyZone(b) ? 0.15 : 0) }));
-          inZones = boxes.filter(inAnyZone).length;
-          outZones = boxes.length - inZones;
-        } else {
-          const before = boxes.length;
-          boxes = boxes.filter(inAnyZone);
-          inZones = boxes.length;
-          outZones = before - inZones;
-        }
-      }
-
-      lastBoxes = boxes;
-      drawAll();
-      const sb = document.getElementById('btnSave');
-      if (sb) sb.disabled = boxes.length === 0;
-
-      // топ-3 причины отсева
-      let rejectHtml = '';
-      if (allRejects.length && boxes.length === 0) {
-        const summary = {};
-        allRejects.forEach(r => summary[r] = (summary[r] || 0) + 1);
-        const top = Object.entries(summary).sort((a, b) => b[1] - a[1]).slice(0, 3);
-        rejectHtml = '<br><span style="color:#ff9d4f">Отсев:</span> ' +
-          top.map(([k, v]) => `${k}×${v}`).join(', ');
-      }
+      drawResults(boxes);
 
       const dt = (performance.now() - t0).toFixed(0);
-      const st = document.getElementById('stat');
-      if (st) st.innerHTML =
-        `Метод: <b>${currentMethod}</b> | кандидатов: ${candidates.length} | ` +
-        `итог: <b>${boxes.length}</b>` +
-        (zones.length ? ` (в зонах: ${inZones}, вне: ${outZones})` : '') +
-        (detectScale !== 1 ? ` · downscale ×${(1/detectScale).toFixed(1)}` : '') + `<br>` +
-        `детектор: ${tDet.toFixed(0)} мс · верификация: ${tVer.toFixed(0)} мс · всего: ${dt} мс` +
-        rejectHtml;
-
-      if (debug && allRejects.length) {
-        const summary = {};
-        allRejects.forEach(r => summary[r] = (summary[r] || 0) + 1);
-        console.log('Все причины отсева:', summary);
-      }
-    } catch (err) {
-      drawAll();
-      const st = document.getElementById('stat');
-      if (st) st.textContent = 'Ошибка: ' + err.message;
-      console.error(err);
+      document.getElementById('stat').textContent =
+        `Метод: ${currentMethod} | кандидатов: ${candidates.length} | ` +
+        `после ${needVerify ? 'верификации' : 'NMS'}: ${boxes.length} | ${dt} мс`;
+    } catch (e) {
+      document.getElementById('stat').textContent = 'Ошибка: ' + e.message;
+      console.error(e);
     }
-    const btn = document.getElementById('btn');
-    if (btn) btn.disabled = false;
+    document.getElementById('btn').disabled = false;
   }, 10);
 }
 </script>
 </body>
- </html>
+</html>
