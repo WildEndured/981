@@ -61,7 +61,6 @@
 
 <div class="app">
   <aside class="side">
-    <!-- 1. Изображение -->
     <div class="panel">
       <h2>Изображение</h2>
       <input type="file" id="file" accept="image/*" style="width:100%; font-size:11px; margin-bottom:6px;">
@@ -72,7 +71,6 @@
       <div class="slider-row"><label>Порог</label><input type="range" id="thr" min="1" max="100" value="50" style="flex:1"><span id="thrV">50</span></div>
     </div>
 
-    <!-- 2. Метод -->
     <div class="panel">
       <h2>Метод-детектор</h2>
       <div class="methods" id="methods">
@@ -86,7 +84,6 @@
       <label class="toggle"><input type="checkbox" id="verify" checked> Верификация глазами</label>
     </div>
 
-    <!-- 3. Зоны -->
     <div class="panel">
       <h2>Зоны поиска</h2>
       <button id="btnZoneMode" class="gray" style="width:100%">🖊 Разметка (Z)</button>
@@ -146,6 +143,7 @@ let drawingMode = false;
 let drawing = null;
 let selectedZone = -1;
 let interaction = null;
+let tapStart = null;
 const HANDLE_R_PX = 14;
 const CORNER_HIT_PX = 22;
 
@@ -242,7 +240,7 @@ function loadImage(src) {
     ctx.drawImage(im, 0, 0);
     imgData = ctx.getImageData(0, 0, W, H);
 
-    lastBoxes = []; zones = []; selectedZone = -1;
+    lastBoxes = []; zones = []; selectedZone = -1; drawing = null; interaction = null;
     updateZoneInfo();
     wrap.classList.remove('empty');
     document.getElementById('btnSave').disabled = true;
@@ -266,7 +264,6 @@ function grayPixels() {
     g[j] = (0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2]) | 0;
   return g;
 }
-
 function iou(a, b) {
   const x1 = Math.max(a.x, b.x), y1 = Math.max(a.y, b.y);
   const x2 = Math.min(a.x+a.w, b.x+b.w), y2 = Math.min(a.y+a.h, b.y+b.h);
@@ -334,7 +331,7 @@ function connectedComponents(mask, w, h, minArea = 20) {
 }
 
 // ============================================================
-// МЕТОДЫ-ДЕТЕКТОРЫ (те же, что в рабочей версии)
+// МЕТОДЫ-ДЕТЕКТОРЫ
 // ============================================================
 function methodSkin(threshold = 0.5) {
   const d = imgData.data;
@@ -476,7 +473,7 @@ function methodAll(threshold = 0.5) {
 }
 
 // ============================================================
-// ПОИСК ГЛАЗ В ROI + ВЕРИФИКАЦИЯ (те же, что в рабочей)
+// ГЛАЗА В ROI + ВЕРИФИКАЦИЯ
 // ============================================================
 function findEyesInROI(gray, roi) {
   const rx = Math.max(0, roi.x | 0);
@@ -550,7 +547,7 @@ function verifyFaceByEyes(gray, faceBox) {
 }
 
 // ============================================================
-// ЗОНЫ (без фильтрации результатов — только разметка)
+// ЗОНЫ
 // ============================================================
 function updateZoneInfo() {
   const el = document.getElementById('zoneInfo');
@@ -558,7 +555,6 @@ function updateZoneInfo() {
     ? `Зон: ${zones.length} · тап — выбрать, тянуть за ручки`
     : 'Зон: 0';
 }
-
 function getScreenHandles(zone) {
   const x0 = zone.x * view.scale + view.tx;
   const y0 = zone.y * view.scale + view.ty;
@@ -668,7 +664,6 @@ document.getElementById('desc').textContent = DESCR[currentMethod];
 
 document.getElementById('thr').addEventListener('input', e =>
   document.getElementById('thrV').textContent = e.target.value);
-
 document.getElementById('btn').addEventListener('click', run);
 document.getElementById('verify').addEventListener('change', () => { if (imgData) run(); });
 
@@ -678,11 +673,10 @@ document.getElementById('btnZoneMode').addEventListener('click', () => {
   btn.classList.toggle('active', drawingMode);
   btn.textContent = drawingMode ? '🖊 Разметка (ВКЛ)' : '🖊 Разметка (Z)';
   wrap.classList.toggle('drawing', drawingMode);
-  if (!drawingMode) selectedZone = -1;
+  if (drawingMode) selectedZone = -1;
   drawAll();
 });
 document.getElementById('btnAutoZones').addEventListener('click', () => {
-  // просто копируем найденные лица в зоны — удобно для последующей работы
   if (!lastBoxes.length) return;
   zones = lastBoxes.map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h }));
   selectedZone = zones.length ? 0 : -1;
@@ -723,6 +717,7 @@ wrap.addEventListener('pointerdown', e => {
   try { wrap.setPointerCapture(e.pointerId); } catch (_) {}
   const p = localPoint(e);
   pointers.set(e.pointerId, p);
+  tapStart = { x: p.x, y: p.y, time: Date.now(), moved: false };
 
   if (pointers.size === 2) {
     const pts = [...pointers.values()];
@@ -740,24 +735,6 @@ wrap.addEventListener('pointerdown', e => {
     return;
   }
   if (pointers.size !== 1) return;
-
-  const now = Date.now();
-  if (now - lastTap.time < 320 &&
-      Math.abs(p.x - lastTap.x) < 25 && Math.abs(p.y - lastTap.y) < 25) {
-    const hit = hitZone(p.x, p.y);
-    if (hit) {
-      zones.splice(hit.idx, 1);
-      selectedZone = -1;
-      updateZoneInfo(); drawAll();
-      lastTap.time = 0;
-      return;
-    } else {
-      fitToScreen();
-      lastTap.time = 0;
-      return;
-    }
-  }
-  lastTap = { time: now, x: p.x, y: p.y };
 
   if (drawingMode) {
     const hit = hitZone(p.x, p.y);
@@ -799,6 +776,10 @@ wrap.addEventListener('pointermove', e => {
   if (!pointers.has(e.pointerId)) return;
   const p = localPoint(e);
   pointers.set(e.pointerId, p);
+
+  if (tapStart && Math.hypot(p.x - tapStart.x, p.y - tapStart.y) > 8) {
+    tapStart.moved = true;
+  }
 
   if (gesture && gesture.kind === 'pinch' && pointers.size >= 2) {
     const pts = [...pointers.values()];
@@ -859,13 +840,42 @@ wrap.addEventListener('pointermove', e => {
   }
 });
 
-function endPointer(e) {
+wrap.addEventListener('pointerup', e => {
+  if (!pointers.has(e.pointerId)) return;
+  const p = localPoint(e);
   pointers.delete(e.pointerId);
-  if (pointers.size < 2 && gesture && gesture.kind === 'pinch') gesture = null;
+
   if (pointers.size === 0 && gesture && gesture.kind === 'pan') {
     gesture = null;
     wrap.classList.remove('panning');
   }
+  if (pointers.size < 2 && gesture && gesture.kind === 'pinch') gesture = null;
+
+  // двойной тап — только если это был тап (без сдвига)
+  if (tapStart && !tapStart.moved && Date.now() - tapStart.time < 300) {
+    const now = Date.now();
+    if (now - lastTap.time < 320 &&
+        Math.abs(p.x - lastTap.x) < 25 && Math.abs(p.y - lastTap.y) < 25) {
+      const hit = hitZone(p.x, p.y);
+      if (hit) {
+        zones.splice(hit.idx, 1);
+        selectedZone = -1;
+        updateZoneInfo(); drawAll();
+        lastTap.time = 0;
+        tapStart = null;
+        return;
+      } else {
+        fitToScreen();
+        lastTap.time = 0;
+        tapStart = null;
+        return;
+      }
+    }
+    lastTap = { time: now, x: p.x, y: p.y };
+  }
+  tapStart = null;
+
+  // завершение рисования — ТОЛЬКО здесь создаём зону
   if (drawing) {
     if (drawing.w < 0) { drawing.x += drawing.w; drawing.w = -drawing.w; }
     if (drawing.h < 0) { drawing.y += drawing.h; drawing.h = -drawing.h; }
@@ -880,9 +890,17 @@ function endPointer(e) {
     interaction = null;
     updateZoneInfo();
   }
-}
-wrap.addEventListener('pointerup', endPointer);
-wrap.addEventListener('pointercancel', endPointer);
+});
+
+wrap.addEventListener('pointercancel', e => {
+  pointers.delete(e.pointerId);
+  // не сбрасываем drawing — ждём pointerup
+  if (!drawing) {
+    gesture = null;
+    interaction = null;
+    wrap.classList.remove('panning');
+  }
+});
 
 window.addEventListener('keydown', e => {
   if (e.code === 'Space' && !spaceDown && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
