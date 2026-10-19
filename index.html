@@ -2,13 +2,13 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Anime Face Detector — eyes + nose + mouth (circles)</title>
+<title>Anime Face Detector — eyes + nose + mouth (with radius controls)</title>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; font-family: system-ui, sans-serif; background: #1e1e24; color: #e5e5ea; }
   header { padding: 12px 20px; background: #2a2a33; border-bottom: 1px solid #3a3a45; }
   h1 { margin: 0; font-size: 18px; }
-  .wrap { display: grid; grid-template-columns: 310px 1fr; gap: 16px; padding: 16px; }
+  .wrap { display: grid; grid-template-columns: 320px 1fr; gap: 16px; padding: 16px; }
   .panel { background: #26262e; padding: 14px; border-radius: 10px; }
   .panel h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #9a9aa8; }
   .methods label { display: block; padding: 8px 10px; border-radius: 6px; cursor: pointer; margin-bottom: 6px; background: #1e1e24; border: 1px solid transparent; font-size: 13px; }
@@ -25,7 +25,7 @@
   button:disabled { opacity: .4; cursor: default; }
   .stat { font-size: 12px; color: #b0b0be; margin-top: 8px; line-height: 1.4; }
   .slider-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; }
-  .slider-row span { width: 40px; text-align: right; color: #9a9aa8; }
+  .slider-row span { width: 44px; text-align: right; color: #9a9aa8; }
   .toggle { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: #c0c0cc; cursor: pointer; user-select: none; }
   .toggle input { cursor: pointer; }
   .legend { font-size: 11px; color: #88889a; margin-top: 10px; line-height: 1.9; }
@@ -33,12 +33,12 @@
   .legend .d { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px dashed; vertical-align: middle; }
   select { background: #1e1e24; color: #e5e5ea; border: 1px solid #3a3a45; border-radius: 4px; padding: 3px 6px; font-size: 12px; }
   .slider-row.small { font-size: 12px; }
-  .slider-row.small input { max-width: 120px; }
-  .slider-row.small label { min-width: 60px; }
+  .slider-row.small input { max-width: 130px; }
+  .slider-row.small label { min-width: 70px; }
 </style>
 </head>
 <body>
-<header><h1>🎨 Anime Face Detector — eyes + nose + mouth (circular search)</h1></header>
+<header><h1>🎨 Anime Face Detector — eyes + nose + mouth (radius controls)</h1></header>
 <div class="wrap">
   <div>
     <div class="panel">
@@ -76,6 +76,33 @@
         <label>Мин. балл</label>
         <input type="range" id="vScore" min="0" max="100" value="55" style="flex:1">
         <span id="vScoreV">55</span>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <h2>Радиусы зон (% от span)</h2>
+      <div class="slider-row small">
+        <label>Радиус носа</label>
+        <input type="range" id="rNose" min="10" max="80" value="35">
+        <span id="rNoseV">35%</span>
+      </div>
+      <div class="slider-row small">
+        <label>Сдвиг носа</label>
+        <input type="range" id="offNose" min="10" max="80" value="35">
+        <span id="offNoseV">35%</span>
+      </div>
+      <div class="slider-row small">
+        <label>Радиус рта</label>
+        <input type="range" id="rMouth" min="15" max="100" value="45">
+        <span id="rMouthV">45%</span>
+      </div>
+      <div class="slider-row small">
+        <label>Сдвиг рта</label>
+        <input type="range" id="offMouth" min="40" max="120" value="70">
+        <span id="offMouthV">70%</span>
+      </div>
+      <div class="stat" style="font-size:11px; margin-top:6px;">
+        «Сдвиг рта» — используется, только если нос не найден.
       </div>
     </div>
 
@@ -148,12 +175,10 @@ document.getElementById('btn2').addEventListener('click', () => {
   g.fillStyle = '#fff';
   g.beginPath(); g.arc(186, 210, 10, 0, 7); g.fill();
   g.beginPath(); g.arc(296, 210, 10, 0, 7); g.fill();
-  // нос
   g.fillStyle = '#e0b090';
   g.beginPath(); g.ellipse(250, 280, 8, 12, 0, 0, 7); g.fill();
   g.fillStyle = '#8a5540';
   g.beginPath(); g.ellipse(250, 288, 6, 3, 0, 0, 7); g.fill();
-  // рот
   g.strokeStyle = '#c04060'; g.lineWidth = 5;
   g.beginPath(); g.moveTo(225, 330); g.quadraticCurveTo(250, 345, 275, 330); g.stroke();
   loadImage(c.toDataURL());
@@ -459,7 +484,7 @@ function findEyesInROI(gray, roi) {
 }
 
 // ============================================================
-// МАСКА КОЖИ (для носа/рта)
+// МАСКА КОЖИ
 // ============================================================
 function buildSkinMask() {
   const d = imgData.data;
@@ -474,7 +499,7 @@ function buildSkinMask() {
 }
 
 // ============================================================
-// ГЕОМЕТРИЯ ЛИЦА ОТ ГЛАЗ
+// ГЕОМЕТРИЯ ПО ГЛАЗАМ
 // ============================================================
 function eyeGeometry(eyes) {
   const [e1, e2] = eyes;
@@ -489,7 +514,7 @@ function eyeGeometry(eyes) {
 }
 
 // ============================================================
-// КРУГОВОЙ СКАН: маска не-кожи + тёмное/красное
+// СКАН В КРУГЕ
 // ============================================================
 function scanCircle(gray, skin, cx, cy, radius, options = {}) {
   const { redBias = 0, darkBias = 1 } = options;
@@ -526,12 +551,15 @@ function scanCircle(gray, skin, cx, cy, radius, options = {}) {
 }
 
 // ============================================================
-// НОС: круг под центром глаз
+// НОС (с параметрами радиуса и сдвига)
 // ============================================================
-function findNoseInCircle(gray, skin, eyes) {
+function findNoseInCircle(gray, skin, eyes, geo) {
   const { cx, cy, span } = eyeGeometry(eyes);
-  const radius = Math.max(6, span * 0.35);
-  const expectY = cy + span * 0.35;
+  const rFrac = geo?.radiusNose  ?? 0.35;
+  const oFrac = geo?.offsetNose  ?? 0.35;
+
+  const radius  = Math.max(4, span * rFrac);
+  const expectY = cy + span * oFrac;
 
   const sc = scanCircle(gray, skin, cx, expectY, radius, { redBias: 0, darkBias: 1 });
   if (!sc) return null;
@@ -562,16 +590,18 @@ function findNoseInCircle(gray, skin, eyes) {
 }
 
 // ============================================================
-// РОТ: круг под носом (или под глазами)
+// РОТ (с параметрами радиуса и сдвига)
 // ============================================================
-function findMouthInCircle(gray, skin, eyes, nose) {
+function findMouthInCircle(gray, skin, eyes, nose, geo) {
   const { cx, cy, span } = eyeGeometry(eyes);
+  const rFrac = geo?.radiusMouth ?? 0.45;
+  const oFrac = geo?.offsetMouth ?? 0.70;
 
   let baseY;
   if (nose) baseY = nose.y + nose.h + span * 0.15;
-  else      baseY = cy + span * 0.70;
+  else      baseY = cy + span * oFrac;
 
-  const radius = Math.max(8, span * 0.45);
+  const radius  = Math.max(6, span * rFrac);
   const expectY = baseY + radius * 0.4;
 
   const sc = scanCircle(gray, skin, cx, expectY, radius, { redBias: 1, darkBias: 1 });
@@ -604,15 +634,20 @@ function findMouthInCircle(gray, skin, eyes, nose) {
 }
 
 // ============================================================
-// ПОЛНАЯ ВЕРИФИКАЦИЯ
+// ВЕРИФИКАЦИЯ
 // ============================================================
 function verifyFaceFull(gray, skin, faceBox, opts) {
   const eyesRes = findEyesInROI(gray, faceBox);
   if (!eyesRes) return null;
   const eyes = eyesRes.pair;
 
-  const nose  = opts.noseMode  !== 'off' ? findNoseInCircle(gray, skin, eyes) : null;
-  const mouth = opts.mouthMode !== 'off' ? findMouthInCircle(gray, skin, eyes, nose) : null;
+  const geo = {
+    radiusNose: opts.radiusNose, offsetNose: opts.offsetNose,
+    radiusMouth: opts.radiusMouth, offsetMouth: opts.offsetMouth
+  };
+
+  const nose  = opts.noseMode  !== 'off' ? findNoseInCircle(gray, skin, eyes, geo) : null;
+  const mouth = opts.mouthMode !== 'off' ? findMouthInCircle(gray, skin, eyes, nose, geo) : null;
 
   if (opts.noseMode  === 'require' && !nose)  return null;
   if (opts.mouthMode === 'require' && !mouth) return null;
@@ -659,6 +694,14 @@ document.getElementById('vScore').addEventListener('input', e =>
 ['vEyes', 'vNose', 'vMouth'].forEach(id => document.getElementById(id)
   .addEventListener('change', () => { if (imgData) run(); }));
 
+['rNose', 'rMouth', 'offNose', 'offMouth'].forEach(id => {
+  document.getElementById(id).addEventListener('input', e => {
+    const v = e.target.value;
+    document.getElementById(id + 'V').textContent = v + '%';
+    if (imgData) run();
+  });
+});
+
 document.getElementById('btn').addEventListener('click', run);
 document.getElementById('btnZones').addEventListener('click', () => {
   showZones = !showZones;
@@ -671,25 +714,33 @@ document.getElementById('btnZones').addEventListener('click', () => {
 function drawResults(boxes) {
   redraw();
 
+  const rNFrac = +document.getElementById('rNose').value / 100;
+  const rMFrac = +document.getElementById('rMouth').value / 100;
+  const oNFrac = +document.getElementById('offNose').value / 100;
+  const oMFrac = +document.getElementById('offMouth').value / 100;
+
   for (const b of boxes) {
-    // зоны диагностики
     if (showZones && b.eyes) {
       const { cx, cy, span } = eyeGeometry(b.eyes);
 
       ctx.setLineDash([4, 4]);
 
       // зона носа
-      ctx.strokeStyle = 'rgba(255,210,79,0.5)';
-      const rN = Math.max(6, span * 0.35);
-      const yN = cy + span * 0.35;
+      ctx.strokeStyle = 'rgba(255,210,79,0.55)';
+      const rN = Math.max(4, span * rNFrac);
+      const yN = cy + span * oNFrac;
       ctx.beginPath(); ctx.arc(cx, yN, rN, 0, 7); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,210,79,0.9)';
+      ctx.beginPath(); ctx.arc(cx, yN, 1.5, 0, 7); ctx.fill();
 
       // зона рта
-      ctx.strokeStyle = 'rgba(79,255,161,0.5)';
-      const rM = Math.max(8, span * 0.45);
-      const baseY = b.nose ? b.nose.y + b.nose.h + span * 0.15 : cy + span * 0.70;
+      ctx.strokeStyle = 'rgba(79,255,161,0.55)';
+      const rM = Math.max(6, span * rMFrac);
+      const baseY = b.nose ? b.nose.y + b.nose.h + span * 0.15 : cy + span * oMFrac;
       const yM = baseY + rM * 0.4;
       ctx.beginPath(); ctx.arc(cx, yM, rM, 0, 7); ctx.stroke();
+      ctx.fillStyle = 'rgba(79,255,161,0.9)';
+      ctx.beginPath(); ctx.arc(cx, yM, 1.5, 0, 7); ctx.fill();
 
       ctx.setLineDash([]);
     }
@@ -730,6 +781,11 @@ function run() {
   const mouthMode = document.getElementById('vMouth').value;
   const minScore = +document.getElementById('vScore').value / 100;
 
+  const radiusNose  = +document.getElementById('rNose').value  / 100;
+  const radiusMouth = +document.getElementById('rMouth').value / 100;
+  const offsetNose  = +document.getElementById('offNose').value / 100;
+  const offsetMouth = +document.getElementById('offMouth').value / 100;
+
   document.getElementById('btn').disabled = true;
   const t0 = performance.now();
 
@@ -743,7 +799,10 @@ function run() {
         const skin = buildSkinMask();
         const verified = [];
         for (const b of candidates) {
-          const v = verifyFaceFull(gray, skin, b, { noseMode, mouthMode, minScore });
+          const v = verifyFaceFull(gray, skin, b, {
+            noseMode, mouthMode, minScore,
+            radiusNose, radiusMouth, offsetNose, offsetMouth
+          });
           if (v) verified.push(v);
         }
         boxes = nms(verified, 0.3);
@@ -753,7 +812,8 @@ function run() {
 
       const dt = (performance.now() - t0).toFixed(0);
       document.getElementById('stat').textContent =
-        `Метод: ${currentMethod} | кандидатов: ${candidates.length} | прошло: ${boxes.length} | ${dt} мс`;
+        `Метод: ${currentMethod} | кандидатов: ${candidates.length} | прошло: ${boxes.length} | ` +
+        `rN=${Math.round(radiusNose*100)}% rM=${Math.round(radiusMouth*100)}% | ${dt} мс`;
     } catch (e) {
       document.getElementById('stat').textContent = 'Ошибка: ' + e.message;
       console.error(e);
