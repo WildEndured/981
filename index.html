@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Anime Face Detector — canvas + zones</title>
+<title>Anime Face Detector — canvas + zones + filter</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; }
@@ -33,6 +33,7 @@
   button.gray:hover { background: #4a4a55; }
   button.active { background: #ff9d4f; }
   .stat { font-size: 11px; color: #b0b0be; margin-top: 8px; line-height: 1.4; }
+  .stat b { color: #e5e5ea; }
   .slider-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; }
   .slider-row span { width: 40px; text-align: right; color: #9a9aa8; }
   .toggle { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: #c0c0cc; cursor: pointer; user-select: none; }
@@ -55,7 +56,7 @@
 </head>
 <body>
 <header>
-  <h1>🎨 Anime Face Detector — canvas + zones</h1>
+  <h1>🎨 Anime Face Detector — zones filter</h1>
   <span class="hint">колесо/пинч — зум · 2 пальца / пробел — пан · Enter — искать · Z — разметка</span>
 </header>
 
@@ -91,7 +92,7 @@
         <button id="btnAutoZones" class="gray">Авто-зоны</button>
         <button id="btnClearZones" class="gray">Очистить</button>
       </div>
-      <div class="zone-info" id="zoneInfo">Зон: 0</div>
+      <div class="zone-info" id="zoneInfo">Зон: 0 (поиск по всему изображению)</div>
     </div>
 
     <div class="panel">
@@ -133,11 +134,9 @@ let imgData = null, W = 0, H = 0;
 let srcImage = null;
 let lastBoxes = [];
 
-// viewport
 const view = { scale: 1, tx: 0, ty: 0 };
 const MIN_SCALE = 0.05, MAX_SCALE = 32;
 
-// зоны
 let zones = [];
 let drawingMode = false;
 let drawing = null;
@@ -147,7 +146,6 @@ let tapStart = null;
 const HANDLE_R_PX = 14;
 const CORNER_HIT_PX = 22;
 
-// жесты
 const pointers = new Map();
 let gesture = null;
 let spaceDown = false;
@@ -240,7 +238,7 @@ function loadImage(src) {
     ctx.drawImage(im, 0, 0);
     imgData = ctx.getImageData(0, 0, W, H);
 
-    lastBoxes = []; zones = []; selectedZone = -1; drawing = null; interaction = null;
+    lastBoxes = []; zones = []; selectedZone = -1; drawing = null; interaction = null; tapStart = null;
     updateZoneInfo();
     wrap.classList.remove('empty');
     document.getElementById('btnSave').disabled = true;
@@ -549,11 +547,18 @@ function verifyFaceByEyes(gray, faceBox) {
 // ============================================================
 // ЗОНЫ
 // ============================================================
+function inAnyZone(box) {
+  if (!zones.length) return true;
+  const cx = box.x + box.w/2, cy = box.y + box.h/2;
+  for (const z of zones)
+    if (cx >= z.x && cx <= z.x + z.w && cy >= z.y && cy <= z.y + z.h) return true;
+  return false;
+}
 function updateZoneInfo() {
   const el = document.getElementById('zoneInfo');
   el.textContent = zones.length
-    ? `Зон: ${zones.length} · тап — выбрать, тянуть за ручки`
-    : 'Зон: 0';
+    ? `Зон: ${zones.length} · тап — выбрать, тянуть за ручки, двойной тап — удалить`
+    : 'Зон: 0 (поиск по всему изображению)';
 }
 function getScreenHandles(zone) {
   const x0 = zone.x * view.scale + view.tx;
@@ -681,10 +686,12 @@ document.getElementById('btnAutoZones').addEventListener('click', () => {
   zones = lastBoxes.map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h }));
   selectedZone = zones.length ? 0 : -1;
   updateZoneInfo(); drawAll();
+  if (imgData) run();
 });
 document.getElementById('btnClearZones').addEventListener('click', () => {
   zones = []; selectedZone = -1;
   updateZoneInfo(); drawAll();
+  if (imgData) run();
 });
 
 document.getElementById('zIn').addEventListener('click', () => zoomBy(1.25));
@@ -851,7 +858,6 @@ wrap.addEventListener('pointerup', e => {
   }
   if (pointers.size < 2 && gesture && gesture.kind === 'pinch') gesture = null;
 
-  // двойной тап — только если это был тап (без сдвига)
   if (tapStart && !tapStart.moved && Date.now() - tapStart.time < 300) {
     const now = Date.now();
     if (now - lastTap.time < 320 &&
@@ -863,6 +869,7 @@ wrap.addEventListener('pointerup', e => {
         updateZoneInfo(); drawAll();
         lastTap.time = 0;
         tapStart = null;
+        if (imgData) run();
         return;
       } else {
         fitToScreen();
@@ -875,26 +882,28 @@ wrap.addEventListener('pointerup', e => {
   }
   tapStart = null;
 
-  // завершение рисования — ТОЛЬКО здесь создаём зону
   if (drawing) {
     if (drawing.w < 0) { drawing.x += drawing.w; drawing.w = -drawing.w; }
     if (drawing.h < 0) { drawing.y += drawing.h; drawing.h = -drawing.h; }
-    if (drawing.w > 8 && drawing.h > 8) {
+    const sw = drawing.w * view.scale;
+    const sh = drawing.h * view.scale;
+    if (sw > 15 && sh > 15) {
       zones.push({ ...drawing });
       selectedZone = zones.length - 1;
     }
     drawing = null;
     updateZoneInfo(); drawAll();
+    if (imgData) run();
   }
   if (interaction) {
     interaction = null;
     updateZoneInfo();
+    if (imgData) run();
   }
 });
 
 wrap.addEventListener('pointercancel', e => {
   pointers.delete(e.pointerId);
-  // не сбрасываем drawing — ждём pointerup
   if (!drawing) {
     gesture = null;
     interaction = null;
@@ -912,6 +921,7 @@ window.addEventListener('keydown', e => {
   if ((e.key === 'Delete' || e.key === 'Backspace') && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
     zones = []; selectedZone = -1;
     updateZoneInfo(); drawAll();
+    if (imgData) run();
   }
   if (e.key === '0') { if (imgData) fitToScreen(); }
   if (e.key === '1') { if (imgData) document.getElementById('z1').click(); }
@@ -980,6 +990,16 @@ function run() {
         boxes = candidates;
       }
 
+      // === ФИЛЬТР ПО ЗОНАМ ===
+      let inZonesCount = boxes.length;
+      let outZonesCount = 0;
+      if (zones.length) {
+        const before = boxes.length;
+        boxes = boxes.filter(b => inAnyZone(b));
+        inZonesCount = boxes.length;
+        outZonesCount = before - inZonesCount;
+      }
+
       lastBoxes = boxes;
       drawAll();
       document.getElementById('btnSave').disabled = boxes.length === 0;
@@ -987,7 +1007,9 @@ function run() {
       const dt = (performance.now() - t0).toFixed(0);
       document.getElementById('stat').textContent =
         `Метод: ${currentMethod} | кандидатов: ${candidates.length} | ` +
-        `после ${needVerify ? 'верификации' : 'NMS'}: ${boxes.length} | ${dt} мс`;
+        `итог: ${boxes.length}` +
+        (zones.length ? ` (в зонах: ${inZonesCount}, вне: ${outZonesCount})` : '') +
+        ` | ${dt} мс`;
     } catch (err) {
       drawAll();
       document.getElementById('stat').textContent = 'Ошибка: ' + err.message;
