@@ -36,6 +36,7 @@
     background: #161b24;
     margin-bottom: 20px;
     display: block;
+    user-select: none;
   }
   .dropzone:hover, .dropzone.dragover {
     border-color: #7dd3fc;
@@ -46,7 +47,6 @@
   input[type=file] { display: none; }
 
   .canvas-wrap {
-    position: relative;
     display: none;
     max-width: 100%;
     margin: 0 auto 20px;
@@ -118,7 +118,7 @@
     color: #7dd3fc;
     font-variant-numeric: tabular-nums;
     font-size: 0.9rem;
-    min-width: 32px;
+    min-width: 42px;
     text-align: right;
   }
 
@@ -192,6 +192,19 @@
     height: 3px;
     border-radius: 2px;
   }
+
+  #err {
+    display: none;
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: #2a1518;
+    border: 1px solid #ff3c5a;
+    border-radius: 10px;
+    color: #ff8fa3;
+    font-family: monospace;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+  }
 </style>
 </head>
 <body>
@@ -199,11 +212,11 @@
   <h1>Определение художественной перспективы</h1>
   <p class="subtitle">Загрузите картину или фото — алгоритм найдёт линии, точку схода и горизонт</p>
 
-  <label class="dropzone" id="dropzone">
-    <input type="file" id="fileInput" accept="image/*">
+  <div class="dropzone" id="dropzone">
     <p><strong>Нажмите или перетащите изображение</strong></p>
     <p>PNG, JPG, WEBP</p>
-  </label>
+  </div>
+  <input type="file" id="fileInput" accept="image/*">
 
   <div class="canvas-wrap" id="canvasWrap">
     <canvas id="canvas"></canvas>
@@ -216,11 +229,12 @@
 
   <div class="slider-row" id="sliderRow">
     <label>Порог Хафа</label>
-    <input type="range" id="thresholdSlider" min="600" max="6000" step="200" value="800">
+    <input type="range" id="thresholdSlider" min="500" max="6000" step="100" value="800">
     <span class="val" id="thresholdVal">800</span>
   </div>
 
   <div id="loading">Анализ изображения…</div>
+  <div id="err"></div>
 
   <div class="legend" id="legend" style="display:none">
     <span><i style="background:#7dd3fc"></i>Вертикали</span>
@@ -233,6 +247,641 @@
   <div class="results" id="results" style="display:none"></div>
 </div>
 
-<script src="app.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ============ DOM ============
+  var $ = function (id) { return document.getElementById(id); };
+  var dropzone = $('dropzone');
+  var fileInput = $('fileInput');
+  var canvas = $('canvas');
+  var ctx = canvas.getContext('2d', { willReadFrequently: true });
+  var analyzeBtn = $('analyzeBtn');
+  var toggleLinesBtn = $('toggleLinesBtn');
+  var sliderRow = $('sliderRow');
+  var thresholdSlider = $('thresholdSlider');
+  var thresholdVal = $('thresholdVal');
+  var results = $('results');
+  var loading = $('loading');
+  var canvasWrap = $('canvasWrap');
+  var legend = $('legend');
+  var errBox = $('err');
+
+  // ============ State ============
+  var currentImage = null;
+  var baseCanvas = null;
+  var lastData = null;
+  var showLines = true;
+  var sliderTimer = null;
+
+  // ============ Error reporting ============
+  function showError(msg) {
+    errBox.style.display = 'block';
+    errBox.textContent = 'Ошибка: ' + msg;
+    console.error(msg);
+  }
+  function clearError() {
+    errBox.style.display = 'none';
+    errBox.textContent = '';
+  }
+
+  window.addEventListener('error', function (e) {
+    showError((e.message || 'unknown') + ' @ ' + (e.filename || '') + ':' + (e.lineno || ''));
+  });
+
+  // ============ File loading ============
+  function handleFile(file) {
+    clearError();
+    if (!file) return;
+    if (!file.type || file.type.indexOf('image/') !== 0) {
+      showError('Файл не является изображением (тип: ' + (file.type || 'неизвестен') + ')');
+      return;
+    }
+    var reader = new FileReader();
+    reader.onerror = function () { showError('Не удалось прочитать файл'); };
+    reader.onload = function (ev) {
+      var img = new Image();
+      img.onerror = function () { showError('Не удалось декодировать изображение'); };
+      img.onload = function () {
+        try {
+          currentImage = img;
+          var MAX = 900;
+          var scale = Math.min(1, MAX / Math.max(img.width, img.height));
+          var w = Math.max(1, Math.round(img.width * scale));
+          var h = Math.max(1, Math.round(img.height * scale));
+
+          canvas.width = w;
+          canvas.height = h;
+          ctx.clearRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+
+          // Чистая копия для перерисовок
+          baseCanvas = document.createElement('canvas');
+          baseCanvas.width = w;
+          baseCanvas.height = h;
+          baseCanvas.getContext('2d').drawImage(canvas, 0, 0);
+
+          canvasWrap.classList.add('visible');
+          analyzeBtn.disabled = false;
+          results.style.display = 'none';
+          legend.style.display = 'none';
+          sliderRow.classList.remove('visible');
+          toggleLinesBtn.style.display = 'none';
+          lastData = null;
+        } catch (err) {
+          showError('Ошибка отрисовки: ' + err.message);
+        }
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  dropzone.addEventListener('click', function () { fileInput.click(); });
+  dropzone.addEventListener('dragover', function (e) {
+    e.preventDefault();
+    dropzone.classList.add('dragover');
+  });
+  dropzone.addEventListener('dragleave', function () {
+    dropzone.classList.remove('dragover');
+  });
+  dropzone.addEventListener('drop', function (e) {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  });
+  fileInput.addEventListener('change', function (e) {
+    if (e.target.files && e.target.files.length) {
+      handleFile(e.target.files[0]);
+    }
+  });
+
+  // ============ Analyze ============
+  analyzeBtn.addEventListener('click', function () {
+    if (!currentImage) return;
+    clearError();
+    loading.style.display = 'block';
+    results.style.display = 'none';
+    analyzeBtn.disabled = true;
+
+    setTimeout(function () {
+      try {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(baseCanvas, 0, 0);
+
+        lastData = analyzeImage(currentImage);
+        showLines = true;
+        toggleLinesBtn.textContent = 'Скрыть линии';
+        toggleLinesBtn.style.display = 'inline-block';
+        sliderRow.classList.add('visible');
+        legend.style.display = 'flex';
+
+        redraw();
+        renderResults(lastData);
+      } catch (err) {
+        showError('Анализ: ' + err.message);
+      } finally {
+        loading.style.display = 'none';
+        analyzeBtn.disabled = false;
+      }
+    }, 30);
+  });
+
+  toggleLinesBtn.addEventListener('click', function () {
+    showLines = !showLines;
+    toggleLinesBtn.textContent = showLines ? 'Скрыть линии' : 'Показать линии';
+    redraw();
+  });
+
+  thresholdSlider.addEventListener('input', function (e) {
+    thresholdVal.textContent = e.target.value;
+    if (sliderTimer) clearTimeout(sliderTimer);
+    sliderTimer = setTimeout(redraw, 120);
+  });
+
+  function redraw() {
+    if (!baseCanvas || !lastData) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(baseCanvas, 0, 0);
+    if (!showLines) return;
+    var minVotes = Number(thresholdSlider.value) || 0;
+    var filtered = lastData.segments.filter(function (s) { return s.votes >= minVotes; });
+    drawOverlay(lastData, filtered);
+  }
+
+  // ============ Analysis ============
+  function analyzeImage(img) {
+    var w = canvas.width, h = canvas.height;
+    var imgData = ctx.getImageData(0, 0, w, h);
+    var pixels = imgData.data;
+
+    var gray = new Float32Array(w * h);
+    for (var i = 0, p = 0; i < pixels.length; i += 4, p++) {
+      gray[p] = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
+    }
+
+    var edges = detectEdges(gray, w, h);
+    var lineInfo = analyzeLines(edges, w, h);
+    var colorGradient = analyzeColorGradient(pixels, w, h);
+    var sharpnessGradient = analyzeSharpnessGradient(gray, w, h);
+
+    var verdict = classify({
+      lineCount: lineInfo.lineCount,
+      angleCoherence: lineInfo.angleCoherence,
+      verticalConvergence: lineInfo.verticalConvergence,
+      colorGradient: colorGradient,
+      sharpnessGradient: sharpnessGradient
+    });
+
+    return {
+      verdict: verdict,
+      lineCount: lineInfo.lineCount,
+      angleCoherence: lineInfo.angleCoherence,
+      verticalConvergence: lineInfo.verticalConvergence,
+      dominantAngle: lineInfo.dominantAngle,
+      vanishingPoint: lineInfo.vanishingPoint,
+      horizonY: lineInfo.horizonY,
+      segments: lineInfo.segments,
+      colorGradient: colorGradient,
+      sharpnessGradient: sharpnessGradient,
+      w: w, h: h
+    };
+  }
+
+  function detectEdges(gray, w, h) {
+    var out = new Float32Array(w * h);
+    for (var y = 1; y < h - 1; y++) {
+      for (var x = 1; x < w - 1; x++) {
+        var i = y * w + x;
+        var gx = -gray[i - w - 1] - 2 * gray[i - 1] - gray[i + w - 1]
+               +  gray[i - w + 1] + 2 * gray[i + 1] + gray[i + w + 1];
+        var gy = -gray[i - w - 1] - 2 * gray[i - w] - gray[i - w + 1]
+               +  gray[i + w - 1] + 2 * gray[i + w] + gray[i + w + 1];
+        out[i] = Math.sqrt(gx * gx + gy * gy);
+      }
+    }
+    return out;
+  }
+
+  function analyzeLines(edges, w, h) {
+    var THRESHOLD = 70;
+    var edgePoints = [];
+    for (var y = 1; y < h - 1; y++) {
+      for (var x = 1; x < w - 1; x++) {
+        if (edges[y * w + x] > THRESHOLD) edgePoints.push({ x: x, y: y, v: edges[y * w + x] });
+      }
+    }
+
+    var segments = [], angleCoherence = 0, dominantAngle = 0;
+    var vanishingPoint = null, horizonY = null, convergence = 0;
+
+    if (edgePoints.length > 40) {
+      var hough = houghTransform(edgePoints, w, h, 180, 200);
+
+      segments = hough.best.slice(0, 14).map(function (l) {
+        return {
+          angle: l.angle,
+          theta: l.theta,
+          rho: l.rho,
+          votes: l.votes,
+          vertical: (l.angle > 60 && l.angle < 120),
+          horizontal: (l.angle < 20 || l.angle > 160)
+        };
+      });
+
+      var maxBin = 0, maxVal = 0;
+      for (var i = 0; i < hough.angleHist.length; i++) {
+        if (hough.angleHist[i] > maxVal) { maxVal = hough.angleHist[i]; maxBin = i; }
+      }
+      dominantAngle = maxBin;
+      var totalVotes = 0;
+      for (var k = 0; k < hough.angleHist.length; k++) totalVotes += hough.angleHist[k];
+      angleCoherence = totalVotes > 0 ? Math.min(1, hough.angleHist[maxBin] / totalVotes) : 0;
+
+      vanishingPoint = findVanishingPoint(segments, w, h);
+      if (vanishingPoint) {
+        horizonY = vanishingPoint.y;
+        convergence = vanishingPoint.convergence;
+      }
+    }
+
+    return {
+      lineCount: edgePoints.length,
+      dominantAngle: dominantAngle,
+      angleCoherence: angleCoherence,
+      verticalConvergence: convergence,
+      vanishingPoint: vanishingPoint,
+      horizonY: horizonY,
+      segments: segments
+    };
+  }
+
+  function houghTransform(points, w, h, nTheta, nRho) {
+    nTheta = nTheta || 180;
+    nRho = nRho || 200;
+    var diag = Math.hypot(w, h);
+    var rhoMin = -diag;
+    var rhoStep = (2 * diag) / nRho;
+    var thetaStep = Math.PI / nTheta;
+
+    var acc = new Float32Array(nTheta * nRho);
+    var cosT = new Float32Array(nTheta);
+    var sinT = new Float32Array(nTheta);
+    for (var t = 0; t < nTheta; t++) {
+      var th = t * thetaStep;
+      cosT[t] = Math.cos(th);
+      sinT[t] = Math.sin(th);
+    }
+
+    for (var pi = 0; pi < points.length; pi++) {
+      var pt = points[pi];
+      for (var tt = 0; tt < nTheta; tt++) {
+        var rho = pt.x * cosT[tt] + pt.y * sinT[tt];
+        var rIdx = Math.round((rho - rhoMin) / rhoStep);
+        if (rIdx >= 0 && rIdx < nRho) acc[tt * nRho + rIdx] += pt.v;
+      }
+    }
+
+    var found = [];
+    for (var t2 = 0; t2 < nTheta; t2++) {
+      for (var r = 1; r < nRho - 1; r++) {
+        var v = acc[t2 * nRho + r];
+        if (v < 500) continue;
+        var isMax = true;
+        for (var dt = -2; dt <= 2 && isMax; dt++) {
+          for (var dr = -2; dr <= 2; dr++) {
+            if (dt === 0 && dr === 0) continue;
+            var ttn = (t2 + dt + nTheta) % nTheta;
+            var rr = r + dr;
+            if (rr < 0 || rr >= nRho) continue;
+            if (acc[ttn * nRho + rr] > v) { isMax = false; break; }
+          }
+        }
+        if (isMax) {
+          found.push({
+            angle: (t2 * thetaStep * 180 / Math.PI) % 180,
+            theta: t2 * thetaStep,
+            rho: rhoMin + (r + 0.5) * rhoStep,
+            votes: v
+          });
+        }
+      }
+    }
+    found.sort(function (a, b) { return b.votes - a.votes; });
+
+    var angleHist = new Float32Array(nTheta);
+    for (var fi = 0; fi < found.length; fi++) {
+      var idx = Math.round(found[fi].angle / (180 / nTheta)) % nTheta;
+      angleHist[idx] += found[fi].votes;
+    }
+
+    return { best: found, angleHist: angleHist };
+  }
+
+  function findVanishingPoint(segments, w, h) {
+    var lines = segments.filter(function (s) { return s.votes > 1000; }).slice(0, 10);
+    if (lines.length < 2) return null;
+
+    var intersections = [];
+    for (var i = 0; i < lines.length; i++) {
+      for (var j = i + 1; j < lines.length; j++) {
+        var da = Math.abs(lines[i].angle - lines[j].angle);
+        if (da < 10 || da > 170) continue;
+        var p = intersectLines(lines[i], lines[j]);
+        if (p && p.x > -w && p.x < 2 * w && p.y > -h && p.y < 2 * h) intersections.push(p);
+      }
+    }
+    if (intersections.length < 2) return null;
+
+    var xs = intersections.map(function (p) { return p.x; }).sort(function (a, b) { return a - b; });
+    var ys = intersections.map(function (p) { return p.y; }).sort(function (a, b) { return a - b; });
+    var medX = xs[Math.floor(xs.length / 2)];
+    var medY = ys[Math.floor(ys.length / 2)];
+
+    var near = 0;
+    for (var k = 0; k < intersections.length; k++) {
+      if (Math.hypot(intersections[k].x - medX, intersections[k].y - medY) < Math.max(w, h) * 0.3) near++;
+    }
+    var convergence = near / intersections.length;
+
+    return { x: medX, y: medY, convergence: convergence };
+  }
+
+  function intersectLines(l1, l2) {
+    var c1 = Math.cos(l1.theta), s1 = Math.sin(l1.theta);
+    var c2 = Math.cos(l2.theta), s2 = Math.sin(l2.theta);
+    var det = c1 * s2 - c2 * s1;
+    if (Math.abs(det) < 1e-6) return null;
+    var x = (l1.rho * s2 - l2.rho * s1) / det;
+    var y = (l2.rho * c1 - l1.rho * c2) / det;
+    return { x: x, y: y };
+  }
+
+  // ============ Overlay drawing ============
+  function drawOverlay(data, segments) {
+    var w = data.w, h = data.h;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(10, 15, 25, 0.35)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    for (var i = 0; i < segments.length; i++) {
+      var s = segments[i];
+      var strength = Math.min(1, s.votes / 5000);
+      var col = s.vertical ? [125, 211, 252]
+              : s.horizontal ? [167, 139, 250]
+              : [250, 204, 21];
+      ctx.strokeStyle = 'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',' + (0.35 + strength * 0.65) + ')';
+      ctx.lineWidth = 1 + strength * 2.5;
+      drawRhoThetaLine(s.rho, s.theta, w, h);
+    }
+    ctx.restore();
+
+    var vp = data.vanishingPoint;
+    if (vp && vp.convergence > 0.2) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 90, 120, 0.55)';
+      ctx.setLineDash([6, 6]);
+      ctx.lineWidth = 1.5;
+      for (var k = 0; k < Math.min(8, segments.length); k++) {
+        var mid = nearestPointOnLine(segments[k], w / 2, h / 2);
+        if (mid) {
+          ctx.beginPath();
+          ctx.moveTo(mid.x, mid.y);
+          ctx.lineTo(vp.x, vp.y);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+
+      var cx = Math.max(0, Math.min(w, vp.x));
+      var cy = Math.max(0, Math.min(h, vp.y));
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 60, 90, 0.95)';
+      ctx.shadowColor = 'rgba(255, 60, 90, 0.9)';
+      ctx.shadowBlur = 18;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#fff';
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(cx - 14, cy); ctx.lineTo(cx + 14, cy);
+      ctx.moveTo(cx, cy - 14); ctx.lineTo(cx, cy + 14);
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.font = 'bold 13px -apple-system, sans-serif';
+      ctx.fillStyle = '#fff';
+      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+      ctx.lineWidth = 3;
+      ctx.strokeText('Точка схода', cx + 16, cy - 10);
+      ctx.fillText('Точка схода', cx + 16, cy - 10);
+      ctx.restore();
+    }
+
+    if (data.horizonY !== null && data.horizonY > 0 && data.horizonY < h) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(125, 211, 252, 0.75)';
+      ctx.setLineDash([10, 6]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, data.horizonY);
+      ctx.lineTo(w, data.horizonY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.font = 'bold 12px -apple-system, sans-serif';
+      ctx.fillStyle = '#7dd3fc';
+      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+      ctx.lineWidth = 3;
+      ctx.strokeText('Горизонт', 10, data.horizonY - 8);
+      ctx.fillText('Горизонт', 10, data.horizonY - 8);
+      ctx.restore();
+    }
+
+    // Badge
+    ctx.save();
+    var pad = 10;
+    ctx.font = 'bold 15px -apple-system, sans-serif';
+    var txt = data.verdict.type;
+    var tw = ctx.measureText(txt).width;
+    var bx = 12, by = 12, bw = tw + pad * 2, bh = 32;
+    roundRect(bx, by, bw, bh, 8);
+    ctx.fillStyle = 'rgba(15, 20, 30, 0.85)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(125, 211, 252, 0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    var grad = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+    grad.addColorStop(0, '#7dd3fc');
+    grad.addColorStop(1, '#a78bfa');
+    ctx.fillStyle = grad;
+    ctx.fillText(txt, bx + pad, by + 22);
+    ctx.restore();
+  }
+
+  function drawRhoThetaLine(rho, theta, w, h) {
+    var c = Math.cos(theta), s = Math.sin(theta);
+    var x0 = rho * c, y0 = rho * s;
+    var dx = -s, dy = c;
+    var L = Math.max(w, h) * 2;
+    ctx.beginPath();
+    ctx.moveTo(x0 - dx * L, y0 - dy * L);
+    ctx.lineTo(x0 + dx * L, y0 + dy * L);
+    ctx.stroke();
+  }
+
+  function nearestPointOnLine(s, px, py) {
+    var c = Math.cos(s.theta), sn = Math.sin(s.theta);
+    var d = px * c + py * sn - s.rho;
+    return { x: px - d * c, y: py - d * sn };
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // ============ Color / sharpness ============
+  function analyzeColorGradient(pixels, w, h) {
+    var zones = [
+      { y0: 0, y1: Math.floor(h / 3) },
+      { y0: Math.floor(h / 3), y1: Math.floor(2 * h / 3) },
+      { y0: Math.floor(2 * h / 3), y1: h }
+    ];
+    var stats = zones.map(function (z) {
+      var sat = 0, lum = 0, bs = 0, count = 0;
+      for (var y = z.y0; y < z.y1; y += 2) {
+        for (var x = 0; x < w; x += 2) {
+          var i = (y * w + x) * 4;
+          var r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+          var mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+          sat += (mx - mn) / 255;
+          lum += (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+          bs += (b - r) / 255;
+          count++;
+        }
+      }
+      return { sat: sat / count, lum: lum / count, bs: bs / count };
+    });
+    var top = stats[0], bot = stats[2];
+    var score = Math.min(1,
+      Math.max(0, bot.sat - top.sat) * 2 +
+      Math.max(0, top.lum - bot.lum) * 1.5 +
+      Math.max(0, top.bs - bot.bs) * 2
+    );
+    return { score: score, topSat: top.sat, botSat: bot.sat, topLum: top.lum, botLum: bot.lum };
+  }
+
+  function analyzeSharpnessGradient(gray, w, h) {
+    function variance(x0, y0, x1, y1) {
+      var s = 0, s2 = 0, c = 0;
+      for (var y = y0; y < y1; y += 2) {
+        for (var x = x0; x < x1; x += 2) {
+          var v = gray[y * w + x];
+          s += v; s2 += v * v; c++;
+        }
+      }
+      if (!c) return 0;
+      var m = s / c;
+      return Math.sqrt(Math.max(0, s2 / c - m * m));
+    }
+    var top = variance(0, 0, w, Math.floor(h / 3));
+    var bot = variance(0, Math.floor(2 * h / 3), w, h);
+    return {
+      score: bot > 0 ? Math.min(1, Math.max(0, (bot - top) / bot)) : 0,
+      topSharpness: top,
+      botSharpness: bot
+    };
+  }
+
+  // ============ Classification ============
+  function classify(m) {
+    var strongLines = m.lineCount > 200 && m.angleCoherence > 0.2;
+    var convergence = m.verticalConvergence > 0.35;
+    var air = m.colorGradient.score > 0.3 || m.sharpnessGradient.score > 0.3;
+
+    if (strongLines && convergence) return {
+      type: 'Линейная перспектива',
+      confidence: Math.round((0.5 + m.verticalConvergence * 0.5) * 100),
+      desc: 'Обнаружены сходящиеся линии и точка схода — классическая ренессансная перспектива.'
+    };
+    if (air && !convergence) return {
+      type: 'Воздушная перспектива',
+      confidence: Math.round((0.4 + m.colorGradient.score * 0.4 + m.sharpnessGradient.score * 0.2) * 100),
+      desc: 'Глубина передаётся цветом и размытием: дальние планы светлее, бледнее и мягче.'
+    };
+    if (strongLines && !convergence) return {
+      type: 'Параллельная / изометрическая',
+      confidence: Math.round((0.4 + m.angleCoherence * 0.5) * 100),
+      desc: 'Много параллельных линий без выраженной точки схода.'
+    };
+    if (m.angleCoherence < 0.15 && !air) return {
+      type: 'Возможно, обратная перспектива',
+      confidence: 45,
+      desc: 'Слабая когерентность линий и отсутствие атмосферных градиентов — характерно для иконописи.'
+    };
+    return {
+      type: 'Перспектива не выражена',
+      confidence: 60,
+      desc: 'Явных признаков линейной или воздушной перспективы не найдено.'
+    };
+  }
+
+  // ============ Results ============
+  function renderResults(d) {
+    var v = d.verdict;
+    results.innerHTML =
+      '<div class="card" style="grid-column: 1 / -1;">' +
+        '<h3>Вердикт</h3>' +
+        '<div class="verdict">' + v.type + '</div>' +
+        '<div class="metric"><span>Уверенность</span><span>' + v.confidence + '%</span></div>' +
+        '<div class="bar"><div style="width:' + v.confidence + '%"></div></div>' +
+        '<p class="desc">' + v.desc + '</p>' +
+      '</div>' +
+      '<div class="card">' +
+        '<h3>Линейный анализ</h3>' +
+        '<div class="metric"><span>Краевых точек</span><span>' + d.lineCount + '</span></div>' +
+        '<div class="metric"><span>Когерентность линий</span><span>' + (d.angleCoherence * 100).toFixed(0) + '%</span></div>' +
+        '<div class="bar"><div style="width:' + (d.angleCoherence * 100) + '%"></div></div>' +
+        '<div class="metric"><span>Сходимость</span><span>' + (d.verticalConvergence * 100).toFixed(0) + '%</span></div>' +
+        '<div class="bar"><div style="width:' + (d.verticalConvergence * 100) + '%"></div></div>' +
+        '<div class="metric"><span>Доминирующий угол</span><span>' + d.dominantAngle.toFixed(0) + '°</span></div>' +
+      '</div>' +
+      '<div class="card">' +
+        '<h3>Воздушная перспектива</h3>' +
+        '<div class="metric"><span>Индекс атмосферы</span><span>' + (d.colorGradient.score * 100).toFixed(0) + '%</span></div>' +
+        '<div class="bar"><div style="width:' + (d.colorGradient.score * 100) + '%"></div></div>' +
+        '<div class="metric"><span>Насыщ. верх/низ</span><span>' + d.colorGradient.topSat.toFixed(2) + ' / ' + d.colorGradient.botSat.toFixed(2) + '</span></div>' +
+        '<div class="metric"><span>Яркость верх/низ</span><span>' + d.colorGradient.topLum.toFixed(2) + ' / ' + d.colorGradient.botLum.toFixed(2) + '</span></div>' +
+      '</div>' +
+      '<div class="card">' +
+        '<h3>Глубина резкости</h3>' +
+        '<div class="metric"><span>Градиент детализации</span><span>' + (d.sharpnessGradient.score * 100).toFixed(0) + '%</span></div>' +
+        '<div class="bar"><div style="width:' + (d.sharpnessGradient.score * 100) + '%"></div></div>' +
+        '<div class="metric"><span>Детализация верх/низ</span><span>' + d.sharpnessGradient.topSharpness.toFixed(1) + ' / ' + d.sharpnessGradient.botSharpness.toFixed(1) + '</span></div>' +
+      '</div>';
+    results.style.display = 'grid';
+  }
+})();
+</script>
 </body>
 </html>
