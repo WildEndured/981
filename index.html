@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Anime Face Detector — fast + accurate</title>
+<title>Anime Face Detector — precision 1-6</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; }
@@ -56,7 +56,7 @@
 </head>
 <body>
 <header>
-  <h1>🎨 Anime Face Detector — fast</h1>
+  <h1>🎨 Anime Face Detector — precision 1-6</h1>
   <span class="hint">колесо/пинч — зум · 2 пальца / пробел — пан · Enter — искать · Z — разметка</span>
 </header>
 
@@ -85,13 +85,32 @@
     </div>
 
     <div class="panel">
-      <h2>Параметры</h2>
-      <input type="file" id="file" accept="image/*" style="width:100%; font-size:11px;">
-      <div class="slider-row"><label>Порог</label><input type="range" id="thr" min="1" max="100" value="50" style="flex:1"><span id="thrV">50</span></div>
-      <label class="toggle"><input type="checkbox" id="verify" checked> Верификация глазами</label>
-      <label class="toggle"><input type="checkbox" id="colorEyes" checked> Цветовой бонус глаз</label>
-      <label class="toggle"><input type="checkbox" id="hueCheck" checked> Проверка hue радужки</label>
-      <label class="toggle"><input type="checkbox" id="noseBridge" checked> Проверка переносицы</label>
+      <h2>Верификация</h2>
+      <label class="toggle"><input type="checkbox" id="verify" checked> Глазами (базовая)</label>
+      <label class="toggle"><input type="checkbox" id="colorEyes" checked> Цвет глаз</label>
+      <label class="toggle"><input type="checkbox" id="hueCheck" checked> Hue радужки</label>
+      <label class="toggle"><input type="checkbox" id="hetero" checked> Гетерохромия</label>
+      <label class="toggle"><input type="checkbox" id="satPass" checked> Проход по насыщенности</label>
+    </div>
+
+    <div class="panel">
+      <h2>Проверки формы (1-3)</h2>
+      <label class="toggle"><input type="checkbox" id="highlightCheck" checked> Блик в глазу</label>
+      <label class="toggle"><input type="checkbox" id="lidsCheck" checked> Контур сверху</label>
+      <label class="toggle"><input type="checkbox" id="skinUnderCheck" checked> Кожа под глазом</label>
+      <label class="toggle"><input type="checkbox" id="noseBridge" checked> Переносица</label>
+    </div>
+
+    <div class="panel">
+      <h2>Уточнения (4-6)</h2>
+      <label class="toggle"><input type="checkbox" id="mouthBonus" checked> Рот (+балл)</label>
+      <label class="toggle"><input type="checkbox" id="noseBonus" checked> Нос (+балл)</label>
+      <label class="toggle"><input type="checkbox" id="tiltAdaptive" checked> Адаптация к наклону</label>
+      <label class="toggle"><input type="checkbox" id="completeness" checked> Полнота лица</label>
+    </div>
+
+    <div class="panel">
+      <h2>Прочее</h2>
       <label class="toggle"><input type="checkbox" id="chinBonus" checked> Бонус за подбородок</label>
       <label class="toggle"><input type="checkbox" id="zoneSoft"> Мягкий режим зон</label>
       <label class="toggle"><input type="checkbox" id="downscale"> Даунскейл &gt;1200px</label>
@@ -218,15 +237,24 @@ document.getElementById('btn2').addEventListener('click', () => {
   g.fillStyle = '#c8d8e8'; g.fillRect(0, 0, 500, 400);
   g.fillStyle = '#3a2545'; g.beginPath(); g.ellipse(250, 220, 170, 210, 0, 0, 7); g.fill();
   g.fillStyle = '#ffe0c8'; g.beginPath(); g.ellipse(250, 220, 130, 160, 0, 0, 7); g.fill();
+  // левый глаз — синий
   g.fillStyle = '#1a1a3a';
   g.beginPath(); g.ellipse(200, 200, 28, 38, 0, 0, 7); g.fill();
-  g.beginPath(); g.ellipse(300, 200, 28, 38, 0, 0, 7); g.fill();
   g.fillStyle = '#4f9dff';
   g.beginPath(); g.ellipse(200, 205, 16, 22, 0, 0, 7); g.fill();
+  g.fillStyle = '#fff';
+  g.beginPath(); g.arc(192, 188, 9, 0, 7); g.fill();
+  // правый глаз — красный
+  g.fillStyle = '#1a1a3a';
+  g.beginPath(); g.ellipse(300, 200, 28, 38, 0, 0, 7); g.fill();
+  g.fillStyle = '#ff4f4f';
   g.beginPath(); g.ellipse(300, 205, 16, 22, 0, 0, 7); g.fill();
   g.fillStyle = '#fff';
-  g.beginPath(); g.arc(192, 190, 9, 0, 7); g.fill();
-  g.beginPath(); g.arc(292, 190, 9, 0, 7); g.fill();
+  g.beginPath(); g.arc(292, 188, 9, 0, 7); g.fill();
+  // нос — маленькая тень
+  g.fillStyle = '#c0906a';
+  g.beginPath(); g.ellipse(250, 260, 6, 4, 0, 0, 7); g.fill();
+  // рот
   g.strokeStyle = '#c04060'; g.lineWidth = 4;
   g.beginPath(); g.arc(250, 290, 22, 0.2, Math.PI - 0.2); g.stroke();
   loadImage(c.toDataURL());
@@ -292,8 +320,6 @@ function iou(a, b) {
   const inter = iw*ih;
   return inter / (a.w*a.h + b.w*b.h - inter || 1);
 }
-
-// быстрый NMS через грид
 function nms(boxes, thr = 0.3, cell = 64) {
   if (!boxes.length) return boxes;
   const sorted = [...boxes].sort((a, b) => (b.score||0) - (a.score||0));
@@ -316,7 +342,6 @@ function nms(boxes, thr = 0.3, cell = 64) {
   }
   return keep;
 }
-
 function erode(mask, w, h) {
   const out = new Uint8Array(w*h);
   for (let y = 1; y < h-1; y++) for (let x = 1; x < w-1; x++) {
@@ -396,9 +421,12 @@ function hueOf(r, g, b) {
   else h = 60*((r-g)/(max-min)+4);
   return h < 0 ? h + 360 : h;
 }
+function saturationOf(r, g, b) {
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  return max === 0 ? 0 : (max - min) / max;
+}
 function colorEyeScore(r, g, b) {
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  const s = max === 0 ? 0 : (max - min) / max;
+  const s = saturationOf(r, g, b);
   const h = hueOf(r, g, b);
   return (s > 0.35 && (h < 15 || h > 50)) ? 1 : 0;
 }
@@ -412,6 +440,173 @@ function symmetryScore(g, b) {
   }
   if (!n) return 0;
   return Math.max(0, Math.min(1, 1 - (sad / n) / 255));
+}
+
+// ============================================================
+// ПРОВЕРКИ ФОРМЫ (1-3)
+// ============================================================
+
+function hasHighlight(d, e, minRatio = 0.008) {
+  const x0 = e.x, y0 = e.y, w = e.w, h = e.h;
+  if (w < 3 || h < 3) return false;
+  let mean = 0, total = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const idx = ((y0 + y) * W + (x0 + x)) * 4;
+    mean += (d[idx] + d[idx+1] + d[idx+2]) / 3;
+    total++;
+  }
+  mean /= total;
+  let bright = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const idx = ((y0 + y) * W + (x0 + x)) * 4;
+    const v = (d[idx] + d[idx+1] + d[idx+2]) / 3;
+    if (v > mean + 50) bright++;
+  }
+  return bright / total > minRatio;
+}
+
+function darkerTop(d, e, factor = 0.95) {
+  const x0 = e.x, y0 = e.y, w = e.w, h = e.h;
+  if (h < 4) return true;
+  const third = Math.max(1, Math.floor(h / 3));
+  let top = 0, bot = 0, nTop = 0, nBot = 0;
+  for (let y = 0; y < third; y++) for (let x = 0; x < w; x++) {
+    const idx = ((y0 + y) * W + (x0 + x)) * 4;
+    top += (d[idx] + d[idx+1] + d[idx+2]) / 3; nTop++;
+  }
+  for (let y = h - third; y < h; y++) for (let x = 0; x < w; x++) {
+    const idx = ((y0 + y) * W + (x0 + x)) * 4;
+    bot += (d[idx] + d[idx+1] + d[idx+2]) / 3; nBot++;
+  }
+  if (!nTop || !nBot) return true;
+  return (top / nTop) <= (bot / nBot) * factor;
+}
+
+function skinUnderEye(skin, e, span, minRatio = 0.35) {
+  const x0 = e.x;
+  const y0 = e.y + e.h + Math.max(2, Math.round(span * 0.10));
+  const w = e.w;
+  const h = Math.max(3, Math.round(span * 0.15));
+  if (y0 + h >= H) return true;
+  let skinCount = 0, total = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const gx = x0 + x, gy = y0 + y;
+    if (gx >= 0 && gx < W && gy >= 0 && gy < H) {
+      if (skin[gy * W + gx]) skinCount++;
+      total++;
+    }
+  }
+  return total > 0 && skinCount / total > minRatio;
+}
+
+function skinBridge(skin, e1, e2, minRatio = 0.55) {
+  const cx1 = e1.x + e1.w/2, cx2 = e2.x + e2.w/2;
+  const cy = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
+  const span = Math.abs(cx1 - cx2);
+  const stripH = Math.max(2, Math.round(span * 0.08));
+  let skinCount = 0, total = 0;
+  for (let x = Math.round(Math.min(cx1, cx2)); x <= Math.round(Math.max(cx1, cx2)); x++) {
+    for (let dy = -stripH; dy <= stripH; dy++) {
+      const y = Math.round(cy + dy);
+      if (x >= 0 && x < W && y >= 0 && y < H) {
+        if (skin[y * W + x]) skinCount++;
+        total++;
+      }
+    }
+  }
+  return total > 0 && skinCount / total > minRatio;
+}
+
+// ============================================================
+// 4. НОС / РОТ — БОНУСЫ
+// ============================================================
+function mouthBonus(d, eyes) {
+  const [e1, e2] = eyes;
+  const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
+  const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
+  const span = Math.abs((e1.x+e1.w/2) - (e2.x+e2.w/2)) + (e1.w+e2.w)/2;
+
+  const zy = Math.round(cyEyes + span * 0.7);
+  const zw = Math.round(span * 1.0);
+  const zx = Math.round(cx - zw / 2);
+  const zh = Math.round(span * 0.6);
+  if (zx < 0 || zy < 0 || zx + zw >= W || zy + zh >= H) return 0;
+
+  const rows = new Int32Array(zh);
+  for (let y = 0; y < zh; y++) for (let x = 0; x < zw; x++) {
+    const gx = zx + x, gy = zy + y;
+    const idx = (gy * W + gx) * 4;
+    const r = d[idx], g = d[idx+1], b = d[idx+2];
+    const bright = (r + g + b) / 3;
+    const cr = 128 + 0.5*r - 0.418688*g - 0.081312*b;
+    if (bright < 100 || cr > 150) rows[y]++;
+  }
+  let maxVal = 0;
+  for (let y = 0; y < zh; y++) if (rows[y] > maxVal) maxVal = rows[y];
+  const density = maxVal / zw;
+  if (density < 0.15) return 0;
+  if (density > 0.85) return 0;
+  return density > 0.3 ? 0.10 : 0.05;
+}
+
+function noseBonus(skin, eyes) {
+  const [e1, e2] = eyes;
+  const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
+  const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
+  const span = Math.abs((e1.x+e1.w/2) - (e2.x+e2.w/2)) + (e1.w+e2.w)/2;
+
+  const zx = Math.round(cx - span * 0.15);
+  const zy = Math.round(cyEyes + span * 0.15);
+  const zw = Math.round(span * 0.3);
+  const zh = Math.round(span * 0.5);
+  if (zx < 0 || zy < 0 || zx + zw >= W || zy + zh >= H) return 0;
+
+  let nonSkin = 0, total = 0;
+  for (let y = 0; y < zh; y++) for (let x = 0; x < zw; x++) {
+    const gx = zx + x, gy = zy + y;
+    if (!skin[gy * W + gx]) nonSkin++;
+    total++;
+  }
+  const ratio = nonSkin / total;
+  if (ratio < 0.05) return 0;
+  if (ratio > 0.6) return 0;
+  return 0.05;
+}
+
+// ============================================================
+// 6. ПОЛНОТА ЛИЦА
+// ============================================================
+function faceCompleteness(skin, eyes) {
+  const [e1, e2] = eyes;
+  const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
+  const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
+  const span = Math.abs((e1.x+e1.w/2) - (e2.x+e2.w/2)) + (e1.w+e2.w)/2;
+
+  // горизонталь на уровне глаз
+  const hY = Math.round(cyEyes);
+  const hX1 = Math.max(0, Math.round(cx - span * 0.6));
+  const hX2 = Math.min(W - 1, Math.round(cx + span * 0.6));
+  let hSkin = 0, hTotal = 0;
+  for (let x = hX1; x <= hX2; x++) {
+    if (skin[hY * W + x]) hSkin++;
+    hTotal++;
+  }
+  const hRatio = hTotal > 0 ? hSkin / hTotal : 0;
+  if (hRatio < 0.5) return 0;
+
+  // вертикаль по центру
+  const vTop = Math.round(cyEyes + span * 0.1);
+  const vBot = Math.min(H - 1, Math.round(cyEyes + span * 1.3));
+  let vSkin = 0, vTotal = 0;
+  const cxi = Math.round(cx);
+  for (let y = vTop; y <= vBot; y++) {
+    if (skin[y * W + cxi]) vSkin++;
+    vTotal++;
+  }
+  const vRatio = vTotal > 0 ? vSkin / vTotal : 0;
+  if (vRatio < 0.6) return 0;
+
+  return 0.05 + (hRatio > 0.7 ? 0.03 : 0) + (vRatio > 0.8 ? 0.02 : 0);
 }
 
 // ============================================================
@@ -441,7 +636,6 @@ function methodSkin(threshold = 0.5) {
 
 function methodSkinMulti(threshold = 0.5) {
   const orig = methodSkin(threshold);
-  // уменьшенная копия в 2 раза
   const sw = Math.max(60, Math.round(W/2));
   const sh = Math.max(60, Math.round(H/2));
   const tmp = document.createElement('canvas');
@@ -449,14 +643,12 @@ function methodSkinMulti(threshold = 0.5) {
   const tctx = tmp.getContext('2d');
   tctx.drawImage(cv, 0, 0, sw, sh);
   const smallData = tctx.getImageData(0, 0, sw, sh);
-
   const saved = { W, H, imgData };
   W = sw; H = sh; imgData = smallData;
   const small = methodSkin(threshold).map(b => ({
     x: b.x*2, y: b.y*2, w: b.w*2, h: b.h*2, score: b.score*0.85
   }));
   W = saved.W; H = saved.H; imgData = saved.imgData;
-
   return nms([...orig, ...small], 0.4);
 }
 
@@ -497,7 +689,7 @@ function methodAll(threshold = 0.5) {
 }
 
 // ============================================================
-// ВЕРИФИКАЦИЯ ГЛАЗАМИ (улучшенная)
+// ВЕРИФИКАЦИЯ ГЛАЗАМИ + ВСЕ ПРОВЕРКИ
 // ============================================================
 function roiLooksLikeFace(gray, roi) {
   const rx = Math.max(0, roi.x|0), ry = Math.max(0, roi.y|0);
@@ -515,38 +707,7 @@ function roiLooksLikeFace(gray, roi) {
   return (max - min) > 50 && darkRatio > 0.005 && darkRatio < 0.6;
 }
 
-function checkNoseBridge(skin, e1, e2) {
-  const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
-  const cy = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
-  const span = Math.abs((e1.x+e1.w/2) - (e2.x+e2.w/2));
-  let skinCount = 0, total = 0;
-  for (let dx = -span*0.15; dx <= span*0.15; dx += 1) {
-    const x = Math.round(cx + dx), y = Math.round(cy);
-    if (x >= 0 && x < W && y >= 0 && y < H) {
-      if (skin[y*W+x]) skinCount++;
-      total++;
-    }
-  }
-  return total > 0 && skinCount / total > 0.5;
-}
-
-function chinBonus(skin, b) {
-  const cx = b.x + b.w/2;
-  const yBot = b.y + b.h * 0.85;
-  let hits = 0, total = 0;
-  for (let y = Math.max(0, yBot); y < Math.min(H, b.y + b.h); y += 2) {
-    for (let x = cx - b.w*0.2; x < cx + b.w*0.2; x += 2) {
-      if (x >= 0 && x < W) {
-        if (skin[y*W + Math.round(x)]) hits++;
-        total++;
-      }
-    }
-  }
-  return total > 0 ? (hits / total) * 0.15 : 0;
-}
-
 function findEyesInROI(gray, roi) {
-  // сужаем ROI до верхних 55% — глаза всегда вверху
   const eyeRoi = {
     x: roi.x + roi.w * 0.05,
     y: roi.y + roi.h * 0.10,
@@ -560,26 +721,59 @@ function findEyesInROI(gray, roi) {
   if (rw < 20 || rh < 20) return null;
   if (!roiLooksLikeFace(gray, eyeRoi)) return null;
 
-  const t = Math.min(115, Math.max(40, otsuThreshold(gray, rx, ry, rw, rh)));
-  const mask = new Uint8Array(rw * rh);
-  for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
-    if (gray[(ry + y)*W + (rx + x)] < t) mask[y*rw + x] = 1;
+  const d = imgData.data;
+  const useSat = document.getElementById('satPass').checked;
 
-  const m2 = erode(mask, rw, rh), m3 = dilate(m2, rw, rh);
-  const comps = connectedComponents(m3, rw, rh, 20);
-  const eyes = comps.filter(c => {
+  // проход 1 — тёмные блобы
+  const t = Math.min(115, Math.max(40, otsuThreshold(gray, rx, ry, rw, rh)));
+  const darkMask = new Uint8Array(rw * rh);
+  for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
+    if (gray[(ry + y)*W + (rx + x)] < t) darkMask[y*rw + x] = 1;
+
+  const d2 = erode(darkMask, rw, rh), d3 = dilate(d2, rw, rh);
+  const darkComps = connectedComponents(d3, rw, rh, 20);
+
+  // проход 2 — насыщенность
+  let satComps = [];
+  if (useSat) {
+    const satMask = new Uint8Array(rw * rh);
+    for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++) {
+      const gx = rx + x, gy = ry + y;
+      const idx = (gy * W + gx) * 4;
+      const r = d[idx], g = d[idx+1], b = d[idx+2];
+      if (saturationOf(r, g, b) > 0.45) satMask[y*rw + x] = 1;
+    }
+    const s2 = erode(satMask, rw, rh), s3 = dilate(s2, rw, rh);
+    satComps = connectedComponents(s3, rw, rh, 15);
+  }
+
+  const allComps = [...darkComps];
+  for (const sc of satComps) {
+    let dup = false;
+    for (const dc of darkComps) {
+      const ix1 = Math.max(sc.x, dc.x), iy1 = Math.max(sc.y, dc.y);
+      const ix2 = Math.min(sc.x + sc.w, dc.x + dc.w);
+      const iy2 = Math.min(sc.y + sc.h, dc.y + dc.h);
+      if (ix2 > ix1 && iy2 > iy1) { dup = true; break; }
+    }
+    if (!dup) allComps.push(sc);
+  }
+
+  const eyes = allComps.filter(c => {
     const ar = c.w / c.h;
     const fill = c.area / (c.w * c.h);
-    const areaRatio = c.area / (rw * rh);
-    return ar > 0.35 && ar < 3.0 && fill > 0.3 &&
-           areaRatio > 0.004 && areaRatio < 0.25;
+    return ar > 0.35 && ar < 3.0 && fill > 0.25 && c.area >= 15;
   });
   if (eyes.length < 2) return null;
 
   const useColor = document.getElementById('colorEyes').checked;
   const useHue = document.getElementById('hueCheck').checked;
+  const useHetero = document.getElementById('hetero').checked;
   const useBridge = document.getElementById('noseBridge').checked;
-  const d = imgData.data;
+  const useHighlight = document.getElementById('highlightCheck').checked;
+  const useLids = document.getElementById('lidsCheck').checked;
+  const useSkinUnder = document.getElementById('skinUnderCheck').checked;
+  const useTiltAdapt = document.getElementById('tiltAdaptive').checked;
   const skin = skinCached();
 
   let best = null, bestScore = -Infinity;
@@ -589,29 +783,57 @@ function findEyesInROI(gray, roi) {
     const bx = b.x + b.w/2, by = b.y + b.h/2;
     const dx = Math.abs(ax - bx), dy = Math.abs(ay - by);
     const sAvg = (a.w + b.w) / 2;
-    const sRatio = Math.max(a.w, b.w) / Math.min(a.w, b.w);
-    if (sAvg < 3) continue;
-    if (dy > sAvg * 0.7) continue;
+    if (sAvg < 2) continue;
+
     const rel = dx / sAvg;
-    if (rel < 1.0 || rel > 4.5) continue;
-    if (sRatio > 2.2) continue;
-    if (Math.max(ay, by) / rh > 0.75) continue;
+    const dyRel = dy / sAvg;
+
+    // === 3. линия глаз ===
+    if (dyRel > 0.35) continue;
+    const lineBonus = dyRel < 0.10 ? 0.15
+                    : dyRel < 0.20 ? 0.05
+                    : -0.10 * (dyRel - 0.20) / 0.15;
+
+    // === 1. размер глаза относительно sAvg ===
+    const relWa = a.w / sAvg, relHa = a.h / sAvg;
+    const relWb = b.w / sAvg, relHb = b.h / sAvg;
+    if (relWa < 0.15 || relWa > 0.7) continue;
+    if (relWb < 0.15 || relWb > 0.7) continue;
+    if (relHa < 0.2 || relHa > 1.1) continue;
+    if (relHb < 0.2 || relHb > 1.1) continue;
+
+    // === 2. асимметрия ===
+    const sRatio = Math.max(a.w, b.w) / Math.min(a.w, b.w);
+    if (sRatio > 1.8) continue;
+    const sizeBonus = sRatio < 1.2 ? 0.1 : 0;
+
+    // === 5. наклон — ослабление порогов ===
+    const tiltFactor = useTiltAdapt ? Math.min(1, dyRel / 0.15) : 0;
+    const hlMin = 0.008 * (1 - 0.5 * tiltFactor);
+    const lidFactor = 0.95 + 0.1 * tiltFactor;
+    const underMin = 0.35 - 0.1 * tiltFactor;
+    const bridgeMin = 0.55 - 0.1 * tiltFactor;
 
     const ea = { x: rx + a.x, y: ry + a.y, w: a.w, h: a.h };
     const eb = { x: rx + b.x, y: ry + b.y, w: b.w, h: b.h };
 
-    // переносица
-    if (useBridge && !checkNoseBridge(skin, ea, eb)) continue;
+    // === проверки формы ===
+    if (useHighlight && (!hasHighlight(d, ea, hlMin) || !hasHighlight(d, eb, hlMin))) continue;
+    if (useLids && (!darkerTop(d, ea, lidFactor) || !darkerTop(d, eb, lidFactor))) continue;
+    if (useSkinUnder && (!skinUnderEye(skin, ea, sAvg, underMin) || !skinUnderEye(skin, eb, sAvg, underMin))) continue;
+    if (useBridge && !skinBridge(skin, ea, eb, bridgeMin)) continue;
 
-    let colorBonus = 0;
-    let hueA = 0, hueB = 0;
-    if (useColor || useHue) {
+    // === цвет ===
+    let colorBonus = 0, hueA = 0, hueB = 0, satA = 0, satB = 0;
+    if (useColor || useHue || useSat) {
       const getPix = e => {
         const mx = e.x + (e.w>>1), my = e.y + (e.h>>1);
         const idx = (my*W + mx) * 4;
         return [d[idx], d[idx+1], d[idx+2]];
       };
       const pa = getPix(ea), pb = getPix(eb);
+      satA = saturationOf(pa[0], pa[1], pa[2]);
+      satB = saturationOf(pb[0], pb[1], pb[2]);
       if (useColor) {
         colorBonus = (colorEyeScore(pa[0], pa[1], pa[2]) +
                       colorEyeScore(pb[0], pb[1], pb[2])) / 2;
@@ -626,13 +848,23 @@ function findEyesInROI(gray, roi) {
     if (useHue) {
       let dh = Math.abs(hueA - hueB);
       if (dh > 180) dh = 360 - dh;
-      hueBonus = dh < 30 ? 0.3 : (dh < 60 ? 0.1 : -0.2);
+      if (dh < 30) hueBonus = 0.3;
+      else if (dh < 60) hueBonus = 0.1;
+      else hueBonus = useHetero ? 0 : -0.2;
     }
 
-    const score = (1 - Math.abs(rel - 2) / 2.5) - dy / sAvg * 1.5 - (sRatio - 1) * 1.5
-                + colorBonus * 0.6 + hueBonus;
-    if (score > bestScore) {
-      bestScore = score;
+    const satBonus = (satA > 0.4 && satB > 0.4) ? 0.2 : 0;
+
+    const baseScore = (1 - Math.abs(rel - 2) / 2.5)
+                    + lineBonus
+                    + sizeBonus
+                    + colorBonus * 0.6
+                    + hueBonus
+                    + satBonus
+                    + 0.1;
+
+    if (baseScore > bestScore) {
+      bestScore = baseScore;
       best = [ea, eb];
     }
   }
@@ -650,14 +882,45 @@ function verifyFaceByEyes(gray, faceBox) {
   const fh = fw * 1.25;
 
   let score = Math.max(0, Math.min(1, (faceBox.score||0.5) * 0.5 + 0.5 + res.score*0.05));
+
+  const d = imgData.data;
+  const skin = skinCached();
+
+  // 4. бонусы нос/рот
+  if (document.getElementById('mouthBonus').checked) {
+    score = Math.min(1, score + mouthBonus(d, res.pair));
+  }
+  if (document.getElementById('noseBonus').checked) {
+    score = Math.min(1, score + noseBonus(skin, res.pair));
+  }
+  // 6. полнота
+  if (document.getElementById('completeness').checked) {
+    score = Math.min(1, score + faceCompleteness(skin, res.pair));
+  }
+  // подбородок
   if (document.getElementById('chinBonus').checked) {
-    score = Math.min(1, score + chinBonus(skinCached(), faceBox));
+    score = Math.min(1, score + chinBonusSimple(skin, faceBox));
   }
 
   return {
     x: cx - fw/2, y: cyEyes - fh * 0.40, w: fw, h: fh,
     score, eyes: res.pair
   };
+}
+
+function chinBonusSimple(skin, b) {
+  const cx = b.x + b.w/2;
+  const yBot = b.y + b.h * 0.85;
+  let hits = 0, total = 0;
+  for (let y = Math.max(0, yBot); y < Math.min(H, b.y + b.h); y += 2) {
+    for (let x = cx - b.w*0.2; x < cx + b.w*0.2; x += 2) {
+      if (x >= 0 && x < W) {
+        if (skin[y*W + Math.round(x)]) hits++;
+        total++;
+      }
+    }
+  }
+  return total > 0 ? (hits / total) * 0.05 : 0;
 }
 
 // ============================================================
@@ -807,14 +1070,19 @@ document.querySelectorAll('input[name="m"]').forEach(r => {
 document.getElementById('desc').textContent = DESCR[currentMethod];
 
 let thrTimeout;
-document.getElementById('thr').addEventListener('input', e => {
+document.getElementById('thr')?.addEventListener('input', e => {
   document.getElementById('thrV').textContent = e.target.value;
   clearTimeout(thrTimeout);
   thrTimeout = setTimeout(() => { if (imgData) run(); }, 200);
 });
 
 document.getElementById('btn').addEventListener('click', run);
-['verify','colorEyes','hueCheck','noseBridge','chinBonus','zoneSoft'].forEach(id =>
+[
+  'verify','colorEyes','hueCheck','hetero','satPass',
+  'highlightCheck','lidsCheck','skinUnderCheck','noseBridge',
+  'mouthBonus','noseBonus','tiltAdaptive','completeness',
+  'chinBonus','zoneSoft','downscale'
+].forEach(id =>
   document.getElementById(id).addEventListener('change', () => { if (imgData) run(); }));
 
 document.getElementById('btnZoneMode').addEventListener('click', () => {
@@ -867,10 +1135,8 @@ wrap.addEventListener('pointerdown', e => {
   if (!imgData) return;
   e.preventDefault();
   try { wrap.setPointerCapture(e.pointerId); } catch (_) {}
-
   const p = localPoint(e);
   pointers.set(e.pointerId, p);
-
   if (pointers.size === 2) {
     const pts = [...pointers.values()];
     const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
@@ -887,7 +1153,6 @@ wrap.addEventListener('pointerdown', e => {
     return;
   }
   if (pointers.size !== 1) return;
-
   const now = Date.now();
   if (now - lastTap.time < 320 &&
       Math.abs(p.x - lastTap.x) < 25 && Math.abs(p.y - lastTap.y) < 25) {
@@ -905,7 +1170,6 @@ wrap.addEventListener('pointerdown', e => {
     }
   }
   lastTap = { time: now, x: p.x, y: p.y };
-
   if (drawingMode) {
     const hit = hitZone(p.x, p.y);
     if (hit && hit.type === 'resize') {
@@ -946,7 +1210,6 @@ wrap.addEventListener('pointermove', e => {
   if (!pointers.has(e.pointerId)) return;
   const p = localPoint(e);
   pointers.set(e.pointerId, p);
-
   if (gesture && gesture.kind === 'pinch' && pointers.size >= 2) {
     const pts = [...pointers.values()];
     const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
@@ -968,7 +1231,6 @@ wrap.addEventListener('pointermove', e => {
     return;
   }
   if (pointers.size !== 1) return;
-
   if (drawing) {
     const ip = screenToImage(p.x, p.y);
     drawing.w = ip.x - drawing.x;
@@ -1089,7 +1351,6 @@ window.addEventListener('paste', e => {
 // ============================================================
 function run() {
   if (!imgData) return;
-  const thr = +document.getElementById('thr').value / 100;
   const needVerify = document.getElementById('verify').checked;
   const soft = document.getElementById('zoneSoft').checked;
   const doDownscale = document.getElementById('downscale').checked;
@@ -1099,9 +1360,8 @@ function run() {
 
   setTimeout(() => {
     try {
-      // даунскейл для больших картинок
       let detectScale = 1;
-      const saved = { W, H, imgData, srcImage };
+      const saved = { W, H, imgData };
       if (doDownscale && Math.max(W, H) > 1200) {
         const s = 1200 / Math.max(W, H);
         const dw = Math.round(W * s), dh = Math.round(H * s);
@@ -1115,7 +1375,7 @@ function run() {
       }
 
       const t1 = performance.now();
-      const candidates = methods[currentMethod](thr);
+      const candidates = methods[currentMethod](0.5);
       const tDet = performance.now() - t1;
 
       const t2 = performance.now();
@@ -1133,7 +1393,6 @@ function run() {
       }
       const tVer = performance.now() - t2;
 
-      // масштабируем обратно в координаты оригинала
       if (detectScale !== 1) {
         boxes = boxes.map(b => ({
           ...b,
