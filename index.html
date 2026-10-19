@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Anime Face Detector — zoom + pan + zones</title>
+<title>Anime Face Detector — skin + symmetry</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; }
@@ -68,9 +68,8 @@
   .legend .d { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px dashed; vertical-align: middle; }
   .zone-info { font-size: 11px; color: #9a9aa8; margin-top: 6px; line-height: 1.5; }
 
-  /* =============== ОБЛАСТЬ ХОЛСТА =============== */
   .canvasWrap {
-    position: relative;              /* ОБЯЗАТЕЛЬНО */
+    position: relative;
     overflow: hidden;
     background: #0f0f14;
     touch-action: none;
@@ -89,14 +88,13 @@
   .canvasWrap.drag { box-shadow: inset 0 0 0 3px #4f9dff; }
   .canvasWrap.drawing { cursor: crosshair; }
 
-  /* КЛЮЧЕВОЕ: канвас не ловит события — все идут в wrap */
   #cv {
     position: absolute;
     top: 0; left: 0;
     transform-origin: 0 0;
     image-rendering: auto;
     will-change: transform;
-    pointer-events: none;            /* ВАЖНО */
+    pointer-events: none;
     display: block;
   }
 
@@ -117,7 +115,7 @@
 <body>
 <header>
   <h1>🎨 Anime Face Detector</h1>
-  <span class="hint">колесо/пинч — зум · 2 пальца / пробел / средняя кнопка — пан · Enter — искать · Z — разметка</span>
+  <span class="hint">колесо/пинч — зум · 2 пальца / пробел — пан · Enter — искать · Z — разметка</span>
 </header>
 
 <div class="app">
@@ -126,10 +124,8 @@
       <h2>Метод-детектор</h2>
       <div class="methods" id="methods">
         <label class="active"><input type="radio" name="m" value="skin" checked>1. Skin (YCbCr)</label>
-        <label><input type="radio" name="m" value="eyes">2. Глаза + геометрия</label>
-        <label><input type="radio" name="m" value="ncc">3. NCC multi-scale</label>
-        <label><input type="radio" name="m" value="sym">4. Симметрия</label>
-        <label><input type="radio" name="m" value="all">5. Все + NMS</label>
+        <label><input type="radio" name="m" value="sym">2. Skin + симметрия</label>
+        <label><input type="radio" name="m" value="all">3. Все + NMS</label>
       </div>
       <div class="desc" id="desc"></div>
     </div>
@@ -195,11 +191,9 @@ let srcImage = null;
 let _grayCache = null;
 let lastBoxes = [];
 
-// viewport
 const view = { scale: 1, tx: 0, ty: 0 };
 const MIN_SCALE = 0.05, MAX_SCALE = 32;
 
-// зоны
 let zones = [];
 let drawingMode = false;
 let drawing = null;
@@ -208,18 +202,15 @@ let interaction = null;
 const HANDLE_R_PX = 14;
 const CORNER_HIT_PX = 22;
 
-// жесты
 const pointers = new Map();
 let gesture = null;
 let spaceDown = false;
 let lastTap = { time: 0, x: 0, y: 0 };
 
 const DESCR = {
-  skin: "Маска кожи YCbCr → компоненты → фильтр формы. Верификация глазами.",
-  eyes: "Тёмные блобы + цветовой бонус → пары 'глаз' → бокс лица.",
-  ncc:  "NCC с шаблонами глаза (16/24/32 px) → боксы лица.",
-  sym:  "Skin-кандидаты + симметрия.",
-  all:  "Объединение skin+eyes+NCC + симметрия + NMS."
+  skin: "Маска кожи YCbCr → компоненты → фильтр формы (aspect, fill). Затем верификация глазами.",
+  sym:  "Skin-кандидаты, отфильтрованные по симметрии левой/правой половины бокса (порог 0.72).",
+  all:  "Skin-кандидаты + симметрия как дополнительный балл, затем NMS и верификация глазами."
 };
 
 // ============================================================
@@ -232,7 +223,6 @@ function applyView() {
 
 function fitToScreen() {
   if (!W || !H) return;
-  // используем размеры контейнера, но минимум 100x100 (если ещё не отрисован)
   const rw = Math.max(100, wrap.clientWidth);
   const rh = Math.max(100, wrap.clientHeight);
   const s = Math.min(rw / W, rh / H) * 0.96;
@@ -259,7 +249,6 @@ function localPoint(e) {
   const r = wrap.getBoundingClientRect();
   return { x: e.clientX - r.left, y: e.clientY - r.top };
 }
-
 function screenToImage(sx, sy) {
   return { x: (sx - view.tx) / view.scale, y: (sy - view.ty) / view.scale };
 }
@@ -312,7 +301,6 @@ function loadImage(src) {
     wrap.classList.remove('empty');
     document.getElementById('btnSave').disabled = true;
 
-    // даём браузеру посчитать layout и только потом fitToScreen
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         fitToScreen();
@@ -325,10 +313,7 @@ function loadImage(src) {
   im.src = src;
 }
 
-window.addEventListener('resize', () => {
-  if (!W) return;
-  applyView();
-});
+window.addEventListener('resize', () => { if (W) applyView(); });
 
 // ============================================================
 // УТИЛИТЫ
@@ -440,6 +425,17 @@ function colorEyeScore(r, g, b) {
   if (h < 0) h += 360;
   return (s > 0.35 && (h < 15 || h > 50)) ? 1 : 0;
 }
+function symmetryScore(g, b) {
+  const x0 = Math.max(0, b.x), x1 = Math.min(W, b.x + b.w);
+  const y0 = Math.max(0, b.y), y1 = Math.min(H, b.y + b.h);
+  const bw = x1 - x0, half = Math.floor(bw / 2);
+  let sad = 0, n = 0;
+  for (let y = y0; y < y1; y++) for (let x = 0; x < half; x++) {
+    sad += Math.abs(g[y*W + x0+x] - g[y*W + x1-1-x]); n++;
+  }
+  if (!n) return 0;
+  return Math.max(0, Math.min(1, 1 - (sad / n) / 255));
+}
 
 // ============================================================
 // ЗОНЫ
@@ -451,7 +447,6 @@ function inAnyZone(box) {
     if (cx >= z.x && cx <= z.x + z.w && cy >= z.y && cy <= z.y + z.h) return true;
   return false;
 }
-
 function makeAutoZones() {
   if (!imgData) return [];
   const d = imgData.data;
@@ -476,13 +471,11 @@ function makeAutoZones() {
   }
   return zs;
 }
-
 function updateZoneInfo() {
   document.getElementById('zoneInfo').textContent = zones.length
     ? `Зон: ${zones.length} · тап — выбрать, тянуть за ручки`
     : 'Зон: 0 (поиск по всему изображению)';
 }
-
 function getScreenHandles(zone) {
   const x0 = zone.x * view.scale + view.tx;
   const y0 = zone.y * view.scale + view.ty;
@@ -495,7 +488,6 @@ function getScreenHandles(zone) {
     sw: { x: x0, y: y1 }, s: { x: mx, y: y1 }, se: { x: x1, y: y1 }
   };
 }
-
 function hitZone(sx, sy) {
   if (selectedZone >= 0 && selectedZone < zones.length) {
     const h = getScreenHandles(zones[selectedZone]);
@@ -524,7 +516,6 @@ function drawAll() {
   ctx.clearRect(0, 0, W, H);
   ctx.drawImage(srcImage, 0, 0);
 
-  // боксы
   for (const b of lastBoxes) {
     ctx.lineWidth = 2 / view.scale;
     ctx.strokeStyle = '#4f9dff';
@@ -540,7 +531,6 @@ function drawAll() {
     }
   }
 
-  // зоны
   for (let i = 0; i < zones.length; i++) {
     const z = zones[i];
     const isSel = i === selectedZone;
@@ -552,7 +542,6 @@ function drawAll() {
       ctx.fillStyle = 'rgba(255,210,79,0.08)';
       ctx.fillRect(z.x, z.y, z.w, z.h);
       ctx.setLineDash([]);
-
       const sh = getScreenHandles(z);
       const rImg = HANDLE_R_PX / view.scale;
       for (const k in sh) {
@@ -577,7 +566,7 @@ function drawAll() {
 }
 
 // ============================================================
-// ДЕТЕКТОРЫ (сокращены — те же, что в предыдущей версии)
+// МЕТОДЫ (skin / sym / all)
 // ============================================================
 function methodSkin(threshold = 0.5) {
   const d = imgData.data;
@@ -601,111 +590,6 @@ function methodSkin(threshold = 0.5) {
   return nms(boxes, 0.4);
 }
 
-function methodEyes(threshold = 0.5) {
-  const g = grayCached();
-  const t = 60 + threshold * 40;
-  const mask = new Uint8Array(W*H);
-  for (let i = 0; i < g.length; i++) if (g[i] < t) mask[i] = 1;
-  const m2 = erode(mask, W, H);
-  const comps = connectedComponents(m2, W, H, 60);
-  const eyes = comps.filter(c => {
-    const ar = c.w / c.h;
-    const fill = c.area / (c.w*c.h);
-    return ar > 0.4 && ar < 2.5 && fill > 0.35 &&
-           c.area > 80 && c.area < W*H*0.05;
-  });
-  const boxes = [];
-  for (let i = 0; i < eyes.length; i++) for (let j = i+1; j < eyes.length; j++) {
-    const a = eyes[i], b = eyes[j];
-    const dy = Math.abs((a.y+a.h/2) - (b.y+b.h/2));
-    const dx = Math.abs((a.x+a.w/2) - (b.x+b.w/2));
-    const sizeAvg = (a.w + b.w) / 2;
-    if (dy > sizeAvg * 0.6) continue;
-    const ratio = dx / sizeAvg;
-    if (ratio < 1.2 || ratio > 4) continue;
-    if (Math.max(a.w,b.w) / Math.min(a.w,b.w) > 2) continue;
-    const cx = (a.x + a.w/2 + b.x + b.w/2) / 2;
-    const cyEyes = (a.y + a.h/2 + b.y + b.h/2) / 2;
-    const eyeSpan = dx + sizeAvg;
-    const fw = eyeSpan * 1.6, fh = fw * 1.3;
-    boxes.push({ x: cx - fw/2, y: cyEyes - fh * 0.42, w: fw, h: fh, score: 0.9 });
-  }
-  return nms(boxes, 0.3);
-}
-
-function makeEyeTemplate(size) {
-  const t = new Float32Array(size*size);
-  const cx = size/2, cy = size/2;
-  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    const dx = (x - cx) / (size*0.32), dy = (y - cy) / (size*0.45);
-    const r2 = dx*dx + dy*dy;
-    let v = r2 < 1 ? 0.15 : 0.9;
-    const bx = (x - cx*0.7) / (size*0.1), by = (y - cy*0.8) / (size*0.12);
-    if (bx*bx + by*by < 1) v = 1;
-    t[y*size + x] = v;
-  }
-  return { data: t, size };
-}
-const TEMPLATES = [16, 24, 32].map(s => makeEyeTemplate(s));
-
-function nccScan(gF, tpl, tMin, STEP) {
-  const { data: T, size: S } = tpl;
-  const I = new Float64Array((W+1)*(H+1));
-  const I2 = new Float64Array((W+1)*(H+1));
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const v = gF[y*W + x];
-    I[(y+1)*(W+1) + (x+1)]  = v   + I[y*(W+1)+(x+1)]     + I[(y+1)*(W+1)+x]     - I[y*(W+1)+x];
-    I2[(y+1)*(W+1) + (x+1)] = v*v + I2[y*(W+1)+(x+1)]    + I2[(y+1)*(W+1)+x]    - I2[y*(W+1)+x];
-  }
-  const sumT = T.reduce((a, b) => a + b, 0);
-  const sumT2 = T.reduce((a, b) => a + b*b, 0);
-  const N = S*S;
-  const raw = [];
-  for (let y = 0; y + S < H; y += STEP) for (let x = 0; x + S < W; x += STEP) {
-    const a  = I[y*(W+1)+x],      b  = I[y*(W+1)+x+S];
-    const c  = I[(y+S)*(W+1)+x],  dd = I[(y+S)*(W+1)+x+S];
-    const sumI = dd - b - c + a;
-    const a2  = I2[y*(W+1)+x],     b2  = I2[y*(W+1)+x+S];
-    const c2  = I2[(y+S)*(W+1)+x], d2  = I2[(y+S)*(W+1)+x+S];
-    const sumI2 = d2 - b2 - c2 + a2;
-    let sumIT = 0;
-    for (let yy = 0; yy < S; yy++) for (let xx = 0; xx < S; xx++)
-      sumIT += gF[(y+yy)*W + (x+xx)] * T[yy*S + xx];
-    const num = sumIT - sumI*sumT/N;
-    const den = Math.sqrt((sumI2 - sumI*sumI/N) * (sumT2 - sumT*sumT/N));
-    const ncc = den > 1e-6 ? num / den : 0;
-    if (ncc > tMin) raw.push({ x, y, w: S, h: S, score: ncc });
-  }
-  return raw;
-}
-
-function methodNCC(threshold = 0.5) {
-  const g = grayCached();
-  const gF = new Float32Array(W*H);
-  for (let i = 0; i < g.length; i++) gF[i] = g[i] / 255;
-  const tMin = 0.45 + threshold * 0.3;
-  const STEP = 3;
-  const allRaw = [];
-  for (const tpl of TEMPLATES) allRaw.push(...nccScan(gF, tpl, tMin, STEP));
-  const face = allRaw.map(b => {
-    const fw = b.w * 3, fh = fw * 1.3;
-    return { x: b.x - fw*0.28, y: b.y + b.h*0.1, w: fw, h: fh, score: b.score };
-  });
-  return nms(face, 0.25);
-}
-
-function symmetryScore(g, b) {
-  const x0 = Math.max(0, b.x), x1 = Math.min(W, b.x + b.w);
-  const y0 = Math.max(0, b.y), y1 = Math.min(H, b.y + b.h);
-  const bw = x1 - x0, half = Math.floor(bw / 2);
-  let sad = 0, n = 0;
-  for (let y = y0; y < y1; y++) for (let x = 0; x < half; x++) {
-    sad += Math.abs(g[y*W + x0+x] - g[y*W + x1-1-x]); n++;
-  }
-  if (!n) return 0;
-  return Math.max(0, Math.min(1, 1 - (sad / n) / 255));
-}
-
 function methodSymmetry(threshold = 0.5) {
   const g = grayCached();
   const base = methodSkin(threshold);
@@ -719,14 +603,17 @@ function methodSymmetry(threshold = 0.5) {
 
 function methodAll(threshold = 0.5) {
   const g = grayCached();
-  const a = methodSkin(threshold), b = methodEyes(threshold), c = methodNCC(threshold);
-  const all = [...a, ...b, ...c].map(x => ({
-    ...x, score: (x.score||0) * 0.5 + symmetryScore(g, x) * 0.5
+  const base = methodSkin(threshold);
+  const scored = base.map(x => ({
+    ...x,
+    score: (x.score||0) * 0.5 + symmetryScore(g, x) * 0.5
   }));
-  return nms(all.filter(b => symmetryScore(g, b) > 0.65), 0.3);
+  return nms(scored, 0.3);
 }
 
-// глаза в ROI + верификация
+// ============================================================
+// ВЕРИФИКАЦИЯ ГЛАЗАМИ
+// ============================================================
 function roiLooksLikeFace(gray, roi) {
   const rx = Math.max(0, roi.x|0), ry = Math.max(0, roi.y|0);
   const rw = Math.min(W - rx, roi.w|0), rh = Math.min(H - ry, roi.h|0);
@@ -825,7 +712,7 @@ function verifyFaceByEyes(gray, faceBox) {
 // ============================================================
 // UI
 // ============================================================
-const methods = { skin: methodSkin, eyes: methodEyes, ncc: methodNCC, sym: methodSymmetry, all: methodAll };
+const methods = { skin: methodSkin, sym: methodSymmetry, all: methodAll };
 let currentMethod = 'skin';
 
 document.querySelectorAll('input[name="m"]').forEach(r => {
@@ -857,7 +744,6 @@ document.getElementById('btnZoneMode').addEventListener('click', () => {
   if (!drawingMode) selectedZone = -1;
   drawAll();
 });
-
 document.getElementById('btnAutoZones').addEventListener('click', () => {
   if (!imgData) return;
   zones = makeAutoZones();
@@ -865,7 +751,6 @@ document.getElementById('btnAutoZones').addEventListener('click', () => {
   updateZoneInfo(); drawAll();
   if (zones.length) run();
 });
-
 document.getElementById('btnClearZones').addEventListener('click', () => {
   zones = []; selectedZone = -1;
   updateZoneInfo(); drawAll();
@@ -888,7 +773,6 @@ document.getElementById('z1').addEventListener('click', () => {
 
 // ============================================================
 // ВЗАИМОДЕЙСТВИЕ
-// ВСЕ события — на wrap. Канвас имеет pointer-events: none.
 // ============================================================
 wrap.addEventListener('wheel', e => {
   if (!imgData) return;
@@ -906,34 +790,27 @@ wrap.addEventListener('pointerdown', e => {
   const p = localPoint(e);
   pointers.set(e.pointerId, p);
 
-  // пинч двумя пальцами
   if (pointers.size === 2) {
     const pts = [...pointers.values()];
     const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
     const center = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
     gesture = {
       kind: 'pinch',
-      startDist: dist,
-      startCenter: center,
-      startScale: view.scale,
-      startTx: view.tx,
-      startTy: view.ty
+      startDist: dist, startCenter: center,
+      startScale: view.scale, startTx: view.tx, startTy: view.ty
     };
     drawing = null; interaction = null;
     drawAll();
     return;
   }
 
-  // средняя кнопка / пробел → пан
   if (e.button === 1 || spaceDown) {
     gesture = { kind: 'pan', startX: p.x, startY: p.y, startTx: view.tx, startTy: view.ty };
     wrap.classList.add('panning');
     return;
   }
-
   if (pointers.size !== 1) return;
 
-  // двойной тап
   const now = Date.now();
   if (now - lastTap.time < 320 &&
       Math.abs(p.x - lastTap.x) < 25 && Math.abs(p.y - lastTap.y) < 25) {
@@ -952,7 +829,6 @@ wrap.addEventListener('pointerdown', e => {
   }
   lastTap = { time: now, x: p.x, y: p.y };
 
-  // режим разметки
   if (drawingMode) {
     const hit = hitZone(p.x, p.y);
     if (hit && hit.type === 'resize') {
@@ -1009,19 +885,15 @@ wrap.addEventListener('pointermove', e => {
     view.scale = newScale;
     view.tx = center.x - wx * newScale;
     view.ty = center.y - wy * newScale;
-    applyView();
-    drawAll();
+    applyView(); drawAll();
     return;
   }
-
   if (gesture && gesture.kind === 'pan') {
     view.tx = gesture.startTx + (p.x - gesture.startX);
     view.ty = gesture.startTy + (p.y - gesture.startY);
-    applyView();
-    drawAll();
+    applyView(); drawAll();
     return;
   }
-
   if (pointers.size !== 1) return;
 
   if (drawing) {
@@ -1031,7 +903,6 @@ wrap.addEventListener('pointermove', e => {
     drawAll();
     return;
   }
-
   if (interaction) {
     const ip = screenToImage(p.x, p.y);
     const dx = ip.x - interaction.startImg.x;
@@ -1070,7 +941,6 @@ function endPointer(e) {
     gesture = null;
     wrap.classList.remove('panning');
   }
-
   if (drawing) {
     if (drawing.w < 0) { drawing.x += drawing.w; drawing.w = -drawing.w; }
     if (drawing.h < 0) { drawing.y += drawing.h; drawing.h = -drawing.h; }
@@ -1079,24 +949,17 @@ function endPointer(e) {
       selectedZone = zones.length - 1;
     }
     drawing = null;
-    updateZoneInfo();
-    drawAll();
+    updateZoneInfo(); drawAll();
   }
-
   if (interaction) {
     interaction = null;
     updateZoneInfo();
     if (imgData) run();
   }
 }
-
 wrap.addEventListener('pointerup', endPointer);
 wrap.addEventListener('pointercancel', endPointer);
-wrap.addEventListener('pointerleave', e => {
-  // не завершаем, если захвачен
-});
 
-// пробел для пана
 window.addEventListener('keydown', e => {
   if (e.code === 'Space' && !spaceDown &&
       e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
@@ -1105,13 +968,10 @@ window.addEventListener('keydown', e => {
     e.preventDefault();
   }
   if (e.key === 'Enter' && imgData &&
-      e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-    run();
-  }
+      e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') run();
   if ((e.key === 'z' || e.key === 'Z') && imgData &&
-      e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+      e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA')
     document.getElementById('btnZoneMode').click();
-  }
   if ((e.key === 'Delete' || e.key === 'Backspace') &&
       e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
     zones = []; selectedZone = -1;
@@ -1125,7 +985,6 @@ window.addEventListener('keyup', e => {
   if (e.code === 'Space') { spaceDown = false; wrap.style.cursor = ''; }
 });
 
-// drag&drop / paste / save
 document.getElementById('btnSave').addEventListener('click', () => {
   const a = document.createElement('a');
   a.download = 'faces.png';
@@ -1147,7 +1006,6 @@ wrap.addEventListener('drop', e => {
     r.readAsDataURL(f);
   }
 });
-
 window.addEventListener('paste', e => {
   for (const item of e.clipboardData.items) {
     if (item.type.startsWith('image/')) {
