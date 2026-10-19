@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Anime Face Detector — JS methods + eye verification</title>
+<title>Anime Face Detector — eyes + nose + mouth</title>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; font-family: system-ui, sans-serif; background: #1e1e24; color: #e5e5ea; }
@@ -26,17 +26,20 @@
   .stat { font-size: 12px; color: #b0b0be; margin-top: 8px; line-height: 1.4; }
   .slider-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; }
   .slider-row span { width: 40px; text-align: right; color: #9a9aa8; }
-  .toggle { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; color: #c0c0cc; cursor: pointer; user-select: none; }
-  .legend { font-size: 11px; color: #88889a; margin-top: 8px; }
-  .legend .l { display: inline-block; width: 10px; height: 10px; margin-right: 4px; border: 2px solid; vertical-align: middle; }
+  .toggle { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: #c0c0cc; cursor: pointer; user-select: none; }
+  .toggle input { cursor: pointer; }
+  .legend { font-size: 11px; color: #88889a; margin-top: 10px; line-height: 1.8; }
+  .legend .l { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px solid; vertical-align: middle; }
+  .slider-row.small { font-size: 12px; }
+  .slider-row.small input { max-width: 100px; }
 </style>
 </head>
 <body>
-<header><h1>🎨 Anime Face Detector — pure JS + eye verification</h1></header>
+<header><h1>🎨 Anime Face Detector — eyes + nose + mouth verification</h1></header>
 <div class="wrap">
   <div>
     <div class="panel">
-      <h2>Метод</h2>
+      <h2>Метод-детектор</h2>
       <div class="methods" id="methods">
         <label class="active"><input type="radio" name="m" value="skin" checked>1. Skin (YCbCr) + блобы</label>
         <label><input type="radio" name="m" value="eyes">2. Глаза + геометрия</label>
@@ -48,14 +51,27 @@
     </div>
 
     <div class="panel" style="margin-top:12px">
-      <h2>Параметры</h2>
+      <h2>Верификация</h2>
+      <label class="toggle"><input type="checkbox" id="vEyes" checked> Глаза (обязательно)</label>
+      <label class="toggle"><input type="checkbox" id="vNose" checked> Нос</label>
+      <label class="toggle"><input type="checkbox" id="vMouth" checked> Рот</label>
+      <div class="slider-row small">
+        <label>Мин. балл</label>
+        <input type="range" id="vScore" min="0" max="100" value="55" style="flex:1">
+        <span id="vScoreV">55</span>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <h2>Изображение</h2>
       <input type="file" id="file" accept="image/*" style="width:100%; font-size:12px;">
       <div class="slider-row"><label>Порог</label><input type="range" id="thr" min="1" max="100" value="50" style="flex:1"><span id="thrV">50</span></div>
-      <label class="toggle"><input type="checkbox" id="verify" checked> Верификация глазами (отсев без глаз)</label>
       <div class="stat" id="stat">Загрузите картинку</div>
       <div class="legend">
         <span class="l" style="border-color:#4f9dff"></span>лицо
         <span class="l" style="border-color:#ff4f9d; margin-left:8px"></span>глаза
+        <span class="l" style="border-color:#ffd24f; margin-left:8px"></span>нос
+        <span class="l" style="border-color:#4fffa1; margin-left:8px"></span>рот
       </div>
     </div>
   </div>
@@ -79,15 +95,15 @@ let imgData = null, W = 0, H = 0;
 let srcImage = null;
 
 const DESCR = {
-  skin: "Маска кожи YCbCr → компоненты → фильтр формы. Затем внутри каждого бокса ищем пару глаз; без пары — отсев.",
-  eyes: "Тёмные блобы → пары 'глаз' по геометрии → бокс лица. Верификация повторно подтверждает пару внутри ROI.",
-  ncc:  "NCC с синтетическим шаблоном глаза → боксы лица. Верификация ищет независимую пару глаз внутри ROI.",
-  sym:  "Skin-кандидаты + проверка симметрии. Верификация глазами отсеивает несимметричные/безглазые.",
-  all:  "Объединение skin+eyes+NCC, симметрия как верификатор, затем проверка глаз и NMS."
+  skin: "Маска кожи YCbCr → компоненты → фильтр формы. Далее верификация глазами/носом/ртом внутри ROI.",
+  eyes: "Тёмные блобы → пары 'глаз' по геометрии → бокс лица. Верификация подтверждает пару внутри ROI + нос + рот.",
+  ncc:  "NCC с шаблоном глаза → боксы лица. Верификация ищет независимые глаза/нос/рот внутри ROI.",
+  sym:  "Skin-кандидаты + проверка симметрии. Верификация глазами/носом/ртом отсеивает остальное.",
+  all:  "Объединение skin+eyes+NCC + симметрия, затем верификация тремя органами + NMS."
 };
 
 // ============================================================
-// ЗАГРУЗКА ИЗОБРАЖЕНИЯ
+// ЗАГРУЗКА
 // ============================================================
 document.getElementById('file').addEventListener('change', e => {
   const f = e.target.files[0]; if (!f) return;
@@ -97,28 +113,34 @@ document.getElementById('file').addEventListener('change', e => {
 });
 
 document.getElementById('btn2').addEventListener('click', () => {
-  const c = document.createElement('canvas'); c.width = 500; c.height = 400;
+  // синтетическое аниме-лицо с глазами, носом и ртом
+  const c = document.createElement('canvas'); c.width = 500; c.height = 500;
   const g = c.getContext('2d');
-  g.fillStyle = '#c8d8e8'; g.fillRect(0, 0, 500, 400);
+  g.fillStyle = '#c8d8e8'; g.fillRect(0, 0, 500, 500);
   // волосы
-  g.fillStyle = '#3a2545'; g.beginPath(); g.ellipse(250, 220, 170, 210, 0, 0, 7); g.fill();
+  g.fillStyle = '#3a2545'; g.beginPath(); g.ellipse(250, 250, 190, 230, 0, 0, 7); g.fill();
   // лицо
-  g.fillStyle = '#ffe0c8'; g.beginPath(); g.ellipse(250, 220, 130, 160, 0, 0, 7); g.fill();
+  g.fillStyle = '#ffe0c8'; g.beginPath(); g.ellipse(250, 250, 140, 170, 0, 0, 7); g.fill();
   // глаза
   g.fillStyle = '#1a1a3a';
-  g.beginPath(); g.ellipse(200, 200, 28, 38, 0, 0, 7); g.fill();
-  g.beginPath(); g.ellipse(300, 200, 28, 38, 0, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(195, 220, 30, 40, 0, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(305, 220, 30, 40, 0, 0, 7); g.fill();
   // радужка
   g.fillStyle = '#4f9dff';
-  g.beginPath(); g.ellipse(200, 205, 16, 22, 0, 0, 7); g.fill();
-  g.beginPath(); g.ellipse(300, 205, 16, 22, 0, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(195, 225, 18, 24, 0, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(305, 225, 18, 24, 0, 0, 7); g.fill();
   // блики
   g.fillStyle = '#fff';
-  g.beginPath(); g.arc(192, 190, 9, 0, 7); g.fill();
-  g.beginPath(); g.arc(292, 190, 9, 0, 7); g.fill();
-  // рот
-  g.strokeStyle = '#c04060'; g.lineWidth = 4;
-  g.beginPath(); g.arc(250, 290, 22, 0.2, Math.PI - 0.2); g.stroke();
+  g.beginPath(); g.arc(186, 210, 10, 0, 7); g.fill();
+  g.beginPath(); g.arc(296, 210, 10, 0, 7); g.fill();
+  // НОС — маленький тёмный штрих по центру
+  g.fillStyle = '#e0b090';
+  g.beginPath(); g.ellipse(250, 280, 8, 12, 0, 0, 7); g.fill();
+  g.fillStyle = '#8a5540';
+  g.beginPath(); g.ellipse(250, 288, 6, 3, 0, 0, 7); g.fill();
+  // РОТ — горизонтальная линия
+  g.strokeStyle = '#c04060'; g.lineWidth = 5;
+  g.beginPath(); g.moveTo(225, 330); g.quadraticCurveTo(250, 345, 275, 330); g.stroke();
   loadImage(c.toDataURL());
 });
 
@@ -139,11 +161,9 @@ function loadImage(src) {
 }
 
 // ============================================================
-// БАЗОВЫЕ УТИЛИТЫ
+// УТИЛИТЫ
 // ============================================================
-function redraw() {
-  if (srcImage) ctx.drawImage(srcImage, 0, 0, W, H);
-}
+function redraw() { if (srcImage) ctx.drawImage(srcImage, 0, 0, W, H); }
 
 function grayPixels() {
   const g = new Uint8Array(W * H);
@@ -164,9 +184,7 @@ function iou(a, b) {
 function nms(boxes, thr = 0.3) {
   const sorted = [...boxes].sort((a, b) => (b.score||0) - (a.score||0));
   const keep = [];
-  for (const b of sorted) {
-    if (keep.every(k => iou(k, b) < thr)) keep.push(b);
-  }
+  for (const b of sorted) if (keep.every(k => iou(k, b) < thr)) keep.push(b);
   return keep;
 }
 
@@ -199,40 +217,34 @@ function connectedComponents(mask, w, h, minArea = 20) {
   const comps = [];
   const stack = [];
   let L = 0;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const idx = y*w + x;
-      if (!mask[idx] || labels[idx] !== -1) continue;
-      stack.length = 0;
-      stack.push(x, y);
-      labels[idx] = L;
-      let minX = x, minY = y, maxX = x, maxY = y, area = 0;
-      while (stack.length) {
-        const py = stack.pop(), px = stack.pop();
-        area++;
-        if (px < minX) minX = px; if (px > maxX) maxX = px;
-        if (py < minY) minY = py; if (py > maxY) maxY = py;
-        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-          if (!dx && !dy) continue;
-          const nx = px + dx, ny = py + dy;
-          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-          const ni = ny*w + nx;
-          if (mask[ni] && labels[ni] === -1) {
-            labels[ni] = L;
-            stack.push(nx, ny);
-          }
-        }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const idx = y*w + x;
+    if (!mask[idx] || labels[idx] !== -1) continue;
+    stack.length = 0; stack.push(x, y);
+    labels[idx] = L;
+    let minX = x, minY = y, maxX = x, maxY = y, area = 0;
+    while (stack.length) {
+      const py = stack.pop(), px = stack.pop();
+      area++;
+      if (px < minX) minX = px; if (px > maxX) maxX = px;
+      if (py < minY) minY = py; if (py > maxY) maxY = py;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const nx = px + dx, ny = py + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const ni = ny*w + nx;
+        if (mask[ni] && labels[ni] === -1) { labels[ni] = L; stack.push(nx, ny); }
       }
-      if (area >= minArea)
-        comps.push({ x: minX, y: minY, w: maxX-minX+1, h: maxY-minY+1, area });
-      L++;
     }
+    if (area >= minArea)
+      comps.push({ x: minX, y: minY, w: maxX-minX+1, h: maxY-minY+1, area });
+    L++;
   }
   return comps;
 }
 
 // ============================================================
-// МЕТОД 1: SKIN (YCbCr) + блобы
+// МЕТОДЫ-ДЕТЕКТОРЫ (без изменений)
 // ============================================================
 function methodSkin(threshold = 0.5) {
   const d = imgData.data;
@@ -243,8 +255,7 @@ function methodSkin(threshold = 0.5) {
     const cr = 128 + 0.5*r - 0.418688*g - 0.081312*b;
     if (cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173) mask[j] = 1;
   }
-  const m2 = erode(mask, W, H);
-  const m3 = dilate(m2, W, H);
+  const m2 = erode(mask, W, H), m3 = dilate(m2, W, H);
   const comps = connectedComponents(m3, W, H, 300);
   const boxes = [];
   for (const c of comps) {
@@ -257,9 +268,6 @@ function methodSkin(threshold = 0.5) {
   return nms(boxes, 0.4);
 }
 
-// ============================================================
-// МЕТОД 2: ГЛАЗА + ГЕОМЕТРИЯ
-// ============================================================
 function methodEyes(threshold = 0.5) {
   const g = grayPixels();
   const t = 60 + threshold * 40;
@@ -274,45 +282,32 @@ function methodEyes(threshold = 0.5) {
            c.area > 80 && c.area < W*H*0.05;
   });
   const boxes = [];
-  for (let i = 0; i < eyes.length; i++) {
-    for (let j = i+1; j < eyes.length; j++) {
-      const a = eyes[i], b = eyes[j];
-      const dy = Math.abs((a.y+a.h/2) - (b.y+b.h/2));
-      const dx = Math.abs((a.x+a.w/2) - (b.x+b.w/2));
-      const sizeAvg = (a.w + b.w) / 2;
-      if (dy > sizeAvg * 0.6) continue;
-      const ratio = dx / sizeAvg;
-      if (ratio < 1.2 || ratio > 4) continue;
-      const sizeRatio = Math.max(a.w,b.w) / Math.min(a.w,b.w);
-      if (sizeRatio > 2) continue;
-      const cx = (a.x + a.w/2 + b.x + b.w/2) / 2;
-      const cyEyes = (a.y + a.h/2 + b.y + b.h/2) / 2;
-      const eyeSpan = dx + sizeAvg;
-      const fw = eyeSpan * 1.6;
-      const fh = fw * 1.3;
-      boxes.push({
-        x: cx - fw/2,
-        y: cyEyes - fh * 0.42,
-        w: fw, h: fh, score: 0.9
-      });
-    }
+  for (let i = 0; i < eyes.length; i++) for (let j = i+1; j < eyes.length; j++) {
+    const a = eyes[i], b = eyes[j];
+    const dy = Math.abs((a.y+a.h/2) - (b.y+b.h/2));
+    const dx = Math.abs((a.x+a.w/2) - (b.x+b.w/2));
+    const sizeAvg = (a.w + b.w) / 2;
+    if (dy > sizeAvg * 0.6) continue;
+    const ratio = dx / sizeAvg;
+    if (ratio < 1.2 || ratio > 4) continue;
+    if (Math.max(a.w,b.w) / Math.min(a.w,b.w) > 2) continue;
+    const cx = (a.x + a.w/2 + b.x + b.w/2) / 2;
+    const cyEyes = (a.y + a.h/2 + b.y + b.h/2) / 2;
+    const eyeSpan = dx + sizeAvg;
+    const fw = eyeSpan * 1.6, fh = fw * 1.3;
+    boxes.push({ x: cx - fw/2, y: cyEyes - fh * 0.42, w: fw, h: fh, score: 0.9 });
   }
   return nms(boxes, 0.3);
 }
 
-// ============================================================
-// МЕТОД 3: NCC с шаблоном глаза
-// ============================================================
 function makeEyeTemplate(size = 24) {
   const t = new Float32Array(size*size);
   const cx = size/2, cy = size/2;
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    const dx = (x - cx) / (size*0.32);
-    const dy = (y - cy) / (size*0.45);
+    const dx = (x - cx) / (size*0.32), dy = (y - cy) / (size*0.45);
     const r2 = dx*dx + dy*dy;
     let v = r2 < 1 ? 0.15 : 0.9;
-    const bx = (x - cx*0.7) / (size*0.1);
-    const by = (y - cy*0.8) / (size*0.12);
+    const bx = (x - cx*0.7) / (size*0.1), by = (y - cy*0.8) / (size*0.12);
     if (bx*bx + by*by < 1) v = 1;
     t[y*size + x] = v;
   }
@@ -323,10 +318,8 @@ function methodNCC(threshold = 0.5) {
   const g = grayPixels();
   const gF = new Float32Array(W*H);
   for (let i = 0; i < g.length; i++) gF[i] = g[i] / 255;
-
   const { data: T, size: S } = makeEyeTemplate(24);
   const tMin = 0.45 + threshold * 0.3;
-
   const I = new Float64Array((W+1)*(H+1));
   const I2 = new Float64Array((W+1)*(H+1));
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -334,56 +327,39 @@ function methodNCC(threshold = 0.5) {
     I[(y+1)*(W+1) + (x+1)]  = v   + I[y*(W+1)+(x+1)]     + I[(y+1)*(W+1)+x]     - I[y*(W+1)+x];
     I2[(y+1)*(W+1) + (x+1)] = v*v + I2[y*(W+1)+(x+1)]    + I2[(y+1)*(W+1)+x]    - I2[y*(W+1)+x];
   }
-
-  const STEP = 3;
-  const raw = [];
+  const STEP = 3, raw = [];
   const sumT = T.reduce((a, b) => a + b, 0);
   const sumT2 = T.reduce((a, b) => a + b*b, 0);
   const N = S*S;
-
-  for (let y = 0; y + S < H; y += STEP) {
-    for (let x = 0; x + S < W; x += STEP) {
-      const a  = I[y*(W+1)+x],      b  = I[y*(W+1)+x+S];
-      const c  = I[(y+S)*(W+1)+x],  dd = I[(y+S)*(W+1)+x+S];
-      const sumI = dd - b - c + a;
-      const a2  = I2[y*(W+1)+x],     b2  = I2[y*(W+1)+x+S];
-      const c2  = I2[(y+S)*(W+1)+x], d2  = I2[(y+S)*(W+1)+x+S];
-      const sumI2 = d2 - b2 - c2 + a2;
-      let sumIT = 0;
-      for (let yy = 0; yy < S; yy++)
-        for (let xx = 0; xx < S; xx++)
-          sumIT += gF[(y+yy)*W + (x+xx)] * T[yy*S + xx];
-      const num = sumIT - sumI*sumT/N;
-      const den = Math.sqrt((sumI2 - sumI*sumI/N) * (sumT2 - sumT*sumT/N));
-      const ncc = den > 1e-6 ? num / den : 0;
-      if (ncc > tMin) raw.push({ x, y, w: S, h: S, score: ncc });
-    }
+  for (let y = 0; y + S < H; y += STEP) for (let x = 0; x + S < W; x += STEP) {
+    const a  = I[y*(W+1)+x],      b  = I[y*(W+1)+x+S];
+    const c  = I[(y+S)*(W+1)+x],  dd = I[(y+S)*(W+1)+x+S];
+    const sumI = dd - b - c + a;
+    const a2  = I2[y*(W+1)+x],     b2  = I2[y*(W+1)+x+S];
+    const c2  = I2[(y+S)*(W+1)+x], d2  = I2[(y+S)*(W+1)+x+S];
+    const sumI2 = d2 - b2 - c2 + a2;
+    let sumIT = 0;
+    for (let yy = 0; yy < S; yy++) for (let xx = 0; xx < S; xx++)
+      sumIT += gF[(y+yy)*W + (x+xx)] * T[yy*S + xx];
+    const num = sumIT - sumI*sumT/N;
+    const den = Math.sqrt((sumI2 - sumI*sumI/N) * (sumT2 - sumT*sumT/N));
+    const ncc = den > 1e-6 ? num / den : 0;
+    if (ncc > tMin) raw.push({ x, y, w: S, h: S, score: ncc });
   }
-
   const face = raw.map(b => {
-    const fw = b.w * 3;
-    const fh = fw * 1.3;
+    const fw = b.w * 3, fh = fw * 1.3;
     return { x: b.x - fw*0.28, y: b.y + b.h*0.1, w: fw, h: fh, score: b.score };
   });
   return nms(face, 0.25);
 }
 
-// ============================================================
-// МЕТОД 4: СИММЕТРИЯ
-// ============================================================
 function symmetryScore(g, b) {
   const x0 = Math.max(0, b.x), x1 = Math.min(W, b.x + b.w);
   const y0 = Math.max(0, b.y), y1 = Math.min(H, b.y + b.h);
-  const bw = x1 - x0;
-  const half = Math.floor(bw / 2);
+  const bw = x1 - x0, half = Math.floor(bw / 2);
   let sad = 0, n = 0;
-  for (let y = y0; y < y1; y++) {
-    for (let x = 0; x < half; x++) {
-      const lx = x0 + x;
-      const rx = x1 - 1 - x;
-      sad += Math.abs(g[y*W + lx] - g[y*W + rx]);
-      n++;
-    }
+  for (let y = y0; y < y1; y++) for (let x = 0; x < half; x++) {
+    sad += Math.abs(g[y*W + x0+x] - g[y*W + x1-1-x]); n++;
   }
   if (!n) return 0;
   return Math.max(0, Math.min(1, 1 - (sad / n) / 255));
@@ -400,24 +376,17 @@ function methodSymmetry(threshold = 0.5) {
   return out;
 }
 
-// ============================================================
-// МЕТОД 5: ВСЕ
-// ============================================================
 function methodAll(threshold = 0.5) {
   const g = grayPixels();
-  const a = methodSkin(threshold);
-  const b = methodEyes(threshold);
-  const c = methodNCC(threshold);
+  const a = methodSkin(threshold), b = methodEyes(threshold), c = methodNCC(threshold);
   const all = [...a, ...b, ...c].map(x => ({
-    ...x,
-    score: (x.score||0) * 0.5 + symmetryScore(g, x) * 0.5
+    ...x, score: (x.score||0) * 0.5 + symmetryScore(g, x) * 0.5
   }));
-  const filtered = all.filter(b => symmetryScore(g, b) > 0.65);
-  return nms(filtered, 0.3);
+  return nms(all.filter(b => symmetryScore(g, b) > 0.65), 0.3);
 }
 
 // ============================================================
-// ПОИСК ГЛАЗ ВНУТРИ БОКСА ЛИЦА
+// ПОИСК ГЛАЗ В ROI (как было)
 // ============================================================
 function findEyesInROI(gray, roi) {
   const rx = Math.max(0, roi.x | 0);
@@ -426,7 +395,6 @@ function findEyesInROI(gray, roi) {
   const rh = Math.min(H - ry, roi.h | 0);
   if (rw < 20 || rh < 20) return null;
 
-  // адаптивный порог по средней яркости ROI
   let sum = 0;
   for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
     sum += gray[(ry + y)*W + (rx + x)];
@@ -434,90 +402,205 @@ function findEyesInROI(gray, roi) {
   const t = Math.min(115, mean * 0.6);
 
   const mask = new Uint8Array(rw * rh);
-  for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++) {
+  for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
     if (gray[(ry + y)*W + (rx + x)] < t) mask[y*rw + x] = 1;
-  }
 
-  const m2 = erode(mask, rw, rh);
-  const m3 = dilate(m2, rw, rh);
-
+  const m2 = erode(mask, rw, rh), m3 = dilate(m2, rw, rh);
   const comps = connectedComponents(m3, rw, rh, 20);
-
   const eyes = comps.filter(c => {
     const ar = c.w / c.h;
     const fill = c.area / (c.w * c.h);
     const areaRatio = c.area / (rw * rh);
-    return ar > 0.35 && ar < 3.0 &&
-           fill > 0.3 &&
+    return ar > 0.35 && ar < 3.0 && fill > 0.3 &&
            areaRatio > 0.004 && areaRatio < 0.25;
   });
   if (eyes.length < 2) return null;
 
   let best = null, bestScore = -Infinity;
-  for (let i = 0; i < eyes.length; i++) {
-    for (let j = i + 1; j < eyes.length; j++) {
-      const a = eyes[i], b = eyes[j];
-      const ax = a.x + a.w/2, ay = a.y + a.h/2;
-      const bx = b.x + b.w/2, by = b.y + b.h/2;
-      const dx = Math.abs(ax - bx);
-      const dy = Math.abs(ay - by);
-      const sAvg = (a.w + b.w) / 2;
-      const sRatio = Math.max(a.w, b.w) / Math.min(a.w, b.w);
-
-      if (sAvg < 3) continue;
-      if (dy > sAvg * 0.7) continue;
-      const rel = dx / sAvg;
-      if (rel < 1.0 || rel > 4.5) continue;
-      if (sRatio > 2.2) continue;
-
-      const avgY = (ay + by) / 2;
-      if (avgY > rh * 0.8) continue;
-
-      // «идеал» rel ≈ 2, dy ≈ 0, sRatio ≈ 1
-      const score = (1 - Math.abs(rel - 2) / 2.5)
-                  - dy / sAvg * 1.5
-                  - (sRatio - 1) * 1.5;
-      if (score > bestScore) {
-        bestScore = score;
-        best = [
-          { x: rx + a.x, y: ry + a.y, w: a.w, h: a.h },
-          { x: rx + b.x, y: ry + b.y, w: b.w, h: b.h }
-        ];
-      }
+  for (let i = 0; i < eyes.length; i++) for (let j = i + 1; j < eyes.length; j++) {
+    const a = eyes[i], b = eyes[j];
+    const ax = a.x + a.w/2, ay = a.y + a.h/2;
+    const bx = b.x + b.w/2, by = b.y + b.h/2;
+    const dx = Math.abs(ax - bx), dy = Math.abs(ay - by);
+    const sAvg = (a.w + b.w) / 2;
+    const sRatio = Math.max(a.w, b.w) / Math.min(a.w, b.w);
+    if (sAvg < 3) continue;
+    if (dy > sAvg * 0.7) continue;
+    const rel = dx / sAvg;
+    if (rel < 1.0 || rel > 4.5) continue;
+    if (sRatio > 2.2) continue;
+    const avgY = (ay + by) / 2;
+    if (avgY > rh * 0.8) continue;
+    const score = (1 - Math.abs(rel - 2) / 2.5) - dy / sAvg * 1.5 - (sRatio - 1) * 1.5;
+    if (score > bestScore) {
+      bestScore = score;
+      best = [
+        { x: rx + a.x, y: ry + a.y, w: a.w, h: a.h },
+        { x: rx + b.x, y: ry + b.y, w: b.w, h: b.h }
+      ];
     }
   }
-  return best ? { pair: best, score: bestScore } : null;
+  return best ? { pair: best, score: Math.max(0, bestScore) } : null;
 }
 
-function verifyFaceByEyes(gray, faceBox) {
-  const res = findEyesInROI(gray, faceBox);
-  if (!res) return null;
-  const [e1, e2] = res.pair;
+// ============================================================
+// НОС: маленький компактный блоб ниже центра глаз, по центру X
+// ============================================================
+function findNoseInROI(gray, roi, eyes) {
+  if (!eyes || eyes.length < 2) return null;
+  const [e1, e2] = eyes;
+  const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
+  const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
+  const eyeSpan = Math.abs((e1.x + e1.w/2) - (e2.x + e2.w/2)) + (e1.w + e2.w)/2;
+
+  // зона носа: по X ±35% eyeSpan от центра, по Y от глаз до ~+1.2 eyeSpan вниз
+  const noseZone = {
+    x: Math.max(0, cx - eyeSpan * 0.35),
+    y: Math.max(0, cyEyes + eyeSpan * 0.15),
+    w: Math.min(W - Math.max(0, cx - eyeSpan*0.35), eyeSpan * 0.7),
+    h: Math.min(H - Math.max(0, cyEyes + eyeSpan*0.15), eyeSpan * 0.9)
+  };
+  if (noseZone.w < 6 || noseZone.h < 6) return null;
+
+  const rx = noseZone.x | 0, ry = noseZone.y | 0;
+  const rw = noseZone.w | 0, rh = noseZone.h | 0;
+  let sum = 0;
+  for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
+    sum += gray[(ry + y)*W + (rx + x)];
+  const mean = sum / (rw * rh);
+  const t = Math.min(130, mean * 0.7);
+
+  const mask = new Uint8Array(rw * rh);
+  for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
+    if (gray[(ry + y)*W + (rx + x)] < t) mask[y*rw + x] = 1;
+
+  const m2 = erode(mask, rw, rh), m3 = dilate(m2, rw, rh);
+  const comps = connectedComponents(m3, rw, rh, 4);
+
+  // фильтр: маленький, компактный, ближе к центру по X
+  let best = null, bestScore = -Infinity;
+  for (const c of comps) {
+    const ccx = c.x + c.w/2;
+    const ar = c.w / c.h;
+    const fill = c.area / (c.w * c.h);
+    const areaRatio = c.area / (rw * rh);
+    // нос: не слишком широкий, заполненный, среднего размера
+    if (ar < 0.4 || ar > 2.0) continue;
+    if (fill < 0.4) continue;
+    if (areaRatio < 0.02 || areaRatio > 0.4) continue;
+    const centerDist = Math.abs(ccx - rw/2) / (rw/2);   // 0..1
+    if (centerDist > 0.7) continue;
+    const score = fill * 0.6 + (1 - centerDist) * 0.4;
+    if (score > bestScore) {
+      bestScore = score;
+      best = { x: rx + c.x, y: ry + c.y, w: c.w, h: c.h, score: Math.min(1, score) };
+    }
+  }
+  return best;
+}
+
+// ============================================================
+// РОТ: горизонтальный блоб ниже носа
+// ============================================================
+function findMouthInROI(gray, roi, eyes, nose) {
+  if (!eyes || eyes.length < 2) return null;
+  const [e1, e2] = eyes;
+  const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
+  const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
+  const eyeSpan = Math.abs((e1.x + e1.w/2) - (e2.x + e2.w/2)) + (e1.w + e2.w)/2;
+
+  // старт зоны рта: от носа вниз (или от глаз, если носа нет)
+  const noseBottom = nose ? nose.y + nose.h : cyEyes + eyeSpan * 0.5;
+  const zoneY = Math.max(0, noseBottom + eyeSpan * 0.05);
+  const zoneH = Math.min(H - zoneY, eyeSpan * 0.7);
+  const zoneW = Math.min(eyeSpan * 1.0, roi.w);
+  const zoneX = Math.max(0, cx - zoneW / 2);
+
+  if (zoneW < 8 || zoneH < 6) return null;
+
+  const rx = zoneX | 0, ry = zoneY | 0;
+  const rw = Math.min(W - rx, zoneW | 0), rh = Math.min(H - ry, zoneH | 0);
+  if (rw < 8 || rh < 6) return null;
+
+  let sum = 0;
+  for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
+    sum += gray[(ry + y)*W + (rx + x)];
+  const mean = sum / (rw * rh);
+  const t = Math.min(140, mean * 0.75);
+
+  const mask = new Uint8Array(rw * rh);
+  for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
+    if (gray[(ry + y)*W + (rx + x)] < t) mask[y*rw + x] = 1;
+
+  // для рта закрытие по горизонтали лучше открытия
+  const m1 = dilate(mask, rw, rh);
+  const comps = connectedComponents(m1, rw, rh, 6);
+
+  let best = null, bestScore = -Infinity;
+  for (const c of comps) {
+    const ccx = c.x + c.w/2;
+    const ar = c.w / c.h;
+    const fill = c.area / (c.w * c.h);
+    // рот: шире, чем выше (ar>1.2), заполненный, ближе к центру
+    if (ar < 1.2 || ar > 8) continue;
+    if (fill < 0.3) continue;
+    if (c.area < 8) continue;
+    const centerDist = Math.abs(ccx - rw/2) / (rw/2);
+    if (centerDist > 0.6) continue;
+    const score = Math.min(1, ar / 3) * 0.5 + (1 - centerDist) * 0.3 + fill * 0.2;
+    if (score > bestScore) {
+      bestScore = score;
+      best = { x: rx + c.x, y: ry + c.y, w: c.w, h: c.h, score: Math.min(1, score) };
+    }
+  }
+  return best;
+}
+
+// ============================================================
+// ПОЛНАЯ ВЕРИФИКАЦИЯ ЛИЦА
+// ============================================================
+function verifyFaceFull(gray, faceBox, opts) {
+  const eyesRes = findEyesInROI(gray, faceBox);
+  if (!eyesRes) return null;             // глаза — обязательное условие
+  const eyes = eyesRes.pair;
+
+  const nose  = opts.needNose  ? findNoseInROI(gray, faceBox, eyes)  : null;
+  const mouth = opts.needMouth ? findMouthInROI(gray, faceBox, eyes, nose) : null;
+
+  // балльная система
+  let score = 0.45;                       // глаза найдены = база
+  score += Math.min(0.15, Math.max(0, eyesRes.score * 0.15));
+  if (nose)  score += 0.20 + nose.score * 0.10;
+  if (mouth) score += 0.20 + mouth.score * 0.10;
+  score = Math.max(0, Math.min(1, score));
+
+  // если пользователь ВКЛючил модуль — он должен что-то найти
+  if (opts.needNose  && !nose)  return null;
+  if (opts.needMouth && !mouth) return null;
+  if (score < opts.minScore) return null;
+
+  // уточнение бокса лица по глазам
+  const [e1, e2] = eyes;
   const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
   const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
   const eyeSpan = Math.abs((e1.x + e1.w/2) - (e2.x + e2.w/2)) + (e1.w + e2.w)/2;
   const fw = Math.max(eyeSpan * 1.7, faceBox.w * 0.8);
   const fh = fw * 1.25;
+
   return {
     x: cx - fw/2,
     y: cyEyes - fh * 0.40,
     w: fw,
     h: fh,
-    score: Math.max(0, Math.min(1, (faceBox.score||0.5) * 0.5 + 0.5 + res.score*0.05)),
-    eyes: res.pair
+    score,
+    eyes, nose, mouth
   };
 }
 
 // ============================================================
 // UI
 // ============================================================
-const methods = {
-  skin: methodSkin,
-  eyes: methodEyes,
-  ncc:  methodNCC,
-  sym:  methodSymmetry,
-  all:  methodAll
-};
+const methods = { skin: methodSkin, eyes: methodEyes, ncc: methodNCC, sym: methodSymmetry, all: methodAll };
 let currentMethod = 'skin';
 
 document.querySelectorAll('input[name="m"]').forEach(r => {
@@ -535,23 +618,37 @@ document.getElementById('desc').textContent = DESCR[currentMethod];
 document.getElementById('thr').addEventListener('input', e => {
   document.getElementById('thrV').textContent = e.target.value;
 });
-
+document.getElementById('vScore').addEventListener('input', e => {
+  document.getElementById('vScoreV').textContent = e.target.value;
+});
+['vEyes','vNose','vMouth'].forEach(id => document.getElementById(id)
+  .addEventListener('change', () => { if (imgData) run(); }));
 document.getElementById('btn').addEventListener('click', run);
-document.getElementById('verify').addEventListener('change', () => { if (imgData) run(); });
 
 function drawResults(boxes) {
   redraw();
   for (const b of boxes) {
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#4f9dff';
+    // лицо
+    ctx.lineWidth = 2; ctx.strokeStyle = '#4f9dff';
     ctx.strokeRect(b.x, b.y, b.w, b.h);
     ctx.fillStyle = '#4f9dff';
     ctx.font = 'bold 12px sans-serif';
     ctx.fillText(Math.round((b.score||0) * 100) + '%', b.x, Math.max(12, b.y - 4));
+
+    // глаза
     if (b.eyes) {
-      ctx.strokeStyle = '#ff4f9d';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ff4f9d'; ctx.lineWidth = 2;
       for (const e of b.eyes) ctx.strokeRect(e.x, e.y, e.w, e.h);
+    }
+    // нос
+    if (b.nose) {
+      ctx.strokeStyle = '#ffd24f'; ctx.lineWidth = 2;
+      ctx.strokeRect(b.nose.x, b.nose.y, b.nose.w, b.nose.h);
+    }
+    // рот
+    if (b.mouth) {
+      ctx.strokeStyle = '#4fffa1'; ctx.lineWidth = 2;
+      ctx.strokeRect(b.mouth.x, b.mouth.y, b.mouth.w, b.mouth.h);
     }
   }
 }
@@ -559,33 +656,34 @@ function drawResults(boxes) {
 function run() {
   if (!imgData) return;
   const thr = +document.getElementById('thr').value / 100;
-  const needVerify = document.getElementById('verify').checked;
+  const needEyes  = document.getElementById('vEyes').checked;
+  const needNose  = document.getElementById('vNose').checked;
+  const needMouth = document.getElementById('vMouth').checked;
+  const minScore  = +document.getElementById('vScore').value / 100;
+
   document.getElementById('btn').disabled = true;
   const t0 = performance.now();
 
   setTimeout(() => {
     try {
       const candidates = methods[currentMethod](thr);
-      let boxes;
+      let boxes = candidates;
 
-      if (needVerify) {
+      if (needEyes || needNose || needMouth) {
         const gray = grayPixels();
         const verified = [];
         for (const b of candidates) {
-          const v = verifyFaceByEyes(gray, b);
+          const v = verifyFaceFull(gray, b, { needNose, needMouth, minScore });
           if (v) verified.push(v);
         }
         boxes = nms(verified, 0.3);
-      } else {
-        boxes = candidates;
       }
 
       drawResults(boxes);
 
       const dt = (performance.now() - t0).toFixed(0);
       document.getElementById('stat').textContent =
-        `Метод: ${currentMethod} | кандидатов: ${candidates.length} | ` +
-        `после ${needVerify ? 'верификации' : 'NMS'}: ${boxes.length} | ${dt} мс`;
+        `Метод: ${currentMethod} | кандидатов: ${candidates.length} | прошло: ${boxes.length} | ${dt} мс`;
     } catch (e) {
       document.getElementById('stat').textContent = 'Ошибка: ' + e.message;
       console.error(e);
