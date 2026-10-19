@@ -3,47 +3,51 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Поиск перспективы</title>
+  <title>Поиск перспективы на изображении</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header>
-    <h1>🔍 Поиск перспективы</h1>
-    <p class="subtitle">Найдите перспективные направления по ключевым словам и критериям</p>
+    <h1>🎨 Поиск художественной перспективы</h1>
+    <p class="subtitle">Загрузите изображение и разметьте линии схода</p>
   </header>
 
   <main>
-    <!-- Поиск -->
-    <section class="search-box">
-      <input type="text" id="searchInput" placeholder="Введите ключевое слово (например: AI, экология, финтех)..." />
-      <select id="categoryFilter">
-        <option value="all">Все категории</option>
-        <option value="tech">Технологии</option>
-        <option value="finance">Финансы</option>
-        <option value="career">Карьера</option>
-        <option value="business">Бизнес</option>
-      </select>
-      <select id="sortFilter">
-        <option value="rating">По рейтингу</option>
-        <option value="growth">По росту</option>
-        <option value="name">По названию</option>
-      </select>
-    </section>
+    <div class="toolbar">
+      <label class="btn">
+        📁 Загрузить изображение
+        <input type="file" id="fileInput" accept="image/*" hidden />
+      </label>
+      <button id="modeBtn" class="btn active">✏️ Рисовать линии</button>
+      <button id="horizonBtn" class="btn">📏 Линия горизонта</button>
+      <button id="clearBtn" class="btn">🗑 Очистить</button>
+      <label class="toggle">
+        <input type="checkbox" id="showGrid" /> Сетка
+      </label>
+      <label class="toggle">
+        <input type="checkbox" id="showVP" checked /> Точки схода
+      </label>
+    </div>
 
-    <!-- Результаты -->
-    <section id="results" class="results"></section>
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="canvas"></canvas>
+      <div id="placeholder" class="placeholder">
+        Загрузите изображение, чтобы начать
+      </div>
+    </div>
 
-    <!-- Статистика -->
-    <section class="stats">
-      <div>Найдено: <span id="count">0</span></div>
-      <div>Средний рейтинг: <span id="avgRating">0</span></div>
-    </section>
+    <div class="info">
+      <p><b>Как пользоваться:</b></p>
+      <ol>
+        <li>Загрузите изображение (картину или фото).</li>
+        <li>Режим «Рисовать линии» — кликните дважды, чтобы задать отрезок, параллельный уходящим вглубь линиям.</li>
+        <li>Добавьте 2+ отрезка — программа вычислит <b>точку схода</b>.</li>
+        <li>Режим «Линия горизонта» — задайте горизонт двумя кликами.</li>
+      </ol>
+    </div>
   </main>
 
-  <footer>
-    <p>© 2024 Поиск перспективы | <a href="https://github.com/">GitHub</a></p>
-  </footer>
-
+  <footer>© 2024 Perspective Finder</footer>
   <script src="script.js"></script>
 </body>
 </html>
