@@ -14,7 +14,7 @@
   .app { display: grid; grid-template-columns: 300px 1fr; flex: 1; min-height: 0; }
   @media (max-width: 720px) {
     .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-    .side { max-height: 42vh; overflow-y: auto; border-right: none !important; border-bottom: 1px solid #3a3a45; }
+    .side { max-height: 45vh; overflow-y: auto; border-right: none !important; border-bottom: 1px solid #3a3a45; }
   }
   .side { background: #23232b; border-right: 1px solid #3a3a45; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
   .panel { background: #26262e; padding: 10px 12px; border-radius: 8px; flex-shrink: 0; }
@@ -62,6 +62,18 @@
 
 <div class="app">
   <aside class="side">
+    <!-- 1. ЗАГРУЗКА -->
+    <div class="panel">
+      <h2>Изображение</h2>
+      <input type="file" id="file" accept="image/*" style="width:100%; font-size:11px; margin-bottom:6px;">
+      <div class="row" style="margin-top:0;">
+        <button id="btn2" class="gray">Пример</button>
+        <button id="btnSave" class="gray" disabled>PNG</button>
+      </div>
+      <div class="slider-row"><label>Порог</label><input type="range" id="thr" min="1" max="100" value="50" style="flex:1"><span id="thrV">50</span></div>
+    </div>
+
+    <!-- 2. МЕТОД -->
     <div class="panel">
       <h2>Метод-детектор</h2>
       <div class="methods" id="methods">
@@ -74,6 +86,7 @@
       <div class="desc" id="desc"></div>
     </div>
 
+    <!-- 3. ЗОНЫ -->
     <div class="panel">
       <h2>Зоны поиска</h2>
       <button id="btnZoneMode" class="gray" style="width:100%">🖊 Разметка (Z)</button>
@@ -84,6 +97,7 @@
       <div class="zone-info" id="zoneInfo">Зон: 0</div>
     </div>
 
+    <!-- 4. ВЕРИФИКАЦИЯ -->
     <div class="panel">
       <h2>Верификация</h2>
       <label class="toggle"><input type="checkbox" id="verify" checked> Глазами (базовая)</label>
@@ -93,6 +107,7 @@
       <label class="toggle"><input type="checkbox" id="satPass" checked> Проход по насыщенности</label>
     </div>
 
+    <!-- 5. ФОРМА -->
     <div class="panel">
       <h2>Проверки формы (1-3)</h2>
       <label class="toggle"><input type="checkbox" id="highlightCheck" checked> Блик в глазу</label>
@@ -101,6 +116,7 @@
       <label class="toggle"><input type="checkbox" id="noseBridge" checked> Переносица</label>
     </div>
 
+    <!-- 6. УТОЧНЕНИЯ -->
     <div class="panel">
       <h2>Уточнения (4-6)</h2>
       <label class="toggle"><input type="checkbox" id="mouthBonus" checked> Рот (+балл)</label>
@@ -109,6 +125,7 @@
       <label class="toggle"><input type="checkbox" id="completeness" checked> Полнота лица</label>
     </div>
 
+    <!-- 7. ПРОЧЕЕ -->
     <div class="panel">
       <h2>Прочее</h2>
       <label class="toggle"><input type="checkbox" id="chinBonus" checked> Бонус за подбородок</label>
@@ -123,12 +140,9 @@
       </div>
     </div>
 
+    <!-- 8. ИСКАТЬ -->
     <div class="row" style="padding: 0 2px;">
-      <button id="btn2" class="gray">Пример</button>
-      <button id="btnSave" class="gray" disabled>PNG</button>
-    </div>
-    <div class="row" style="padding: 0 2px;">
-      <button id="btn" style="flex:2">Искать</button>
+      <button id="btn" style="flex:2">Искать (Enter)</button>
     </div>
   </aside>
 
@@ -145,6 +159,15 @@
 </div>
 
 <script>
+// ============================================================
+// БЕЗОПАСНАЯ ОБЁРТКА ДЛЯ addEventListener
+// ============================================================
+function on(id, event, handler) {
+  const el = document.getElementById(id);
+  if (!el) { console.warn('[missing #' + id + ']'); return; }
+  el.addEventListener(event, handler);
+}
+
 // ============================================================
 // ГЛОБАЛЬНЫЕ
 // ============================================================
@@ -224,37 +247,33 @@ function imageToScreen(ix, iy) {
 // ============================================================
 // ЗАГРУЗКА
 // ============================================================
-document.getElementById('file').addEventListener('change', e => {
+on('file', 'change', e => {
   const f = e.target.files[0]; if (!f) return;
   const r = new FileReader();
   r.onload = ev => loadImage(ev.target.result);
   r.readAsDataURL(f);
 });
 
-document.getElementById('btn2').addEventListener('click', () => {
+on('btn2', 'click', () => {
   const c = document.createElement('canvas'); c.width = 500; c.height = 400;
   const g = c.getContext('2d');
   g.fillStyle = '#c8d8e8'; g.fillRect(0, 0, 500, 400);
   g.fillStyle = '#3a2545'; g.beginPath(); g.ellipse(250, 220, 170, 210, 0, 0, 7); g.fill();
   g.fillStyle = '#ffe0c8'; g.beginPath(); g.ellipse(250, 220, 130, 160, 0, 0, 7); g.fill();
-  // левый глаз — синий
   g.fillStyle = '#1a1a3a';
   g.beginPath(); g.ellipse(200, 200, 28, 38, 0, 0, 7); g.fill();
   g.fillStyle = '#4f9dff';
   g.beginPath(); g.ellipse(200, 205, 16, 22, 0, 0, 7); g.fill();
   g.fillStyle = '#fff';
   g.beginPath(); g.arc(192, 188, 9, 0, 7); g.fill();
-  // правый глаз — красный
   g.fillStyle = '#1a1a3a';
   g.beginPath(); g.ellipse(300, 200, 28, 38, 0, 0, 7); g.fill();
   g.fillStyle = '#ff4f4f';
   g.beginPath(); g.ellipse(300, 205, 16, 22, 0, 0, 7); g.fill();
   g.fillStyle = '#fff';
   g.beginPath(); g.arc(292, 188, 9, 0, 7); g.fill();
-  // нос — маленькая тень
   g.fillStyle = '#c0906a';
   g.beginPath(); g.ellipse(250, 260, 6, 4, 0, 0, 7); g.fill();
-  // рот
   g.strokeStyle = '#c04060'; g.lineWidth = 4;
   g.beginPath(); g.arc(250, 290, 22, 0.2, Math.PI - 0.2); g.stroke();
   loadImage(c.toDataURL());
@@ -273,12 +292,14 @@ function loadImage(src) {
     lastBoxes = []; zones = []; selectedZone = -1;
     updateZoneInfo();
     wrap.classList.remove('empty');
-    document.getElementById('btnSave').disabled = true;
+    const sb = document.getElementById('btnSave');
+    if (sb) sb.disabled = true;
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => { fitToScreen(); drawAll(); });
     });
-    document.getElementById('stat').textContent = `Готово: ${W}×${H}`;
+    const st = document.getElementById('stat');
+    if (st) st.textContent = `Готово: ${W}×${H}`;
   };
   im.src = src;
 }
@@ -443,9 +464,8 @@ function symmetryScore(g, b) {
 }
 
 // ============================================================
-// ПРОВЕРКИ ФОРМЫ (1-3)
+// ПРОВЕРКИ ФОРМЫ
 // ============================================================
-
 function hasHighlight(d, e, minRatio = 0.008) {
   const x0 = e.x, y0 = e.y, w = e.w, h = e.h;
   if (w < 3 || h < 3) return false;
@@ -464,7 +484,6 @@ function hasHighlight(d, e, minRatio = 0.008) {
   }
   return bright / total > minRatio;
 }
-
 function darkerTop(d, e, factor = 0.95) {
   const x0 = e.x, y0 = e.y, w = e.w, h = e.h;
   if (h < 4) return true;
@@ -481,7 +500,6 @@ function darkerTop(d, e, factor = 0.95) {
   if (!nTop || !nBot) return true;
   return (top / nTop) <= (bot / nBot) * factor;
 }
-
 function skinUnderEye(skin, e, span, minRatio = 0.35) {
   const x0 = e.x;
   const y0 = e.y + e.h + Math.max(2, Math.round(span * 0.10));
@@ -498,7 +516,6 @@ function skinUnderEye(skin, e, span, minRatio = 0.35) {
   }
   return total > 0 && skinCount / total > minRatio;
 }
-
 function skinBridge(skin, e1, e2, minRatio = 0.55) {
   const cx1 = e1.x + e1.w/2, cx2 = e2.x + e2.w/2;
   const cy = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
@@ -518,20 +535,18 @@ function skinBridge(skin, e1, e2, minRatio = 0.55) {
 }
 
 // ============================================================
-// 4. НОС / РОТ — БОНУСЫ
+// НОС / РОТ — БОНУСЫ
 // ============================================================
 function mouthBonus(d, eyes) {
   const [e1, e2] = eyes;
   const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
   const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
   const span = Math.abs((e1.x+e1.w/2) - (e2.x+e2.w/2)) + (e1.w+e2.w)/2;
-
   const zy = Math.round(cyEyes + span * 0.7);
   const zw = Math.round(span * 1.0);
   const zx = Math.round(cx - zw / 2);
   const zh = Math.round(span * 0.6);
   if (zx < 0 || zy < 0 || zx + zw >= W || zy + zh >= H) return 0;
-
   const rows = new Int32Array(zh);
   for (let y = 0; y < zh; y++) for (let x = 0; x < zw; x++) {
     const gx = zx + x, gy = zy + y;
@@ -548,19 +563,16 @@ function mouthBonus(d, eyes) {
   if (density > 0.85) return 0;
   return density > 0.3 ? 0.10 : 0.05;
 }
-
 function noseBonus(skin, eyes) {
   const [e1, e2] = eyes;
   const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
   const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
   const span = Math.abs((e1.x+e1.w/2) - (e2.x+e2.w/2)) + (e1.w+e2.w)/2;
-
   const zx = Math.round(cx - span * 0.15);
   const zy = Math.round(cyEyes + span * 0.15);
   const zw = Math.round(span * 0.3);
   const zh = Math.round(span * 0.5);
   if (zx < 0 || zy < 0 || zx + zw >= W || zy + zh >= H) return 0;
-
   let nonSkin = 0, total = 0;
   for (let y = 0; y < zh; y++) for (let x = 0; x < zw; x++) {
     const gx = zx + x, gy = zy + y;
@@ -572,17 +584,11 @@ function noseBonus(skin, eyes) {
   if (ratio > 0.6) return 0;
   return 0.05;
 }
-
-// ============================================================
-// 6. ПОЛНОТА ЛИЦА
-// ============================================================
 function faceCompleteness(skin, eyes) {
   const [e1, e2] = eyes;
   const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
   const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
   const span = Math.abs((e1.x+e1.w/2) - (e2.x+e2.w/2)) + (e1.w+e2.w)/2;
-
-  // горизонталь на уровне глаз
   const hY = Math.round(cyEyes);
   const hX1 = Math.max(0, Math.round(cx - span * 0.6));
   const hX2 = Math.min(W - 1, Math.round(cx + span * 0.6));
@@ -593,8 +599,6 @@ function faceCompleteness(skin, eyes) {
   }
   const hRatio = hTotal > 0 ? hSkin / hTotal : 0;
   if (hRatio < 0.5) return 0;
-
-  // вертикаль по центру
   const vTop = Math.round(cyEyes + span * 0.1);
   const vBot = Math.min(H - 1, Math.round(cyEyes + span * 1.3));
   let vSkin = 0, vTotal = 0;
@@ -605,8 +609,21 @@ function faceCompleteness(skin, eyes) {
   }
   const vRatio = vTotal > 0 ? vSkin / vTotal : 0;
   if (vRatio < 0.6) return 0;
-
   return 0.05 + (hRatio > 0.7 ? 0.03 : 0) + (vRatio > 0.8 ? 0.02 : 0);
+}
+function chinBonusSimple(skin, b) {
+  const cx = b.x + b.w/2;
+  const yBot = b.y + b.h * 0.85;
+  let hits = 0, total = 0;
+  for (let y = Math.max(0, yBot); y < Math.min(H, b.y + b.h); y += 2) {
+    for (let x = cx - b.w*0.2; x < cx + b.w*0.2; x += 2) {
+      if (x >= 0 && x < W) {
+        if (skin[y*W + Math.round(x)]) hits++;
+        total++;
+      }
+    }
+  }
+  return total > 0 ? (hits / total) * 0.05 : 0;
 }
 
 // ============================================================
@@ -633,7 +650,6 @@ function methodSkin(threshold = 0.5) {
   }
   return nms(boxes, 0.4);
 }
-
 function methodSkinMulti(threshold = 0.5) {
   const orig = methodSkin(threshold);
   const sw = Math.max(60, Math.round(W/2));
@@ -651,7 +667,6 @@ function methodSkinMulti(threshold = 0.5) {
   W = saved.W; H = saved.H; imgData = saved.imgData;
   return nms([...orig, ...small], 0.4);
 }
-
 function methodSymmetry(threshold = 0.5) {
   const g = grayCached();
   const base = methodSkin(threshold);
@@ -662,7 +677,6 @@ function methodSymmetry(threshold = 0.5) {
   }
   return out;
 }
-
 function methodConsensus(threshold = 0.5) {
   const a = methodSkin(threshold);
   const b = methodSymmetry(threshold);
@@ -677,7 +691,6 @@ function methodConsensus(threshold = 0.5) {
   }
   return nms(out, 0.3);
 }
-
 function methodAll(threshold = 0.5) {
   const g = grayCached();
   const base = methodSkin(threshold);
@@ -689,7 +702,7 @@ function methodAll(threshold = 0.5) {
 }
 
 // ============================================================
-// ВЕРИФИКАЦИЯ ГЛАЗАМИ + ВСЕ ПРОВЕРКИ
+// ВЕРИФИКАЦИЯ
 // ============================================================
 function roiLooksLikeFace(gray, roi) {
   const rx = Math.max(0, roi.x|0), ry = Math.max(0, roi.y|0);
@@ -706,7 +719,6 @@ function roiLooksLikeFace(gray, roi) {
   const darkRatio = dark / total;
   return (max - min) > 50 && darkRatio > 0.005 && darkRatio < 0.6;
 }
-
 function findEyesInROI(gray, roi) {
   const eyeRoi = {
     x: roi.x + roi.w * 0.05,
@@ -722,18 +734,15 @@ function findEyesInROI(gray, roi) {
   if (!roiLooksLikeFace(gray, eyeRoi)) return null;
 
   const d = imgData.data;
-  const useSat = document.getElementById('satPass').checked;
+  const useSat = document.getElementById('satPass')?.checked ?? false;
 
-  // проход 1 — тёмные блобы
   const t = Math.min(115, Math.max(40, otsuThreshold(gray, rx, ry, rw, rh)));
   const darkMask = new Uint8Array(rw * rh);
   for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
     if (gray[(ry + y)*W + (rx + x)] < t) darkMask[y*rw + x] = 1;
-
   const d2 = erode(darkMask, rw, rh), d3 = dilate(d2, rw, rh);
   const darkComps = connectedComponents(d3, rw, rh, 20);
 
-  // проход 2 — насыщенность
   let satComps = [];
   if (useSat) {
     const satMask = new Uint8Array(rw * rh);
@@ -766,14 +775,14 @@ function findEyesInROI(gray, roi) {
   });
   if (eyes.length < 2) return null;
 
-  const useColor = document.getElementById('colorEyes').checked;
-  const useHue = document.getElementById('hueCheck').checked;
-  const useHetero = document.getElementById('hetero').checked;
-  const useBridge = document.getElementById('noseBridge').checked;
-  const useHighlight = document.getElementById('highlightCheck').checked;
-  const useLids = document.getElementById('lidsCheck').checked;
-  const useSkinUnder = document.getElementById('skinUnderCheck').checked;
-  const useTiltAdapt = document.getElementById('tiltAdaptive').checked;
+  const useColor = document.getElementById('colorEyes')?.checked ?? false;
+  const useHue = document.getElementById('hueCheck')?.checked ?? false;
+  const useHetero = document.getElementById('hetero')?.checked ?? false;
+  const useBridge = document.getElementById('noseBridge')?.checked ?? false;
+  const useHighlight = document.getElementById('highlightCheck')?.checked ?? false;
+  const useLids = document.getElementById('lidsCheck')?.checked ?? false;
+  const useSkinUnder = document.getElementById('skinUnderCheck')?.checked ?? false;
+  const useTiltAdapt = document.getElementById('tiltAdaptive')?.checked ?? false;
   const skin = skinCached();
 
   let best = null, bestScore = -Infinity;
@@ -784,17 +793,14 @@ function findEyesInROI(gray, roi) {
     const dx = Math.abs(ax - bx), dy = Math.abs(ay - by);
     const sAvg = (a.w + b.w) / 2;
     if (sAvg < 2) continue;
-
     const rel = dx / sAvg;
     const dyRel = dy / sAvg;
 
-    // === 3. линия глаз ===
     if (dyRel > 0.35) continue;
     const lineBonus = dyRel < 0.10 ? 0.15
                     : dyRel < 0.20 ? 0.05
                     : -0.10 * (dyRel - 0.20) / 0.15;
 
-    // === 1. размер глаза относительно sAvg ===
     const relWa = a.w / sAvg, relHa = a.h / sAvg;
     const relWb = b.w / sAvg, relHb = b.h / sAvg;
     if (relWa < 0.15 || relWa > 0.7) continue;
@@ -802,12 +808,10 @@ function findEyesInROI(gray, roi) {
     if (relHa < 0.2 || relHa > 1.1) continue;
     if (relHb < 0.2 || relHb > 1.1) continue;
 
-    // === 2. асимметрия ===
     const sRatio = Math.max(a.w, b.w) / Math.min(a.w, b.w);
     if (sRatio > 1.8) continue;
     const sizeBonus = sRatio < 1.2 ? 0.1 : 0;
 
-    // === 5. наклон — ослабление порогов ===
     const tiltFactor = useTiltAdapt ? Math.min(1, dyRel / 0.15) : 0;
     const hlMin = 0.008 * (1 - 0.5 * tiltFactor);
     const lidFactor = 0.95 + 0.1 * tiltFactor;
@@ -817,13 +821,11 @@ function findEyesInROI(gray, roi) {
     const ea = { x: rx + a.x, y: ry + a.y, w: a.w, h: a.h };
     const eb = { x: rx + b.x, y: ry + b.y, w: b.w, h: b.h };
 
-    // === проверки формы ===
     if (useHighlight && (!hasHighlight(d, ea, hlMin) || !hasHighlight(d, eb, hlMin))) continue;
     if (useLids && (!darkerTop(d, ea, lidFactor) || !darkerTop(d, eb, lidFactor))) continue;
     if (useSkinUnder && (!skinUnderEye(skin, ea, sAvg, underMin) || !skinUnderEye(skin, eb, sAvg, underMin))) continue;
     if (useBridge && !skinBridge(skin, ea, eb, bridgeMin)) continue;
 
-    // === цвет ===
     let colorBonus = 0, hueA = 0, hueB = 0, satA = 0, satB = 0;
     if (useColor || useHue || useSat) {
       const getPix = e => {
@@ -843,7 +845,6 @@ function findEyesInROI(gray, roi) {
         hueB = hueOf(pb[0], pb[1], pb[2]);
       }
     }
-
     let hueBonus = 0;
     if (useHue) {
       let dh = Math.abs(hueA - hueB);
@@ -852,16 +853,11 @@ function findEyesInROI(gray, roi) {
       else if (dh < 60) hueBonus = 0.1;
       else hueBonus = useHetero ? 0 : -0.2;
     }
-
     const satBonus = (satA > 0.4 && satB > 0.4) ? 0.2 : 0;
 
     const baseScore = (1 - Math.abs(rel - 2) / 2.5)
-                    + lineBonus
-                    + sizeBonus
-                    + colorBonus * 0.6
-                    + hueBonus
-                    + satBonus
-                    + 0.1;
+                    + lineBonus + sizeBonus + colorBonus * 0.6
+                    + hueBonus + satBonus + 0.1;
 
     if (baseScore > bestScore) {
       bestScore = baseScore;
@@ -886,41 +882,19 @@ function verifyFaceByEyes(gray, faceBox) {
   const d = imgData.data;
   const skin = skinCached();
 
-  // 4. бонусы нос/рот
-  if (document.getElementById('mouthBonus').checked) {
+  if (document.getElementById('mouthBonus')?.checked)
     score = Math.min(1, score + mouthBonus(d, res.pair));
-  }
-  if (document.getElementById('noseBonus').checked) {
+  if (document.getElementById('noseBonus')?.checked)
     score = Math.min(1, score + noseBonus(skin, res.pair));
-  }
-  // 6. полнота
-  if (document.getElementById('completeness').checked) {
+  if (document.getElementById('completeness')?.checked)
     score = Math.min(1, score + faceCompleteness(skin, res.pair));
-  }
-  // подбородок
-  if (document.getElementById('chinBonus').checked) {
+  if (document.getElementById('chinBonus')?.checked)
     score = Math.min(1, score + chinBonusSimple(skin, faceBox));
-  }
 
   return {
     x: cx - fw/2, y: cyEyes - fh * 0.40, w: fw, h: fh,
     score, eyes: res.pair
   };
-}
-
-function chinBonusSimple(skin, b) {
-  const cx = b.x + b.w/2;
-  const yBot = b.y + b.h * 0.85;
-  let hits = 0, total = 0;
-  for (let y = Math.max(0, yBot); y < Math.min(H, b.y + b.h); y += 2) {
-    for (let x = cx - b.w*0.2; x < cx + b.w*0.2; x += 2) {
-      if (x >= 0 && x < W) {
-        if (skin[y*W + Math.round(x)]) hits++;
-        total++;
-      }
-    }
-  }
-  return total > 0 ? (hits / total) * 0.05 : 0;
 }
 
 // ============================================================
@@ -958,7 +932,9 @@ function makeAutoZones() {
   return zs;
 }
 function updateZoneInfo() {
-  document.getElementById('zoneInfo').textContent = zones.length
+  const el = document.getElementById('zoneInfo');
+  if (!el) return;
+  el.textContent = zones.length
     ? `Зон: ${zones.length} · тап — выбрать, тянуть за ручки`
     : 'Зон: 0 (поиск по всему изображению)';
 }
@@ -1070,22 +1046,21 @@ document.querySelectorAll('input[name="m"]').forEach(r => {
 document.getElementById('desc').textContent = DESCR[currentMethod];
 
 let thrTimeout;
-document.getElementById('thr')?.addEventListener('input', e => {
+on('thr', 'input', e => {
   document.getElementById('thrV').textContent = e.target.value;
   clearTimeout(thrTimeout);
   thrTimeout = setTimeout(() => { if (imgData) run(); }, 200);
 });
 
-document.getElementById('btn').addEventListener('click', run);
+on('btn', 'click', run);
 [
   'verify','colorEyes','hueCheck','hetero','satPass',
   'highlightCheck','lidsCheck','skinUnderCheck','noseBridge',
   'mouthBonus','noseBonus','tiltAdaptive','completeness',
   'chinBonus','zoneSoft','downscale'
-].forEach(id =>
-  document.getElementById(id).addEventListener('change', () => { if (imgData) run(); }));
+].forEach(id => on(id, 'change', () => { if (imgData) run(); }));
 
-document.getElementById('btnZoneMode').addEventListener('click', () => {
+on('btnZoneMode', 'click', () => {
   drawingMode = !drawingMode;
   const btn = document.getElementById('btnZoneMode');
   btn.classList.toggle('active', drawingMode);
@@ -1094,23 +1069,23 @@ document.getElementById('btnZoneMode').addEventListener('click', () => {
   if (!drawingMode) selectedZone = -1;
   drawAll();
 });
-document.getElementById('btnAutoZones').addEventListener('click', () => {
+on('btnAutoZones', 'click', () => {
   if (!imgData) return;
   zones = makeAutoZones();
   selectedZone = zones.length ? 0 : -1;
   updateZoneInfo(); drawAll();
   if (zones.length) run();
 });
-document.getElementById('btnClearZones').addEventListener('click', () => {
+on('btnClearZones', 'click', () => {
   zones = []; selectedZone = -1;
   updateZoneInfo(); drawAll();
   if (imgData) run();
 });
 
-document.getElementById('zIn').addEventListener('click', () => zoomBy(1.25));
-document.getElementById('zOut').addEventListener('click', () => zoomBy(0.8));
-document.getElementById('zFit').addEventListener('click', fitToScreen);
-document.getElementById('z1').addEventListener('click', () => {
+on('zIn', 'click', () => zoomBy(1.25));
+on('zOut', 'click', () => zoomBy(0.8));
+on('zFit', 'click', fitToScreen);
+on('z1', 'click', () => {
   const rw = wrap.clientWidth, rh = wrap.clientHeight;
   const cx = rw / 2, cy = rh / 2;
   const wx = (cx - view.tx) / view.scale;
@@ -1313,7 +1288,7 @@ window.addEventListener('keyup', e => {
   if (e.code === 'Space') { spaceDown = false; wrap.style.cursor = ''; }
 });
 
-document.getElementById('btnSave').addEventListener('click', () => {
+on('btnSave', 'click', () => {
   const a = document.createElement('a');
   a.download = 'faces.png';
   a.href = cv.toDataURL('image/png');
@@ -1351,11 +1326,12 @@ window.addEventListener('paste', e => {
 // ============================================================
 function run() {
   if (!imgData) return;
-  const needVerify = document.getElementById('verify').checked;
-  const soft = document.getElementById('zoneSoft').checked;
-  const doDownscale = document.getElementById('downscale').checked;
+  const needVerify = document.getElementById('verify')?.checked ?? true;
+  const soft = document.getElementById('zoneSoft')?.checked ?? false;
+  const doDownscale = document.getElementById('downscale')?.checked ?? false;
 
-  document.getElementById('btn').disabled = true;
+  const btn = document.getElementById('btn');
+  if (btn) btn.disabled = true;
   const t0 = performance.now();
 
   setTimeout(() => {
@@ -1423,10 +1399,12 @@ function run() {
 
       lastBoxes = boxes;
       drawAll();
-      document.getElementById('btnSave').disabled = boxes.length === 0;
+      const sb = document.getElementById('btnSave');
+      if (sb) sb.disabled = boxes.length === 0;
 
       const dt = (performance.now() - t0).toFixed(0);
-      document.getElementById('stat').innerHTML =
+      const st = document.getElementById('stat');
+      if (st) st.innerHTML =
         `Метод: <b>${currentMethod}</b> | кандидатов: ${candidates.length} | ` +
         `итог: <b>${boxes.length}</b>` +
         (zones.length ? ` (в зонах: ${inZones}, вне: ${outZones})` : '') +
@@ -1434,10 +1412,12 @@ function run() {
         `детектор: ${tDet.toFixed(0)} мс · верификация: ${tVer.toFixed(0)} мс · всего: ${dt} мс`;
     } catch (err) {
       drawAll();
-      document.getElementById('stat').textContent = 'Ошибка: ' + err.message;
+      const st = document.getElementById('stat');
+      if (st) st.textContent = 'Ошибка: ' + err.message;
       console.error(err);
     }
-    document.getElementById('btn').disabled = false;
+    const btn = document.getElementById('btn');
+    if (btn) btn.disabled = false;
   }, 10);
 }
 </script>
