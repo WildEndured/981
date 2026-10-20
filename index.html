@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Маска фона · BBox · Лобок (слайдер)</title>
+<title>Маска фона · BBox · Лобок (-7%)</title>
 <style>
   :root {
     color-scheme: dark;
@@ -327,8 +327,8 @@
   <div class="panel-section">
     <h3>Лобок</h3>
     <div class="slider-row">
-      <div class="label-line"><span>Сдвиг от середины</span><span id="pubicShiftVal">0%</span></div>
-      <input id="pubicShift" type="range" min="-50" max="50" value="0" step="1" />
+      <div class="label-line"><span>Сдвиг от середины</span><span id="pubicShiftVal">-7%</span></div>
+      <input id="pubicShift" type="range" min="-50" max="50" value="-7" step="1" />
     </div>
     <div class="row" style="gap:6px;">
       <button id="pubicResetBtn" style="flex:0 0 auto;height:30px;padding:0 10px;border-radius:8px;border:1px solid #333a44;background:#232830;color:var(--text);font-size:12px;cursor:pointer;">Середина</button>
@@ -451,7 +451,7 @@ let bgCount = 0;
 let charBBox = null;
 let widthProfile = null;
 let pubicPoint = null;
-let pubicShiftPercent = 0;   // -50..+50
+let pubicShiftPercent = -7;   // <-- дефолт -7%
 
 let zoom = 1, panX = 0, panY = 0;
 let fitZoom = 1;
@@ -1194,9 +1194,9 @@ pubicShiftEl.addEventListener('input', () => {
 });
 
 pubicResetBtn.addEventListener('click', () => {
-  pubicShiftPercent = 0;
-  pubicShiftEl.value = 0;
-  pubicShiftVal.textContent = '0%';
+  pubicShiftPercent = -7;
+  pubicShiftEl.value = -7;
+  pubicShiftVal.textContent = '-7%';
   if (lum) rebuildAll();
 });
 
@@ -1301,4 +1301,4 @@ smoothIterEl.disabled = !useSmoothEl.checked;
 updateCursor();
 </script>
 </body>
-</html>
+        </html>
