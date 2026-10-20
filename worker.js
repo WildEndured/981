@@ -318,7 +318,7 @@ function findPubicPoint(mask, w, h, bbox, profile) {
   }
 
   // === СДВИГ ЛОБКА НА 5% ВЫШЕ ===
-  const shiftUp = Math.round(bh * 0.05);
+  const shiftUp = Math.round(bh * 0.10);
   pubicY = Math.max(hipY + 1, pubicY - shiftUp);
 
   // Координата X центра фигуры в строке лобка (для отрисовки точки)
