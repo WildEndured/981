@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Маска фона · Worker · Zoom/Pan</title>
+<title>Маска фона · Worker · Zoom/Pan · BBox</title>
 <style>
   :root {
     color-scheme: dark;
@@ -328,6 +328,9 @@
     <h3>Итоги</h3>
     <div class="kv"><span>Фон</span><span id="infoBgPct">—</span></div>
     <div class="kv"><span>Персонаж</span><span id="infoCharPct">—</span></div>
+    <div class="kv"><span>Bbox</span><span id="infoBBox">—</span></div>
+    <div class="kv"><span>W / H</span><span id="infoWH">—</span></div>
+    <div class="kv"><span>Заполнение</span><span id="infoFill">—</span></div>
   </div>
 </div>
 
@@ -391,6 +394,9 @@ const infoMode = document.getElementById('infoMode');
 const infoZoom = document.getElementById('infoZoom');
 const infoBgPct = document.getElementById('infoBgPct');
 const infoCharPct = document.getElementById('infoCharPct');
+const infoBBox = document.getElementById('infoBBox');
+const infoWH = document.getElementById('infoWH');
+const infoFill = document.getElementById('infoFill');
 const infoPointsCount = document.getElementById('infoPointsCount');
 const pointList = document.getElementById('pointList');
 const samplesList = document.getElementById('samplesList');
@@ -415,6 +421,7 @@ let bgColorMode = false, addPointMode = false;
 let sourcePoints = [];
 let hideImage = false;
 let bgCount = 0;
+let charBBox = null;          // <-- bbox персонажа
 
 let zoom = 1, panX = 0, panY = 0;
 let fitZoom = 1;
@@ -466,6 +473,7 @@ function initWorker() {
         ? payload.mask
         : new Uint8Array(payload.mask);
       bgCount = payload.bgCount;
+      charBBox = payload.bbox || null;     // <-- принимаем bbox
       drawOverlay();
       updateInfo();
       workerBusy = false;
@@ -526,16 +534,11 @@ function autoPickThreshold() {
 // ============================================================
 fileInput.addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
-  if (!file) {
-    console.log('[main] no file selected');
-    return;
-  }
-  console.log('[main] file selected:', file.name, file.size, file.type);
+  if (!file) return;
 
   const img = new Image();
   img.onload = () => {
     try {
-      console.log('[main] image loaded:', img.naturalWidth, 'x', img.naturalHeight);
       imgWidth = img.naturalWidth;
       imgHeight = img.naturalHeight;
       [baseCanvas, overlay].forEach(c => { c.width = imgWidth; c.height = imgHeight; });
@@ -547,11 +550,11 @@ fileInput.addEventListener('change', e => {
       sourcePoints = [];
       selectedPointIndex = -1;
       colorSamples = [];
+      charBBox = null;
       invalidateSeeds();
       autoPickThreshold();
       renderSamplesList();
 
-      // Сначала вписываем изображение в область, чтобы transform был корректным
       requestAnimationFrame(() => {
         fitToView();
         rebuildAll();
@@ -561,10 +564,7 @@ fileInput.addEventListener('change', e => {
       alert('Ошибка при обработке изображения: ' + (err.message || err));
     }
   };
-  img.onerror = (err) => {
-    console.error('[main] image load error:', err);
-    alert('Не удалось загрузить изображение');
-  };
+  img.onerror = () => alert('Не удалось загрузить изображение');
   img.src = URL.createObjectURL(file);
 });
 
@@ -588,7 +588,7 @@ function computeHistogram() {
 }
 
 // ============================================================
-//  АВТО-СЕМЕНА (в главном потоке)
+//  АВТО-СЕМЕНА
 // ============================================================
 function isPixelBgMain(idx) {
   if (mode === 'lum' || mode === 'region') {
@@ -654,20 +654,15 @@ function getAutoSeeds() {
 }
 
 // ============================================================
-//  ПЕРЕСЧЁТ МАСКИ (через Worker)
+//  ПЕРЕСЧЁТ МАСКИ
 // ============================================================
 function rebuildAll() {
-  if (!lum || !imgDataRef) {
-    console.log('[main] rebuildAll skipped: no image');
-    return;
-  }
+  if (!lum || !imgDataRef) return;
   if (!worker) {
-    console.error('[main] worker not initialized');
     initWorker();
     if (!worker) return;
   }
   if (workerBusy) {
-    console.log('[main] worker busy, queue pending');
     pendingBuild = true;
     return;
   }
@@ -679,10 +674,8 @@ function rebuildAll() {
     autoSeeds = getAutoSeeds();
   }
 
-  // Копируем данные изображения — без transfer, чтобы не терять буфер
   const dataCopy = new Uint8ClampedArray(imgDataRef.data);
 
-  console.log('[main] posting buildMask to worker');
   worker.postMessage({
     type: 'buildMask',
     payload: {
@@ -726,6 +719,42 @@ function drawOverlay() {
     overlayCtx.putImageData(img, 0, 0);
   }
 
+  // === BBOX ПЕРСОНАЖА ===
+  if (charBBox) {
+    const { x, y, w: bw, h: bh } = charBBox;
+    const lw = Math.max(1, 2 / zoom);
+
+    // Пунктирная рамка
+    overlayCtx.lineWidth = lw;
+    overlayCtx.strokeStyle = '#00e0ff';
+    overlayCtx.setLineDash([8 / zoom, 6 / zoom]);
+    overlayCtx.strokeRect(x + 0.5, y + 0.5, bw, bh);
+    overlayCtx.setLineDash([]);
+
+    // Уголки
+    const cs = Math.min(bw, bh) * 0.12;
+    overlayCtx.strokeStyle = '#00e0ff';
+    overlayCtx.lineWidth = lw * 2;
+    const corners = [
+      [x, y, 1, 1], [x + bw, y, -1, 1],
+      [x, y + bh, 1, -1], [x + bw, y + bh, -1, -1]
+    ];
+    for (const [cx, cy, sx, sy] of corners) {
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(cx + sx * cs, cy);
+      overlayCtx.lineTo(cx, cy);
+      overlayCtx.lineTo(cx, cy + sy * cs);
+      overlayCtx.stroke();
+    }
+
+    // Подпись
+    const fs = Math.max(11, 14 / zoom);
+    overlayCtx.font = `${fs}px system-ui, sans-serif`;
+    overlayCtx.fillStyle = '#00e0ff';
+    overlayCtx.fillText(`bbox ${bw}×${bh}`, x, Math.max(fs, y - 6 / zoom));
+  }
+
+  // Точки-источники
   sourcePoints.forEach((p, i) => {
     const isSelected = i === selectedPointIndex;
     overlayCtx.beginPath();
@@ -750,6 +779,15 @@ function updateInfo() {
   infoBgPct.textContent = ((bgCount / N) * 100).toFixed(1) + '%';
   infoCharPct.textContent = ((charCount / N) * 100).toFixed(1) + '%';
   infoPointsCount.textContent = `(${sourcePoints.length})`;
+
+  if (charBBox) {
+    infoBBox.textContent = `x:${charBBox.x} y:${charBBox.y} w:${charBBox.w} h:${charBBox.h}`;
+    infoWH.textContent = `${(charBBox.w / charBBox.h).toFixed(3)} (h/w=${(charBBox.h / charBBox.w).toFixed(3)})`;
+    infoFill.textContent = (charBBox.fillRatio * 100).toFixed(1) + '%';
+  } else {
+    infoBBox.textContent = infoWH.textContent = infoFill.textContent = '—';
+  }
+
   renderPointList();
 }
 
@@ -1151,8 +1189,6 @@ morphCloseEl.addEventListener('input', () => {
 initWorker();
 smoothIterEl.disabled = !useSmoothEl.checked;
 updateCursor();
-
-console.log('[main] script loaded, worker =', !!worker);
 </script>
 </body>
 </html>
