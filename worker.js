@@ -1,6 +1,9 @@
 // ============================================================
 //  Web Worker: тяжёлые вычисления маски
+//  VERSION: 2025-01-01 · pubic shift 10% · debug logs
 // ============================================================
+
+console.log('[worker] SCRIPT LOADED v2025-01-01');
 
 self.onmessage = (e) => {
   const { type, payload } = e.data;
@@ -245,7 +248,7 @@ function computeWidthProfile(mask, w, h, bbox) {
 
 /**
  * Поиск «точки лобка» — границы торс/ноги.
- * Финальный Y сдвигается на 5% высоты bbox вверх.
+ * Финальный Y сдвигается на 10% высоты bbox вверх.
  */
 function findPubicPoint(mask, w, h, bbox, profile) {
   const bh = profile.bh;
@@ -317,18 +320,33 @@ function findPubicPoint(mask, w, h, bbox, profile) {
     }
   }
 
-  // === СДВИГ ЛОБКА НА 5% ВЫШЕ ===
-  const shiftUp = Math.round(bh * 0.10);
-  pubicY = Math.max(hipY + 1, pubicY - shiftUp);
+  const pubicY_beforeShift = pubicY;
 
-  // Координата X центра фигуры в строке лобка (для отрисовки точки)
+  // === СДВИГ ЛОБКА НА 10% ВЫШЕ (без ограничителя по бёдрам) ===
+  const shiftUp = Math.round(bh * 0.10);
+  pubicY = Math.max(1, pubicY - shiftUp);
+
+  // ВАЖНО: yAbs считается ПОСЛЕ сдвига
   const yAbs = bbox.y + pubicY;
+
+  // X центра фигуры в строке лобка
   const lE = profile.leftEdge[pubicY];
   const rE = profile.rightEdge[pubicY];
   const pubicX = (lE >= 0 && rE >= 0) ? Math.round((lE + rE) / 2) : Math.round(bbox.x + bbox.w / 2);
 
   const shouldersY = findShouldersY(smoothed, bh);
   const waistY     = findWaistY(smoothed, bh, shouldersY, hipY);
+
+  console.log('[worker] pubic debug:', {
+    bh,
+    hipY,
+    pubicY_beforeShift,
+    shiftUp,
+    pubicY_afterShift: pubicY,
+    yAbs,
+    yNorm: +(pubicY / bh).toFixed(3),
+    method
+  });
 
   return {
     y: yAbs,
@@ -453,4 +471,4 @@ function smoothOnce(mask, w, h) {
       else if (bgCount <= 1) mask[idx] = 0;
     }
   }
-  }
+}
