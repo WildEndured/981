@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Маска фона · BBox · Лобок (-7%)</title>
+<title>Маска фона · BBox · Оси</title>
 <style>
   :root {
     color-scheme: dark;
@@ -325,14 +325,18 @@
   </div>
 
   <div class="panel-section">
-    <h3>Лобок</h3>
+    <h3>Оси</h3>
     <div class="slider-row">
-      <div class="label-line"><span>Сдвиг от середины</span><span id="pubicShiftVal">-7%</span></div>
+      <div class="label-line"><span>Лобок (сдвиг по Y)</span><span id="pubicShiftVal">-7%</span></div>
       <input id="pubicShift" type="range" min="-50" max="50" value="-7" step="1" />
     </div>
+    <div class="slider-row">
+      <div class="label-line"><span>Вертикаль (сдвиг по X)</span><span id="vertShiftVal">0%</span></div>
+      <input id="vertShift" type="range" min="-50" max="50" value="0" step="1" />
+    </div>
     <div class="row" style="gap:6px;">
-      <button id="pubicResetBtn" style="flex:0 0 auto;height:30px;padding:0 10px;border-radius:8px;border:1px solid #333a44;background:#232830;color:var(--text);font-size:12px;cursor:pointer;">Середина</button>
-      <span style="font-size:12px;color:var(--muted);">−50% = верх, 0% = середина, +50% = низ</span>
+      <button id="axisResetBtn" style="flex:0 0 auto;height:30px;padding:0 10px;border-radius:8px;border:1px solid #333a44;background:#232830;color:var(--text);font-size:12px;cursor:pointer;">Сброс осей</button>
+      <span style="font-size:12px;color:var(--muted);">Лобок: −50 верх / +50 низ. Вертикаль: −50 лево / +50 право.</span>
     </div>
   </div>
 
@@ -346,6 +350,7 @@
     <div class="kv"><span>Лобок</span><span id="infoPubic">—</span></div>
     <div class="kv"><span>Верх (торс+голова)</span><span id="infoUpper">—</span></div>
     <div class="kv"><span>Низ (ноги)</span><span id="infoLower">—</span></div>
+    <div class="kv"><span>Вертикаль</span><span id="infoVert">—</span></div>
     <div class="kv"><span>Плечи</span><span id="infoShoulders">—</span></div>
     <div class="kv"><span>Талия</span><span id="infoWaist">—</span></div>
     <div class="kv"><span>Бёдра</span><span id="infoHips">—</span></div>
@@ -395,7 +400,9 @@ const morphCloseEl = document.getElementById('morphClose');
 const morphCloseVal = document.getElementById('morphCloseVal');
 const pubicShiftEl = document.getElementById('pubicShift');
 const pubicShiftVal = document.getElementById('pubicShiftVal');
-const pubicResetBtn = document.getElementById('pubicResetBtn');
+const vertShiftEl = document.getElementById('vertShift');
+const vertShiftVal = document.getElementById('vertShiftVal');
+const axisResetBtn = document.getElementById('axisResetBtn');
 
 const autoThresholdBtn = document.getElementById('autoThresholdBtn');
 const pickBgColorBtn = document.getElementById('pickBgColorBtn');
@@ -421,6 +428,7 @@ const infoFill = document.getElementById('infoFill');
 const infoPubic = document.getElementById('infoPubic');
 const infoUpper = document.getElementById('infoUpper');
 const infoLower = document.getElementById('infoLower');
+const infoVert = document.getElementById('infoVert');
 const infoShoulders = document.getElementById('infoShoulders');
 const infoWaist = document.getElementById('infoWaist');
 const infoHips = document.getElementById('infoHips');
@@ -451,7 +459,9 @@ let bgCount = 0;
 let charBBox = null;
 let widthProfile = null;
 let pubicPoint = null;
-let pubicShiftPercent = -7;   // <-- дефолт -7%
+let vertAxis = null;
+let pubicShiftPercent = -7;
+let vertShiftPercent = 0;
 
 let zoom = 1, panX = 0, panY = 0;
 let fitZoom = 1;
@@ -505,6 +515,7 @@ function initWorker() {
       charBBox = payload.bbox || null;
       widthProfile = payload.widthProfile || null;
       pubicPoint = payload.pubicPoint || null;
+      vertAxis = payload.vertAxis || null;
       drawOverlay();
       updateInfo();
       workerBusy = false;
@@ -584,6 +595,7 @@ fileInput.addEventListener('change', e => {
       charBBox = null;
       widthProfile = null;
       pubicPoint = null;
+      vertAxis = null;
       invalidateSeeds();
       autoPickThreshold();
       renderSamplesList();
@@ -727,7 +739,8 @@ function rebuildAll() {
       morphOpen: +morphOpenEl.value,
       morphClose: +morphCloseEl.value,
       regionTolerance: +regionTolEl.value,
-      pubicShiftPercent
+      pubicShiftPercent,
+      vertShiftPercent
     }
   });
 }
@@ -783,6 +796,45 @@ function drawOverlay() {
     overlayCtx.font = `${fs}px system-ui, sans-serif`;
     overlayCtx.fillStyle = '#00e0ff';
     overlayCtx.fillText(`bbox ${bw}×${bh}`, x, Math.max(fs, y - 6 / zoom));
+  }
+
+  // ВЕРТИКАЛЬНАЯ ОСЬ
+  if (charBBox && vertAxis) {
+    const { x: bx, y: by, w: bw, h: bh } = charBBox;
+    const ax = vertAxis.x;
+    const lw = Math.max(1, 2 / zoom);
+    const fs = Math.max(11, 13 / zoom);
+
+    // Заливки левой/правой половин
+    overlayCtx.fillStyle = 'rgba(180, 100, 255, 0.10)';
+    overlayCtx.fillRect(bx, by, ax - bx, bh);
+    overlayCtx.fillStyle = 'rgba(100, 220, 140, 0.10)';
+    overlayCtx.fillRect(ax, by, bx + bw - ax, bh);
+
+    // Линия
+    overlayCtx.strokeStyle = '#c080ff';
+    overlayCtx.lineWidth = lw * 1.5;
+    overlayCtx.setLineDash([6 / zoom, 4 / zoom]);
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(ax, by);
+    overlayCtx.lineTo(ax, by + bh);
+    overlayCtx.stroke();
+    overlayCtx.setLineDash([]);
+
+    // Точка на пересечении с горизонтальной осью (или центр по высоте)
+    const py = pubicPoint ? pubicPoint.y : by + bh / 2;
+    overlayCtx.beginPath();
+    overlayCtx.arc(ax, py, Math.max(4, 6 / zoom), 0, Math.PI * 2);
+    overlayCtx.fillStyle = '#c080ff';
+    overlayCtx.fill();
+    overlayCtx.lineWidth = lw;
+    overlayCtx.strokeStyle = '#000';
+    overlayCtx.stroke();
+
+    // Подписи
+    overlayCtx.font = `${fs}px system-ui, sans-serif`;
+    overlayCtx.fillStyle = '#c080ff';
+    overlayCtx.fillText(`верт (сдвиг ${vertShiftPercent}%)`, ax + 6 / zoom, by + fs + 2 / zoom);
   }
 
   // ЛОБОК
@@ -880,6 +932,12 @@ function updateInfo() {
   } else {
     infoPubic.textContent = infoUpper.textContent = infoLower.textContent = '—';
     infoShoulders.textContent = infoWaist.textContent = infoHips.textContent = '—';
+  }
+
+  if (charBBox && vertAxis) {
+    infoVert.textContent = `x:${vertAxis.x} (norm ${(vertAxis.xNorm * 100).toFixed(1)}%, сдвиг ${vertAxis.shiftPercent}%)`;
+  } else {
+    infoVert.textContent = '—';
   }
 
   renderPointList();
@@ -1185,7 +1243,7 @@ clearPointsBtn.addEventListener('click', () => {
 });
 
 // ============================================================
-//  ЛОБОК — СЛАЙДЕР
+//  ОСИ — СЛАЙДЕРЫ
 // ============================================================
 pubicShiftEl.addEventListener('input', () => {
   pubicShiftPercent = +pubicShiftEl.value;
@@ -1193,10 +1251,19 @@ pubicShiftEl.addEventListener('input', () => {
   if (lum) rebuildAllDebounced();
 });
 
-pubicResetBtn.addEventListener('click', () => {
+vertShiftEl.addEventListener('input', () => {
+  vertShiftPercent = +vertShiftEl.value;
+  vertShiftVal.textContent = vertShiftPercent + '%';
+  if (lum) rebuildAllDebounced();
+});
+
+axisResetBtn.addEventListener('click', () => {
   pubicShiftPercent = -7;
   pubicShiftEl.value = -7;
   pubicShiftVal.textContent = '-7%';
+  vertShiftPercent = 0;
+  vertShiftEl.value = 0;
+  vertShiftVal.textContent = '0%';
   if (lum) rebuildAll();
 });
 
@@ -1301,4 +1368,4 @@ smoothIterEl.disabled = !useSmoothEl.checked;
 updateCursor();
 </script>
 </body>
-        </html>
+</html>
