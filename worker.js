@@ -9,15 +9,15 @@ self.onmessage = (e) => {
   if (type === 'buildMask') {
     try {
       const result = buildMaskInWorker(payload);
-      console.log('[worker] done, bgCount =', result.bgCount);
-      // Передаём как обычный массив (structured clone, без transfer)
+      console.log('[worker] done, bgCount =', result.bgCount, 'bbox =', result.bbox);
       self.postMessage({
         type: 'mask',
         payload: {
           mask: result.mask,
           bgCount: result.bgCount,
           width: result.width,
-          height: result.height
+          height: result.height,
+          bbox: result.bbox
         }
       });
     } catch (err) {
@@ -29,7 +29,7 @@ self.onmessage = (e) => {
 
 function buildMaskInWorker(p) {
   const {
-    imageData,          // { data: Uint8ClampedArray, width, height }
+    imageData,
     width, height,
     mode,
     thresholdLum,
@@ -127,7 +127,65 @@ function buildMaskInWorker(p) {
   let bgCount = 0;
   for (let i = 0; i < N; i++) if (mask[i]) bgCount++;
 
-  return { mask, bgCount, width: w, height: h };
+  // === BBOX ПЕРСОНАЖА ===
+  const bbox = computeCharacterBBox(mask, w, h, { minComponentSize: 200 });
+
+  return { mask, bgCount, width: w, height: h, bbox };
+}
+
+/**
+ * Возвращает bbox самой большой связной компоненты «персонажа» (mask[i] === 0).
+ * Если таких нет — bbox = null.
+ */
+function computeCharacterBBox(mask, w, h, opts = {}) {
+  const minSize = opts.minComponentSize ?? 100;
+  const N = w * h;
+  const visited = new Uint8Array(N);
+  const queue = new Int32Array(N);
+
+  let best = null;
+  let bestSize = 0;
+
+  for (let start = 0; start < N; start++) {
+    if (visited[start] || mask[start] === 1) continue;
+
+    let head = 0, tail = 0;
+    queue[tail++] = start;
+    visited[start] = 1;
+
+    let minX = w, minY = h, maxX = -1, maxY = -1, size = 0;
+
+    while (head < tail) {
+      const cur = queue[head++];
+      const cx = cur % w;
+      const cy = (cur / w) | 0;
+      size++;
+      if (cx < minX) minX = cx;
+      if (cy < minY) minY = cy;
+      if (cx > maxX) maxX = cx;
+      if (cy > maxY) maxY = cy;
+
+      if (cx > 0)     { const n = cur - 1; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
+      if (cx < w - 1) { const n = cur + 1; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
+      if (cy > 0)     { const n = cur - w; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
+      if (cy < h - 1) { const n = cur + w; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
+    }
+
+    if (size >= minSize && size > bestSize) {
+      bestSize = size;
+      best = { minX, minY, maxX, maxY, size };
+    }
+  }
+
+  if (!best) return null;
+  return {
+    x: best.minX,
+    y: best.minY,
+    w: best.maxX - best.minX + 1,
+    h: best.maxY - best.minY + 1,
+    area: best.size,
+    fillRatio: best.size / ((best.maxX - best.minX + 1) * (best.maxY - best.minY + 1))
+  };
 }
 
 function regionGrow(mask, data, w, h, seeds, tolerance) {
@@ -217,4 +275,4 @@ function smoothOnce(mask, w, h) {
       else if (bgCount <= 1) mask[idx] = 0;
     }
   }
-}
+    }
