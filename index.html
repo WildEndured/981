@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Маска фона · Worker · Zoom/Pan · BBox</title>
+<title>Маска фона · BBox · Лобок</title>
 <style>
   :root {
     color-scheme: dark;
@@ -331,6 +331,12 @@
     <div class="kv"><span>Bbox</span><span id="infoBBox">—</span></div>
     <div class="kv"><span>W / H</span><span id="infoWH">—</span></div>
     <div class="kv"><span>Заполнение</span><span id="infoFill">—</span></div>
+    <div class="kv"><span>Лобок</span><span id="infoPubic">—</span></div>
+    <div class="kv"><span>Верх (торс+голова)</span><span id="infoUpper">—</span></div>
+    <div class="kv"><span>Низ (ноги)</span><span id="infoLower">—</span></div>
+    <div class="kv"><span>Плечи</span><span id="infoShoulders">—</span></div>
+    <div class="kv"><span>Талия</span><span id="infoWaist">—</span></div>
+    <div class="kv"><span>Бёдра</span><span id="infoHips">—</span></div>
   </div>
 </div>
 
@@ -397,6 +403,12 @@ const infoCharPct = document.getElementById('infoCharPct');
 const infoBBox = document.getElementById('infoBBox');
 const infoWH = document.getElementById('infoWH');
 const infoFill = document.getElementById('infoFill');
+const infoPubic = document.getElementById('infoPubic');
+const infoUpper = document.getElementById('infoUpper');
+const infoLower = document.getElementById('infoLower');
+const infoShoulders = document.getElementById('infoShoulders');
+const infoWaist = document.getElementById('infoWaist');
+const infoHips = document.getElementById('infoHips');
 const infoPointsCount = document.getElementById('infoPointsCount');
 const pointList = document.getElementById('pointList');
 const samplesList = document.getElementById('samplesList');
@@ -421,7 +433,9 @@ let bgColorMode = false, addPointMode = false;
 let sourcePoints = [];
 let hideImage = false;
 let bgCount = 0;
-let charBBox = null;          // <-- bbox персонажа
+let charBBox = null;
+let widthProfile = null;
+let pubicPoint = null;
 
 let zoom = 1, panX = 0, panY = 0;
 let fitZoom = 1;
@@ -473,7 +487,9 @@ function initWorker() {
         ? payload.mask
         : new Uint8Array(payload.mask);
       bgCount = payload.bgCount;
-      charBBox = payload.bbox || null;     // <-- принимаем bbox
+      charBBox = payload.bbox || null;
+      widthProfile = payload.widthProfile || null;
+      pubicPoint = payload.pubicPoint || null;
       drawOverlay();
       updateInfo();
       workerBusy = false;
@@ -551,6 +567,8 @@ fileInput.addEventListener('change', e => {
       selectedPointIndex = -1;
       colorSamples = [];
       charBBox = null;
+      widthProfile = null;
+      pubicPoint = null;
       invalidateSeeds();
       autoPickThreshold();
       renderSamplesList();
@@ -724,14 +742,12 @@ function drawOverlay() {
     const { x, y, w: bw, h: bh } = charBBox;
     const lw = Math.max(1, 2 / zoom);
 
-    // Пунктирная рамка
     overlayCtx.lineWidth = lw;
     overlayCtx.strokeStyle = '#00e0ff';
     overlayCtx.setLineDash([8 / zoom, 6 / zoom]);
     overlayCtx.strokeRect(x + 0.5, y + 0.5, bw, bh);
     overlayCtx.setLineDash([]);
 
-    // Уголки
     const cs = Math.min(bw, bh) * 0.12;
     overlayCtx.strokeStyle = '#00e0ff';
     overlayCtx.lineWidth = lw * 2;
@@ -747,11 +763,61 @@ function drawOverlay() {
       overlayCtx.stroke();
     }
 
-    // Подпись
     const fs = Math.max(11, 14 / zoom);
     overlayCtx.font = `${fs}px system-ui, sans-serif`;
     overlayCtx.fillStyle = '#00e0ff';
     overlayCtx.fillText(`bbox ${bw}×${bh}`, x, Math.max(fs, y - 6 / zoom));
+  }
+
+  // === ЛОБОК: линия + заливка половин ===
+  if (charBBox && pubicPoint) {
+    const { x: bx, y: by, w: bw, h: bh } = charBBox;
+    const py = pubicPoint.y;
+    const lw = Math.max(1, 2 / zoom);
+    const fs = Math.max(11, 13 / zoom);
+
+    // Заливки
+    overlayCtx.fillStyle = 'rgba(80, 180, 255, 0.10)';
+    overlayCtx.fillRect(bx, by, bw, py - by);
+    overlayCtx.fillStyle = 'rgba(255, 160, 80, 0.10)';
+    overlayCtx.fillRect(bx, py, bw, by + bh - py);
+
+    // Линия лобка
+    overlayCtx.strokeStyle = '#ffcc00';
+    overlayCtx.lineWidth = lw * 1.5;
+    overlayCtx.setLineDash([6 / zoom, 4 / zoom]);
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(bx, py);
+    overlayCtx.lineTo(bx + bw, py);
+    overlayCtx.stroke();
+    overlayCtx.setLineDash([]);
+
+    // Точка
+    overlayCtx.beginPath();
+    overlayCtx.arc(pubicPoint.x, py, Math.max(4, 6 / zoom), 0, Math.PI * 2);
+    overlayCtx.fillStyle = '#ffcc00';
+    overlayCtx.fill();
+    overlayCtx.lineWidth = lw;
+    overlayCtx.strokeStyle = '#000';
+    overlayCtx.stroke();
+
+    // Подписи долей
+    const upper = (py - by) / bh;
+    const lower = (by + bh - py) / bh;
+    overlayCtx.font = `${fs}px system-ui, sans-serif`;
+    overlayCtx.fillStyle = '#50b4ff';
+    overlayCtx.fillText(`верх ${(upper * 100).toFixed(1)}%`, bx + 4 / zoom, by + fs + 2 / zoom);
+    overlayCtx.fillStyle = '#ffa050';
+    overlayCtx.fillText(`низ ${(lower * 100).toFixed(1)}%`, bx + 4 / zoom, by + bh - 4 / zoom);
+
+    // Метка метода
+    overlayCtx.fillStyle = '#ffcc00';
+    overlayCtx.font = `${fs * 0.9}px system-ui, sans-serif`;
+    overlayCtx.fillText(
+      `лобок (${pubicPoint.method})`,
+      bx + bw + 6 / zoom,
+      py + fs / 3
+    );
   }
 
   // Точки-источники
@@ -786,6 +852,22 @@ function updateInfo() {
     infoFill.textContent = (charBBox.fillRatio * 100).toFixed(1) + '%';
   } else {
     infoBBox.textContent = infoWH.textContent = infoFill.textContent = '—';
+  }
+
+  if (charBBox && pubicPoint) {
+    const upperPx = pubicPoint.y - charBBox.y;
+    const lowerPx = charBBox.y + charBBox.h - pubicPoint.y;
+    infoPubic.textContent = `y:${pubicPoint.y} (norm ${(pubicPoint.yNorm * 100).toFixed(1)}%, ${pubicPoint.method})`;
+    infoUpper.textContent = `${upperPx}px (${((upperPx / charBBox.h) * 100).toFixed(1)}%)`;
+    infoLower.textContent = `${lowerPx}px (${((lowerPx / charBBox.h) * 100).toFixed(1)}%)`;
+    infoShoulders.textContent = pubicPoint.shouldersWidth != null
+      ? `y:${pubicPoint.shouldersY} w:${pubicPoint.shouldersWidth}px` : '—';
+    infoWaist.textContent = pubicPoint.waistWidth != null
+      ? `y:${pubicPoint.waistY} w:${pubicPoint.waistWidth}px` : '—';
+    infoHips.textContent = `y:${pubicPoint.hipY} w:${pubicPoint.hipWidth}px`;
+  } else {
+    infoPubic.textContent = infoUpper.textContent = infoLower.textContent = '—';
+    infoShoulders.textContent = infoWaist.textContent = infoHips.textContent = '—';
   }
 
   renderPointList();
