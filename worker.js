@@ -144,7 +144,6 @@ function buildMaskInWorker(p) {
 
 /**
  * Возвращает bbox самой большой связной компоненты «персонажа» (mask[i] === 0).
- * Если таких нет — bbox = null.
  */
 function computeCharacterBBox(mask, w, h, opts = {}) {
   const minSize = opts.minComponentSize ?? 100;
@@ -202,7 +201,6 @@ function computeCharacterBBox(mask, w, h, opts = {}) {
  */
 function computeWidthProfile(mask, w, h, bbox) {
   const y0 = bbox.y;
-  const y1 = bbox.y + bbox.h;
   const bh = bbox.h;
   const width = new Int32Array(bh);
   const leftEdge = new Int32Array(bh).fill(-1);
@@ -247,6 +245,7 @@ function computeWidthProfile(mask, w, h, bbox) {
 
 /**
  * Поиск «точки лобка» — границы торс/ноги.
+ * Финальный Y сдвигается на 5% высоты bbox вверх.
  */
 function findPubicPoint(mask, w, h, bbox, profile) {
   const bh = profile.bh;
@@ -318,7 +317,11 @@ function findPubicPoint(mask, w, h, bbox, profile) {
     }
   }
 
-  // X центра фигуры в строке лобка
+  // === СДВИГ ЛОБКА НА 5% ВЫШЕ ===
+  const shiftUp = Math.round(bh * 0.05);
+  pubicY = Math.max(hipY + 1, pubicY - shiftUp);
+
+  // Координата X центра фигуры в строке лобка (для отрисовки точки)
   const yAbs = bbox.y + pubicY;
   const lE = profile.leftEdge[pubicY];
   const rE = profile.rightEdge[pubicY];
@@ -450,4 +453,4 @@ function smoothOnce(mask, w, h) {
       else if (bgCount <= 1) mask[idx] = 0;
     }
   }
-                                      }
+  }
