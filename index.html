@@ -1,314 +1,433 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Простая маска силуэта</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Силуэт персонажа</title>
 <style>
   * { box-sizing: border-box; }
   body {
-    margin: 0; padding: 12px; background: #14161a; color: #e6e6e6;
-    font-family: system-ui, sans-serif; display: flex; flex-direction: column;
-    align-items: center; gap: 10px;
+    margin: 0; font-family: system-ui, sans-serif;
+    background: #111; color: #eee; padding: 16px;
   }
-  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
-  button, label.btn {
-    height: 38px; padding: 0 14px; border-radius: 8px; border: 1px solid #333a44;
-    background: #232830; color: #e6e6e6; font-size: 13px; cursor: pointer;
+  h1 { font-size: 18px; margin: 0 0 12px; }
+  .panel {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    margin-bottom: 16px; background: #1c1c1c; padding: 12px; border-radius: 8px;
   }
-  button:hover, button.active, label.btn:hover { background: #2b6cb0; border-color: #2b6cb0; color: #fff; }
-  input[type=file] { display: none; }
-  .wrap {
-    position: relative; background: #0b0c0f; border: 1px solid #2b2f37;
-    border-radius: 8px; overflow: hidden; max-width: 96vw;
+  .panel label { font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  input[type=range] { width: 120px; }
+  button, input[type=file]::file-selector-button {
+    background: #2d7df6; color: #fff; border: 0; border-radius: 6px;
+    padding: 8px 14px; cursor: pointer; font-size: 13px;
   }
-  canvas { display: block; max-width: 100%; height: auto; cursor: crosshair; }
-  canvas.hide-img { background: #000; }
-  .row { display: flex; align-items: center; gap: 10px; width: min(96vw, 800px); }
-  input[type=range] { flex: 1; accent-color: #2b6cb0; }
-  .hint { font-size: 12px; color: #8b93a1; text-align: center; }
+  button:hover, input[type=file]::file-selector-button:hover { background: #1f66d0; }
+  .stage {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .cell {
+    background: #000; border-radius: 8px; overflow: hidden; position: relative;
+  }
+  .cell canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+  .cell .label {
+    position: absolute; top: 6px; left: 6px; font-size: 11px;
+    background: rgba(0,0,0,.6); padding: 2px 6px; border-radius: 4px;
+  }
+  .status { font-size: 12px; color: #9aa; }
 </style>
 </head>
 <body>
 
-<div class="bar">
-  <label class="btn">📷 Открыть<input id="file" type="file" accept="image/*"></label>
-  <button id="autoBtn">⚡ Авто</button>
-  <button id="pointBtn">🎯 Точка</button>
-  <button id="invertBtn">⇄ Инверт</button>
-  <button id="maskBtn">👁 Маска</button>
-  <button id="saveBtn">💾 Маска PNG</button>
-  <button id="clearBtn">✕ Точки</button>
+<h1>Определение силуэта персонажа</h1>
+
+<div class="panel">
+  <input type="file" id="file" accept="image/*">
+  <label>Порог <input type="range" id="thr" min="0" max="100" value="25"><span id="thrv">25</span>%</label>
+  <label>Шум <input type="range" id="noise" min="0" max="100" value="50"><span id="noisev">50</span>%</label>
+  <button id="save">Скачать PNG</button>
+  <span class="status" id="status">Загрузите изображение</span>
 </div>
 
-<div class="row">
-  <span style="font-size:13px;color:#8b93a1;white-space:nowrap">Порог яркости</span>
-  <input id="thr" type="range" min="0" max="255" value="200">
-  <span id="thrVal" style="font-size:13px;width:32px;text-align:right">200</span>
+<div class="stage">
+  <div class="cell"><span class="label">Оригинал</span><canvas id="c0"></canvas></div>
+  <div class="cell"><span class="label">Маска (бинаризация)</span><canvas id="c1"></canvas></div>
+  <div class="cell"><span class="label">Силуэт (итог)</span><canvas id="c2"></canvas></div>
 </div>
-
-<div class="wrap">
-  <canvas id="view"></canvas>
-</div>
-
-<p class="hint">
-  ЛКМ — добавить точку-источник (клик по точке — удалить). Без точек фон ищется автоматически.
-</p>
 
 <script>
-// ---------- элементы ----------
+/* ===================== УТИЛИТЫ ===================== */
+
+const MAX_SIDE = 700; // ограничение для скорости обработки
+
+function drawToCanvas(img, maxSide = MAX_SIDE) {
+  const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width * scale));
+  const h = Math.max(1, Math.round(img.height * scale));
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, w, h);
+  return c;
+}
+
+// Яркость 0..255
+function luminance(d, i) {
+  return (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
+}
+
+// Медианный цвет по краям (оценка фона)
+function estimateBackground(data, w, h) {
+  const samples = [[], [], []];
+  const step = Math.max(1, Math.floor((w + h) / 200));
+  const pushPx = (x, y) => {
+    const i = (y * w + x) * 4;
+    samples[0].push(data[i]);
+    samples[1].push(data[i + 1]);
+    samples[2].push(data[i + 2]);
+  };
+  for (let x = 0; x < w; x += step) { pushPx(x, 0); pushPx(x, h - 1); }
+  for (let y = 0; y < h; y += step) { pushPx(0, y); pushPx(w - 1, y); }
+  return samples.map(arr => {
+    arr.sort((a, b) => a - b);
+    return arr[arr.length >> 1];
+  });
+}
+
+/* ===================== АЛГОРИТМ ===================== */
+
+function detectSilhouette(srcCanvas, thresholdPercent, noisePercent) {
+  const w = srcCanvas.width, h = srcCanvas.height;
+  const ctx = srcCanvas.getContext('2d', { willReadFrequently: true });
+  const img = ctx.getImageData(0, 0, w, h);
+  const data = img.data;
+
+  const [bgR, bgG, bgB] = estimateBackground(data, w, h);
+  const bgLum = (bgR * 0.299 + bgG * 0.587 + bgB * 0.114);
+
+  // Порог по разнице с фоном
+  const thr = (thresholdPercent / 100) * 160 + 10;
+
+  // 1) Бинаризация: пиксель принадлежит персонажу, если отличается от фона
+  let mask = new Uint8Array(w * h);
+  for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+    const dr = data[i] - bgR;
+    const dg = data[i + 1] - bgG;
+    const db = data[i + 2] - bgB;
+    const dist = Math.sqrt(dr * dr + dg * dg + db * db);
+    const lum = luminance(data, i);
+    // Комбинируем отличие по цвету и по яркости
+    const score = Math.max(dist, Math.abs(lum - bgLum));
+    mask[p] = score > thr ? 1 : 0;
+  }
+
+  // 2) Шумоподавление — медианный фильтр 3x3 по маске
+  const medianPasses = Math.round((noisePercent / 100) * 2); // 0..2
+  for (let k = 0; k < medianPasses; k++) {
+    mask = median3(mask, w, h);
+  }
+
+  // 3) Морфологические операции: сначала закрытие (заполнить дырки), потом открытие
+  mask = dilate(mask, w, h, 1);
+  mask = erode(mask, w, h, 1);
+  mask = dilate(mask, w, h, 2);
+  mask = erode(mask, w, h, 2);
+
+  // 4) Оставляем только крупнейшую связную компоненту (персонаж)
+  mask = largestComponent(mask, w, h);
+
+  // 5) Заполняем внутренние дырки (flood fill от границ по «пустому»)
+  mask = fillHoles(mask, w, h);
+
+  // 6) Сглаживание краёв: сгладим маску гауссом и снова порог
+  mask = smoothMask(mask, w, h);
+
+  return { mask, w, h, bg: [bgR, bgG, bgB] };
+}
+
+/* ---------- Морфология ---------- */
+
+function dilate(mask, w, h, r) {
+  const out = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let v = 0;
+      outer:
+      for (let dy = -r; dy <= r; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= h) continue;
+        for (let dx = -r; dx <= r; dx++) {
+          const xx = x + dx;
+          if (xx < 0 || xx >= w) continue;
+          if (mask[yy * w + xx]) { v = 1; break outer; }
+        }
+      }
+      out[y * w + x] = v;
+    }
+  }
+  return out;
+}
+
+function erode(mask, w, h, r) {
+  const out = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let v = 1;
+      outer:
+      for (let dy = -r; dy <= r; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= h) continue;
+        for (let dx = -r; dx <= r; dx++) {
+          const xx = x + dx;
+          if (xx < 0 || xx >= w) continue;
+          if (!mask[yy * w + xx]) { v = 0; break outer; }
+        }
+      }
+      out[y * w + x] = v;
+    }
+  }
+  return out;
+}
+
+function median3(mask, w, h) {
+  const out = new Uint8Array(w * h);
+  const buf = new Uint8Array(9);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let n = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= h) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx;
+          if (xx < 0 || xx >= w) continue;
+          buf[n++] = mask[yy * w + xx];
+        }
+      }
+      // сортировка первых n
+      const arr = Array.prototype.slice.call(buf, 0, n).sort((a, b) => a - b);
+      out[y * w + x] = arr[arr.length >> 1];
+    }
+  }
+  return out;
+}
+
+/* ---------- Связные компоненты ---------- */
+
+function largestComponent(mask, w, h) {
+  const labels = new Int32Array(w * h).fill(-1);
+  const sizes = [];
+  const stack = new Int32Array(w * h);
+  let label = 0;
+
+  for (let start = 0; start < w * h; start++) {
+    if (mask[start] && labels[start] === -1) {
+      let sp = 0;
+      stack[sp++] = start;
+      labels[start] = label;
+      let size = 0;
+      while (sp > 0) {
+        const p = stack[--sp];
+        size++;
+        const x = p % w, y = (p / w) | 0;
+        // 4-соседство
+        if (x > 0) { const q = p - 1; if (mask[q] && labels[q] === -1) { labels[q] = label; stack[sp++] = q; } }
+        if (x < w - 1) { const q = p + 1; if (mask[q] && labels[q] === -1) { labels[q] = label; stack[sp++] = q; } }
+        if (y > 0) { const q = p - w; if (mask[q] && labels[q] === -1) { labels[q] = label; stack[sp++] = q; } }
+        if (y < h - 1) { const q = p + w; if (mask[q] && labels[q] === -1) { labels[q] = label; stack[sp++] = q; } }
+      }
+      sizes.push(size);
+      label++;
+    }
+  }
+
+  if (label === 0) return mask;
+  let best = 0;
+  for (let i = 1; i < sizes.length; i++) if (sizes[i] > sizes[best]) best = i;
+
+  const out = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) if (labels[i] === best) out[i] = 1;
+  return out;
+}
+
+/* ---------- Заполнение дырок ---------- */
+
+function fillHoles(mask, w, h) {
+  // BFS по «пустым» от границ — всё, что не достижимо, является дыркой
+  const visited = new Uint8Array(w * h);
+  const stack = new Int32Array(w * h);
+  let sp = 0;
+
+  const push = (p) => {
+    if (!mask[p] && !visited[p]) { visited[p] = 1; stack[sp++] = p; }
+  };
+  for (let x = 0; x < w; x++) { push(x); push((h - 1) * w + x); }
+  for (let y = 0; y < h; y++) { push(y * w); push(y * w + w - 1); }
+
+  while (sp > 0) {
+    const p = stack[--sp];
+    const x = p % w, y = (p / w) | 0;
+    if (x > 0) push(p - 1);
+    if (x < w - 1) push(p + 1);
+    if (y > 0) push(p - w);
+    if (y < h - 1) push(p + w);
+  }
+
+  const out = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    out[i] = mask[i] || (!visited[i]) ? 1 : 0;
+  }
+  return out;
+}
+
+/* ---------- Сглаживание маски (гаусс 3x3) ---------- */
+
+function smoothMask(mask, w, h) {
+  const kernel = [1, 2, 1, 2, 4, 2, 1, 2, 1];
+  const sum = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let acc = 0, k = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        const yy = y + dy;
+        const cy = yy < 0 ? 0 : yy >= h ? h - 1 : yy;
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx;
+          const cx = xx < 0 ? 0 : xx >= w ? w - 1 : xx;
+          acc += mask[cy * w + cx] * kernel[k++];
+        }
+      }
+      sum[y * w + x] = acc / 16;
+    }
+  }
+  const out = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) out[i] = sum[i] >= 0.5 ? 1 : 0;
+  return out;
+}
+
+/* ===================== ОТРИСОВКА ===================== */
+
+function renderOriginal(srcCanvas, dstCanvas) {
+  dstCanvas.width = srcCanvas.width;
+  dstCanvas.height = srcCanvas.height;
+  dstCanvas.getContext('2d').drawImage(srcCanvas, 0, 0);
+}
+
+function renderMask(mask, w, h, dstCanvas) {
+  dstCanvas.width = w; dstCanvas.height = h;
+  const ctx = dstCanvas.getContext('2d');
+  const img = ctx.createImageData(w, h);
+  for (let i = 0, p = 0; p < w * h; p++, i += 4) {
+    const v = mask[p] ? 255 : 0;
+    img.data[i] = v; img.data[i + 1] = v; img.data[i + 2] = v; img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+function renderSilhouette(srcCanvas, mask, w, h, dstCanvas) {
+  dstCanvas.width = w; dstCanvas.height = h;
+  const srcCtx = srcCanvas.getContext('2d', { willReadFrequently: true });
+  const src = srcCtx.getImageData(0, 0, w, h).data;
+  const ctx = dstCanvas.getContext('2d');
+  const out = ctx.createImageData(w, h);
+
+  for (let i = 0, p = 0; p < w * h; p++, i += 4) {
+    if (mask[p]) {
+      // Персонаж — тёмный силуэт с лёгкой подложкой исходного цвета
+      const r = src[i], g = src[i + 1], b = src[i + 2];
+      out.data[i]     = (r * 0.25) | 0;
+      out.data[i + 1] = (g * 0.25) | 0;
+      out.data[i + 2] = (b * 0.25) | 0;
+      out.data[i + 3] = 255;
+    } else {
+      out.data[i] = 20; out.data[i + 1] = 20; out.data[i + 2] = 30;
+      out.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(out, 0, 0);
+
+  // Обводка контура
+  ctx.strokeStyle = '#39ff88';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      if (!mask[p]) continue;
+      // граница = персонаж рядом с фоном
+      const edge =
+        (x === 0 || !mask[p - 1]) ||
+        (x === w - 1 || !mask[p + 1]) ||
+        (y === 0 || !mask[p - w]) ||
+        (y === h - 1 || !mask[p + w]);
+      if (edge) {
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + 1, y + 1);
+      }
+    }
+  }
+  ctx.stroke();
+}
+
+/* ===================== UI ===================== */
+
 const fileInput = document.getElementById('file');
-const view = document.getElementById('view');
-const ctx = view.getContext('2d', { willReadFrequently: true });
-const thr = document.getElementById('thr');
-const thrVal = document.getElementById('thrVal');
-const autoBtn = document.getElementById('autoBtn');
-const pointBtn = document.getElementById('pointBtn');
-const invertBtn = document.getElementById('invertBtn');
-const maskBtn = document.getElementById('maskBtn');
-const saveBtn = document.getElementById('saveBtn');
-const clearBtn = document.getElementById('clearBtn');
+const thrInput = document.getElementById('thr');
+const thrVal = document.getElementById('thrv');
+const noiseInput = document.getElementById('noise');
+const noiseVal = document.getElementById('noisev');
+const statusEl = document.getElementById('status');
+const saveBtn = document.getElementById('save');
 
-// ---------- состояние ----------
-let W = 0, H = 0;
-let imgData = null;       // исходные пиксели
-let lum = null;           // яркость Float32Array
-let hist = null;          // гистограмма
-let mask = null;          // Uint8Array, 1 = фон
-let points = [];          // точки-источники {x, y}
-let invert = false;
-let pointMode = false;
-let hideImage = false;
+const c0 = document.getElementById('c0');
+const c1 = document.getElementById('c1');
+const c2 = document.getElementById('c2');
 
-// ---------- загрузка ----------
-fileInput.addEventListener('change', e => {
-  const f = e.target.files[0];
-  if (!f) return;
+let srcCanvas = null;
+
+function process() {
+  if (!srcCanvas) return;
+  const thr = +thrInput.value;
+  const noise = +noiseInput.value;
+  const t0 = performance.now();
+
+  const { mask, w, h } = detectSilhouette(srcCanvas, thr, noise);
+  renderMask(mask, w, h, c1);
+  renderSilhouette(srcCanvas, mask, w, h, c2);
+
+  const dt = (performance.now() - t0).toFixed(0);
+  const area = mask.reduce((a, b) => a + b, 0);
+  const pct = ((area / (w * h)) * 100).toFixed(1);
+  statusEl.textContent = `${w}×${h} · ${dt} мс · силуэт ${pct}% площади`;
+}
+
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = () => {
-    W = img.naturalWidth; H = img.naturalHeight;
-    view.width = W; view.height = H;
-    ctx.drawImage(img, 0, 0);
-    imgData = ctx.getImageData(0, 0, W, H);
-    computeLum();
-    computeHist();
-    points = [];
-    autoThreshold();
-    rebuild();
+    URL.revokeObjectURL(url);
+    srcCanvas = drawToCanvas(img);
+    renderOriginal(srcCanvas, c0);
+    process();
   };
-  img.src = URL.createObjectURL(f);
+  img.onerror = () => { statusEl.textContent = 'Не удалось загрузить изображение'; };
+  img.src = url;
 });
 
-// ---------- яркость + гистограмма ----------
-function computeLum() {
-  const d = imgData.data;
-  lum = new Float32Array(W * H);
-  hist = new Uint32Array(256);
-  for (let i = 0, j = 0; i < W * H; i++, j += 4) {
-    const v = Math.round(0.299 * d[j] + 0.587 * d[j + 1] + 0.114 * d[j + 2]);
-    lum[i] = v;
-    hist[v]++;
-  }
-}
-
-// ---------- метод Оцу ----------
-function autoThreshold() {
-  const N = W * H;
-  let sum = 0;
-  for (let i = 0; i < 256; i++) sum += i * hist[i];
-  let sumB = 0, wB = 0, best = 0, maxVar = 0;
-  for (let t = 0; t < 256; t++) {
-    wB += hist[t];
-    if (!wB) continue;
-    const wF = N - wB;
-    if (!wF) break;
-    sumB += t * hist[t];
-    const mB = sumB / wB, mF = (sum - sumB) / wF;
-    const v = wB * wF * (mB - mF) ** 2;
-    if (v > maxVar) { maxVar = v; best = t; }
-  }
-  thr.value = best;
-  thrVal.textContent = best;
-}
-
-// ---------- построение маски ----------
-function rebuild() {
-  if (!lum) return;
-  const N = W * H, th = +thr.value;
-  mask = new Uint8Array(N);
-  const queue = new Int32Array(N);
-  let head = 0, tail = 0;
-
-  const isBg = idx => {
-    const m = lum[idx] >= th;
-    return invert ? !m : m;
-  };
-
-  const push = (x, y) => {
-    if (x < 0 || y < 0 || x >= W || y >= H) return;
-    const i = y * W + x;
-    if (mask[i] || !isBg(i)) return;
-    mask[i] = 1;
-    queue[tail++] = i;
-  };
-
-  // семена: точки пользователя или автоматические
-  if (points.length) {
-    points.forEach(p => push(p.x, p.y));
-  } else {
-    // авто: связные светлые области, не касающиеся краёв
-    const visited = new Uint8Array(N);
-    for (let s = 0; s < N; s++) {
-      if (visited[s] || !isBg(s)) continue;
-      let qh = 0, qt = 0;
-      const q = new Int32Array(N);
-      q[qt++] = s; visited[s] = 1;
-      const region = [];
-      let border = false;
-      while (qh < qt) {
-        const cur = q[qh++]; region.push(cur);
-        const cx = cur % W, cy = (cur / W) | 0;
-        if (cx === 0 || cy === 0 || cx === W - 1 || cy === H - 1) border = true;
-        [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx, dy]) => {
-          const nx = cx + dx, ny = cy + dy;
-          if (nx < 0 || ny < 0 || nx >= W || ny >= H) return;
-          const ni = ny * W + nx;
-          if (!visited[ni] && isBg(ni)) { visited[ni] = 1; q[qt++] = ni; }
-        });
-      }
-      if (!border && region.length >= 30) {
-        const c = region[region.length >> 1];
-        push(c % W, (c / W) | 0);
-      }
-    }
-  }
-
-  // заливка от краёв
-  for (let x = 0; x < W; x++) { push(x, 0); push(x, H - 1); }
-  for (let y = 0; y < H; y++) { push(0, y); push(W - 1, y); }
-
-  while (head < tail) {
-    const i = queue[head++];
-    const x = i % W, y = (i / W) | 0;
-    push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
-  }
-
-  draw();
-}
-
-// ---------- отрисовка ----------
-function draw() {
-  if (!W) return;
-  if (hideImage) {
-    // показываем только маску (чёрное/белое)
-    const out = ctx.createImageData(W, H);
-    const d = out.data;
-    for (let i = 0, j = 0; i < W * H; i++, j += 4) {
-      const v = mask[i] ? 0 : 255;
-      d[j] = d[j+1] = d[j+2] = v; d[j+3] = 255;
-    }
-    ctx.putImageData(out, 0, 0);
-  } else {
-    // исходник + красная подсветка фона
-    ctx.putImageData(imgData, 0, 0);
-    const ov = ctx.createImageData(W, H);
-    const d = ov.data;
-    for (let i = 0, j = 0; i < W * H; i++, j += 4) {
-      if (mask[i]) { d[j] = 255; d[j+1] = 60; d[j+2] = 60; d[j+3] = 100; }
-    }
-    // накладываем через временный canvas
-    const tmp = document.createElement('canvas');
-    tmp.width = W; tmp.height = H;
-    tmp.getContext('2d').putImageData(ov, 0, 0);
-    ctx.drawImage(tmp, 0, 0);
-  }
-
-  // точки
-  points.forEach((p, i) => {
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
-    ctx.fillStyle = '#ffcc00';
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#000';
-    ctx.stroke();
-  });
-}
-
-// ---------- клики ----------
-view.addEventListener('click', e => {
-  if (!W) return;
-  const r = view.getBoundingClientRect();
-  const x = Math.floor((e.clientX - r.left) * (W / r.width));
-  const y = Math.floor((e.clientY - r.top) * (H / r.height));
-
-  if (pointMode) {
-    points.push({ x, y });
-  } else {
-    // клик по существующей точке — удалить
-    const r2 = 12;
-    for (let i = points.length - 1; i >= 0; i--) {
-      const dx = points[i].x - x, dy = points[i].y - y;
-      if (dx * dx + dy * dy < r2 * r2) { points.splice(i, 1); break; }
-    }
-  }
-  rebuild();
-});
-
-// ---------- кнопки ----------
-thr.addEventListener('input', () => {
-  thrVal.textContent = thr.value;
-  rebuild();
-});
-
-autoBtn.addEventListener('click', () => {
-  if (!lum) return;
-  autoThreshold();
-  rebuild();
-});
-
-pointBtn.addEventListener('click', () => {
-  pointMode = !pointMode;
-  pointBtn.classList.toggle('active', pointMode);
-});
-
-invertBtn.addEventListener('click', () => {
-  invert = !invert;
-  invertBtn.classList.toggle('active', invert);
-  rebuild();
-});
-
-maskBtn.addEventListener('click', () => {
-  hideImage = !hideImage;
-  maskBtn.classList.toggle('active', hideImage);
-  draw();
-});
+thrInput.addEventListener('input', () => { thrVal.textContent = thrInput.value; process(); });
+noiseInput.addEventListener('input', () => { noiseVal.textContent = noiseInput.value; process(); });
 
 saveBtn.addEventListener('click', () => {
-  if (!mask) return;
-  const c = document.createElement('canvas');
-  c.width = W; c.height = H;
-  const cx = c.getContext('2d');
-  const out = cx.createImageData(W, H);
-  const d = out.data;
-  for (let i = 0, j = 0; i < W * H; i++, j += 4) {
-    const v = mask[i] ? 0 : 255;
-    d[j] = d[j+1] = d[j+2] = v; d[j+3] = 255;
-  }
-  cx.putImageData(out, 0, 0);
-  c.toBlob(b => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(b);
-    a.download = 'mask.png';
-    a.click();
-    URL.revokeObjectURL(a.href);
-  });
+  if (!c2.width) return;
+  const a = document.createElement('a');
+  a.download = 'silhouette.png';
+  a.href = c2.toDataURL('image/png');
+  a.click();
 });
 
-clearBtn.addEventListener('click', () => {
-  points = [];
-  if (lum) rebuild();
-});
+statusEl.textContent = 'Загрузите изображение';
 </script>
 </body>
 </html>
