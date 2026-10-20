@@ -1,9 +1,9 @@
 // ============================================================
 //  Web Worker: тяжёлые вычисления маски
-//  VERSION: 2025-01-01 · pubic = 50% + slider%
+//  VERSION: 2025-01-02 · pubic (-7%) + vert axis
 // ============================================================
 
-console.log('[worker] SCRIPT LOADED v2025-01-01 (pubic=50%+slider)');
+console.log('[worker] SCRIPT LOADED v2025-01-02 (pubic=50%+slider, vert=50%+slider)');
 
 self.onmessage = (e) => {
   const { type, payload } = e.data;
@@ -19,7 +19,8 @@ self.onmessage = (e) => {
           height: result.height,
           bbox: result.bbox,
           widthProfile: result.widthProfile,
-          pubicPoint: result.pubicPoint
+          pubicPoint: result.pubicPoint,
+          vertAxis: result.vertAxis
         }
       });
     } catch (err) {
@@ -45,7 +46,8 @@ function buildMaskInWorker(p) {
     morphOpen,
     morphClose,
     regionTolerance,
-    pubicShiftPercent
+    pubicShiftPercent,
+    vertShiftPercent
   } = p;
 
   const w = width, h = height;
@@ -130,13 +132,15 @@ function buildMaskInWorker(p) {
   const bbox = computeCharacterBBox(mask, w, h, { minComponentSize: 200 });
   let pubicPoint = null;
   let widthProfile = null;
+  let vertAxis = null;
 
   if (bbox) {
     widthProfile = computeWidthProfile(mask, w, h, bbox);
     pubicPoint = findPubicPoint(mask, w, h, bbox, widthProfile, pubicShiftPercent);
+    vertAxis = computeVertAxis(bbox, vertShiftPercent);
   }
 
-  return { mask, bgCount, width: w, height: h, bbox, widthProfile, pubicPoint };
+  return { mask, bgCount, width: w, height: h, bbox, widthProfile, pubicPoint, vertAxis };
 }
 
 function computeCharacterBBox(mask, w, h, opts = {}) {
@@ -235,9 +239,21 @@ function computeWidthProfile(mask, w, h, bbox) {
 }
 
 /**
- * Лобок = 50% высоты bbox + pubicShiftPercent (в процентах от высоты bbox).
- * Значение -50 = самый верх, 0 = середина, +50 = самый низ.
+ * Вычисление вертикальной оси: 50% ширины bbox + vertShiftPercent.
+ * Значение -50 = левый край, 0 = центр, +50 = правый край.
  */
+function computeVertAxis(bbox, vertShiftPercent) {
+  const shiftVal = (vertShiftPercent !== undefined) ? vertShiftPercent : 0;
+  const shift = shiftVal / 100;
+  let axisX = Math.round(bbox.x + bbox.w * (0.5 + shift));
+  axisX = Math.max(bbox.x, Math.min(bbox.x + bbox.w - 1, axisX));
+  return {
+    x: axisX,
+    xNorm: (axisX - bbox.x) / bbox.w,
+    shiftPercent: shiftVal
+  };
+}
+
 function findPubicPoint(mask, w, h, bbox, profile, pubicShiftPercent) {
   const bh = profile.bh;
   if (bh < 20) return null;
@@ -255,8 +271,9 @@ function findPubicPoint(mask, w, h, bbox, profile, pubicShiftPercent) {
     smoothed[y] = c ? s / c : 0;
   }
 
-  // Лобок = 50% + сдвиг
-  const shift = ((pubicShiftPercent !== undefined ? pubicShiftPercent : -7)) / 100;
+  const shiftVal = (pubicShiftPercent !== undefined) ? pubicShiftPercent : -7;
+  const shift = shiftVal / 100;
+  
   let pubicY = Math.round(bh * (0.5 + shift));
   pubicY = Math.max(0, Math.min(bh - 1, pubicY));
 
@@ -411,4 +428,4 @@ function smoothOnce(mask, w, h) {
       else if (bgCount <= 1) mask[idx] = 0;
     }
   }
-         }
+        }
