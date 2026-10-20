@@ -1,18 +1,15 @@
 // ============================================================
 //  Web Worker: тяжёлые вычисления маски
-//  VERSION: 2025-01-01 · pubic shift 10% · debug logs
+//  VERSION: 2025-01-01 · pubic = 50% + slider%
 // ============================================================
 
-console.log('[worker] SCRIPT LOADED v2025-01-01');
+console.log('[worker] SCRIPT LOADED v2025-01-01 (pubic=50%+slider)');
 
 self.onmessage = (e) => {
   const { type, payload } = e.data;
-  console.log('[worker] received:', type);
-
   if (type === 'buildMask') {
     try {
       const result = buildMaskInWorker(payload);
-      console.log('[worker] done, bgCount =', result.bgCount, 'bbox =', result.bbox, 'pubic =', result.pubicPoint);
       self.postMessage({
         type: 'mask',
         payload: {
@@ -47,16 +44,14 @@ function buildMaskInWorker(p) {
     smoothIter,
     morphOpen,
     morphClose,
-    regionTolerance
+    regionTolerance,
+    pubicShiftPercent
   } = p;
 
   const w = width, h = height;
   const N = w * h;
   const data = imageData.data;
 
-  console.log('[worker] buildMask:', { w, h, mode, thresholdLum, useSmooth, smoothIter, morphOpen, morphClose });
-
-  // Лум-канал
   const lum = new Float32Array(N);
   for (let i = 0, j = 0; i < N; i++, j += 4) {
     if (data[j + 3] < 20) { lum[i] = 255; continue; }
@@ -132,22 +127,18 @@ function buildMaskInWorker(p) {
   let bgCount = 0;
   for (let i = 0; i < N; i++) if (mask[i]) bgCount++;
 
-  // === BBOX + ПРОФИЛЬ ШИРИНЫ + ЛОБОК ===
   const bbox = computeCharacterBBox(mask, w, h, { minComponentSize: 200 });
   let pubicPoint = null;
   let widthProfile = null;
 
   if (bbox) {
     widthProfile = computeWidthProfile(mask, w, h, bbox);
-    pubicPoint = findPubicPoint(mask, w, h, bbox, widthProfile);
+    pubicPoint = findPubicPoint(mask, w, h, bbox, widthProfile, pubicShiftPercent);
   }
 
   return { mask, bgCount, width: w, height: h, bbox, widthProfile, pubicPoint };
 }
 
-/**
- * Возвращает bbox самой большой связной компоненты «персонажа» (mask[i] === 0).
- */
 function computeCharacterBBox(mask, w, h, opts = {}) {
   const minSize = opts.minComponentSize ?? 100;
   const N = w * h;
@@ -199,9 +190,6 @@ function computeCharacterBBox(mask, w, h, opts = {}) {
   };
 }
 
-/**
- * Профиль ширины персонажа по строкам внутри bbox.
- */
 function computeWidthProfile(mask, w, h, bbox) {
   const y0 = bbox.y;
   const bh = bbox.h;
@@ -247,16 +235,14 @@ function computeWidthProfile(mask, w, h, bbox) {
 }
 
 /**
- * Поиск «точки лобка» — границы торс/ноги.
- * Финальный Y сдвигается на 10% высоты bbox вверх.
+ * Лобок = 50% высоты bbox + pubicShiftPercent (в процентах от высоты bbox).
+ * Значение -50 = самый верх, 0 = середина, +50 = самый низ.
  */
-function findPubicPoint(mask, w, h, bbox, profile) {
+function findPubicPoint(mask, w, h, bbox, profile, pubicShiftPercent) {
   const bh = profile.bh;
   if (bh < 20) return null;
 
   const width = profile.width;
-
-  // Сглаживаем профиль (окно ±2)
   const smoothed = new Float32Array(bh);
   const R = 2;
   for (let y = 0; y < bh; y++) {
@@ -269,97 +255,51 @@ function findPubicPoint(mask, w, h, bbox, profile) {
     smoothed[y] = c ? s / c : 0;
   }
 
-  const yStart = Math.floor(bh * 0.40);
-  const yEnd   = Math.floor(bh * 0.95);
+  // Лобок = 50% + сдвиг
+  const shift = (pubicShiftPercent || 0) / 100;
+  let pubicY = Math.round(bh * (0.5 + shift));
+  pubicY = Math.max(0, Math.min(bh - 1, pubicY));
 
-  // Пик ширины (бёдра)
-  let hipY = -1, hipW = 0;
-  for (let y = yStart + 2; y < yEnd - 2; y++) {
-    const v = smoothed[y];
-    if (v > smoothed[y - 1] && v >= smoothed[y + 1] && v > hipW) {
-      hipW = v; hipY = y;
-    }
-  }
-  if (hipY === -1) {
-    for (let y = yStart; y < yEnd; y++) {
-      if (smoothed[y] > hipW) { hipW = smoothed[y]; hipY = y; }
-    }
-  }
-  if (hipY === -1) return null;
-
-  // Первая строка ниже бёдер, где ширина стабильно < 60% от пика
-  const dropThreshold = hipW * 0.60;
-  let pubicY = -1;
-  const confirmRows = 4;
-  for (let y = hipY + 1; y < yEnd - confirmRows; y++) {
-    let ok = true;
-    for (let k = 0; k < confirmRows; k++) {
-      if (smoothed[y + k] > dropThreshold) { ok = false; break; }
-    }
-    if (ok) { pubicY = y; break; }
-  }
-  if (pubicY === -1) {
-    pubicY = Math.floor(bh * 0.52);
-  }
-
-  // Уточнение по «провалу» между ног
-  const gap = profile.centerGap;
-  let method = 'width';
-  const minGap = Math.max(3, Math.round(bbox.w * 0.015));
-  const confirmGap = 3;
-  for (let y = Math.max(pubicY, yStart); y < yEnd - confirmGap; y++) {
-    let ok = true;
-    for (let k = 0; k < confirmGap; k++) {
-      if (gap[y + k] < minGap) { ok = false; break; }
-    }
-    if (ok) {
-      const adjust = Math.max(1, Math.round(bh * 0.02));
-      pubicY = Math.max(hipY + 1, y - adjust);
-      method = 'gap';
-      break;
-    }
-  }
-
-  const pubicY_beforeShift = pubicY;
-
-  // === СДВИГ ЛОБКА НА 10% ВЫШЕ (без ограничителя по бёдрам) ===
-  const shiftUp = Math.round(bh * 0.05);
-  pubicY = Math.max(1, pubicY - shiftUp);
-
-  // ВАЖНО: yAbs считается ПОСЛЕ сдвига
   const yAbs = bbox.y + pubicY;
 
-  // X центра фигуры в строке лобка
   const lE = profile.leftEdge[pubicY];
   const rE = profile.rightEdge[pubicY];
   const pubicX = (lE >= 0 && rE >= 0) ? Math.round((lE + rE) / 2) : Math.round(bbox.x + bbox.w / 2);
 
+  const hipY = findHipsY(smoothed, bh);
   const shouldersY = findShouldersY(smoothed, bh);
-  const waistY     = findWaistY(smoothed, bh, shouldersY, hipY);
-
-  console.log('[worker] pubic debug:', {
-    bh,
-    hipY,
-    pubicY_beforeShift,
-    shiftUp,
-    pubicY_afterShift: pubicY,
-    yAbs,
-    yNorm: +(pubicY / bh).toFixed(3),
-    method
-  });
+  const waistY = findWaistY(smoothed, bh, shouldersY, hipY);
 
   return {
     y: yAbs,
     x: pubicX,
     yNorm: pubicY / bh,
-    method,
-    hipY: bbox.y + hipY,
-    hipWidth: Math.round(hipW),
+    method: 'slider',
+    hipY: hipY >= 0 ? bbox.y + hipY : null,
+    hipWidth: hipY >= 0 ? Math.round(smoothed[hipY]) : null,
     shouldersY: shouldersY >= 0 ? bbox.y + shouldersY : null,
     waistY: waistY >= 0 ? bbox.y + waistY : null,
     shouldersWidth: shouldersY >= 0 ? Math.round(smoothed[shouldersY]) : null,
     waistWidth: waistY >= 0 ? Math.round(smoothed[waistY]) : null
   };
+}
+
+function findHipsY(smoothed, bh) {
+  const yStart = Math.floor(bh * 0.40);
+  const yEnd   = Math.floor(bh * 0.95);
+  let best = -1, bestW = 0;
+  for (let y = yStart + 2; y < yEnd - 2; y++) {
+    const v = smoothed[y];
+    if (v > smoothed[y - 1] && v >= smoothed[y + 1] && v > bestW) {
+      bestW = v; best = y;
+    }
+  }
+  if (best === -1) {
+    for (let y = yStart; y < yEnd; y++) {
+      if (smoothed[y] > bestW) { bestW = smoothed[y]; best = y; }
+    }
+  }
+  return best;
 }
 
 function findShouldersY(smoothed, bh) {
@@ -471,4 +411,4 @@ function smoothOnce(mask, w, h) {
       else if (bgCount <= 1) mask[idx] = 0;
     }
   }
-}
+         }
