@@ -256,7 +256,7 @@ function findPubicPoint(mask, w, h, bbox, profile, pubicShiftPercent) {
   }
 
   // Лобок = 50% + сдвиг
-  const shift = (pubicShiftPercent || 0) / 100;
+  const shift = ((pubicShiftPercent !== undefined ? pubicShiftPercent : -7)) / 100;
   let pubicY = Math.round(bh * (0.5 + shift));
   pubicY = Math.max(0, Math.min(bh - 1, pubicY));
 
