@@ -323,7 +323,7 @@ function findPubicPoint(mask, w, h, bbox, profile) {
   const pubicY_beforeShift = pubicY;
 
   // === СДВИГ ЛОБКА НА 10% ВЫШЕ (без ограничителя по бёдрам) ===
-  const shiftUp = Math.round(bh * 0.10);
+  const shiftUp = Math.round(bh * 0.05);
   pubicY = Math.max(1, pubicY - shiftUp);
 
   // ВАЖНО: yAbs считается ПОСЛЕ сдвига
