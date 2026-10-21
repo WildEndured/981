@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Маска фона · BBox · Оси</title>
+<title>Маска фона · BBox · Поисковые линии</title>
 <style>
   :root {
     color-scheme: dark;
@@ -325,18 +325,27 @@
   </div>
 
   <div class="panel-section">
-    <h3>Оси</h3>
+    <h3>Поисковые линии</h3>
+    
+    <div class="row" style="margin-bottom: 12px;">
+      <label><input id="showHoriz" type="checkbox" checked /> Показывать горизонтальную</label>
+    </div>
     <div class="slider-row">
-      <div class="label-line"><span>Лобок (сдвиг по Y)</span><span id="pubicShiftVal">-7%</span></div>
+      <div class="label-line"><span>Горизонтальная (сдвиг по Y)</span><span id="pubicShiftVal">-7%</span></div>
       <input id="pubicShift" type="range" min="-50" max="50" value="-7" step="1" />
     </div>
+
+    <div class="row" style="margin-bottom: 12px; margin-top: 16px;">
+      <label><input id="showVert" type="checkbox" checked /> Показывать вертикальную</label>
+    </div>
     <div class="slider-row">
-      <div class="label-line"><span>Вертикаль (сдвиг по X)</span><span id="vertShiftVal">0%</span></div>
+      <div class="label-line"><span>Вертикальная (сдвиг по X)</span><span id="vertShiftVal">0%</span></div>
       <input id="vertShift" type="range" min="-50" max="50" value="0" step="1" />
     </div>
-    <div class="row" style="gap:6px;">
-      <button id="axisResetBtn" style="flex:0 0 auto;height:30px;padding:0 10px;border-radius:8px;border:1px solid #333a44;background:#232830;color:var(--text);font-size:12px;cursor:pointer;">Сброс осей</button>
-      <span style="font-size:12px;color:var(--muted);">Лобок: −50 верх / +50 низ. Вертикаль: −50 лево / +50 право.</span>
+
+    <div class="row" style="gap:6px; margin-top: 12px;">
+      <button id="axisResetBtn" style="flex:0 0 auto;height:30px;padding:0 10px;border-radius:8px;border:1px solid #333a44;background:#232830;color:var(--text);font-size:12px;cursor:pointer;">Сброс линий</button>
+      <span style="font-size:12px;color:var(--muted);">Горизонтальная: −50 верх / +50 низ. Вертикальная: −50 лево / +50 право.</span>
     </div>
   </div>
 
@@ -347,10 +356,10 @@
     <div class="kv"><span>Bbox</span><span id="infoBBox">—</span></div>
     <div class="kv"><span>W / H</span><span id="infoWH">—</span></div>
     <div class="kv"><span>Заполнение</span><span id="infoFill">—</span></div>
-    <div class="kv"><span>Лобок</span><span id="infoPubic">—</span></div>
+    <div class="kv"><span>Гориз. линия</span><span id="infoPubic">—</span></div>
     <div class="kv"><span>Верх (торс+голова)</span><span id="infoUpper">—</span></div>
     <div class="kv"><span>Низ (ноги)</span><span id="infoLower">—</span></div>
-    <div class="kv"><span>Вертикаль</span><span id="infoVert">—</span></div>
+    <div class="kv"><span>Верт. линия</span><span id="infoVert">—</span></div>
     <div class="kv"><span>Плечи</span><span id="infoShoulders">—</span></div>
     <div class="kv"><span>Талия</span><span id="infoWaist">—</span></div>
     <div class="kv"><span>Бёдра</span><span id="infoHips">—</span></div>
@@ -402,6 +411,8 @@ const pubicShiftEl = document.getElementById('pubicShift');
 const pubicShiftVal = document.getElementById('pubicShiftVal');
 const vertShiftEl = document.getElementById('vertShift');
 const vertShiftVal = document.getElementById('vertShiftVal');
+const showHorizEl = document.getElementById('showHoriz');
+const showVertEl = document.getElementById('showVert');
 const axisResetBtn = document.getElementById('axisResetBtn');
 
 const autoThresholdBtn = document.getElementById('autoThresholdBtn');
@@ -462,6 +473,8 @@ let pubicPoint = null;
 let vertAxis = null;
 let pubicShiftPercent = -7;
 let vertShiftPercent = 0;
+let showHoriz = true;
+let showVert = true;
 
 let zoom = 1, panX = 0, panY = 0;
 let fitZoom = 1;
@@ -798,20 +811,18 @@ function drawOverlay() {
     overlayCtx.fillText(`bbox ${bw}×${bh}`, x, Math.max(fs, y - 6 / zoom));
   }
 
-  // ВЕРТИКАЛЬНАЯ ОСЬ
-  if (charBBox && vertAxis) {
+  // ВЕРТИКАЛЬНАЯ ПОИСКОВАЯ ЛИНИЯ
+  if (charBBox && vertAxis && showVert) {
     const { x: bx, y: by, w: bw, h: bh } = charBBox;
     const ax = vertAxis.x;
     const lw = Math.max(1, 2 / zoom);
     const fs = Math.max(11, 13 / zoom);
 
-    // Заливки левой/правой половин
     overlayCtx.fillStyle = 'rgba(180, 100, 255, 0.10)';
     overlayCtx.fillRect(bx, by, ax - bx, bh);
     overlayCtx.fillStyle = 'rgba(100, 220, 140, 0.10)';
     overlayCtx.fillRect(ax, by, bx + bw - ax, bh);
 
-    // Линия
     overlayCtx.strokeStyle = '#c080ff';
     overlayCtx.lineWidth = lw * 1.5;
     overlayCtx.setLineDash([6 / zoom, 4 / zoom]);
@@ -821,7 +832,6 @@ function drawOverlay() {
     overlayCtx.stroke();
     overlayCtx.setLineDash([]);
 
-    // Точка на пересечении с горизонтальной осью (или центр по высоте)
     const py = pubicPoint ? pubicPoint.y : by + bh / 2;
     overlayCtx.beginPath();
     overlayCtx.arc(ax, py, Math.max(4, 6 / zoom), 0, Math.PI * 2);
@@ -831,14 +841,13 @@ function drawOverlay() {
     overlayCtx.strokeStyle = '#000';
     overlayCtx.stroke();
 
-    // Подписи
     overlayCtx.font = `${fs}px system-ui, sans-serif`;
     overlayCtx.fillStyle = '#c080ff';
-    overlayCtx.fillText(`верт (сдвиг ${vertShiftPercent}%)`, ax + 6 / zoom, by + fs + 2 / zoom);
+    overlayCtx.fillText(`верт. линия (сдвиг ${vertShiftPercent}%)`, ax + 6 / zoom, by + fs + 2 / zoom);
   }
 
-  // ЛОБОК
-  if (charBBox && pubicPoint) {
+  // ГОРИЗОНТАЛЬНАЯ ПОИСКОВАЯ ЛИНИЯ
+  if (charBBox && pubicPoint && showHoriz) {
     const { x: bx, y: by, w: bw, h: bh } = charBBox;
     const py = pubicPoint.y;
     const lw = Math.max(1, 2 / zoom);
@@ -877,7 +886,7 @@ function drawOverlay() {
     overlayCtx.fillStyle = '#ffcc00';
     overlayCtx.font = `${fs * 0.9}px system-ui, sans-serif`;
     overlayCtx.fillText(
-      `лобок (сдвиг ${pubicShiftPercent}%)`,
+      `гориз. линия (сдвиг ${pubicShiftPercent}%)`,
       bx + bw + 6 / zoom,
       py + fs / 3
     );
@@ -1243,7 +1252,7 @@ clearPointsBtn.addEventListener('click', () => {
 });
 
 // ============================================================
-//  ОСИ — СЛАЙДЕРЫ
+//  ПОИСКОВЫЕ ЛИНИИ — СЛАЙДЕРЫ И ЧЕКБОКСЫ
 // ============================================================
 pubicShiftEl.addEventListener('input', () => {
   pubicShiftPercent = +pubicShiftEl.value;
@@ -1255,6 +1264,16 @@ vertShiftEl.addEventListener('input', () => {
   vertShiftPercent = +vertShiftEl.value;
   vertShiftVal.textContent = vertShiftPercent + '%';
   if (lum) rebuildAllDebounced();
+});
+
+showHorizEl.addEventListener('change', () => {
+  showHoriz = showHorizEl.checked;
+  drawOverlay();
+});
+
+showVertEl.addEventListener('change', () => {
+  showVert = showVertEl.checked;
+  drawOverlay();
 });
 
 axisResetBtn.addEventListener('click', () => {
@@ -1368,4 +1387,4 @@ smoothIterEl.disabled = !useSmoothEl.checked;
 updateCursor();
 </script>
 </body>
-</html>
+  </html>
