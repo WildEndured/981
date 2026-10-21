@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Маска фона · BBox · Линии пропорций</title>
+<title>Маска фона · BBox · Сетка пропорций</title>
 <style>
   :root {
     color-scheme: dark;
@@ -350,35 +350,19 @@
   </div>
 
   <div class="panel-section">
-    <h3>Линии пропорций</h3>
+    <h3>Сетка пропорций</h3>
     
     <div class="row" style="margin-bottom: 12px;">
-      <label><input id="showPubic" type="checkbox" checked /> Показывать линию лобка</label>
+      <label><input id="showGrid" type="checkbox" checked /> Показывать сетку равных долей</label>
     </div>
     <div class="slider-row">
-      <div class="label-line"><span>Лобок (сдвиг от центра)</span><span id="pubicShiftVal">-7%</span></div>
-      <input id="pubicShift" type="range" min="-50" max="50" value="-7" step="1" />
-    </div>
-
-    <div class="row" style="margin-bottom: 12px; margin-top: 16px;">
-      <label><input id="showChin" type="checkbox" checked /> Показывать линию подбородка</label>
-    </div>
-    <div class="slider-row">
-      <div class="label-line"><span>Подбородок (от верха bbox)</span><span id="chinShiftVal">13%</span></div>
-      <input id="chinShift" type="range" min="0" max="100" value="13" step="1" />
-    </div>
-
-    <div class="row" style="margin-bottom: 12px; margin-top: 16px;">
-      <label><input id="showShoulders" type="checkbox" checked /> Показывать линию плеч</label>
-    </div>
-    <div class="slider-row">
-      <div class="label-line"><span>Плечи (от верха bbox)</span><span id="shouldersShiftVal">16%</span></div>
-      <input id="shouldersShift" type="range" min="0" max="100" value="16" step="1" />
+      <div class="label-line"><span>Шаг сетки (от верха bbox)</span><span id="gridStepVal">13%</span></div>
+      <input id="gridStep" type="range" min="1" max="50" value="13" step="1" />
     </div>
 
     <div class="row" style="gap:6px; margin-top: 12px;">
-      <button id="propLinesResetBtn" style="flex:0 0 auto;height:30px;padding:0 10px;border-radius:8px;border:1px solid #333a44;background:#232830;color:var(--text);font-size:12px;cursor:pointer;">Сброс пропорций</button>
-      <span style="font-size:12px;color:var(--muted);">Лобок: −50 верх / +50 низ. Остальные: 0% верх / 100% низ.</span>
+      <button id="gridResetBtn" style="flex:0 0 auto;height:30px;padding:0 10px;border-radius:8px;border:1px solid #333a44;background:#232830;color:var(--text);font-size:12px;cursor:pointer;">Сброс</button>
+      <span style="font-size:12px;color:var(--muted);">1% = 99 линий, 50% = 1 линия.</span>
     </div>
   </div>
 
@@ -391,9 +375,7 @@
     <div class="kv"><span>Заполнение</span><span id="infoFill">—</span></div>
     <div class="kv"><span>Гориз. поиск</span><span id="infoHoriz">—</span></div>
     <div class="kv"><span>Верт. поиск</span><span id="infoVert">—</span></div>
-    <div class="kv"><span>Линия лобка</span><span id="infoPubic">—</span></div>
-    <div class="kv"><span>Линия подбородка</span><span id="infoChin">—</span></div>
-    <div class="kv"><span>Линия плеч</span><span id="infoShouldersLine">—</span></div>
+    <div class="kv"><span>Сетка (шаг)</span><span id="infoGrid">—</span></div>
   </div>
 </div>
 
@@ -447,18 +429,10 @@ const showHorizEl = document.getElementById('showHoriz');
 const showVertEl = document.getElementById('showVert');
 const searchLinesResetBtn = document.getElementById('searchLinesResetBtn');
 
-const pubicShiftEl = document.getElementById('pubicShift');
-const pubicShiftVal = document.getElementById('pubicShiftVal');
-const showPubicEl = document.getElementById('showPubic');
-
-const chinShiftEl = document.getElementById('chinShift');
-const chinShiftVal = document.getElementById('chinShiftVal');
-const showChinEl = document.getElementById('showChin');
-
-const shouldersShiftEl = document.getElementById('shouldersShift');
-const shouldersShiftVal = document.getElementById('shouldersShiftVal');
-const showShouldersEl = document.getElementById('showShoulders');
-const propLinesResetBtn = document.getElementById('propLinesResetBtn');
+const gridStepEl = document.getElementById('gridStep');
+const gridStepVal = document.getElementById('gridStepVal');
+const showGridEl = document.getElementById('showGrid');
+const gridResetBtn = document.getElementById('gridResetBtn');
 
 const autoThresholdBtn = document.getElementById('autoThresholdBtn');
 const pickBgColorBtn = document.getElementById('pickBgColorBtn');
@@ -483,9 +457,7 @@ const infoWH = document.getElementById('infoWH');
 const infoFill = document.getElementById('infoFill');
 const infoHoriz = document.getElementById('infoHoriz');
 const infoVert = document.getElementById('infoVert');
-const infoPubic = document.getElementById('infoPubic');
-const infoChin = document.getElementById('infoChin');
-const infoShouldersLine = document.getElementById('infoShouldersLine');
+const infoGrid = document.getElementById('infoGrid');
 const infoPointsCount = document.getElementById('infoPointsCount');
 const pointList = document.getElementById('pointList');
 const samplesList = document.getElementById('samplesList');
@@ -512,25 +484,17 @@ let hideImage = false;
 let bgCount = 0;
 
 let charBBox = null;
-let widthProfile = null;
-
 let searchHorizLine = null;
 let vertAxis = null;
-let pubicLine = null;
-let chinLine = null;
-let shouldersLine = null;
+let gridLines = [];
 
 let horizShiftPercent = 0;
 let vertShiftPercent = 0;
-let pubicShiftPercent = -7;
-let chinShiftPercent = 13;
-let shouldersShiftPercent = 16;
+let gridStepPercent = 13;
 
 let showHoriz = true;
 let showVert = true;
-let showPubic = true;
-let showChin = true;
-let showShoulders = true;
+let showGrid = true;
 
 let zoom = 1, panX = 0, panY = 0;
 let fitZoom = 1;
@@ -582,12 +546,9 @@ function initWorker() {
         : new Uint8Array(payload.mask);
       bgCount = payload.bgCount;
       charBBox = payload.bbox || null;
-      widthProfile = payload.widthProfile || null;
       searchHorizLine = payload.searchHorizLine || null;
       vertAxis = payload.vertAxis || null;
-      pubicLine = payload.pubicLine || null;
-      chinLine = payload.chinLine || null;
-      shouldersLine = payload.shouldersLine || null;
+      gridLines = payload.gridLines || [];
       drawOverlay();
       updateInfo();
       workerBusy = false;
@@ -665,12 +626,9 @@ fileInput.addEventListener('change', e => {
       selectedPointIndex = -1;
       colorSamples = [];
       charBBox = null;
-      widthProfile = null;
       searchHorizLine = null;
       vertAxis = null;
-      pubicLine = null;
-      chinLine = null;
-      shouldersLine = null;
+      gridLines = [];
       invalidateSeeds();
       autoPickThreshold();
       renderSamplesList();
@@ -816,9 +774,7 @@ function rebuildAll() {
       regionTolerance: +regionTolEl.value,
       horizShiftPercent,
       vertShiftPercent,
-      pubicShiftPercent,
-      chinShiftPercent,
-      shouldersShiftPercent
+      gridStepPercent
     }
   });
 }
@@ -918,91 +874,28 @@ function drawOverlay() {
     overlayCtx.fillText(`гориз. поиск (${horizShiftPercent}%)`, bx + bw + 6 / zoom, py + fs / 3);
   }
 
-  // ЛИНИЯ ЛОБКА
-  if (charBBox && pubicLine && showPubic) {
+  // СЕТКА РАВНЫХ ДОЛЕЙ (шаг N%)
+  if (charBBox && gridLines && gridLines.length > 0 && showGrid) {
     const { x: bx, y: by, w: bw, h: bh } = charBBox;
-    const py = pubicLine.y;
-    const lw = Math.max(1, 2 / zoom);
-    const fs = Math.max(11, 13 / zoom);
+    const lw = Math.max(1, 1 / zoom);
+    const fs = Math.max(9, 11 / zoom);
 
-    overlayCtx.strokeStyle = '#ffcc00';
-    overlayCtx.lineWidth = lw * 1.5;
-    overlayCtx.setLineDash([6 / zoom, 4 / zoom]);
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(bx, py);
-    overlayCtx.lineTo(bx + bw, py);
-    overlayCtx.stroke();
-    overlayCtx.setLineDash([]);
-
-    overlayCtx.beginPath();
-    overlayCtx.arc(bx + bw / 2, py, Math.max(3, 5 / zoom), 0, Math.PI * 2);
-    overlayCtx.fillStyle = '#ffcc00';
-    overlayCtx.fill();
+    overlayCtx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
     overlayCtx.lineWidth = lw;
-    overlayCtx.strokeStyle = '#000';
-    overlayCtx.stroke();
+    overlayCtx.setLineDash([2 / zoom, 4 / zoom]);
+    overlayCtx.font = `${fs}px system-ui, sans-serif`;
+    overlayCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
 
-    overlayCtx.fillStyle = '#ffcc00';
-    overlayCtx.font = `${fs * 0.9}px system-ui, sans-serif`;
-    overlayCtx.fillText(`лобок (${pubicShiftPercent}%)`, bx + bw + 6 / zoom, py + fs / 3);
-  }
+    for (const gl of gridLines) {
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(bx, gl.y);
+      overlayCtx.lineTo(bx + bw, gl.y);
+      overlayCtx.stroke();
 
-  // ЛИНИЯ ПОДБОРОДКА
-  if (charBBox && chinLine && showChin) {
-    const { x: bx, y: by, w: bw, h: bh } = charBBox;
-    const py = chinLine.y;
-    const lw = Math.max(1, 2 / zoom);
-    const fs = Math.max(11, 13 / zoom);
-
-    overlayCtx.strokeStyle = '#20c0a0';
-    overlayCtx.lineWidth = lw * 1.5;
-    overlayCtx.setLineDash([4 / zoom, 3 / zoom]);
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(bx, py);
-    overlayCtx.lineTo(bx + bw, py);
-    overlayCtx.stroke();
+      // Подпись шага слева
+      overlayCtx.fillText(`${gl.percent}%`, bx + 4 / zoom, gl.y - 3 / zoom);
+    }
     overlayCtx.setLineDash([]);
-
-    overlayCtx.beginPath();
-    overlayCtx.arc(bx + bw / 2, py, Math.max(3, 5 / zoom), 0, Math.PI * 2);
-    overlayCtx.fillStyle = '#20c0a0';
-    overlayCtx.fill();
-    overlayCtx.lineWidth = lw;
-    overlayCtx.strokeStyle = '#000';
-    overlayCtx.stroke();
-
-    overlayCtx.fillStyle = '#20c0a0';
-    overlayCtx.font = `${fs * 0.9}px system-ui, sans-serif`;
-    overlayCtx.fillText(`подбородок (${chinShiftPercent}%)`, bx + bw + 6 / zoom, py + fs / 3);
-  }
-
-  // ЛИНИЯ ПЛЕЧ
-  if (charBBox && shouldersLine && showShoulders) {
-    const { x: bx, y: by, w: bw, h: bh } = charBBox;
-    const py = shouldersLine.y;
-    const lw = Math.max(1, 2 / zoom);
-    const fs = Math.max(11, 13 / zoom);
-
-    overlayCtx.strokeStyle = '#ff4080';
-    overlayCtx.lineWidth = lw * 1.5;
-    overlayCtx.setLineDash([4 / zoom, 3 / zoom]);
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(bx, py);
-    overlayCtx.lineTo(bx + bw, py);
-    overlayCtx.stroke();
-    overlayCtx.setLineDash([]);
-
-    overlayCtx.beginPath();
-    overlayCtx.arc(bx + bw / 2, py, Math.max(3, 5 / zoom), 0, Math.PI * 2);
-    overlayCtx.fillStyle = '#ff4080';
-    overlayCtx.fill();
-    overlayCtx.lineWidth = lw;
-    overlayCtx.strokeStyle = '#000';
-    overlayCtx.stroke();
-
-    overlayCtx.fillStyle = '#ff4080';
-    overlayCtx.font = `${fs * 0.9}px system-ui, sans-serif`;
-    overlayCtx.fillText(`плечи (${shouldersShiftPercent}%)`, bx + bw + 6 / zoom, py + fs / 3);
   }
 
   // Точки-источники
@@ -1047,16 +940,8 @@ function updateInfo() {
     ? `x:${vertAxis.x} (norm ${(vertAxis.xNorm * 100).toFixed(1)}%, сдвиг ${vertShiftPercent}%)`
     : '—';
 
-  infoPubic.textContent = (charBBox && pubicLine)
-    ? `y:${pubicLine.y} (norm ${(pubicLine.yNorm * 100).toFixed(1)}%, сдвиг ${pubicShiftPercent}%)`
-    : '—';
-
-  infoChin.textContent = (charBBox && chinLine)
-    ? `y:${chinLine.y} (norm ${(chinLine.yNorm * 100).toFixed(1)}%)`
-    : '—';
-
-  infoShouldersLine.textContent = (charBBox && shouldersLine)
-    ? `y:${shouldersLine.y} (norm ${(shouldersLine.yNorm * 100).toFixed(1)}%)`
+  infoGrid.textContent = (charBBox && gridLines.length > 0)
+    ? `${gridStepPercent}% (${gridLines.length} лин.)`
     : '—';
 
   renderPointList();
@@ -1362,7 +1247,7 @@ clearPointsBtn.addEventListener('click', () => {
 });
 
 // ============================================================
-//  ЛИНИИ — СЛАЙДЕРЫ И ЧЕКБОКСЫ
+//  СЕТКА И ЛИНИИ — СЛАЙДЕРЫ И ЧЕКБОКСЫ
 // ============================================================
 horizShiftEl.addEventListener('input', () => {
   horizShiftPercent = +horizShiftEl.value;
@@ -1376,29 +1261,15 @@ vertShiftEl.addEventListener('input', () => {
   if (lum) rebuildAllDebounced();
 });
 
-pubicShiftEl.addEventListener('input', () => {
-  pubicShiftPercent = +pubicShiftEl.value;
-  pubicShiftVal.textContent = pubicShiftPercent + '%';
-  if (lum) rebuildAllDebounced();
-});
-
-chinShiftEl.addEventListener('input', () => {
-  chinShiftPercent = +chinShiftEl.value;
-  chinShiftVal.textContent = chinShiftPercent + '%';
-  if (lum) rebuildAllDebounced();
-});
-
-shouldersShiftEl.addEventListener('input', () => {
-  shouldersShiftPercent = +shouldersShiftEl.value;
-  shouldersShiftVal.textContent = shouldersShiftPercent + '%';
+gridStepEl.addEventListener('input', () => {
+  gridStepPercent = +gridStepEl.value;
+  gridStepVal.textContent = gridStepPercent + '%';
   if (lum) rebuildAllDebounced();
 });
 
 showHorizEl.addEventListener('change', () => { showHoriz = showHorizEl.checked; drawOverlay(); });
 showVertEl.addEventListener('change', () => { showVert = showVertEl.checked; drawOverlay(); });
-showPubicEl.addEventListener('change', () => { showPubic = showPubicEl.checked; drawOverlay(); });
-showChinEl.addEventListener('change', () => { showChin = showChinEl.checked; drawOverlay(); });
-showShouldersEl.addEventListener('change', () => { showShoulders = showShouldersEl.checked; drawOverlay(); });
+showGridEl.addEventListener('change', () => { showGrid = showGridEl.checked; drawOverlay(); });
 
 searchLinesResetBtn.addEventListener('click', () => {
   horizShiftPercent = 0;
@@ -1410,16 +1281,10 @@ searchLinesResetBtn.addEventListener('click', () => {
   if (lum) rebuildAll();
 });
 
-propLinesResetBtn.addEventListener('click', () => {
-  pubicShiftPercent = -7;
-  pubicShiftEl.value = -7;
-  pubicShiftVal.textContent = '-7%';
-  chinShiftPercent = 13;
-  chinShiftEl.value = 13;
-  chinShiftVal.textContent = '13%';
-  shouldersShiftPercent = 16;
-  shouldersShiftEl.value = 16;
-  shouldersShiftVal.textContent = '16%';
+gridResetBtn.addEventListener('click', () => {
+  gridStepPercent = 13;
+  gridStepEl.value = 13;
+  gridStepVal.textContent = '13%';
   if (lum) rebuildAll();
 });
 
