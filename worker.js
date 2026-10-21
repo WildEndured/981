@@ -1,9 +1,9 @@
 // ============================================================
 //  Web Worker: тяжёлые вычисления маски
-//  VERSION: 2025-01-05 · pubic line (-7%) + horiz mid (0%) + chin + shoulders
+//  VERSION: 2025-01-08 · Grid (13%) + Search lines
 // ============================================================
 
-console.log('[worker] SCRIPT LOADED v2025-01-05');
+console.log('[worker] SCRIPT LOADED v2025-01-08');
 
 self.onmessage = (e) => {
   const { type, payload } = e.data;
@@ -18,12 +18,9 @@ self.onmessage = (e) => {
           width: result.width,
           height: result.height,
           bbox: result.bbox,
-          widthProfile: result.widthProfile,
           searchHorizLine: result.searchHorizLine,
           vertAxis: result.vertAxis,
-          chinLine: result.chinLine,
-          shouldersLine: result.shouldersLine,
-          pubicLine: result.pubicLine
+          gridLines: result.gridLines
         }
       });
     } catch (err) {
@@ -51,9 +48,7 @@ function buildMaskInWorker(p) {
     regionTolerance,
     horizShiftPercent,
     vertShiftPercent,
-    chinShiftPercent,
-    shouldersShiftPercent,
-    pubicShiftPercent
+    gridStepPercent
   } = p;
 
   const w = width, h = height;
@@ -61,7 +56,7 @@ function buildMaskInWorker(p) {
   const data = imageData.data;
 
   const lum = new Float32Array(N);
-  for (let i = 0, j = 0; j < N * 4; i++, j += 4) {
+  for (let i = 0, j = 0; i < N; i++, j += 4) {
     if (data[j + 3] < 20) { lum[i] = 255; continue; }
     lum[i] = 0.299 * data[j] + 0.587 * data[j + 1] + 0.114 * data[j + 2];
   }
@@ -136,18 +131,13 @@ function buildMaskInWorker(p) {
   for (let i = 0; i < N; i++) if (mask[i]) bgCount++;
 
   const bbox = computeCharacterBBox(mask, w, h, { minComponentSize: 200 });
-  let widthProfile = null;
   let searchHorizLine = null;
   let vertAxis = null;
-  let chinLine = null;
-  let shouldersLine = null;
-  let pubicLine = null;
+  let gridLines = [];
 
   if (bbox) {
-    widthProfile = computeWidthProfile(mask, w, h, bbox);
     vertAxis = computeVertAxis(bbox, vertShiftPercent);
 
-    // 1. Горизонтальная поисковая линия (по центру, 0%)
     const horizShift = (typeof horizShiftPercent !== 'undefined') ? horizShiftPercent : 0;
     const horizY = Math.round(bbox.h * (0.5 + horizShift / 100));
     searchHorizLine = {
@@ -156,37 +146,23 @@ function buildMaskInWorker(p) {
       shiftPercent: horizShift
     };
 
-    // 2. Линия подбородка (13%)
-    const chinShift = (typeof chinShiftPercent !== 'undefined') ? chinShiftPercent : 13;
-    const chinY = Math.round(bbox.h * (chinShift / 100));
-    chinLine = {
-      y: bbox.y + chinY,
-      yNorm: chinShift / 100,
-      shiftPercent: chinShift
-    };
-
-    // 3. Линия плеч (16%)
-    const shouldersShift = (typeof shouldersShiftPercent !== 'undefined') ? shouldersShiftPercent : 16;
-    const shouldersY = Math.round(bbox.h * (shouldersShift / 100));
-    shouldersLine = {
-      y: bbox.y + shouldersY,
-      yNorm: shouldersShift / 100,
-      shiftPercent: shouldersShift
-    };
-
-    // 4. Линия лобка (-7%)
-    const pubicShift = (typeof pubicShiftPercent !== 'undefined') ? pubicShiftPercent : -7;
-    const pubicY = Math.round(bbox.h * (0.5 + pubicShift / 100));
-    pubicLine = {
-      y: bbox.y + Math.max(0, Math.min(bbox.h - 1, pubicY)),
-      yNorm: 0.5 + pubicShift / 100,
-      shiftPercent: pubicShift
-    };
+    // Сетка с шагом (по умолчанию 13%)
+    const step = (typeof gridStepPercent !== 'undefined') ? gridStepPercent : 13;
+    if (step > 0) {
+      for (let p = step; p < 100; p += step) {
+        const gy = Math.round(bbox.h * (p / 100));
+        gridLines.push({
+          y: bbox.y + gy,
+          yNorm: p / 100,
+          percent: p
+        });
+      }
+    }
   }
 
   return {
     mask, bgCount, width: w, height: h,
-    bbox, widthProfile, searchHorizLine, vertAxis, chinLine, shouldersLine, pubicLine
+    bbox, searchHorizLine, vertAxis, gridLines
   };
 }
 
@@ -239,50 +215,6 @@ function computeCharacterBBox(mask, w, h, opts = {}) {
     area: best.size,
     fillRatio: best.size / ((best.maxX - best.minX + 1) * (best.maxY - best.minY + 1))
   };
-}
-
-function computeWidthProfile(mask, w, h, bbox) {
-  const y0 = bbox.y;
-  const bh = bbox.h;
-  const width = new Int32Array(bh);
-  const leftEdge = new Int32Array(bh).fill(-1);
-  const rightEdge = new Int32Array(bh).fill(-1);
-  const centerGap = new Int32Array(bh);
-
-  for (let yy = 0; yy < bh; yy++) {
-    const y = y0 + yy;
-    if (y >= h) break;
-    const row = y * w;
-    let count = 0;
-    let lEdge = -1, rEdge = -1;
-    let firstChar = -1, lastChar = -1;
-    const x0 = Math.max(0, bbox.x);
-    const x1 = Math.min(w, bbox.x + bbox.w);
-    for (let x = x0; x < x1; x++) {
-      if (mask[row + x] === 0) {
-        count++;
-        if (lEdge === -1) lEdge = x;
-        rEdge = x;
-        if (firstChar === -1) firstChar = x;
-        lastChar = x;
-      }
-    }
-    width[yy] = count;
-    leftEdge[yy] = lEdge;
-    rightEdge[yy] = rEdge;
-    if (firstChar !== -1 && lastChar > firstChar) {
-      let gap = 0, maxGap = 0;
-      for (let x = firstChar; x <= lastChar; x++) {
-        if (mask[row + x] === 1) { gap++; if (gap > maxGap) maxGap = gap; }
-        else gap = 0;
-      }
-      centerGap[yy] = maxGap;
-    } else {
-      centerGap[yy] = 0;
-    }
-  }
-
-  return { width, leftEdge, rightEdge, centerGap, y0, bh };
 }
 
 function computeVertAxis(bbox, vertShiftPercent) {
@@ -384,4 +316,4 @@ function smoothOnce(mask, w, h) {
       else if (bgCount <= 1) mask[idx] = 0;
     }
   }
-}
+      }
