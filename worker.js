@@ -1,9 +1,9 @@
 // ============================================================
 //  Web Worker: тяжёлые вычисления маски
-//  VERSION: 2025-01-03 · pubic (-7%) + vert axis + chin line
+//  VERSION: 2025-01-05 · pubic line (-7%) + horiz mid (0%) + chin + shoulders
 // ============================================================
 
-console.log('[worker] SCRIPT LOADED v2025-01-03 (pubic=50%+slider, vert=50%+slider, chin=13%)');
+console.log('[worker] SCRIPT LOADED v2025-01-05');
 
 self.onmessage = (e) => {
   const { type, payload } = e.data;
@@ -19,9 +19,11 @@ self.onmessage = (e) => {
           height: result.height,
           bbox: result.bbox,
           widthProfile: result.widthProfile,
-          pubicPoint: result.pubicPoint,
+          searchHorizLine: result.searchHorizLine,
           vertAxis: result.vertAxis,
-          chinLine: result.chinLine
+          chinLine: result.chinLine,
+          shouldersLine: result.shouldersLine,
+          pubicLine: result.pubicLine
         }
       });
     } catch (err) {
@@ -47,9 +49,11 @@ function buildMaskInWorker(p) {
     morphOpen,
     morphClose,
     regionTolerance,
-    pubicShiftPercent,
+    horizShiftPercent,
     vertShiftPercent,
-    chinShiftPercent
+    chinShiftPercent,
+    shouldersShiftPercent,
+    pubicShiftPercent
   } = p;
 
   const w = width, h = height;
@@ -57,7 +61,7 @@ function buildMaskInWorker(p) {
   const data = imageData.data;
 
   const lum = new Float32Array(N);
-  for (let i = 0, j = 0; i < N; i++, j += 4) {
+  for (let i = 0, j = 0; j < N * 4; i++, j += 4) {
     if (data[j + 3] < 20) { lum[i] = 255; continue; }
     lum[i] = 0.299 * data[j] + 0.587 * data[j + 1] + 0.114 * data[j + 2];
   }
@@ -132,17 +136,27 @@ function buildMaskInWorker(p) {
   for (let i = 0; i < N; i++) if (mask[i]) bgCount++;
 
   const bbox = computeCharacterBBox(mask, w, h, { minComponentSize: 200 });
-  let pubicPoint = null;
   let widthProfile = null;
+  let searchHorizLine = null;
   let vertAxis = null;
   let chinLine = null;
+  let shouldersLine = null;
+  let pubicLine = null;
 
   if (bbox) {
     widthProfile = computeWidthProfile(mask, w, h, bbox);
-    pubicPoint = findPubicPoint(mask, w, h, bbox, widthProfile, pubicShiftPercent);
     vertAxis = computeVertAxis(bbox, vertShiftPercent);
 
-    // Линия подбородка (по умолчанию 13% от верха bbox)
+    // 1. Горизонтальная поисковая линия (по центру, 0%)
+    const horizShift = (typeof horizShiftPercent !== 'undefined') ? horizShiftPercent : 0;
+    const horizY = Math.round(bbox.h * (0.5 + horizShift / 100));
+    searchHorizLine = {
+      y: bbox.y + Math.max(0, Math.min(bbox.h - 1, horizY)),
+      yNorm: 0.5 + horizShift / 100,
+      shiftPercent: horizShift
+    };
+
+    // 2. Линия подбородка (13%)
     const chinShift = (typeof chinShiftPercent !== 'undefined') ? chinShiftPercent : 13;
     const chinY = Math.round(bbox.h * (chinShift / 100));
     chinLine = {
@@ -150,9 +164,30 @@ function buildMaskInWorker(p) {
       yNorm: chinShift / 100,
       shiftPercent: chinShift
     };
+
+    // 3. Линия плеч (16%)
+    const shouldersShift = (typeof shouldersShiftPercent !== 'undefined') ? shouldersShiftPercent : 16;
+    const shouldersY = Math.round(bbox.h * (shouldersShift / 100));
+    shouldersLine = {
+      y: bbox.y + shouldersY,
+      yNorm: shouldersShift / 100,
+      shiftPercent: shouldersShift
+    };
+
+    // 4. Линия лобка (-7%)
+    const pubicShift = (typeof pubicShiftPercent !== 'undefined') ? pubicShiftPercent : -7;
+    const pubicY = Math.round(bbox.h * (0.5 + pubicShift / 100));
+    pubicLine = {
+      y: bbox.y + Math.max(0, Math.min(bbox.h - 1, pubicY)),
+      yNorm: 0.5 + pubicShift / 100,
+      shiftPercent: pubicShift
+    };
   }
 
-  return { mask, bgCount, width: w, height: h, bbox, widthProfile, pubicPoint, vertAxis, chinLine };
+  return {
+    mask, bgCount, width: w, height: h,
+    bbox, widthProfile, searchHorizLine, vertAxis, chinLine, shouldersLine, pubicLine
+  };
 }
 
 function computeCharacterBBox(mask, w, h, opts = {}) {
@@ -262,93 +297,6 @@ function computeVertAxis(bbox, vertShiftPercent) {
   };
 }
 
-function findPubicPoint(mask, w, h, bbox, profile, pubicShiftPercent) {
-  const bh = profile.bh;
-  if (bh < 20) return null;
-
-  const width = profile.width;
-  const smoothed = new Float32Array(bh);
-  const R = 2;
-  for (let y = 0; y < bh; y++) {
-    let s = 0, c = 0;
-    for (let k = -R; k <= R; k++) {
-      const yy = y + k;
-      if (yy < 0 || yy >= bh) continue;
-      s += width[yy]; c++;
-    }
-    smoothed[y] = c ? s / c : 0;
-  }
-
-  const shiftVal = (pubicShiftPercent !== undefined) ? pubicShiftPercent : -7;
-  const shift = shiftVal / 100;
-  
-  let pubicY = Math.round(bh * (0.5 + shift));
-  pubicY = Math.max(0, Math.min(bh - 1, pubicY));
-
-  const yAbs = bbox.y + pubicY;
-
-  const lE = profile.leftEdge[pubicY];
-  const rE = profile.rightEdge[pubicY];
-  const pubicX = (lE >= 0 && rE >= 0) ? Math.round((lE + rE) / 2) : Math.round(bbox.x + bbox.w / 2);
-
-  const hipY = findHipsY(smoothed, bh);
-  const shouldersY = findShouldersY(smoothed, bh);
-  const waistY = findWaistY(smoothed, bh, shouldersY, hipY);
-
-  return {
-    y: yAbs,
-    x: pubicX,
-    yNorm: pubicY / bh,
-    method: 'slider',
-    hipY: hipY >= 0 ? bbox.y + hipY : null,
-    hipWidth: hipY >= 0 ? Math.round(smoothed[hipY]) : null,
-    shouldersY: shouldersY >= 0 ? bbox.y + shouldersY : null,
-    waistY: waistY >= 0 ? bbox.y + waistY : null,
-    shouldersWidth: shouldersY >= 0 ? Math.round(smoothed[shouldersY]) : null,
-    waistWidth: waistY >= 0 ? Math.round(smoothed[waistY]) : null
-  };
-}
-
-function findHipsY(smoothed, bh) {
-  const yStart = Math.floor(bh * 0.40);
-  const yEnd   = Math.floor(bh * 0.95);
-  let best = -1, bestW = 0;
-  for (let y = yStart + 2; y < yEnd - 2; y++) {
-    const v = smoothed[y];
-    if (v > smoothed[y - 1] && v >= smoothed[y + 1] && v > bestW) {
-      bestW = v; best = y;
-    }
-  }
-  if (best === -1) {
-    for (let y = yStart; y < yEnd; y++) {
-      if (smoothed[y] > bestW) { bestW = smoothed[y]; best = y; }
-    }
-  }
-  return best;
-}
-
-function findShouldersY(smoothed, bh) {
-  const yStart = Math.floor(bh * 0.10);
-  const yEnd   = Math.floor(bh * 0.35);
-  let best = -1, bestW = 0;
-  for (let y = yStart + 2; y < yEnd - 2; y++) {
-    const v = smoothed[y];
-    if (v > smoothed[y - 1] && v >= smoothed[y + 1] && v > bestW) {
-      bestW = v; best = y;
-    }
-  }
-  return best;
-}
-
-function findWaistY(smoothed, bh, shouldersY, hipY) {
-  if (shouldersY < 0 || hipY < 0 || hipY <= shouldersY + 2) return -1;
-  let best = -1, bestW = Infinity;
-  for (let y = shouldersY + 2; y < hipY - 2; y++) {
-    if (smoothed[y] < bestW) { bestW = smoothed[y]; best = y; }
-  }
-  return best;
-}
-
 function regionGrow(mask, data, w, h, seeds, tolerance) {
   const N = w * h;
   const queue = new Int32Array(N);
@@ -436,4 +384,4 @@ function smoothOnce(mask, w, h) {
       else if (bgCount <= 1) mask[idx] = 0;
     }
   }
-      }
+}
