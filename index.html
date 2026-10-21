@@ -331,8 +331,8 @@
       <label><input id="showHoriz" type="checkbox" checked /> Показывать горизонтальную</label>
     </div>
     <div class="slider-row">
-      <div class="label-line"><span>Горизонтальная (сдвиг по Y)</span><span id="pubicShiftVal">-7%</span></div>
-      <input id="pubicShift" type="range" min="-50" max="50" value="-7" step="1" />
+      <div class="label-line"><span>Горизонтальная (центр)</span><span id="horizShiftVal">0%</span></div>
+      <input id="horizShift" type="range" min="-50" max="50" value="0" step="1" />
     </div>
 
     <div class="row" style="margin-bottom: 12px; margin-top: 16px;">
@@ -344,7 +344,7 @@
     </div>
 
     <div class="row" style="gap:6px; margin-top: 12px;">
-      <button id="axisResetBtn" style="flex:0 0 auto;height:30px;padding:0 10px;border-radius:8px;border:1px solid #333a44;background:#232830;color:var(--text);font-size:12px;cursor:pointer;">Сброс линий</button>
+      <button id="searchLinesResetBtn" style="flex:0 0 auto;height:30px;padding:0 10px;border-radius:8px;border:1px solid #333a44;background:#232830;color:var(--text);font-size:12px;cursor:pointer;">Сброс линий</button>
       <span style="font-size:12px;color:var(--muted);">Горизонтальная: −50 верх / +50 низ. Вертикальная: −50 лево / +50 право.</span>
     </div>
   </div>
@@ -353,6 +353,14 @@
     <h3>Линии пропорций</h3>
     
     <div class="row" style="margin-bottom: 12px;">
+      <label><input id="showPubic" type="checkbox" checked /> Показывать линию лобка</label>
+    </div>
+    <div class="slider-row">
+      <div class="label-line"><span>Лобок (сдвиг от центра)</span><span id="pubicShiftVal">-7%</span></div>
+      <input id="pubicShift" type="range" min="-50" max="50" value="-7" step="1" />
+    </div>
+
+    <div class="row" style="margin-bottom: 12px; margin-top: 16px;">
       <label><input id="showChin" type="checkbox" checked /> Показывать линию подбородка</label>
     </div>
     <div class="slider-row">
@@ -360,9 +368,17 @@
       <input id="chinShift" type="range" min="0" max="100" value="13" step="1" />
     </div>
 
+    <div class="row" style="margin-bottom: 12px; margin-top: 16px;">
+      <label><input id="showShoulders" type="checkbox" checked /> Показывать линию плеч</label>
+    </div>
+    <div class="slider-row">
+      <div class="label-line"><span>Плечи (от верха bbox)</span><span id="shouldersShiftVal">16%</span></div>
+      <input id="shouldersShift" type="range" min="0" max="100" value="16" step="1" />
+    </div>
+
     <div class="row" style="gap:6px; margin-top: 12px;">
-      <button id="chinResetBtn" style="flex:0 0 auto;height:30px;padding:0 10px;border-radius:8px;border:1px solid #333a44;background:#232830;color:var(--text);font-size:12px;cursor:pointer;">Сброс</button>
-      <span style="font-size:12px;color:var(--muted);">0% = верх, 100% = низ.</span>
+      <button id="propLinesResetBtn" style="flex:0 0 auto;height:30px;padding:0 10px;border-radius:8px;border:1px solid #333a44;background:#232830;color:var(--text);font-size:12px;cursor:pointer;">Сброс пропорций</button>
+      <span style="font-size:12px;color:var(--muted);">Лобок: −50 верх / +50 низ. Остальные: 0% верх / 100% низ.</span>
     </div>
   </div>
 
@@ -373,14 +389,11 @@
     <div class="kv"><span>Bbox</span><span id="infoBBox">—</span></div>
     <div class="kv"><span>W / H</span><span id="infoWH">—</span></div>
     <div class="kv"><span>Заполнение</span><span id="infoFill">—</span></div>
-    <div class="kv"><span>Гориз. линия</span><span id="infoPubic">—</span></div>
-    <div class="kv"><span>Верх (торс+голова)</span><span id="infoUpper">—</span></div>
-    <div class="kv"><span>Низ (ноги)</span><span id="infoLower">—</span></div>
-    <div class="kv"><span>Верт. линия</span><span id="infoVert">—</span></div>
+    <div class="kv"><span>Гориз. поиск</span><span id="infoHoriz">—</span></div>
+    <div class="kv"><span>Верт. поиск</span><span id="infoVert">—</span></div>
+    <div class="kv"><span>Линия лобка</span><span id="infoPubic">—</span></div>
     <div class="kv"><span>Линия подбородка</span><span id="infoChin">—</span></div>
-    <div class="kv"><span>Плечи</span><span id="infoShoulders">—</span></div>
-    <div class="kv"><span>Талия</span><span id="infoWaist">—</span></div>
-    <div class="kv"><span>Бёдра</span><span id="infoHips">—</span></div>
+    <div class="kv"><span>Линия плеч</span><span id="infoShouldersLine">—</span></div>
   </div>
 </div>
 
@@ -425,18 +438,27 @@ const morphOpenEl = document.getElementById('morphOpen');
 const morphOpenVal = document.getElementById('morphOpenVal');
 const morphCloseEl = document.getElementById('morphClose');
 const morphCloseVal = document.getElementById('morphCloseVal');
-const pubicShiftEl = document.getElementById('pubicShift');
-const pubicShiftVal = document.getElementById('pubicShiftVal');
+
+const horizShiftEl = document.getElementById('horizShift');
+const horizShiftVal = document.getElementById('horizShiftVal');
 const vertShiftEl = document.getElementById('vertShift');
 const vertShiftVal = document.getElementById('vertShiftVal');
 const showHorizEl = document.getElementById('showHoriz');
 const showVertEl = document.getElementById('showVert');
-const axisResetBtn = document.getElementById('axisResetBtn');
+const searchLinesResetBtn = document.getElementById('searchLinesResetBtn');
+
+const pubicShiftEl = document.getElementById('pubicShift');
+const pubicShiftVal = document.getElementById('pubicShiftVal');
+const showPubicEl = document.getElementById('showPubic');
 
 const chinShiftEl = document.getElementById('chinShift');
 const chinShiftVal = document.getElementById('chinShiftVal');
 const showChinEl = document.getElementById('showChin');
-const chinResetBtn = document.getElementById('chinResetBtn');
+
+const shouldersShiftEl = document.getElementById('shouldersShift');
+const shouldersShiftVal = document.getElementById('shouldersShiftVal');
+const showShouldersEl = document.getElementById('showShoulders');
+const propLinesResetBtn = document.getElementById('propLinesResetBtn');
 
 const autoThresholdBtn = document.getElementById('autoThresholdBtn');
 const pickBgColorBtn = document.getElementById('pickBgColorBtn');
@@ -459,14 +481,11 @@ const infoCharPct = document.getElementById('infoCharPct');
 const infoBBox = document.getElementById('infoBBox');
 const infoWH = document.getElementById('infoWH');
 const infoFill = document.getElementById('infoFill');
-const infoPubic = document.getElementById('infoPubic');
-const infoUpper = document.getElementById('infoUpper');
-const infoLower = document.getElementById('infoLower');
+const infoHoriz = document.getElementById('infoHoriz');
 const infoVert = document.getElementById('infoVert');
+const infoPubic = document.getElementById('infoPubic');
 const infoChin = document.getElementById('infoChin');
-const infoShoulders = document.getElementById('infoShoulders');
-const infoWaist = document.getElementById('infoWaist');
-const infoHips = document.getElementById('infoHips');
+const infoShouldersLine = document.getElementById('infoShouldersLine');
 const infoPointsCount = document.getElementById('infoPointsCount');
 const pointList = document.getElementById('pointList');
 const samplesList = document.getElementById('samplesList');
@@ -491,17 +510,27 @@ let bgColorMode = false, addPointMode = false;
 let sourcePoints = [];
 let hideImage = false;
 let bgCount = 0;
+
 let charBBox = null;
 let widthProfile = null;
-let pubicPoint = null;
+
+let searchHorizLine = null;
 let vertAxis = null;
+let pubicLine = null;
 let chinLine = null;
-let pubicShiftPercent = -7;
+let shouldersLine = null;
+
+let horizShiftPercent = 0;
 let vertShiftPercent = 0;
+let pubicShiftPercent = -7;
 let chinShiftPercent = 13;
+let shouldersShiftPercent = 16;
+
 let showHoriz = true;
 let showVert = true;
+let showPubic = true;
 let showChin = true;
+let showShoulders = true;
 
 let zoom = 1, panX = 0, panY = 0;
 let fitZoom = 1;
@@ -554,9 +583,11 @@ function initWorker() {
       bgCount = payload.bgCount;
       charBBox = payload.bbox || null;
       widthProfile = payload.widthProfile || null;
-      pubicPoint = payload.pubicPoint || null;
+      searchHorizLine = payload.searchHorizLine || null;
       vertAxis = payload.vertAxis || null;
+      pubicLine = payload.pubicLine || null;
       chinLine = payload.chinLine || null;
+      shouldersLine = payload.shouldersLine || null;
       drawOverlay();
       updateInfo();
       workerBusy = false;
@@ -635,9 +666,11 @@ fileInput.addEventListener('change', e => {
       colorSamples = [];
       charBBox = null;
       widthProfile = null;
-      pubicPoint = null;
+      searchHorizLine = null;
       vertAxis = null;
+      pubicLine = null;
       chinLine = null;
+      shouldersLine = null;
       invalidateSeeds();
       autoPickThreshold();
       renderSamplesList();
@@ -781,9 +814,11 @@ function rebuildAll() {
       morphOpen: +morphOpenEl.value,
       morphClose: +morphCloseEl.value,
       regionTolerance: +regionTolEl.value,
-      pubicShiftPercent,
+      horizShiftPercent,
       vertShiftPercent,
-      chinShiftPercent
+      pubicShiftPercent,
+      chinShiftPercent,
+      shouldersShiftPercent
     }
   });
 }
@@ -848,11 +883,6 @@ function drawOverlay() {
     const lw = Math.max(1, 2 / zoom);
     const fs = Math.max(11, 13 / zoom);
 
-    overlayCtx.fillStyle = 'rgba(180, 100, 255, 0.10)';
-    overlayCtx.fillRect(bx, by, ax - bx, bh);
-    overlayCtx.fillStyle = 'rgba(100, 220, 140, 0.10)';
-    overlayCtx.fillRect(ax, by, bx + bw - ax, bh);
-
     overlayCtx.strokeStyle = '#c080ff';
     overlayCtx.lineWidth = lw * 1.5;
     overlayCtx.setLineDash([6 / zoom, 4 / zoom]);
@@ -862,31 +892,38 @@ function drawOverlay() {
     overlayCtx.stroke();
     overlayCtx.setLineDash([]);
 
-    const py = pubicPoint ? pubicPoint.y : by + bh / 2;
-    overlayCtx.beginPath();
-    overlayCtx.arc(ax, py, Math.max(4, 6 / zoom), 0, Math.PI * 2);
-    overlayCtx.fillStyle = '#c080ff';
-    overlayCtx.fill();
-    overlayCtx.lineWidth = lw;
-    overlayCtx.strokeStyle = '#000';
-    overlayCtx.stroke();
-
     overlayCtx.font = `${fs}px system-ui, sans-serif`;
     overlayCtx.fillStyle = '#c080ff';
-    overlayCtx.fillText(`верт. линия (сдвиг ${vertShiftPercent}%)`, ax + 6 / zoom, by + fs + 2 / zoom);
+    overlayCtx.fillText(`верт. поиск (${vertShiftPercent}%)`, ax + 6 / zoom, by + fs + 2 / zoom);
   }
 
-  // ГОРИЗОНТАЛЬНАЯ ПОИСКОВАЯ ЛИНИЯ
-  if (charBBox && pubicPoint && showHoriz) {
+  // ГОРИЗОНТАЛЬНАЯ ПОИСКОВАЯ ЛИНИЯ (ЦЕНТР)
+  if (charBBox && searchHorizLine && showHoriz) {
     const { x: bx, y: by, w: bw, h: bh } = charBBox;
-    const py = pubicPoint.y;
+    const py = searchHorizLine.y;
     const lw = Math.max(1, 2 / zoom);
     const fs = Math.max(11, 13 / zoom);
 
-    overlayCtx.fillStyle = 'rgba(80, 180, 255, 0.10)';
-    overlayCtx.fillRect(bx, by, bw, py - by);
-    overlayCtx.fillStyle = 'rgba(255, 160, 80, 0.10)';
-    overlayCtx.fillRect(bx, py, bw, by + bh - py);
+    overlayCtx.strokeStyle = '#50b4ff';
+    overlayCtx.lineWidth = lw * 1.5;
+    overlayCtx.setLineDash([6 / zoom, 4 / zoom]);
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(bx, py);
+    overlayCtx.lineTo(bx + bw, py);
+    overlayCtx.stroke();
+    overlayCtx.setLineDash([]);
+
+    overlayCtx.font = `${fs}px system-ui, sans-serif`;
+    overlayCtx.fillStyle = '#50b4ff';
+    overlayCtx.fillText(`гориз. поиск (${horizShiftPercent}%)`, bx + bw + 6 / zoom, py + fs / 3);
+  }
+
+  // ЛИНИЯ ЛОБКА
+  if (charBBox && pubicLine && showPubic) {
+    const { x: bx, y: by, w: bw, h: bh } = charBBox;
+    const py = pubicLine.y;
+    const lw = Math.max(1, 2 / zoom);
+    const fs = Math.max(11, 13 / zoom);
 
     overlayCtx.strokeStyle = '#ffcc00';
     overlayCtx.lineWidth = lw * 1.5;
@@ -898,28 +935,16 @@ function drawOverlay() {
     overlayCtx.setLineDash([]);
 
     overlayCtx.beginPath();
-    overlayCtx.arc(pubicPoint.x, py, Math.max(4, 6 / zoom), 0, Math.PI * 2);
+    overlayCtx.arc(bx + bw / 2, py, Math.max(3, 5 / zoom), 0, Math.PI * 2);
     overlayCtx.fillStyle = '#ffcc00';
     overlayCtx.fill();
     overlayCtx.lineWidth = lw;
     overlayCtx.strokeStyle = '#000';
     overlayCtx.stroke();
 
-    const upper = (py - by) / bh;
-    const lower = (by + bh - py) / bh;
-    overlayCtx.font = `${fs}px system-ui, sans-serif`;
-    overlayCtx.fillStyle = '#50b4ff';
-    overlayCtx.fillText(`верх ${(upper * 100).toFixed(1)}%`, bx + 4 / zoom, by + fs + 2 / zoom);
-    overlayCtx.fillStyle = '#ffa050';
-    overlayCtx.fillText(`низ ${(lower * 100).toFixed(1)}%`, bx + 4 / zoom, by + bh - 4 / zoom);
-
     overlayCtx.fillStyle = '#ffcc00';
     overlayCtx.font = `${fs * 0.9}px system-ui, sans-serif`;
-    overlayCtx.fillText(
-      `гориз. линия (сдвиг ${pubicShiftPercent}%)`,
-      bx + bw + 6 / zoom,
-      py + fs / 3
-    );
+    overlayCtx.fillText(`лобок (${pubicShiftPercent}%)`, bx + bw + 6 / zoom, py + fs / 3);
   }
 
   // ЛИНИЯ ПОДБОРОДКА
@@ -948,11 +973,36 @@ function drawOverlay() {
 
     overlayCtx.fillStyle = '#20c0a0';
     overlayCtx.font = `${fs * 0.9}px system-ui, sans-serif`;
-    overlayCtx.fillText(
-      `подбородок (${chinShiftPercent}%)`,
-      bx + bw + 6 / zoom,
-      py + fs / 3
-    );
+    overlayCtx.fillText(`подбородок (${chinShiftPercent}%)`, bx + bw + 6 / zoom, py + fs / 3);
+  }
+
+  // ЛИНИЯ ПЛЕЧ
+  if (charBBox && shouldersLine && showShoulders) {
+    const { x: bx, y: by, w: bw, h: bh } = charBBox;
+    const py = shouldersLine.y;
+    const lw = Math.max(1, 2 / zoom);
+    const fs = Math.max(11, 13 / zoom);
+
+    overlayCtx.strokeStyle = '#ff4080';
+    overlayCtx.lineWidth = lw * 1.5;
+    overlayCtx.setLineDash([4 / zoom, 3 / zoom]);
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(bx, py);
+    overlayCtx.lineTo(bx + bw, py);
+    overlayCtx.stroke();
+    overlayCtx.setLineDash([]);
+
+    overlayCtx.beginPath();
+    overlayCtx.arc(bx + bw / 2, py, Math.max(3, 5 / zoom), 0, Math.PI * 2);
+    overlayCtx.fillStyle = '#ff4080';
+    overlayCtx.fill();
+    overlayCtx.lineWidth = lw;
+    overlayCtx.strokeStyle = '#000';
+    overlayCtx.stroke();
+
+    overlayCtx.fillStyle = '#ff4080';
+    overlayCtx.font = `${fs * 0.9}px system-ui, sans-serif`;
+    overlayCtx.fillText(`плечи (${shouldersShiftPercent}%)`, bx + bw + 6 / zoom, py + fs / 3);
   }
 
   // Точки-источники
@@ -989,34 +1039,25 @@ function updateInfo() {
     infoBBox.textContent = infoWH.textContent = infoFill.textContent = '—';
   }
 
-  if (charBBox && pubicPoint) {
-    const upperPx = pubicPoint.y - charBBox.y;
-    const lowerPx = charBBox.y + charBBox.h - pubicPoint.y;
-    infoPubic.textContent = `y:${pubicPoint.y} (norm ${(pubicPoint.yNorm * 100).toFixed(1)}%, сдвиг ${pubicShiftPercent}%)`;
-    infoUpper.textContent = `${upperPx}px (${((upperPx / charBBox.h) * 100).toFixed(1)}%)`;
-    infoLower.textContent = `${lowerPx}px (${((lowerPx / charBBox.h) * 100).toFixed(1)}%)`;
-    infoShoulders.textContent = pubicPoint.shouldersWidth != null
-      ? `y:${pubicPoint.shouldersY} w:${pubicPoint.shouldersWidth}px` : '—';
-    infoWaist.textContent = pubicPoint.waistWidth != null
-      ? `y:${pubicPoint.waistY} w:${pubicPoint.waistWidth}px` : '—';
-    infoHips.textContent = pubicPoint.hipWidth != null
-      ? `y:${pubicPoint.hipY} w:${pubicPoint.hipWidth}px` : '—';
-  } else {
-    infoPubic.textContent = infoUpper.textContent = infoLower.textContent = '—';
-    infoShoulders.textContent = infoWaist.textContent = infoHips.textContent = '—';
-  }
+  infoHoriz.textContent = (charBBox && searchHorizLine)
+    ? `y:${searchHorizLine.y} (norm ${(searchHorizLine.yNorm * 100).toFixed(1)}%, сдвиг ${horizShiftPercent}%)`
+    : '—';
 
-  if (charBBox && vertAxis) {
-    infoVert.textContent = `x:${vertAxis.x} (norm ${(vertAxis.xNorm * 100).toFixed(1)}%, сдвиг ${vertAxis.shiftPercent}%)`;
-  } else {
-    infoVert.textContent = '—';
-  }
+  infoVert.textContent = (charBBox && vertAxis)
+    ? `x:${vertAxis.x} (norm ${(vertAxis.xNorm * 100).toFixed(1)}%, сдвиг ${vertShiftPercent}%)`
+    : '—';
 
-  if (charBBox && chinLine) {
-    infoChin.textContent = `y:${chinLine.y} (norm ${(chinLine.yNorm * 100).toFixed(1)}%)`;
-  } else {
-    infoChin.textContent = '—';
-  }
+  infoPubic.textContent = (charBBox && pubicLine)
+    ? `y:${pubicLine.y} (norm ${(pubicLine.yNorm * 100).toFixed(1)}%, сдвиг ${pubicShiftPercent}%)`
+    : '—';
+
+  infoChin.textContent = (charBBox && chinLine)
+    ? `y:${chinLine.y} (norm ${(chinLine.yNorm * 100).toFixed(1)}%)`
+    : '—';
+
+  infoShouldersLine.textContent = (charBBox && shouldersLine)
+    ? `y:${shouldersLine.y} (norm ${(shouldersLine.yNorm * 100).toFixed(1)}%)`
+    : '—';
 
   renderPointList();
 }
@@ -1321,11 +1362,11 @@ clearPointsBtn.addEventListener('click', () => {
 });
 
 // ============================================================
-//  ПОИСКОВЫЕ ЛИНИИ И ПРОПОРЦИИ — СЛАЙДЕРЫ И ЧЕКБОКСЫ
+//  ЛИНИИ — СЛАЙДЕРЫ И ЧЕКБОКСЫ
 // ============================================================
-pubicShiftEl.addEventListener('input', () => {
-  pubicShiftPercent = +pubicShiftEl.value;
-  pubicShiftVal.textContent = pubicShiftPercent + '%';
+horizShiftEl.addEventListener('input', () => {
+  horizShiftPercent = +horizShiftEl.value;
+  horizShiftVal.textContent = horizShiftPercent + '%';
   if (lum) rebuildAllDebounced();
 });
 
@@ -1335,41 +1376,50 @@ vertShiftEl.addEventListener('input', () => {
   if (lum) rebuildAllDebounced();
 });
 
+pubicShiftEl.addEventListener('input', () => {
+  pubicShiftPercent = +pubicShiftEl.value;
+  pubicShiftVal.textContent = pubicShiftPercent + '%';
+  if (lum) rebuildAllDebounced();
+});
+
 chinShiftEl.addEventListener('input', () => {
   chinShiftPercent = +chinShiftEl.value;
   chinShiftVal.textContent = chinShiftPercent + '%';
   if (lum) rebuildAllDebounced();
 });
 
-showHorizEl.addEventListener('change', () => {
-  showHoriz = showHorizEl.checked;
-  drawOverlay();
+shouldersShiftEl.addEventListener('input', () => {
+  shouldersShiftPercent = +shouldersShiftEl.value;
+  shouldersShiftVal.textContent = shouldersShiftPercent + '%';
+  if (lum) rebuildAllDebounced();
 });
 
-showVertEl.addEventListener('change', () => {
-  showVert = showVertEl.checked;
-  drawOverlay();
-});
+showHorizEl.addEventListener('change', () => { showHoriz = showHorizEl.checked; drawOverlay(); });
+showVertEl.addEventListener('change', () => { showVert = showVertEl.checked; drawOverlay(); });
+showPubicEl.addEventListener('change', () => { showPubic = showPubicEl.checked; drawOverlay(); });
+showChinEl.addEventListener('change', () => { showChin = showChinEl.checked; drawOverlay(); });
+showShouldersEl.addEventListener('change', () => { showShoulders = showShouldersEl.checked; drawOverlay(); });
 
-showChinEl.addEventListener('change', () => {
-  showChin = showChinEl.checked;
-  drawOverlay();
-});
-
-axisResetBtn.addEventListener('click', () => {
-  pubicShiftPercent = -7;
-  pubicShiftEl.value = -7;
-  pubicShiftVal.textContent = '-7%';
+searchLinesResetBtn.addEventListener('click', () => {
+  horizShiftPercent = 0;
+  horizShiftEl.value = 0;
+  horizShiftVal.textContent = '0%';
   vertShiftPercent = 0;
   vertShiftEl.value = 0;
   vertShiftVal.textContent = '0%';
   if (lum) rebuildAll();
 });
 
-chinResetBtn.addEventListener('click', () => {
+propLinesResetBtn.addEventListener('click', () => {
+  pubicShiftPercent = -7;
+  pubicShiftEl.value = -7;
+  pubicShiftVal.textContent = '-7%';
   chinShiftPercent = 13;
   chinShiftEl.value = 13;
   chinShiftVal.textContent = '13%';
+  shouldersShiftPercent = 16;
+  shouldersShiftEl.value = 16;
+  shouldersShiftVal.textContent = '16%';
   if (lum) rebuildAll();
 });
 
@@ -1474,4 +1524,4 @@ smoothIterEl.disabled = !useSmoothEl.checked;
 updateCursor();
 </script>
 </body>
-</html>
+  </html>
