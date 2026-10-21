@@ -1,9 +1,9 @@
 // ============================================================
 //  Web Worker: тяжёлые вычисления маски
-//  VERSION: 2025-01-02 · pubic (-7%) + vert axis
+//  VERSION: 2025-01-03 · pubic (-7%) + vert axis + chin line
 // ============================================================
 
-console.log('[worker] SCRIPT LOADED v2025-01-02 (pubic=50%+slider, vert=50%+slider)');
+console.log('[worker] SCRIPT LOADED v2025-01-03 (pubic=50%+slider, vert=50%+slider, chin=13%)');
 
 self.onmessage = (e) => {
   const { type, payload } = e.data;
@@ -20,7 +20,8 @@ self.onmessage = (e) => {
           bbox: result.bbox,
           widthProfile: result.widthProfile,
           pubicPoint: result.pubicPoint,
-          vertAxis: result.vertAxis
+          vertAxis: result.vertAxis,
+          chinLine: result.chinLine
         }
       });
     } catch (err) {
@@ -47,7 +48,8 @@ function buildMaskInWorker(p) {
     morphClose,
     regionTolerance,
     pubicShiftPercent,
-    vertShiftPercent
+    vertShiftPercent,
+    chinShiftPercent
   } = p;
 
   const w = width, h = height;
@@ -133,14 +135,24 @@ function buildMaskInWorker(p) {
   let pubicPoint = null;
   let widthProfile = null;
   let vertAxis = null;
+  let chinLine = null;
 
   if (bbox) {
     widthProfile = computeWidthProfile(mask, w, h, bbox);
     pubicPoint = findPubicPoint(mask, w, h, bbox, widthProfile, pubicShiftPercent);
     vertAxis = computeVertAxis(bbox, vertShiftPercent);
+
+    // Линия подбородка (по умолчанию 13% от верха bbox)
+    const chinShift = (typeof chinShiftPercent !== 'undefined') ? chinShiftPercent : 13;
+    const chinY = Math.round(bbox.h * (chinShift / 100));
+    chinLine = {
+      y: bbox.y + chinY,
+      yNorm: chinShift / 100,
+      shiftPercent: chinShift
+    };
   }
 
-  return { mask, bgCount, width: w, height: h, bbox, widthProfile, pubicPoint, vertAxis };
+  return { mask, bgCount, width: w, height: h, bbox, widthProfile, pubicPoint, vertAxis, chinLine };
 }
 
 function computeCharacterBBox(mask, w, h, opts = {}) {
@@ -238,10 +250,6 @@ function computeWidthProfile(mask, w, h, bbox) {
   return { width, leftEdge, rightEdge, centerGap, y0, bh };
 }
 
-/**
- * Вычисление вертикальной оси: 50% ширины bbox + vertShiftPercent.
- * Значение -50 = левый край, 0 = центр, +50 = правый край.
- */
 function computeVertAxis(bbox, vertShiftPercent) {
   const shiftVal = (vertShiftPercent !== undefined) ? vertShiftPercent : 0;
   const shift = shiftVal / 100;
@@ -428,4 +436,4 @@ function smoothOnce(mask, w, h) {
       else if (bgCount <= 1) mask[idx] = 0;
     }
   }
-        }
+      }
