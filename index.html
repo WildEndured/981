@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Маска фона · BBox · Поисковые линии</title>
+<title>Маска фона · BBox · Линии пропорций</title>
 <style>
   :root {
     color-scheme: dark;
@@ -350,6 +350,23 @@
   </div>
 
   <div class="panel-section">
+    <h3>Линии пропорций</h3>
+    
+    <div class="row" style="margin-bottom: 12px;">
+      <label><input id="showChin" type="checkbox" checked /> Показывать линию подбородка</label>
+    </div>
+    <div class="slider-row">
+      <div class="label-line"><span>Подбородок (от верха bbox)</span><span id="chinShiftVal">13%</span></div>
+      <input id="chinShift" type="range" min="0" max="100" value="13" step="1" />
+    </div>
+
+    <div class="row" style="gap:6px; margin-top: 12px;">
+      <button id="chinResetBtn" style="flex:0 0 auto;height:30px;padding:0 10px;border-radius:8px;border:1px solid #333a44;background:#232830;color:var(--text);font-size:12px;cursor:pointer;">Сброс</button>
+      <span style="font-size:12px;color:var(--muted);">0% = верх, 100% = низ.</span>
+    </div>
+  </div>
+
+  <div class="panel-section">
     <h3>Итоги</h3>
     <div class="kv"><span>Фон</span><span id="infoBgPct">—</span></div>
     <div class="kv"><span>Персонаж</span><span id="infoCharPct">—</span></div>
@@ -360,6 +377,7 @@
     <div class="kv"><span>Верх (торс+голова)</span><span id="infoUpper">—</span></div>
     <div class="kv"><span>Низ (ноги)</span><span id="infoLower">—</span></div>
     <div class="kv"><span>Верт. линия</span><span id="infoVert">—</span></div>
+    <div class="kv"><span>Линия подбородка</span><span id="infoChin">—</span></div>
     <div class="kv"><span>Плечи</span><span id="infoShoulders">—</span></div>
     <div class="kv"><span>Талия</span><span id="infoWaist">—</span></div>
     <div class="kv"><span>Бёдра</span><span id="infoHips">—</span></div>
@@ -415,6 +433,11 @@ const showHorizEl = document.getElementById('showHoriz');
 const showVertEl = document.getElementById('showVert');
 const axisResetBtn = document.getElementById('axisResetBtn');
 
+const chinShiftEl = document.getElementById('chinShift');
+const chinShiftVal = document.getElementById('chinShiftVal');
+const showChinEl = document.getElementById('showChin');
+const chinResetBtn = document.getElementById('chinResetBtn');
+
 const autoThresholdBtn = document.getElementById('autoThresholdBtn');
 const pickBgColorBtn = document.getElementById('pickBgColorBtn');
 const addPointBtn = document.getElementById('addPointBtn');
@@ -440,6 +463,7 @@ const infoPubic = document.getElementById('infoPubic');
 const infoUpper = document.getElementById('infoUpper');
 const infoLower = document.getElementById('infoLower');
 const infoVert = document.getElementById('infoVert');
+const infoChin = document.getElementById('infoChin');
 const infoShoulders = document.getElementById('infoShoulders');
 const infoWaist = document.getElementById('infoWaist');
 const infoHips = document.getElementById('infoHips');
@@ -471,10 +495,13 @@ let charBBox = null;
 let widthProfile = null;
 let pubicPoint = null;
 let vertAxis = null;
+let chinLine = null;
 let pubicShiftPercent = -7;
 let vertShiftPercent = 0;
+let chinShiftPercent = 13;
 let showHoriz = true;
 let showVert = true;
+let showChin = true;
 
 let zoom = 1, panX = 0, panY = 0;
 let fitZoom = 1;
@@ -529,6 +556,7 @@ function initWorker() {
       widthProfile = payload.widthProfile || null;
       pubicPoint = payload.pubicPoint || null;
       vertAxis = payload.vertAxis || null;
+      chinLine = payload.chinLine || null;
       drawOverlay();
       updateInfo();
       workerBusy = false;
@@ -609,6 +637,7 @@ fileInput.addEventListener('change', e => {
       widthProfile = null;
       pubicPoint = null;
       vertAxis = null;
+      chinLine = null;
       invalidateSeeds();
       autoPickThreshold();
       renderSamplesList();
@@ -753,7 +782,8 @@ function rebuildAll() {
       morphClose: +morphCloseEl.value,
       regionTolerance: +regionTolEl.value,
       pubicShiftPercent,
-      vertShiftPercent
+      vertShiftPercent,
+      chinShiftPercent
     }
   });
 }
@@ -892,6 +922,39 @@ function drawOverlay() {
     );
   }
 
+  // ЛИНИЯ ПОДБОРОДКА
+  if (charBBox && chinLine && showChin) {
+    const { x: bx, y: by, w: bw, h: bh } = charBBox;
+    const py = chinLine.y;
+    const lw = Math.max(1, 2 / zoom);
+    const fs = Math.max(11, 13 / zoom);
+
+    overlayCtx.strokeStyle = '#20c0a0';
+    overlayCtx.lineWidth = lw * 1.5;
+    overlayCtx.setLineDash([4 / zoom, 3 / zoom]);
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(bx, py);
+    overlayCtx.lineTo(bx + bw, py);
+    overlayCtx.stroke();
+    overlayCtx.setLineDash([]);
+
+    overlayCtx.beginPath();
+    overlayCtx.arc(bx + bw / 2, py, Math.max(3, 5 / zoom), 0, Math.PI * 2);
+    overlayCtx.fillStyle = '#20c0a0';
+    overlayCtx.fill();
+    overlayCtx.lineWidth = lw;
+    overlayCtx.strokeStyle = '#000';
+    overlayCtx.stroke();
+
+    overlayCtx.fillStyle = '#20c0a0';
+    overlayCtx.font = `${fs * 0.9}px system-ui, sans-serif`;
+    overlayCtx.fillText(
+      `подбородок (${chinShiftPercent}%)`,
+      bx + bw + 6 / zoom,
+      py + fs / 3
+    );
+  }
+
   // Точки-источники
   sourcePoints.forEach((p, i) => {
     const isSelected = i === selectedPointIndex;
@@ -947,6 +1010,12 @@ function updateInfo() {
     infoVert.textContent = `x:${vertAxis.x} (norm ${(vertAxis.xNorm * 100).toFixed(1)}%, сдвиг ${vertAxis.shiftPercent}%)`;
   } else {
     infoVert.textContent = '—';
+  }
+
+  if (charBBox && chinLine) {
+    infoChin.textContent = `y:${chinLine.y} (norm ${(chinLine.yNorm * 100).toFixed(1)}%)`;
+  } else {
+    infoChin.textContent = '—';
   }
 
   renderPointList();
@@ -1252,7 +1321,7 @@ clearPointsBtn.addEventListener('click', () => {
 });
 
 // ============================================================
-//  ПОИСКОВЫЕ ЛИНИИ — СЛАЙДЕРЫ И ЧЕКБОКСЫ
+//  ПОИСКОВЫЕ ЛИНИИ И ПРОПОРЦИИ — СЛАЙДЕРЫ И ЧЕКБОКСЫ
 // ============================================================
 pubicShiftEl.addEventListener('input', () => {
   pubicShiftPercent = +pubicShiftEl.value;
@@ -1266,6 +1335,12 @@ vertShiftEl.addEventListener('input', () => {
   if (lum) rebuildAllDebounced();
 });
 
+chinShiftEl.addEventListener('input', () => {
+  chinShiftPercent = +chinShiftEl.value;
+  chinShiftVal.textContent = chinShiftPercent + '%';
+  if (lum) rebuildAllDebounced();
+});
+
 showHorizEl.addEventListener('change', () => {
   showHoriz = showHorizEl.checked;
   drawOverlay();
@@ -1276,6 +1351,11 @@ showVertEl.addEventListener('change', () => {
   drawOverlay();
 });
 
+showChinEl.addEventListener('change', () => {
+  showChin = showChinEl.checked;
+  drawOverlay();
+});
+
 axisResetBtn.addEventListener('click', () => {
   pubicShiftPercent = -7;
   pubicShiftEl.value = -7;
@@ -1283,6 +1363,13 @@ axisResetBtn.addEventListener('click', () => {
   vertShiftPercent = 0;
   vertShiftEl.value = 0;
   vertShiftVal.textContent = '0%';
+  if (lum) rebuildAll();
+});
+
+chinResetBtn.addEventListener('click', () => {
+  chinShiftPercent = 13;
+  chinShiftEl.value = 13;
+  chinShiftVal.textContent = '13%';
   if (lum) rebuildAll();
 });
 
@@ -1387,4 +1474,4 @@ smoothIterEl.disabled = !useSmoothEl.checked;
 updateCursor();
 </script>
 </body>
-  </html>
+</html>
