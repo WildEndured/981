@@ -152,6 +152,11 @@
     width: 22px; height: 22px; border-radius: 50%;
     background: var(--accent); border: 2px solid #fff; cursor: pointer;
   }
+  input[type="color"] {
+    width: 42px; height: 28px; padding: 0;
+    border: 1px solid #333a44; border-radius: 6px;
+    background: #232830; cursor: pointer;
+  }
   .slider-row { display: flex; flex-direction: column; gap: 2px; padding: 4px 0; }
   .slider-row .label-line {
     display: flex; justify-content: space-between;
@@ -219,6 +224,31 @@
   }
   .seg button:last-child { border-right: none; }
   .seg button.active { background: var(--accent); color: #fff; }
+
+  /* Стили панели кастомизации */
+  .style-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 16px;
+  }
+  @media (max-width: 700px) {
+    .style-grid { grid-template-columns: 1fr; }
+  }
+  .style-block {
+    background: #101216;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .style-block h4 {
+    margin: 0 0 8px; font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+    text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .style-block h4 .swatch {
+    display: inline-block; width: 12px; height: 12px; border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.25);
+  }
 
   @media (max-width: 600px) {
     body { padding: 6px 6px 30px; gap: 8px; }
@@ -366,6 +396,130 @@
     </div>
   </div>
 
+  <!-- ========================= НОВАЯ СЕКЦИЯ: СТИЛЬ ========================= -->
+  <div class="panel-section">
+    <h3>Стиль сетки и линий</h3>
+    <div class="style-grid">
+
+      <!-- Сетка пропорций -->
+      <div class="style-block">
+        <h4><span class="swatch" id="gridColorSwatch" style="background:#ffdc00;"></span>Сетка пропорций</h4>
+        <div class="row">
+          <label>Цвет <input type="color" id="gridColor" value="#ffdc00" /></label>
+        </div>
+        <div class="slider-row">
+          <div class="label-line"><span>Толщина</span><span id="gridWidthVal">2.5</span></div>
+          <input id="gridWidth" type="range" min="1" max="10" value="2.5" step="0.5" />
+        </div>
+        <div class="slider-row">
+          <div class="label-line"><span>Прозрачность</span><span id="gridAlphaVal">0.95</span></div>
+          <input id="gridAlpha" type="range" min="0.05" max="1" value="0.95" step="0.05" />
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="gridDashed" checked /> Пунктир</label>
+        </div>
+        <div class="slider-row">
+          <div class="label-line"><span>Длина штриха</span><span id="gridDashLenVal">10</span></div>
+          <input id="gridDashLen" type="range" min="2" max="40" value="10" step="1" />
+        </div>
+        <div class="slider-row">
+          <div class="label-line"><span>Промежуток</span><span id="gridDashGapVal">6</span></div>
+          <input id="gridDashGap" type="range" min="2" max="40" value="6" step="1" />
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="gridOutline" checked /> Тёмная обводка</label>
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="gridShowLabels" checked /> Подписи %</label>
+        </div>
+      </div>
+
+      <!-- Горизонтальная линия -->
+      <div class="style-block">
+        <h4><span class="swatch" id="horizColorSwatch" style="background:#50b4ff;"></span>Горизонтальная линия</h4>
+        <div class="row">
+          <label>Цвет <input type="color" id="horizColor" value="#50b4ff" /></label>
+        </div>
+        <div class="slider-row">
+          <div class="label-line"><span>Толщина</span><span id="horizWidthVal">3</span></div>
+          <input id="horizWidth" type="range" min="1" max="12" value="3" step="0.5" />
+        </div>
+        <div class="slider-row">
+          <div class="label-line"><span>Прозрачность</span><span id="horizAlphaVal">1</span></div>
+          <input id="horizAlpha" type="range" min="0.05" max="1" value="1" step="0.05" />
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="horizDashed" checked /> Пунктир</label>
+        </div>
+        <div class="slider-row">
+          <div class="label-line"><span>Длина штриха</span><span id="horizDashLenVal">6</span></div>
+          <input id="horizDashLen" type="range" min="2" max="40" value="6" step="1" />
+        </div>
+        <div class="slider-row">
+          <div class="label-line"><span>Промежуток</span><span id="horizDashGapVal">4</span></div>
+          <input id="horizDashGap" type="range" min="2" max="40" value="4" step="1" />
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="horizOutline" /> Тёмная обводка</label>
+        </div>
+      </div>
+
+      <!-- Вертикальная линия -->
+      <div class="style-block">
+        <h4><span class="swatch" id="vertColorSwatch" style="background:#c080ff;"></span>Вертикальная линия</h4>
+        <div class="row">
+          <label>Цвет <input type="color" id="vertColor" value="#c080ff" /></label>
+        </div>
+        <div class="slider-row">
+          <div class="label-line"><span>Толщина</span><span id="vertWidthVal">3</span></div>
+          <input id="vertWidth" type="range" min="1" max="12" value="3" step="0.5" />
+        </div>
+        <div class="slider-row">
+          <div class="label-line"><span>Прозрачность</span><span id="vertAlphaVal">1</span></div>
+          <input id="vertAlpha" type="range" min="0.05" max="1" value="1" step="0.05" />
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="vertDashed" checked /> Пунктир</label>
+        </div>
+        <div class="slider-row">
+          <div class="label-line"><span>Длина штриха</span><span id="vertDashLenVal">6</span></div>
+          <input id="vertDashLen" type="range" min="2" max="40" value="6" step="1" />
+        </div>
+        <div class="slider-row">
+          <div class="label-line"><span>Промежуток</span><span id="vertDashGapVal">4</span></div>
+          <input id="vertDashGap" type="range" min="2" max="40" value="4" step="1" />
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="vertOutline" /> Тёмная обводка</label>
+        </div>
+      </div>
+
+      <!-- BBox -->
+      <div class="style-block">
+        <h4><span class="swatch" id="bboxColorSwatch" style="background:#00e0ff;"></span>BBox</h4>
+        <div class="row">
+          <label>Цвет <input type="color" id="bboxColor" value="#00e0ff" /></label>
+        </div>
+        <div class="slider-row">
+          <div class="label-line"><span>Толщина</span><span id="bboxWidthVal">2</span></div>
+          <input id="bboxWidth" type="range" min="1" max="10" value="2" step="0.5" />
+        </div>
+        <div class="slider-row">
+          <div class="label-line"><span>Прозрачность</span><span id="bboxAlphaVal">1</span></div>
+          <input id="bboxAlpha" type="range" min="0.05" max="1" value="1" step="0.05" />
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="bboxShowCorners" checked /> Уголки</label>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="row" style="gap:6px; margin-top: 12px;">
+      <button id="styleResetBtn" style="flex:0 0 auto;height:30px;padding:0 10px;border-radius:8px;border:1px solid #333a44;background:#232830;color:var(--text);font-size:12px;cursor:pointer;">Сброс стиля</button>
+    </div>
+  </div>
+
   <div class="panel-section">
     <h3>Итоги</h3>
     <div class="kv"><span>Фон</span><span id="infoBgPct">—</span></div>
@@ -496,6 +650,174 @@ let showHoriz = true;
 let showVert = true;
 let showGrid = true;
 
+// ============================================================
+//  СТИЛЬ (кастомизация сетки и линий)
+// ============================================================
+const styleDefaults = {
+  grid:  { color: '#ffdc00', width: 2.5, alpha: 0.95, dashed: true, dashLen: 10, dashGap: 6, outline: true, showLabels: true },
+  horiz: { color: '#50b4ff', width: 3,   alpha: 1,    dashed: true, dashLen: 6,  dashGap: 4, outline: false },
+  vert:  { color: '#c080ff', width: 3,   alpha: 1,    dashed: true, dashLen: 6,  dashGap: 4, outline: false },
+  bbox:  { color: '#00e0ff', width: 2,   alpha: 1,    showCorners: true }
+};
+const style = JSON.parse(JSON.stringify(styleDefaults));
+
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// Применение значений из DOM в объект style
+function syncStyleFromUI() {
+  style.grid.color  = document.getElementById('gridColor').value;
+  style.grid.width  = +document.getElementById('gridWidth').value;
+  style.grid.alpha  = +document.getElementById('gridAlpha').value;
+  style.grid.dashed = document.getElementById('gridDashed').checked;
+  style.grid.dashLen = +document.getElementById('gridDashLen').value;
+  style.grid.dashGap = +document.getElementById('gridDashGap').value;
+  style.grid.outline = document.getElementById('gridOutline').checked;
+  style.grid.showLabels = document.getElementById('gridShowLabels').checked;
+
+  style.horiz.color  = document.getElementById('horizColor').value;
+  style.horiz.width  = +document.getElementById('horizWidth').value;
+  style.horiz.alpha  = +document.getElementById('horizAlpha').value;
+  style.horiz.dashed = document.getElementById('horizDashed').checked;
+  style.horiz.dashLen = +document.getElementById('horizDashLen').value;
+  style.horiz.dashGap = +document.getElementById('horizDashGap').value;
+  style.horiz.outline = document.getElementById('horizOutline').checked;
+
+  style.vert.color  = document.getElementById('vertColor').value;
+  style.vert.width  = +document.getElementById('vertWidth').value;
+  style.vert.alpha  = +document.getElementById('vertAlpha').value;
+  style.vert.dashed = document.getElementById('vertDashed').checked;
+  style.vert.dashLen = +document.getElementById('vertDashLen').value;
+  style.vert.dashGap = +document.getElementById('vertDashGap').value;
+  style.vert.outline = document.getElementById('vertOutline').checked;
+
+  style.bbox.color  = document.getElementById('bboxColor').value;
+  style.bbox.width  = +document.getElementById('bboxWidth').value;
+  style.bbox.alpha  = +document.getElementById('bboxAlpha').value;
+  style.bbox.showCorners = document.getElementById('bboxShowCorners').checked;
+
+  // Обновить swatch-индикаторы
+  document.getElementById('gridColorSwatch').style.background = style.grid.color;
+  document.getElementById('horizColorSwatch').style.background = style.horiz.color;
+  document.getElementById('vertColorSwatch').style.background = style.vert.color;
+  document.getElementById('bboxColorSwatch').style.background = style.bbox.color;
+
+  drawOverlay();
+}
+
+// Привязать слайдеры/чекбоксы/цвета к syncStyleFromUI и обновлению меток
+function bindStyleControls() {
+  const labelMap = {
+    gridWidth: ['gridWidthVal', v => v],
+    gridAlpha: ['gridAlphaVal', v => (+v).toFixed(2)],
+    gridDashLen: ['gridDashLenVal', v => v],
+    gridDashGap: ['gridDashGapVal', v => v],
+    horizWidth: ['horizWidthVal', v => v],
+    horizAlpha: ['horizAlphaVal', v => (+v).toFixed(2)],
+    horizDashLen: ['horizDashLenVal', v => v],
+    horizDashGap: ['horizDashGapVal', v => v],
+    vertWidth: ['vertWidthVal', v => v],
+    vertAlpha: ['vertAlphaVal', v => (+v).toFixed(2)],
+    vertDashLen: ['vertDashLenVal', v => v],
+    vertDashGap: ['vertDashGapVal', v => v],
+    bboxWidth: ['bboxWidthVal', v => v],
+    bboxAlpha: ['bboxAlphaVal', v => (+v).toFixed(2)]
+  };
+  Object.keys(labelMap).forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const [labelId, fmt] = labelMap[id];
+    const lbl = document.getElementById(labelId);
+    if (!lbl) return;
+    lbl.textContent = fmt(el.value);
+    el.addEventListener('input', () => {
+      lbl.textContent = fmt(el.value);
+      syncStyleFromUI();
+    });
+  });
+
+  // Все остальные контролы стиля — просто на input/change
+  const ids = [
+    'gridColor','gridDashed','gridOutline','gridShowLabels',
+    'horizColor','horizDashed','horizOutline',
+    'vertColor','vertDashed','vertOutline',
+    'bboxColor','bboxShowCorners'
+  ];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', syncStyleFromUI);
+    el.addEventListener('change', syncStyleFromUI);
+  });
+}
+
+function setStyleUIFromState() {
+  document.getElementById('gridColor').value = style.grid.color;
+  document.getElementById('gridWidth').value = style.grid.width;
+  document.getElementById('gridAlpha').value = style.grid.alpha;
+  document.getElementById('gridDashed').checked = style.grid.dashed;
+  document.getElementById('gridDashLen').value = style.grid.dashLen;
+  document.getElementById('gridDashGap').value = style.grid.dashGap;
+  document.getElementById('gridOutline').checked = style.grid.outline;
+  document.getElementById('gridShowLabels').checked = style.grid.showLabels;
+
+  document.getElementById('horizColor').value = style.horiz.color;
+  document.getElementById('horizWidth').value = style.horiz.width;
+  document.getElementById('horizAlpha').value = style.horiz.alpha;
+  document.getElementById('horizDashed').checked = style.horiz.dashed;
+  document.getElementById('horizDashLen').value = style.horiz.dashLen;
+  document.getElementById('horizDashGap').value = style.horiz.dashGap;
+  document.getElementById('horizOutline').checked = style.horiz.outline;
+
+  document.getElementById('vertColor').value = style.vert.color;
+  document.getElementById('vertWidth').value = style.vert.width;
+  document.getElementById('vertAlpha').value = style.vert.alpha;
+  document.getElementById('vertDashed').checked = style.vert.dashed;
+  document.getElementById('vertDashLen').value = style.vert.dashLen;
+  document.getElementById('vertDashGap').value = style.vert.dashGap;
+  document.getElementById('vertOutline').checked = style.vert.outline;
+
+  document.getElementById('bboxColor').value = style.bbox.color;
+  document.getElementById('bboxWidth').value = style.bbox.width;
+  document.getElementById('bboxAlpha').value = style.bbox.alpha;
+  document.getElementById('bboxShowCorners').checked = style.bbox.showCorners;
+
+  // Метки
+  document.getElementById('gridWidthVal').textContent = style.grid.width;
+  document.getElementById('gridAlphaVal').textContent = style.grid.alpha.toFixed(2);
+  document.getElementById('gridDashLenVal').textContent = style.grid.dashLen;
+  document.getElementById('gridDashGapVal').textContent = style.grid.dashGap;
+  document.getElementById('horizWidthVal').textContent = style.horiz.width;
+  document.getElementById('horizAlphaVal').textContent = style.horiz.alpha.toFixed(2);
+  document.getElementById('horizDashLenVal').textContent = style.horiz.dashLen;
+  document.getElementById('horizDashGapVal').textContent = style.horiz.dashGap;
+  document.getElementById('vertWidthVal').textContent = style.vert.width;
+  document.getElementById('vertAlphaVal').textContent = style.vert.alpha.toFixed(2);
+  document.getElementById('vertDashLenVal').textContent = style.vert.dashLen;
+  document.getElementById('vertDashGapVal').textContent = style.vert.dashGap;
+  document.getElementById('bboxWidthVal').textContent = style.bbox.width;
+  document.getElementById('bboxAlphaVal').textContent = style.bbox.alpha.toFixed(2);
+
+  document.getElementById('gridColorSwatch').style.background = style.grid.color;
+  document.getElementById('horizColorSwatch').style.background = style.horiz.color;
+  document.getElementById('vertColorSwatch').style.background = style.vert.color;
+  document.getElementById('bboxColorSwatch').style.background = style.bbox.color;
+}
+
+document.getElementById('styleResetBtn').addEventListener('click', () => {
+  Object.assign(style, JSON.parse(JSON.stringify(styleDefaults)));
+  setStyleUIFromState();
+  drawOverlay();
+});
+
+// ============================================================
+//  ZOOM / PAN
+// ============================================================
 let zoom = 1, panX = 0, panY = 0;
 let fitZoom = 1;
 let isDragging = false, dragStartX = 0, dragStartY = 0;
@@ -782,13 +1104,14 @@ function rebuildAll() {
 const rebuildAllDebounced = debounce(rebuildAll, 80);
 
 // ============================================================
-//  ОТРИСОВКА ОВЕРЛЕЯ
+//  ОТРИСОВКА ОВЕРЛЕЯ (с учётом style)
 // ============================================================
 function drawOverlay() {
   const w = imgWidth, h = imgHeight;
   if (!w) return;
   overlayCtx.clearRect(0, 0, w, h);
 
+  // Маска (полупрозрачный красный)
   if (isBg) {
     const img = overlayCtx.createImageData(w, h);
     const data = img.data;
@@ -803,32 +1126,35 @@ function drawOverlay() {
   // BBOX
   if (charBBox) {
     const { x, y, w: bw, h: bh } = charBBox;
-    const lw = Math.max(1, 2 / zoom);
+    const s = style.bbox;
+    const lw = Math.max(1, s.width / zoom);
 
+    overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
     overlayCtx.lineWidth = lw;
-    overlayCtx.strokeStyle = '#00e0ff';
     overlayCtx.setLineDash([8 / zoom, 6 / zoom]);
     overlayCtx.strokeRect(x + 0.5, y + 0.5, bw, bh);
     overlayCtx.setLineDash([]);
 
-    const cs = Math.min(bw, bh) * 0.12;
-    overlayCtx.strokeStyle = '#00e0ff';
-    overlayCtx.lineWidth = lw * 2;
-    const corners = [
-      [x, y, 1, 1], [x + bw, y, -1, 1],
-      [x, y + bh, 1, -1], [x + bw, y + bh, -1, -1]
-    ];
-    for (const [cx, cy, sx, sy] of corners) {
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(cx + sx * cs, cy);
-      overlayCtx.lineTo(cx, cy);
-      overlayCtx.lineTo(cx, cy + sy * cs);
-      overlayCtx.stroke();
+    if (s.showCorners) {
+      const cs = Math.min(bw, bh) * 0.12;
+      overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
+      overlayCtx.lineWidth = lw * 2;
+      const corners = [
+        [x, y, 1, 1], [x + bw, y, -1, 1],
+        [x, y + bh, 1, -1], [x + bw, y + bh, -1, -1]
+      ];
+      for (const [cx, cy, sx, sy] of corners) {
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(cx + sx * cs, cy);
+        overlayCtx.lineTo(cx, cy);
+        overlayCtx.lineTo(cx, cy + sy * cs);
+        overlayCtx.stroke();
+      }
     }
 
     const fs = Math.max(11, 14 / zoom);
     overlayCtx.font = `${fs}px system-ui, sans-serif`;
-    overlayCtx.fillStyle = '#00e0ff';
+    overlayCtx.fillStyle = hexToRgba(s.color, s.alpha);
     overlayCtx.fillText(`bbox ${bw}×${bh}`, x, Math.max(fs, y - 6 / zoom));
   }
 
@@ -836,12 +1162,24 @@ function drawOverlay() {
   if (charBBox && vertAxis && showVert) {
     const { x: bx, y: by, w: bw, h: bh } = charBBox;
     const ax = vertAxis.x;
-    const lw = Math.max(1, 2 / zoom);
+    const s = style.vert;
+    const lw = Math.max(1, s.width / zoom);
     const fs = Math.max(11, 13 / zoom);
 
-    overlayCtx.strokeStyle = '#c080ff';
-    overlayCtx.lineWidth = lw * 1.5;
-    overlayCtx.setLineDash([6 / zoom, 4 / zoom]);
+    // обводка
+    if (s.outline) {
+      overlayCtx.strokeStyle = 'rgba(0,0,0,0.8)';
+      overlayCtx.lineWidth = lw * 2.5;
+      overlayCtx.setLineDash([]);
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(ax, by);
+      overlayCtx.lineTo(ax, by + bh);
+      overlayCtx.stroke();
+    }
+
+    overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
+    overlayCtx.lineWidth = lw;
+    overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
     overlayCtx.beginPath();
     overlayCtx.moveTo(ax, by);
     overlayCtx.lineTo(ax, by + bh);
@@ -849,20 +1187,31 @@ function drawOverlay() {
     overlayCtx.setLineDash([]);
 
     overlayCtx.font = `${fs}px system-ui, sans-serif`;
-    overlayCtx.fillStyle = '#c080ff';
+    overlayCtx.fillStyle = hexToRgba(s.color, s.alpha);
     overlayCtx.fillText(`верт. поиск (${vertShiftPercent}%)`, ax + 6 / zoom, by + fs + 2 / zoom);
   }
 
-  // ГОРИЗОНТАЛЬНАЯ ПОИСКОВАЯ ЛИНИЯ (ЦЕНТР)
+  // ГОРИЗОНТАЛЬНАЯ ПОИСКОВАЯ ЛИНИЯ
   if (charBBox && searchHorizLine && showHoriz) {
     const { x: bx, y: by, w: bw, h: bh } = charBBox;
     const py = searchHorizLine.y;
-    const lw = Math.max(1, 2 / zoom);
+    const s = style.horiz;
+    const lw = Math.max(1, s.width / zoom);
     const fs = Math.max(11, 13 / zoom);
 
-    overlayCtx.strokeStyle = '#50b4ff';
-    overlayCtx.lineWidth = lw * 1.5;
-    overlayCtx.setLineDash([6 / zoom, 4 / zoom]);
+    if (s.outline) {
+      overlayCtx.strokeStyle = 'rgba(0,0,0,0.8)';
+      overlayCtx.lineWidth = lw * 2.5;
+      overlayCtx.setLineDash([]);
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(bx, py);
+      overlayCtx.lineTo(bx + bw, py);
+      overlayCtx.stroke();
+    }
+
+    overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
+    overlayCtx.lineWidth = lw;
+    overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
     overlayCtx.beginPath();
     overlayCtx.moveTo(bx, py);
     overlayCtx.lineTo(bx + bw, py);
@@ -870,53 +1219,53 @@ function drawOverlay() {
     overlayCtx.setLineDash([]);
 
     overlayCtx.font = `${fs}px system-ui, sans-serif`;
-    overlayCtx.fillStyle = '#50b4ff';
+    overlayCtx.fillStyle = hexToRgba(s.color, s.alpha);
     overlayCtx.fillText(`гориз. поиск (${horizShiftPercent}%)`, bx + bw + 6 / zoom, py + fs / 3);
   }
 
-  // ============================================================
-  // СЕТКА РАВНЫХ ДОЛЕЙ (шаг N%) — УСИЛЕННАЯ ВИДИМОСТЬ
-  // ============================================================
+  // СЕТКА ПРОПОРЦИЙ
   if (charBBox && gridLines && gridLines.length > 0 && showGrid) {
     const { x: bx, y: by, w: bw, h: bh } = charBBox;
-    const lw = Math.max(1.5, 2.5 / zoom);
+    const s = style.grid;
+    const lw = Math.max(1, s.width / zoom);
     const fs = Math.max(11, 13 / zoom);
 
     overlayCtx.font = `bold ${fs}px system-ui, sans-serif`;
     overlayCtx.textBaseline = 'bottom';
 
     for (const gl of gridLines) {
-      // 1. Тёмная подложка-обводка для контраста
-      overlayCtx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
-      overlayCtx.lineWidth = lw * 2.5;
-      overlayCtx.setLineDash([]);
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(bx, gl.y);
-      overlayCtx.lineTo(bx + bw, gl.y);
-      overlayCtx.stroke();
+      if (s.outline) {
+        overlayCtx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+        overlayCtx.lineWidth = lw * 2.5;
+        overlayCtx.setLineDash([]);
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(bx, gl.y);
+        overlayCtx.lineTo(bx + bw, gl.y);
+        overlayCtx.stroke();
+      }
 
-      // 2. Яркая жёлтая линия с пунктиром
-      overlayCtx.strokeStyle = 'rgba(255, 220, 0, 0.95)';
+      overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
       overlayCtx.lineWidth = lw;
-      overlayCtx.setLineDash([10 / zoom, 6 / zoom]);
+      overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
       overlayCtx.beginPath();
       overlayCtx.moveTo(bx, gl.y);
       overlayCtx.lineTo(bx + bw, gl.y);
       overlayCtx.stroke();
 
-      // 3. Подпись с тёмной обводкой (справа)
-      const label = `${gl.percent}%`;
-      const tx = bx + bw - 4 / zoom;
-      const ty = gl.y - 4 / zoom;
+      if (s.showLabels) {
+        const label = `${gl.percent}%`;
+        const tx = bx + bw - 4 / zoom;
+        const ty = gl.y - 4 / zoom;
 
-      overlayCtx.textAlign = 'right';
-      overlayCtx.lineWidth = 3 / zoom;
-      overlayCtx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
-      overlayCtx.setLineDash([]);
-      overlayCtx.strokeText(label, tx, ty);
+        overlayCtx.textAlign = 'right';
+        overlayCtx.lineWidth = 3 / zoom;
+        overlayCtx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+        overlayCtx.setLineDash([]);
+        overlayCtx.strokeText(label, tx, ty);
 
-      overlayCtx.fillStyle = '#ffdc00';
-      overlayCtx.fillText(label, tx, ty);
+        overlayCtx.fillStyle = hexToRgba(s.color, s.alpha);
+        overlayCtx.fillText(label, tx, ty);
+      }
     }
     overlayCtx.setLineDash([]);
     overlayCtx.textAlign = 'start';
@@ -1029,6 +1378,8 @@ function renderSamplesList() {
 function applyTransform() {
   stageEl.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
   infoZoom.textContent = Math.round(zoom * 100) + '%';
+  // Перерисовать оверлей, чтобы линии оставались заданной толщины
+  drawOverlay();
 }
 
 function fitToView() {
@@ -1369,7 +1720,7 @@ exportCutBtn.addEventListener('click', () => {
 });
 
 // ============================================================
-//  СЛУШАТЕЛИ
+//  СЛУШАТЕЛИ (не стиль)
 // ============================================================
 bgLumEl.addEventListener('input', () => {
   bgLumVal.textContent = bgLumEl.value;
@@ -1412,6 +1763,5 @@ morphCloseEl.addEventListener('input', () => {
 initWorker();
 smoothIterEl.disabled = !useSmoothEl.checked;
 updateCursor();
-</script>
-</body>
-</html>
+bindStyleControls();
+setStyleUIFromState();
