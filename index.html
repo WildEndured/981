@@ -130,20 +130,65 @@
     </div>
   </div>
 
+  <!-- ============ СЕТКА ПРОПОРЦИЙ (новый блок) ============ -->
   <div class="panel-section">
-    <h3>Сетка пропорций</h3>
+    <h3>Сетка пропорций · рост в головах</h3>
 
-    <div class="row" style="margin-bottom: 12px;">
-      <label><input id="showGrid" type="checkbox" checked /> Показывать сетку равных долей</label>
+    <div class="row" style="margin-bottom: 10px;">
+      <label><input id="showGrid" type="checkbox" checked /> Показывать сетку</label>
     </div>
+
+    <!-- Слайдер: количество голов -->
     <div class="slider-row">
-      <div class="label-line"><span>Шаг сетки (от верха bbox)</span><span id="gridStepVal">13%</span></div>
-      <input id="gridStep" type="range" min="1" max="50" value="13" step="1" />
+      <div class="label-line">
+        <span>Рост, голов</span>
+        <span id="headCountVal">7.5</span>
+      </div>
+      <input id="headCount" type="range" min="2.5" max="10" value="7.5" step="0.1" />
     </div>
 
-    <div class="row" style="gap:6px; margin-top: 12px;">
-      <button id="gridResetBtn" class="btn-small">Сброс</button>
-      <span class="hint-inline">1% = 99 линий, 50% = 1 линия.</span>
+    <!-- Пресеты -->
+    <div class="presets" id="presetsRow">
+      <button class="preset" data-heads="3">3 · чиби</button>
+      <button class="preset" data-heads="4">4 · супер-чиби</button>
+      <button class="preset" data-heads="5">5 · стилиз.</button>
+      <button class="preset" data-heads="6">6 · аниме</button>
+      <button class="preset" data-heads="7">7 · реализм</button>
+      <button class="preset active" data-heads="7.5">7.5 · классика</button>
+      <button class="preset" data-heads="8">8 · героич.</button>
+      <button class="preset" data-heads="9">9 · модель</button>
+    </div>
+
+    <!-- Автоопределение головы -->
+    <div class="row" style="gap:8px; margin-top: 12px;">
+      <button id="findHeadBtn" class="btn-small btn-accent">🔍 Найти голову</button>
+      <span id="findHeadStatus" class="hint-inline"></span>
+    </div>
+
+    <!-- Режим: от макушки / по центру головы -->
+    <div class="row" style="margin-top: 10px;">
+      <label><input type="radio" name="gridAlign" value="from-top" checked /> От макушки</label>
+      <label><input type="radio" name="gridAlign" value="centered" /> По центру головы</label>
+    </div>
+
+    <!-- Ручной шаг % (вторичный) -->
+    <details class="advanced">
+      <summary>Дополнительно: ручной шаг в %</summary>
+      <div class="slider-row">
+        <div class="label-line">
+          <span>Шаг сетки</span>
+          <span id="gridStepVal">13.3%</span>
+        </div>
+        <input id="gridStep" type="range" min="1" max="50" value="13" step="0.1" />
+      </div>
+      <div class="row" style="gap:6px; margin-top: 6px;">
+        <button id="gridResetBtn" class="btn-small">Сброс к 7.5</button>
+        <span class="hint-inline">Изменение % пересчитает головы.</span>
+      </div>
+    </details>
+
+    <div class="row" style="margin-top: 10px;">
+      <span id="gridSummary" class="hint-inline">7.5 голов · шаг 13.33% · 7 линий</span>
     </div>
   </div>
 
@@ -275,7 +320,9 @@
     <div class="kv"><span>Заполнение</span><span id="infoFill">—</span></div>
     <div class="kv"><span>Гориз. поиск</span><span id="infoHoriz">—</span></div>
     <div class="kv"><span>Верт. поиск</span><span id="infoVert">—</span></div>
-    <div class="kv"><span>Сетка (шаг)</span><span id="infoGrid">—</span></div>
+    <div class="kv"><span>Голов</span><span id="infoHeads">—</span></div>
+    <div class="kv"><span>Шаг сетки</span><span id="infoGrid">—</span></div>
+    <div class="kv"><span>Высота головы</span><span id="infoHeadPx">—</span></div>
   </div>
 </div>
 
@@ -297,4 +344,4 @@
 
 <script src="app.js"></script>
 </body>
-</html>
+  </html>
