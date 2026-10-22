@@ -874,28 +874,53 @@ function drawOverlay() {
     overlayCtx.fillText(`гориз. поиск (${horizShiftPercent}%)`, bx + bw + 6 / zoom, py + fs / 3);
   }
 
-  // СЕТКА РАВНЫХ ДОЛЕЙ (шаг N%)
+  // ============================================================
+  // СЕТКА РАВНЫХ ДОЛЕЙ (шаг N%) — УСИЛЕННАЯ ВИДИМОСТЬ
+  // ============================================================
   if (charBBox && gridLines && gridLines.length > 0 && showGrid) {
     const { x: bx, y: by, w: bw, h: bh } = charBBox;
-    const lw = Math.max(1, 1 / zoom);
-    const fs = Math.max(9, 11 / zoom);
+    const lw = Math.max(1.5, 2.5 / zoom);
+    const fs = Math.max(11, 13 / zoom);
 
-    overlayCtx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-    overlayCtx.lineWidth = lw;
-    overlayCtx.setLineDash([2 / zoom, 4 / zoom]);
-    overlayCtx.font = `${fs}px system-ui, sans-serif`;
-    overlayCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    overlayCtx.font = `bold ${fs}px system-ui, sans-serif`;
+    overlayCtx.textBaseline = 'bottom';
 
     for (const gl of gridLines) {
+      // 1. Тёмная подложка-обводка для контраста
+      overlayCtx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+      overlayCtx.lineWidth = lw * 2.5;
+      overlayCtx.setLineDash([]);
       overlayCtx.beginPath();
       overlayCtx.moveTo(bx, gl.y);
       overlayCtx.lineTo(bx + bw, gl.y);
       overlayCtx.stroke();
 
-      // Подпись шага слева
-      overlayCtx.fillText(`${gl.percent}%`, bx + 4 / zoom, gl.y - 3 / zoom);
+      // 2. Яркая жёлтая линия с пунктиром
+      overlayCtx.strokeStyle = 'rgba(255, 220, 0, 0.95)';
+      overlayCtx.lineWidth = lw;
+      overlayCtx.setLineDash([10 / zoom, 6 / zoom]);
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(bx, gl.y);
+      overlayCtx.lineTo(bx + bw, gl.y);
+      overlayCtx.stroke();
+
+      // 3. Подпись с тёмной обводкой (справа)
+      const label = `${gl.percent}%`;
+      const tx = bx + bw - 4 / zoom;
+      const ty = gl.y - 4 / zoom;
+
+      overlayCtx.textAlign = 'right';
+      overlayCtx.lineWidth = 3 / zoom;
+      overlayCtx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+      overlayCtx.setLineDash([]);
+      overlayCtx.strokeText(label, tx, ty);
+
+      overlayCtx.fillStyle = '#ffdc00';
+      overlayCtx.fillText(label, tx, ty);
     }
     overlayCtx.setLineDash([]);
+    overlayCtx.textAlign = 'start';
+    overlayCtx.textBaseline = 'alphabetic';
   }
 
   // Точки-источники
@@ -1389,4 +1414,4 @@ smoothIterEl.disabled = !useSmoothEl.checked;
 updateCursor();
 </script>
 </body>
-  </html>
+</html>
