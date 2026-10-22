@@ -1,9 +1,9 @@
 // ============================================================
 //  Web Worker: тяжёлые вычисления маски
-//  VERSION: 2026-10-23 · Head-based grid + head detection
+//  VERSION: 2026-10-23 · A: шаг % первичен, головы = 100/шаг
 // ============================================================
 
-console.log('[worker] SCRIPT LOADED v2026-10-23');
+console.log('[worker] SCRIPT LOADED v2026-10-23 (variant A)');
 
 self.onmessage = (e) => {
   const { type, payload } = e.data;
@@ -44,16 +44,13 @@ self.onmessage = (e) => {
   }
 };
 
-// ============================================================
-//  Основная функция
-// ============================================================
 function buildMaskInWorker(p) {
   const {
     imageData, width, height,
     mode, thresholdLum, colorSamples, thresholdDist, invert,
     sourcePoints, autoSeeds, useSmooth, smoothIter, morphOpen, morphClose,
     regionTolerance, horizShiftPercent, vertShiftPercent,
-    headCount, gridAlign
+    gridStepPercent, gridAlign
   } = p;
 
   const w = width, h = height, N = w * h;
@@ -150,7 +147,7 @@ function buildMaskInWorker(p) {
       shiftPercent: hs
     };
 
-    const r = buildGridLines(bbox, headCount || 7.5, gridAlign || 'from-top');
+    const r = buildGridLines(bbox, gridStepPercent || 13, gridAlign || 'from-top');
     gridLines = r.lines;
     gridInfo = r.info;
   }
@@ -161,18 +158,16 @@ function buildMaskInWorker(p) {
   };
 }
 
-// ============================================================
-//  Сетка по количеству голов
-// ============================================================
-function buildGridLines(bbox, heads, align) {
-  const N = heads;
-  const stepPercent = 100 / N;
-  const offset = (align === 'centered') ? stepPercent / 2 : 0;
+// ПЕРВИЧНО: шаг в %. Головы = 100 / шаг.
+function buildGridLines(bbox, stepPercent, align) {
+  const step = stepPercent > 0 ? stepPercent : 13;
+  const offset = (align === 'centered') ? step / 2 : 0;
   const lines = [];
-  const headPx = bbox.h / N;
+  const headCount = 100 / step;
+  const headPx = bbox.h / headCount;
 
   for (let i = 1; ; i++) {
-    const p = i * stepPercent - offset;
+    const p = i * step - offset;
     if (p >= 100) break;
     if (p <= 0.01) continue;
     lines.push({
@@ -185,8 +180,8 @@ function buildGridLines(bbox, heads, align) {
   return {
     lines,
     info: {
-      headCount: N,
-      stepPercent,
+      stepPercent: step,
+      headCount,
       headPx: Math.round(headPx * 10) / 10,
       lines: lines.length,
       align
@@ -194,16 +189,12 @@ function buildGridLines(bbox, heads, align) {
   };
 }
 
-// ============================================================
-//  Поиск головы по горизонтальному профилю ширины
-// ============================================================
 function findHead(mask, w, h, bbox) {
   if (!mask || !bbox) return { ok: false, reason: 'нет маски' };
   const bx = bbox.x, by = bbox.y, bw = bbox.w, bh = bbox.h;
   const maxY = Math.min(bh - 1, Math.floor(bh * 0.5));
   const profile = new Float32Array(maxY + 1);
 
-  // Ширина силуэта (персонаж = mask===0)
   for (let yy = 0; yy <= maxY; yy++) {
     const rowY = by + yy;
     let c = 0;
@@ -214,7 +205,6 @@ function findHead(mask, w, h, bbox) {
     profile[yy] = c;
   }
 
-  // Сглаживание
   const sm = new Float32Array(profile.length);
   const k = 3;
   for (let i = 0; i < profile.length; i++) {
@@ -244,12 +234,9 @@ function findHead(mask, w, h, bbox) {
   const N = bh / headHeight;
   if (N < 2.5 || N > 10) return { ok: false, reason: 'нереалистичный рост ' + N.toFixed(1) };
 
-  return { ok: true, headCount: Math.round(N * 10) / 10, headPx: Math.round(headHeight) };
+  return { ok: true, headCount: Math.round(N * 100) / 100, headPx: Math.round(headHeight) };
 }
 
-// ============================================================
-//  Вспомогательные функции
-// ============================================================
 function computeCharacterBBox(mask, w, h, opts = {}) {
   const minSize = opts.minComponentSize ?? 100;
   const N = w * h;
@@ -400,4 +387,4 @@ function smoothOnce(mask, w, h) {
       else if (bgCount <= 1) mask[idx] = 0;
     }
   }
-}
+    }
