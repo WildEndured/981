@@ -1,28 +1,15 @@
 // ============================================================
 //  Маска фона · BBox · Сетка пропорций
-//  Главная логика. Разбит на секции:
-//   1. DOM
-//   2. Состояние
-//   3. Стиль
-//   4. Утилиты
-//   5. Worker + fallback
-//   6. Загрузка изображения
-//   7. Авто-семена
-//   8. Fallback-расчёт маски (копия worker.js)
-//   9. Пересчёт маски
-//  10. Отрисовка оверлея
-//  11. UI (info, списки)
-//  12. Zoom / Pan
-//  13. Клик по canvas
-//  14. Режимы, курсор
-//  15. Слайдеры сетки/линий
-//  16. Экспорт
-//  17. Init
+//  Секции:
+//   1. DOM · 2. Состояние · 3. Стиль · 4. Утилиты
+//   5. Worker + fallback · 6. Загрузка · 7. Авто-семена
+//   8. Fallback-расчёт · 9. Пересчёт · 10. Отрисовка
+//   11. UI · 12. Zoom/Pan · 13. Клик
+//   14. Режимы · 15. Сетка (головы/пресеты/поиск головы)
+//   16. Экспорт · 17. Слушатели · 18. Init
 // ============================================================
 
-// ============================================================
-//  0. ГЛОБАЛЬНЫЙ ПЕРЕХВАТ ОШИБОК
-// ============================================================
+// ---------- 0. Ошибки ----------
 const errBanner = document.getElementById('errBanner');
 function showError(msg) {
   console.error('[main]', msg);
@@ -33,9 +20,7 @@ window.addEventListener('error', (e) => {
   showError('JS error: ' + (e.message || e.error));
 });
 
-// ============================================================
-//  1. DOM
-// ============================================================
+// ---------- 1. DOM ----------
 const $ = (id) => document.getElementById(id);
 
 const fileInput = $('file');
@@ -68,10 +53,18 @@ const showHorizEl = $('showHoriz');
 const showVertEl = $('showVert');
 const searchLinesResetBtn = $('searchLinesResetBtn');
 
+// Сетка — новые контролы
+const showGridEl = $('showGrid');
+const headCountEl = $('headCount');
+const headCountVal = $('headCountVal');
+const presetsRow = $('presetsRow');
+const findHeadBtn = $('findHeadBtn');
+const findHeadStatus = $('findHeadStatus');
+const gridAlignRadios = document.querySelectorAll('input[name="gridAlign"]');
 const gridStepEl = $('gridStep');
 const gridStepVal = $('gridStepVal');
-const showGridEl = $('showGrid');
 const gridResetBtn = $('gridResetBtn');
+const gridSummary = $('gridSummary');
 
 const autoThresholdBtn = $('autoThresholdBtn');
 const pickBgColorBtn = $('pickBgColorBtn');
@@ -96,7 +89,9 @@ const infoWH = $('infoWH');
 const infoFill = $('infoFill');
 const infoHoriz = $('infoHoriz');
 const infoVert = $('infoVert');
+const infoHeads = $('infoHeads');
 const infoGrid = $('infoGrid');
+const infoHeadPx = $('infoHeadPx');
 const infoPointsCount = $('infoPointsCount');
 const pointList = $('pointList');
 const samplesList = $('samplesList');
@@ -109,9 +104,7 @@ const zoomResetBtn = $('zoomResetBtn');
 const baseCtx = baseCanvas.getContext('2d', { willReadFrequently: true });
 const overlayCtx = overlay.getContext('2d');
 
-// ============================================================
-//  2. СОСТОЯНИЕ
-// ============================================================
+// ---------- 2. Состояние ----------
 let imgWidth = 0, imgHeight = 0;
 let lum = null, isBg = null, imgDataRef = null, histogram = null;
 let selectedPointIndex = -1;
@@ -129,7 +122,11 @@ let gridLines = [];
 
 let horizShiftPercent = 0;
 let vertShiftPercent = 0;
-let gridStepPercent = 13;
+
+// Сетка: рост в головах
+let headCount = 7.5;
+let gridAlign = 'from-top'; // 'from-top' | 'centered'
+let gridInfo = { headCount: 7.5, stepPercent: 100 / 7.5, headPx: 0, lines: 0 };
 
 let showHoriz = true;
 let showVert = true;
@@ -147,9 +144,7 @@ let pendingBuild = false;
 let _seedsCache = null;
 function invalidateSeeds() { _seedsCache = null; }
 
-// ============================================================
-//  3. СТИЛЬ
-// ============================================================
+// ---------- 3. Стиль ----------
 const styleDefaults = {
   grid:  { color: '#ffdc00', width: 2.5, alpha: 0.95, dashed: true, dashLen: 10, dashGap: 6, outline: true, showLabels: true },
   horiz: { color: '#50b4ff', width: 3,   alpha: 1,    dashed: true, dashLen: 6,  dashGap: 4, outline: false },
@@ -229,7 +224,7 @@ function bindStyleControls() {
     bboxAlpha: ['bboxAlphaVal', v => (+v).toFixed(2)]
   };
   Object.keys(labelMap).forEach(id => {
-    const el = $('' + id);
+    const el = $(id);
     if (!el) return;
     const [labelId, fmt] = labelMap[id];
     const lbl = $(labelId);
@@ -322,9 +317,7 @@ $('styleResetBtn').addEventListener('click', () => {
   drawOverlay();
 });
 
-// ============================================================
-//  4. УТИЛИТЫ
-// ============================================================
+// ---------- 4. Утилиты ----------
 function debounce(fn, ms = 80) {
   let t = null;
   return (...args) => {
@@ -340,9 +333,7 @@ function updateCursor() {
   else stageWrap.style.cursor = 'grab';
 }
 
-// ============================================================
-//  5. WEB WORKER + FALLBACK
-// ============================================================
+// ---------- 5. Worker + fallback ----------
 function initWorker() {
   if (worker) return true;
   try {
@@ -362,11 +353,26 @@ function initWorker() {
       searchHorizLine = payload.searchHorizLine || null;
       vertAxis = payload.vertAxis || null;
       gridLines = payload.gridLines || [];
+      gridInfo = payload.gridInfo || gridInfo;
       drawOverlay();
       updateInfo();
       workerBusy = false;
       hideProgress();
       if (pendingBuild) { pendingBuild = false; rebuildAll(); }
+    } else if (type === 'headFound') {
+      if (payload.ok) {
+        headCount = payload.headCount;
+        headCountEl.value = headCount.toFixed(1);
+        headCountVal.textContent = headCount.toFixed(1);
+        findHeadStatus.textContent = `✓ найдено: ${headCount.toFixed(1)} голов (высота головы ${payload.headPx}px)`;
+        findHeadStatus.style.color = '#7bd88f';
+        updatePresetActive();
+        updateGridSummary();
+        rebuildAll();
+      } else {
+        findHeadStatus.textContent = '✗ не удалось определить голову (' + (payload.reason || 'нет шеи') + ')';
+        findHeadStatus.style.color = '#ff9090';
+      }
     } else if (type === 'error') {
       console.error('[main] worker error:', payload);
       workerBusy = false;
@@ -388,9 +394,7 @@ function initWorker() {
 function showProgress() { progressOverlay.classList.add('visible'); }
 function hideProgress() { progressOverlay.classList.remove('visible'); }
 
-// ============================================================
-//  6. ЗАГРУЗКА ИЗОБРАЖЕНИЯ
-// ============================================================
+// ---------- 6. Загрузка изображения ----------
 fileInput.addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
@@ -418,6 +422,7 @@ fileInput.addEventListener('change', e => {
       searchHorizLine = null;
       vertAxis = null;
       gridLines = [];
+      findHeadStatus.textContent = '';
       invalidateSeeds();
       autoPickThreshold();
       renderSamplesList();
@@ -453,9 +458,7 @@ function computeHistogram() {
   }
 }
 
-// ============================================================
-//  7. АВТО-ПОРОГ И АВТО-СЕМЕНА
-// ============================================================
+// ---------- 7. Авто-порог и авто-семена ----------
 function otsuThreshold(hist, N) {
   let sum = 0;
   for (let i = 0; i < 256; i++) sum += i * hist[i];
@@ -546,14 +549,13 @@ function getAutoSeeds() {
   return _seedsCache;
 }
 
-// ============================================================
-//  8. FALLBACK: расчёт маски в главном потоке
-// ============================================================
+// ---------- 8. Fallback-расчёт маски в главном потоке ----------
 function buildMaskMainThread(p) {
   const {
     imageData, width, height, mode, thresholdLum, colorSamples, thresholdDist,
     invert, sourcePoints, autoSeeds, useSmooth, smoothIter, morphOpen, morphClose,
-    regionTolerance, horizShiftPercent, vertShiftPercent, gridStepPercent
+    regionTolerance, horizShiftPercent, vertShiftPercent,
+    headCount, gridAlign
   } = p;
 
   const w = width, h = height, N = w * h;
@@ -630,7 +632,7 @@ function buildMaskMainThread(p) {
   for (let i = 0; i < N; i++) if (mask[i]) bgCount++;
 
   const bbox = computeBBox(mask, w, h, 200);
-  let searchHorizLine = null, vertAxis = null, gridLines = [];
+  let searchHorizLine = null, vertAxis = null, gridLines = [], gridInfo = null;
 
   if (bbox) {
     const shiftVal = vertShiftPercent || 0;
@@ -647,14 +649,43 @@ function buildMaskMainThread(p) {
       shiftPercent: hs
     };
 
-    const step = gridStepPercent || 13;
-    for (let p2 = step; p2 < 100; p2 += step) {
-      const gy = Math.round(bbox.h * (p2 / 100));
-      gridLines.push({ y: bbox.y + gy, yNorm: p2 / 100, percent: p2 });
-    }
+    const r = buildGridLines(bbox, headCount, gridAlign);
+    gridLines = r.lines;
+    gridInfo = r.info;
   }
 
-  return { mask, bgCount, width: w, height: h, bbox, searchHorizLine, vertAxis, gridLines };
+  return { mask, bgCount, width: w, height: h, bbox, searchHorizLine, vertAxis, gridLines, gridInfo };
+}
+
+// Общая функция построения линий сетки по количеству голов
+function buildGridLines(bbox, heads, align) {
+  const N = heads;
+  const stepPercent = 100 / N;
+  const offset = (align === 'centered') ? stepPercent / 2 : 0;
+  const lines = [];
+  const headPx = bbox.h / N;
+
+  for (let i = 1; ; i++) {
+    const p = i * stepPercent - offset;
+    if (p >= 100) break;
+    if (p <= 0.01) continue;
+    lines.push({
+      y: bbox.y + Math.round(bbox.h * p / 100),
+      yNorm: p / 100,
+      percent: +p.toFixed(2)
+    });
+  }
+
+  return {
+    lines,
+    info: {
+      headCount: N,
+      stepPercent,
+      headPx: Math.round(headPx * 10) / 10,
+      lines: lines.length,
+      align
+    }
+  };
 }
 
 function maskErode(mask, w, h) {
@@ -721,9 +752,7 @@ function computeBBox(mask, w, h, minSize) {
   };
 }
 
-// ============================================================
-//  9. ПЕРЕСЧЁТ МАСКИ
-// ============================================================
+// ---------- 9. Пересчёт маски ----------
 function rebuildAll() {
   if (!lum || !imgDataRef) return;
   if (!worker) initWorker();
@@ -750,7 +779,8 @@ function rebuildAll() {
     morphOpen: +morphOpenEl.value,
     morphClose: +morphCloseEl.value,
     regionTolerance: +regionTolEl.value,
-    horizShiftPercent, vertShiftPercent, gridStepPercent
+    horizShiftPercent, vertShiftPercent,
+    headCount, gridAlign
   };
 
   if (worker) {
@@ -765,6 +795,7 @@ function rebuildAll() {
         searchHorizLine = result.searchHorizLine;
         vertAxis = result.vertAxis;
         gridLines = result.gridLines;
+        gridInfo = result.gridInfo || gridInfo;
         drawOverlay();
         updateInfo();
       } catch (e) {
@@ -780,9 +811,7 @@ function rebuildAll() {
 
 const rebuildAllDebounced = debounce(rebuildAll, 80);
 
-// ============================================================
-//  10. ОТРИСОВКА ОВЕРЛЕЯ
-// ============================================================
+// ---------- 10. Отрисовка оверлея ----------
 function drawOverlay() {
   const w = imgWidth, h = imgHeight;
   if (!w) return;
@@ -947,9 +976,7 @@ function drawOverlay() {
   });
 }
 
-// ============================================================
-//  11. UI
-// ============================================================
+// ---------- 11. UI ----------
 function updateInfo() {
   if (!lum) return;
   const N = imgWidth * imgHeight;
@@ -974,9 +1001,14 @@ function updateInfo() {
   infoVert.textContent = (charBBox && vertAxis)
     ? `x:${vertAxis.x} (norm ${(vertAxis.xNorm * 100).toFixed(1)}%, сдвиг ${vertShiftPercent}%)`
     : '—';
-  infoGrid.textContent = (charBBox && gridLines.length > 0)
-    ? `${gridStepPercent}% (${gridLines.length} лин.)`
-    : '—';
+
+  if (charBBox && gridInfo) {
+    infoHeads.textContent = `${gridInfo.headCount.toFixed(1)}`;
+    infoGrid.textContent = `${gridInfo.stepPercent.toFixed(2)}% (${gridInfo.lines} лин.)`;
+    infoHeadPx.textContent = `${gridInfo.headPx}px`;
+  } else {
+    infoHeads.textContent = infoGrid.textContent = infoHeadPx.textContent = '—';
+  }
 
   renderPointList();
 }
@@ -1032,9 +1064,7 @@ function renderSamplesList() {
   });
 }
 
-// ============================================================
-//  12. ZOOM / PAN
-// ============================================================
+// ---------- 12. Zoom / Pan ----------
 function applyTransform() {
   stageEl.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
   infoZoom.textContent = Math.round(zoom * 100) + '%';
@@ -1155,9 +1185,7 @@ stageWrap.addEventListener('touchmove', (e) => {
 
 stageWrap.addEventListener('touchend', () => { touchMode = null; }, { passive: true });
 
-// ============================================================
-//  13. КЛИК ПО CANVAS
-// ============================================================
+// ---------- 13. Клик по canvas ----------
 function clientToImage(clientX, clientY) {
   const rect = stageEl.getBoundingClientRect();
   return {
@@ -1218,9 +1246,7 @@ function removePoint(index) {
   rebuildAll();
 }
 
-// ============================================================
-//  14. РЕЖИМЫ, КУРСОР
-// ============================================================
+// ---------- 14. Режимы, курсор ----------
 function setMode(newMode) {
   mode = newMode;
   modeSeg.querySelectorAll('button').forEach(b => {
@@ -1266,9 +1292,168 @@ clearPointsBtn.addEventListener('click', () => {
   if (lum) rebuildAll();
 });
 
-// ============================================================
-//  15. СЛАЙДЕРЫ СЕТКИ / ЛИНИЙ
-// ============================================================
+// ---------- 15. Сетка: головы, пресеты, поиск головы, шаг % ----------
+function updatePresetActive() {
+  presetsRow.querySelectorAll('.preset').forEach(btn => {
+    const v = +btn.dataset.heads;
+    btn.classList.toggle('active', Math.abs(v - headCount) < 0.05);
+  });
+}
+
+function updateGridSummary() {
+  if (!gridInfo) return;
+  const alignLabel = gridAlign === 'centered' ? 'по центру головы' : 'от макушки';
+  gridSummary.textContent = `${gridInfo.headCount.toFixed(1)} голов · шаг ${gridInfo.stepPercent.toFixed(2)}% · ${gridInfo.lines} линий · ${alignLabel}`;
+}
+
+// Слайдер голов
+headCountEl.addEventListener('input', () => {
+  headCount = +headCountEl.value;
+  headCountVal.textContent = headCount.toFixed(1);
+  // Обновить ручной шаг %
+  gridStepEl.value = (100 / headCount).toFixed(1);
+  gridStepVal.textContent = (100 / headCount).toFixed(2) + '%';
+  updatePresetActive();
+  if (lum) rebuildAllDebounced();
+});
+
+// Пресеты
+presetsRow.addEventListener('click', (e) => {
+  const btn = e.target.closest('.preset');
+  if (!btn) return;
+  headCount = +btn.dataset.heads;
+  headCountEl.value = headCount.toFixed(1);
+  headCountVal.textContent = headCount.toFixed(1);
+  gridStepEl.value = (100 / headCount).toFixed(1);
+  gridStepVal.textContent = (100 / headCount).toFixed(2) + '%';
+  updatePresetActive();
+  if (lum) rebuildAll();
+});
+
+// Ручной шаг % — пересчитывает головы
+gridStepEl.addEventListener('input', () => {
+  const stepPct = +gridStepEl.value;
+  if (stepPct > 0) {
+    headCount = 100 / stepPct;
+    headCountEl.value = Math.max(2.5, Math.min(10, headCount)).toFixed(1);
+    headCountVal.textContent = headCount.toFixed(1);
+    gridStepVal.textContent = stepPct.toFixed(2) + '%';
+    updatePresetActive();
+    if (lum) rebuildAllDebounced();
+  }
+});
+
+gridResetBtn.addEventListener('click', () => {
+  headCount = 7.5;
+  headCountEl.value = '7.5';
+  headCountVal.textContent = '7.5';
+  gridStepEl.value = '13.3';
+  gridStepVal.textContent = '13.33%';
+  updatePresetActive();
+  if (lum) rebuildAll();
+});
+
+// Выравнивание сетки
+gridAlignRadios.forEach(r => {
+  r.addEventListener('change', () => {
+    gridAlign = r.value;
+    updateGridSummary();
+    if (lum) rebuildAll();
+  });
+});
+
+// Поиск головы
+findHeadBtn.addEventListener('click', () => {
+  if (!lum) { findHeadStatus.textContent = 'Сначала загрузите изображение'; findHeadStatus.style.color = '#ff9090'; return; }
+  if (!charBBox) { findHeadStatus.textContent = 'Нет bbox — сначала выделите персонажа'; findHeadStatus.style.color = '#ff9090'; return; }
+
+  findHeadStatus.textContent = 'Поиск…';
+  findHeadStatus.style.color = '';
+
+  if (!worker) initWorker();
+  if (worker) {
+    worker.postMessage({
+      type: 'findHead',
+      payload: {
+        width: imgWidth,
+        height: imgHeight,
+        mask: isBg ? new Uint8Array(isBg) : null,
+        bbox: charBBox
+      }
+    });
+  } else {
+    // Fallback: локальный поиск головы по маске
+    const res = findHeadLocal(isBg, imgWidth, imgHeight, charBBox);
+    if (res.ok) {
+      headCount = res.headCount;
+      headCountEl.value = headCount.toFixed(1);
+      headCountVal.textContent = headCount.toFixed(1);
+      findHeadStatus.textContent = `✓ найдено: ${headCount.toFixed(1)} голов (высота головы ${res.headPx}px)`;
+      findHeadStatus.style.color = '#7bd88f';
+      updatePresetActive();
+      rebuildAll();
+    } else {
+      findHeadStatus.textContent = '✗ не удалось определить голову (' + (res.reason || 'нет шеи') + ')';
+      findHeadStatus.style.color = '#ff9090';
+    }
+  }
+});
+
+// Локальный поиск головы (fallback)
+function findHeadLocal(mask, w, h, bbox) {
+  if (!mask || !bbox) return { ok: false, reason: 'нет маски' };
+  const bx = bbox.x, by = bbox.y, bw = bbox.w, bh = bbox.h;
+  const maxY = Math.min(bh - 1, Math.floor(bh * 0.5));
+  const profile = new Float32Array(maxY + 1);
+
+  for (let yy = 0; yy <= maxY; yy++) {
+    const rowY = by + yy;
+    let c = 0;
+    for (let xx = 0; xx < bw; xx++) {
+      const idx = rowY * w + (bx + xx);
+      if (mask[idx] === 0) c++;
+    }
+    profile[yy] = c;
+  }
+
+  // Сглаживание
+  const sm = new Float32Array(profile.length);
+  const k = 3;
+  for (let i = 0; i < profile.length; i++) {
+    let s = 0, n = 0;
+    for (let d = -k; d <= k; d++) {
+      const j = i + d;
+      if (j < 0 || j >= profile.length) continue;
+      s += profile[j]; n++;
+    }
+    sm[i] = s / n;
+  }
+
+  // Ищем в верхней половине: локальный минимум в [0.15h, 0.45h]
+  const lo = Math.floor(bh * 0.15);
+  const hi = Math.min(sm.length - 1, Math.floor(bh * 0.45));
+  let maxW = 0;
+  for (let i = 0; i <= hi; i++) if (sm[i] > maxW) maxW = sm[i];
+  if (maxW < 1) return { ok: false, reason: 'пустой верх' };
+
+  let bestY = -1, bestVal = Infinity;
+  for (let i = lo; i <= hi; i++) {
+    if (sm[i] < bestVal) { bestVal = sm[i]; bestY = i; }
+  }
+  if (bestY < 0 || bestVal > 0.7 * maxW) return { ok: false, reason: 'нет сужения (шея не найдена)' };
+
+  const headHeight = bestY;
+  if (headHeight < bh * 0.08) return { ok: false, reason: 'голова слишком мала' };
+  const N = bh / headHeight;
+  if (N < 2.5 || N > 10) return { ok: false, reason: 'нереалистичный рост ' + N.toFixed(1) };
+
+  return { ok: true, headCount: Math.round(N * 10) / 10, headPx: Math.round(headHeight) };
+}
+
+// Checkbox «показывать сетку»
+showGridEl.addEventListener('change', () => { showGrid = showGridEl.checked; drawOverlay(); });
+
+// Старые слушатели для линий поиска
 horizShiftEl.addEventListener('input', () => {
   horizShiftPercent = +horizShiftEl.value;
   horizShiftVal.textContent = horizShiftPercent + '%';
@@ -1281,15 +1466,8 @@ vertShiftEl.addEventListener('input', () => {
   if (lum) rebuildAllDebounced();
 });
 
-gridStepEl.addEventListener('input', () => {
-  gridStepPercent = +gridStepEl.value;
-  gridStepVal.textContent = gridStepPercent + '%';
-  if (lum) rebuildAllDebounced();
-});
-
 showHorizEl.addEventListener('change', () => { showHoriz = showHorizEl.checked; drawOverlay(); });
 showVertEl.addEventListener('change', () => { showVert = showVertEl.checked; drawOverlay(); });
-showGridEl.addEventListener('change', () => { showGrid = showGridEl.checked; drawOverlay(); });
 
 searchLinesResetBtn.addEventListener('click', () => {
   horizShiftPercent = 0; horizShiftEl.value = 0; horizShiftVal.textContent = '0%';
@@ -1297,14 +1475,7 @@ searchLinesResetBtn.addEventListener('click', () => {
   if (lum) rebuildAll();
 });
 
-gridResetBtn.addEventListener('click', () => {
-  gridStepPercent = 13; gridStepEl.value = 13; gridStepVal.textContent = '13%';
-  if (lum) rebuildAll();
-});
-
-// ============================================================
-//  16. ЭКСПОРТ
-// ============================================================
+// ---------- 16. Экспорт ----------
 toggleImageBtn.addEventListener('click', () => {
   hideImage = !hideImage;
   stageEl.classList.toggle('hide-base', hideImage);
@@ -1355,9 +1526,7 @@ exportCutBtn.addEventListener('click', () => {
   downloadCanvasPNG(c, 'cutout.png');
 });
 
-// ============================================================
-//  17. СЛУШАТЕЛИ ПАРАМЕТРОВ МАСКИ
-// ============================================================
+// ---------- 17. Слушатели параметров маски ----------
 bgLumEl.addEventListener('input', () => {
   bgLumVal.textContent = bgLumEl.value;
   invalidateSeeds();
@@ -1393,15 +1562,22 @@ morphCloseEl.addEventListener('input', () => {
   if (lum) rebuildAllDebounced();
 });
 
-// ============================================================
-//  18. INIT
-// ============================================================
+// ---------- 18. Init ----------
 try {
   initWorker();
   smoothIterEl.disabled = !useSmoothEl.checked;
   updateCursor();
   bindStyleControls();
   setStyleUIFromState();
+
+  // Инициализация сетки: слайдер голов, шаг %, пресеты
+  headCountEl.value = headCount.toFixed(1);
+  headCountVal.textContent = headCount.toFixed(1);
+  gridStepEl.value = (100 / headCount).toFixed(1);
+  gridStepVal.textContent = (100 / headCount).toFixed(2) + '%';
+  updatePresetActive();
+  updateGridSummary();
+
   console.log('[main] init OK');
 } catch (e) {
   showError('Init error: ' + (e.message || e));
