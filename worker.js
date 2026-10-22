@@ -1,12 +1,13 @@
 // ============================================================
 //  Web Worker: тяжёлые вычисления маски
-//  VERSION: 2025-01-08 · Grid (13%) + Search lines
+//  VERSION: 2026-10-23 · Head-based grid + head detection
 // ============================================================
 
-console.log('[worker] SCRIPT LOADED v2025-01-08');
+console.log('[worker] SCRIPT LOADED v2026-10-23');
 
 self.onmessage = (e) => {
   const { type, payload } = e.data;
+
   if (type === 'buildMask') {
     try {
       const result = buildMaskInWorker(payload);
@@ -20,39 +21,42 @@ self.onmessage = (e) => {
           bbox: result.bbox,
           searchHorizLine: result.searchHorizLine,
           vertAxis: result.vertAxis,
-          gridLines: result.gridLines
+          gridLines: result.gridLines,
+          gridInfo: result.gridInfo
         }
       });
     } catch (err) {
       console.error('[worker] error:', err);
       self.postMessage({ type: 'error', payload: String(err && err.message || err) });
     }
+    return;
+  }
+
+  if (type === 'findHead') {
+    try {
+      const result = findHead(payload.mask, payload.width, payload.height, payload.bbox);
+      self.postMessage({ type: 'headFound', payload: result });
+    } catch (err) {
+      console.error('[worker] findHead error:', err);
+      self.postMessage({ type: 'headFound', payload: { ok: false, reason: String(err && err.message || err) } });
+    }
+    return;
   }
 };
 
+// ============================================================
+//  Основная функция
+// ============================================================
 function buildMaskInWorker(p) {
   const {
-    imageData,
-    width, height,
-    mode,
-    thresholdLum,
-    colorSamples,
-    thresholdDist,
-    invert,
-    sourcePoints,
-    autoSeeds,
-    useSmooth,
-    smoothIter,
-    morphOpen,
-    morphClose,
-    regionTolerance,
-    horizShiftPercent,
-    vertShiftPercent,
-    gridStepPercent
+    imageData, width, height,
+    mode, thresholdLum, colorSamples, thresholdDist, invert,
+    sourcePoints, autoSeeds, useSmooth, smoothIter, morphOpen, morphClose,
+    regionTolerance, horizShiftPercent, vertShiftPercent,
+    headCount, gridAlign
   } = p;
 
-  const w = width, h = height;
-  const N = w * h;
+  const w = width, h = height, N = w * h;
   const data = imageData.data;
 
   const lum = new Float32Array(N);
@@ -122,7 +126,6 @@ function buildMaskInWorker(p) {
     for (let i = 0; i < morphClose; i++) dilate(mask, w, h);
     for (let i = 0; i < morphClose; i++) erode(mask, w, h);
   }
-
   if (useSmooth) {
     for (let i = 0; i < smoothIter; i++) smoothOnce(mask, w, h);
   }
@@ -134,38 +137,119 @@ function buildMaskInWorker(p) {
   let searchHorizLine = null;
   let vertAxis = null;
   let gridLines = [];
+  let gridInfo = null;
 
   if (bbox) {
     vertAxis = computeVertAxis(bbox, vertShiftPercent);
 
-    const horizShift = (typeof horizShiftPercent !== 'undefined') ? horizShiftPercent : 0;
-    const horizY = Math.round(bbox.h * (0.5 + horizShift / 100));
+    const hs = (typeof horizShiftPercent !== 'undefined') ? horizShiftPercent : 0;
+    const hy = Math.round(bbox.h * (0.5 + hs / 100));
     searchHorizLine = {
-      y: bbox.y + Math.max(0, Math.min(bbox.h - 1, horizY)),
-      yNorm: 0.5 + horizShift / 100,
-      shiftPercent: horizShift
+      y: bbox.y + Math.max(0, Math.min(bbox.h - 1, hy)),
+      yNorm: 0.5 + hs / 100,
+      shiftPercent: hs
     };
 
-    // Сетка с шагом (по умолчанию 13%)
-    const step = (typeof gridStepPercent !== 'undefined') ? gridStepPercent : 13;
-    if (step > 0) {
-      for (let p = step; p < 100; p += step) {
-        const gy = Math.round(bbox.h * (p / 100));
-        gridLines.push({
-          y: bbox.y + gy,
-          yNorm: p / 100,
-          percent: p
-        });
-      }
-    }
+    const r = buildGridLines(bbox, headCount || 7.5, gridAlign || 'from-top');
+    gridLines = r.lines;
+    gridInfo = r.info;
   }
 
   return {
     mask, bgCount, width: w, height: h,
-    bbox, searchHorizLine, vertAxis, gridLines
+    bbox, searchHorizLine, vertAxis, gridLines, gridInfo
   };
 }
 
+// ============================================================
+//  Сетка по количеству голов
+// ============================================================
+function buildGridLines(bbox, heads, align) {
+  const N = heads;
+  const stepPercent = 100 / N;
+  const offset = (align === 'centered') ? stepPercent / 2 : 0;
+  const lines = [];
+  const headPx = bbox.h / N;
+
+  for (let i = 1; ; i++) {
+    const p = i * stepPercent - offset;
+    if (p >= 100) break;
+    if (p <= 0.01) continue;
+    lines.push({
+      y: bbox.y + Math.round(bbox.h * p / 100),
+      yNorm: p / 100,
+      percent: +p.toFixed(2)
+    });
+  }
+
+  return {
+    lines,
+    info: {
+      headCount: N,
+      stepPercent,
+      headPx: Math.round(headPx * 10) / 10,
+      lines: lines.length,
+      align
+    }
+  };
+}
+
+// ============================================================
+//  Поиск головы по горизонтальному профилю ширины
+// ============================================================
+function findHead(mask, w, h, bbox) {
+  if (!mask || !bbox) return { ok: false, reason: 'нет маски' };
+  const bx = bbox.x, by = bbox.y, bw = bbox.w, bh = bbox.h;
+  const maxY = Math.min(bh - 1, Math.floor(bh * 0.5));
+  const profile = new Float32Array(maxY + 1);
+
+  // Ширина силуэта (персонаж = mask===0)
+  for (let yy = 0; yy <= maxY; yy++) {
+    const rowY = by + yy;
+    let c = 0;
+    for (let xx = 0; xx < bw; xx++) {
+      const idx = rowY * w + (bx + xx);
+      if (mask[idx] === 0) c++;
+    }
+    profile[yy] = c;
+  }
+
+  // Сглаживание
+  const sm = new Float32Array(profile.length);
+  const k = 3;
+  for (let i = 0; i < profile.length; i++) {
+    let s = 0, n = 0;
+    for (let d = -k; d <= k; d++) {
+      const j = i + d;
+      if (j < 0 || j >= profile.length) continue;
+      s += profile[j]; n++;
+    }
+    sm[i] = s / n;
+  }
+
+  const lo = Math.floor(bh * 0.15);
+  const hi = Math.min(sm.length - 1, Math.floor(bh * 0.45));
+  let maxW = 0;
+  for (let i = 0; i <= hi; i++) if (sm[i] > maxW) maxW = sm[i];
+  if (maxW < 1) return { ok: false, reason: 'пустой верх' };
+
+  let bestY = -1, bestVal = Infinity;
+  for (let i = lo; i <= hi; i++) {
+    if (sm[i] < bestVal) { bestVal = sm[i]; bestY = i; }
+  }
+  if (bestY < 0 || bestVal > 0.7 * maxW) return { ok: false, reason: 'нет сужения (шея не найдена)' };
+
+  const headHeight = bestY;
+  if (headHeight < bh * 0.08) return { ok: false, reason: 'голова слишком мала' };
+  const N = bh / headHeight;
+  if (N < 2.5 || N > 10) return { ok: false, reason: 'нереалистичный рост ' + N.toFixed(1) };
+
+  return { ok: true, headCount: Math.round(N * 10) / 10, headPx: Math.round(headHeight) };
+}
+
+// ============================================================
+//  Вспомогательные функции
+// ============================================================
 function computeCharacterBBox(mask, w, h, opts = {}) {
   const minSize = opts.minComponentSize ?? 100;
   const N = w * h;
@@ -316,4 +400,4 @@ function smoothOnce(mask, w, h) {
       else if (bgCount <= 1) mask[idx] = 0;
     }
   }
-      }
+}
