@@ -16,7 +16,6 @@ body {
   padding: 8px 8px 40px; gap: 10px; min-height: 100vh;
 }
 
-/* ---------- TOPBAR ---------- */
 .topbar {
   width: 100%; max-width: 1100px;
   display: flex; gap: 6px; align-items: center;
@@ -42,7 +41,6 @@ body {
 }
 .topbar button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* ---------- STAGE ---------- */
 .stage-wrap {
   position: relative;
   width: min(96vw, 1100px);
@@ -68,7 +66,6 @@ body {
 .stage canvas#overlay { position: absolute; inset: 0; pointer-events: none; }
 .stage.hide-base canvas#base { visibility: hidden; }
 
-/* ---------- PROGRESS ---------- */
 .progress-overlay {
   position: absolute; inset: 0;
   display: none; align-items: center; justify-content: center;
@@ -86,7 +83,6 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ---------- ZOOM ---------- */
 .zoom-bar {
   position: absolute;
   right: 10px; bottom: 10px;
@@ -101,7 +97,6 @@ body {
 }
 .zoom-bar button:hover { background: var(--accent); border-color: var(--accent); }
 
-/* ---------- PANELS ---------- */
 .panel {
   width: 100%; max-width: 1100px;
   background: var(--panel); border-radius: 12px;
@@ -121,7 +116,6 @@ body {
   color: #ffcc00; font-weight: 600;
 }
 
-/* ---------- CONTROLS ---------- */
 .row {
   display: flex; flex-wrap: wrap; gap: 8px;
   align-items: center; margin-bottom: 8px;
@@ -181,7 +175,6 @@ input[type="color"] {
 
 .hint-inline { font-size: 12px; color: var(--muted); }
 
-/* ---------- PRESETS ---------- */
 .presets {
   display: flex; flex-wrap: wrap; gap: 6px;
   margin-top: 8px;
@@ -196,7 +189,6 @@ input[type="color"] {
   background: var(--accent); border-color: var(--accent); color: #fff;
 }
 
-/* ---------- ADVANCED ---------- */
 details.advanced {
   margin-top: 12px;
   border-top: 1px dashed var(--border);
@@ -209,7 +201,6 @@ details.advanced summary {
 }
 details.advanced summary:hover { color: var(--muted-2); }
 
-/* ---------- INFO ---------- */
 .kv {
   display: flex; justify-content: space-between; gap: 10px;
   padding: 5px 0; border-bottom: 1px dashed var(--border); font-size: 13px;
@@ -223,7 +214,6 @@ details.advanced summary:hover { color: var(--muted-2); }
   padding: 0 8px;
 }
 
-/* ---------- POINTS ---------- */
 .point-list { max-height: 240px; overflow-y: auto; font-size: 13px; }
 .point-item {
   display: flex; justify-content: space-between; align-items: center;
@@ -251,7 +241,6 @@ details.advanced summary:hover { color: var(--muted-2); }
 .empty-note { color: var(--muted); font-size: 12px; padding: 4px 0; }
 .count-muted { color: var(--muted); font-weight: 400; }
 
-/* ---------- SAMPLES ---------- */
 .sample-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .sample-chip {
   display: flex; align-items: center; gap: 6px;
@@ -265,7 +254,6 @@ details.advanced summary:hover { color: var(--muted-2); }
 }
 .sample-empty { color: var(--muted); font-size: 12px; }
 
-/* ---------- SEG ---------- */
 .seg {
   display: inline-flex;
   border: 1px solid #333a44; border-radius: 8px;
@@ -280,7 +268,6 @@ details.advanced summary:hover { color: var(--muted-2); }
 .seg button:last-child { border-right: none; }
 .seg button.active { background: var(--accent); color: #fff; }
 
-/* ---------- STYLE GRID ---------- */
 .style-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -305,7 +292,6 @@ details.advanced summary:hover { color: var(--muted-2); }
   border: 1px solid rgba(255,255,255,0.25);
 }
 
-/* ---------- ERROR BANNER ---------- */
 .err-banner {
   display: none;
   width: 100%; max-width: 1100px;
@@ -315,9 +301,8 @@ details.advanced summary:hover { color: var(--muted-2); }
 }
 .err-banner.visible { display: block; }
 
-/* ---------- MOBILE ---------- */
 @media (max-width: 600px) {
   body { padding: 6px 6px 30px; gap: 8px; }
   .topbar button, .topbar .file-label { height: 36px; padding: 0 10px; font-size: 12px; }
   .stage-wrap { height: 55vh; }
-  }
+}
