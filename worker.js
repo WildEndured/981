@@ -158,7 +158,6 @@ function buildMaskInWorker(p) {
   };
 }
 
-// ПЕРВИЧНО: шаг в %. Головы = 100 / шаг.
 function buildGridLines(bbox, stepPercent, align) {
   const step = stepPercent > 0 ? stepPercent : 13;
   const offset = (align === 'centered') ? step / 2 : 0;
