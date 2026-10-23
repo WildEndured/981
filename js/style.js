@@ -159,8 +159,11 @@ function setStyleUIFromState() {
   sw('bboxColorSwatch', style.bbox.color);
 }
 
-$('styleResetBtn').addEventListener('click', () => {
-  Object.assign(style, JSON.parse(JSON.stringify(styleDefaults)));
-  setStyleUIFromState();
-  drawOverlay();
-});
+const styleResetBtn = $('styleResetBtn');
+if (styleResetBtn) {
+  styleResetBtn.addEventListener('click', () => {
+    Object.assign(style, JSON.parse(JSON.stringify(styleDefaults)));
+    setStyleUIFromState();
+    drawOverlay();
+  });
+}
