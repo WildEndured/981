@@ -341,3 +341,79 @@ function buildProportionLinesLocal(bbox, headCount) {
   const N = (headCount && headCount > 0) ? headCount : 7.5;
   const h = bbox.h;
   const base = 7.5;
+  const pubicHeads = 0.43 * base;
+  const kneesHeads = 0.64 * base;
+  const yOf = (fraction) => bbox.y + Math.round(h * fraction);
+
+  return [
+    { id: 'crown',    label: 'Макушка',    percent: 0,                                  y: yOf(0),                   enabled: propEnabled.crown },
+    { id: 'chin',     label: 'Подбородок', percent: +(100 / N).toFixed(1),              y: yOf(1 / N),               enabled: propEnabled.chin },
+    { id: 'shoulders',label: 'Плечи',      percent: +(1.2 * 100 / N).toFixed(1),        y: yOf(1.2 / N),             enabled: propEnabled.shoulders },
+    { id: 'pubic',    label: 'Лобок',      percent: +(pubicHeads * 100 / N).toFixed(1), y: yOf(pubicHeads / N),      enabled: propEnabled.pubic },
+    { id: 'knees',    label: 'Колени',     percent: +(kneesHeads * 100 / N).toFixed(1), y: yOf(kneesHeads / N),      enabled: propEnabled.knees }
+  ];
+}
+
+function maskErode(mask, w, h) {
+  const copy = mask.slice();
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const i = y * w + x;
+    if (!copy[i]) continue;
+    if (!copy[i-1] || !copy[i+1] || !copy[i-w] || !copy[i+w]) mask[i] = 0;
+  }
+}
+function maskDilate(mask, w, h) {
+  const copy = mask.slice();
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const i = y * w + x;
+    if (copy[i]) continue;
+    if (copy[i-1] || copy[i+1] || copy[i-w] || copy[i+w]) mask[i] = 1;
+  }
+}
+function maskSmooth(mask, w, h) {
+  const copy = mask.slice();
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const i = y * w + x;
+    let c = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      c += copy[i + dy * w + dx];
+    }
+    if (c >= 7) mask[i] = 1; else if (c <= 1) mask[i] = 0;
+  }
+}
+function computeBBox(mask, w, h, minSize) {
+  const N = w * h;
+  const visited = new Uint8Array(N);
+  const queue = new Int32Array(N);
+  let best = null, bestSize = 0;
+  for (let start = 0; start < N; start++) {
+    if (visited[start] || mask[start] === 1) continue;
+    let head = 0, tail = 0;
+    queue[tail++] = start; visited[start] = 1;
+    let minX = w, minY = h, maxX = -1, maxY = -1, size = 0;
+    while (head < tail) {
+      const cur = queue[head++];
+      const cx = cur % w, cy = (cur / w) | 0;
+      size++;
+      if (cx < minX) minX = cx; if (cy < minY) minY = cy;
+      if (cx > maxX) maxX = cx; if (cy > maxY) maxY = cy;
+      if (cx > 0)     { const n = cur - 1; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
+      if (cx < w - 1) { const n = cur + 1; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
+      if (cy > 0)     { const n = cur - w; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
+      if (cy < h - 1) { const n = cur + w; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
+    }
+    if (size >= minSize && size > bestSize) {
+      bestSize = size;
+      best = { minX, minY, maxX, maxY, size };
+    }
+  }
+  if (!best) return null;
+  return {
+    x: best.minX, y: best.minY,
+    w: best.maxX - best.minX + 1,
+    h: best.maxY - best.minY + 1,
+    area: best.size,
+    fillRatio: best.size / ((best.maxX - best.minX + 1) * (best.maxY - best.minY + 1))
+  };
+}
