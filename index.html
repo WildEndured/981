@@ -187,6 +187,32 @@
   </div>
 
   <div class="panel-section">
+    <h3>Линии пропорций (анатомия)</h3>
+
+    <div class="row" style="margin-bottom: 10px;">
+      <label><input id="showPropLines" type="checkbox" checked /> Показывать линии пропорций</label>
+    </div>
+
+    <div class="presets" id="propPresetsRow">
+      <button class="preset active" data-prop="7.5">7.5 голов · классика</button>
+      <button class="preset" data-prop="7">7 голов · реализм</button>
+      <button class="preset" data-prop="6">6 голов · аниме</button>
+    </div>
+
+    <div class="row" style="gap:8px; margin-top: 12px;">
+      <label class="prop-check"><input type="checkbox" id="propCrown" checked /> Макушка <span class="prop-val" id="propCrownVal">0%</span></label>
+      <label class="prop-check"><input type="checkbox" id="propChin" checked /> Подбородок <span class="prop-val" id="propChinVal">13%</span></label>
+      <label class="prop-check"><input type="checkbox" id="propShoulders" checked /> Плечи <span class="prop-val" id="propShouldersVal">16%</span></label>
+      <label class="prop-check"><input type="checkbox" id="propPubic" checked /> Лобок <span class="prop-val" id="propPubicVal">43%</span></label>
+      <label class="prop-check"><input type="checkbox" id="propKnees" checked /> Колени <span class="prop-val" id="propKneesVal">64%</span></label>
+    </div>
+
+    <div class="row" style="gap:6px; margin-top: 10px;">
+      <button id="propResetBtn" class="btn-small">Сброс к 7.5</button>
+    </div>
+  </div>
+
+  <div class="panel-section">
     <h3>Стиль сетки и линий</h3>
     <div class="style-grid">
 
@@ -348,4 +374,4 @@
 <script src="js/grid.js"></script>
 <script src="js/init.js"></script>
 </body>
-            </html>
+      </html>
