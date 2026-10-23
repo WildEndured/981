@@ -1,5 +1,5 @@
 // ============================================================
-//  app.js · вариант A: шаг % первичен, головы = 100 / шаг
+//  app.js · шаг сетки в целых процентах
 // ============================================================
 
 const errBanner = document.getElementById('errBanner');
@@ -318,7 +318,7 @@ function initWorker() {
     worker = new Worker('worker.js?v=' + Date.now());
   } catch (err) {
     worker = null;
-    showError('Worker не создан. Используется fallback в главном потоке.');
+    showError('Worker не создан. Fallback в главном потоке.');
     return false;
   }
   worker.onmessage = (e) => {
@@ -339,7 +339,7 @@ function initWorker() {
     } else if (type === 'headFound') {
       if (payload.ok) {
         applyGridStep(100 / payload.headCount);
-        findHeadStatus.textContent = `✓ ${payload.headCount.toFixed(2)} голов → шаг ${(100 / payload.headCount).toFixed(2)}% (голова ${payload.headPx}px)`;
+        findHeadStatus.textContent = `✓ ${payload.headCount.toFixed(2)} голов → шаг ${Math.round(100 / payload.headCount)}% (голова ${payload.headPx}px)`;
         findHeadStatus.style.color = '#7bd88f';
       } else {
         findHeadStatus.textContent = '✗ не удалось (' + (payload.reason || 'нет шеи') + ')';
@@ -665,7 +665,7 @@ function buildMaskMainThread(p) {
       shiftPercent: hs
     };
 
-    const step = gridStepPercent > 0 ? gridStepPercent : 13;
+    const step = Math.max(1, Math.round(gridStepPercent || 13));
     const offset = (gridAlign === 'centered') ? step / 2 : 0;
     for (let i = 1; ; i++) {
       const pPct = i * step - offset;
@@ -674,7 +674,7 @@ function buildMaskMainThread(p) {
       gridLines.push({
         y: bbox.y + Math.round(bbox.h * pPct / 100),
         yNorm: pPct / 100,
-        percent: +pPct.toFixed(2)
+        percent: pPct
       });
     }
     gridInfo = {
@@ -939,7 +939,7 @@ function updateInfo() {
     ? `x:${vertAxis.x} (norm ${(vertAxis.xNorm * 100).toFixed(1)}%)` : '—';
 
   if (charBBox && gridInfo) {
-    infoGrid.textContent = `${gridInfo.stepPercent.toFixed(2)}% (${gridInfo.lines} лин.)`;
+    infoGrid.textContent = `${gridInfo.stepPercent}% (${gridInfo.lines} лин.)`;
     infoHeads.textContent = `${gridInfo.headCount.toFixed(2)}`;
     infoHeadPx.textContent = `${gridInfo.headPx}px`;
   } else {
@@ -1228,24 +1228,25 @@ clearPointsBtn.addEventListener('click', () => {
 function updatePresetActive() {
   presetsRow.querySelectorAll('.preset').forEach(btn => {
     const heads = +btn.dataset.heads;
-    btn.classList.toggle('active', Math.abs(100 / heads - gridStepPercent) < 0.05);
+    const target = Math.round(100 / heads);
+    btn.classList.toggle('active', target === gridStepPercent);
   });
 }
 
 function updateGridSummary() {
   if (!gridInfo) return;
   const al = gridAlign === 'centered' ? 'по центру головы' : 'от макушки';
-  gridSummary.textContent = `${gridInfo.stepPercent.toFixed(2)}% · ${gridInfo.headCount.toFixed(2)} голов · ${gridInfo.lines} линий · ${al}`;
+  gridSummary.textContent = `${gridInfo.stepPercent}% · ${gridInfo.headCount.toFixed(2)} голов · ${gridInfo.lines} линий · ${al}`;
 }
 
 function applyGridStep(step, opts = {}) {
-  if (!(step > 0)) return;
-  gridStepPercent = step;
+  const rounded = Math.max(1, Math.min(50, Math.round(step)));
+  gridStepPercent = rounded;
 
-  gridStepEl.value = step.toFixed(1);
-  gridStepVal.textContent = step.toFixed(2) + '%';
+  gridStepEl.value = String(rounded);
+  gridStepVal.textContent = rounded + '%';
 
-  const heads = 100 / step;
+  const heads = 100 / rounded;
   if (heads >= 2 && heads <= 20) headCountEl.value = heads.toFixed(2);
   headCountVal.textContent = heads.toFixed(2);
 
@@ -1297,7 +1298,7 @@ findHeadBtn.addEventListener('click', () => {
     const res = findHeadLocal(isBg, imgWidth, imgHeight, charBBox);
     if (res.ok) {
       applyGridStep(100 / res.headCount);
-      findHeadStatus.textContent = `✓ ${res.headCount.toFixed(2)} голов → шаг ${(100 / res.headCount).toFixed(2)}%`;
+      findHeadStatus.textContent = `✓ ${res.headCount.toFixed(2)} голов → шаг ${Math.round(100 / res.headCount)}%`;
       findHeadStatus.style.color = '#7bd88f';
     } else {
       findHeadStatus.textContent = '✗ ' + (res.reason || 'нет шеи');
@@ -1458,4 +1459,4 @@ try {
   console.log('[main] init OK');
 } catch (e) {
   showError('Init error: ' + (e.message || e));
-      }
+    }
