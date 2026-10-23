@@ -1,32 +1,27 @@
 // ============================================================
-//  Web Worker: тяжёлые вычисления маски
-//  VERSION: 2026-10-23 · A: шаг % первичен, головы = 100/шаг
+//  Web Worker · вариант A: шаг % первичен, головы = 100 / шаг
 // ============================================================
-
-console.log('[worker] SCRIPT LOADED v2026-10-23 (variant A)');
+console.log('[worker] loaded');
 
 self.onmessage = (e) => {
   const { type, payload } = e.data;
 
   if (type === 'buildMask') {
     try {
-      const result = buildMaskInWorker(payload);
+      const r = buildMaskInWorker(payload);
       self.postMessage({
         type: 'mask',
         payload: {
-          mask: result.mask,
-          bgCount: result.bgCount,
-          width: result.width,
-          height: result.height,
-          bbox: result.bbox,
-          searchHorizLine: result.searchHorizLine,
-          vertAxis: result.vertAxis,
-          gridLines: result.gridLines,
-          gridInfo: result.gridInfo
+          mask: r.mask, bgCount: r.bgCount,
+          width: r.width, height: r.height,
+          bbox: r.bbox,
+          searchHorizLine: r.searchHorizLine,
+          vertAxis: r.vertAxis,
+          gridLines: r.gridLines,
+          gridInfo: r.gridInfo
         }
       });
     } catch (err) {
-      console.error('[worker] error:', err);
       self.postMessage({ type: 'error', payload: String(err && err.message || err) });
     }
     return;
@@ -34,10 +29,9 @@ self.onmessage = (e) => {
 
   if (type === 'findHead') {
     try {
-      const result = findHead(payload.mask, payload.width, payload.height, payload.bbox);
-      self.postMessage({ type: 'headFound', payload: result });
+      const r = findHead(payload.mask, payload.width, payload.height, payload.bbox);
+      self.postMessage({ type: 'headFound', payload: r });
     } catch (err) {
-      console.error('[worker] findHead error:', err);
       self.postMessage({ type: 'headFound', payload: { ok: false, reason: String(err && err.message || err) } });
     }
     return;
@@ -67,9 +61,8 @@ function buildMaskInWorker(p) {
 
   function isPixelBg(idx) {
     let matched;
-    if (mode === 'lum') {
-      matched = lum[idx] >= thresholdLum;
-    } else if (mode === 'color') {
+    if (mode === 'lum') matched = lum[idx] >= thresholdLum;
+    else if (mode === 'color') {
       if (!colorMode) return invert;
       matched = false;
       const j = idx * 4;
@@ -79,9 +72,7 @@ function buildMaskInWorker(p) {
         const dr = r - s.r, dg = g - s.g, db = b - s.b;
         if (dr * dr + dg * dg + db * db <= dist2) { matched = true; break; }
       }
-    } else {
-      matched = lum[idx] >= thresholdLum;
-    }
+    } else matched = lum[idx] >= thresholdLum;
     return invert ? !matched : matched;
   }
 
@@ -226,7 +217,7 @@ function findHead(mask, w, h, bbox) {
   for (let i = lo; i <= hi; i++) {
     if (sm[i] < bestVal) { bestVal = sm[i]; bestY = i; }
   }
-  if (bestY < 0 || bestVal > 0.7 * maxW) return { ok: false, reason: 'нет сужения (шея не найдена)' };
+  if (bestY < 0 || bestVal > 0.7 * maxW) return { ok: false, reason: 'нет сужения' };
 
   const headHeight = bestY;
   if (headHeight < bh * 0.08) return { ok: false, reason: 'голова слишком мала' };
@@ -241,29 +232,20 @@ function computeCharacterBBox(mask, w, h, opts = {}) {
   const N = w * h;
   const visited = new Uint8Array(N);
   const queue = new Int32Array(N);
-
-  let best = null;
-  let bestSize = 0;
+  let best = null, bestSize = 0;
 
   for (let start = 0; start < N; start++) {
     if (visited[start] || mask[start] === 1) continue;
-
     let head = 0, tail = 0;
-    queue[tail++] = start;
-    visited[start] = 1;
-
+    queue[tail++] = start; visited[start] = 1;
     let minX = w, minY = h, maxX = -1, maxY = -1, size = 0;
 
     while (head < tail) {
       const cur = queue[head++];
-      const cx = cur % w;
-      const cy = (cur / w) | 0;
+      const cx = cur % w, cy = (cur / w) | 0;
       size++;
-      if (cx < minX) minX = cx;
-      if (cy < minY) minY = cy;
-      if (cx > maxX) maxX = cx;
-      if (cy > maxY) maxY = cy;
-
+      if (cx < minX) minX = cx; if (cy < minY) minY = cy;
+      if (cx > maxX) maxX = cx; if (cy > maxY) maxY = cy;
       if (cx > 0)     { const n = cur - 1; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
       if (cx < w - 1) { const n = cur + 1; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
       if (cy > 0)     { const n = cur - w; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
@@ -278,8 +260,7 @@ function computeCharacterBBox(mask, w, h, opts = {}) {
 
   if (!best) return null;
   return {
-    x: best.minX,
-    y: best.minY,
+    x: best.minX, y: best.minY,
     w: best.maxX - best.minX + 1,
     h: best.maxY - best.minY + 1,
     area: best.size,
@@ -292,11 +273,7 @@ function computeVertAxis(bbox, vertShiftPercent) {
   const shift = shiftVal / 100;
   let axisX = Math.round(bbox.x + bbox.w * (0.5 + shift));
   axisX = Math.max(bbox.x, Math.min(bbox.x + bbox.w - 1, axisX));
-  return {
-    x: axisX,
-    xNorm: (axisX - bbox.x) / bbox.w,
-    shiftPercent: shiftVal
-  };
+  return { x: axisX, xNorm: (axisX - bbox.x) / bbox.w, shiftPercent: shiftVal };
 }
 
 function regionGrow(mask, data, w, h, seeds, tolerance) {
@@ -315,7 +292,6 @@ function regionGrow(mask, data, w, h, seeds, tolerance) {
   };
 
   for (const s of seeds) pushSeed(s.x, s.y);
-
   const tol2 = tolerance * tolerance * 3;
 
   while (head < tail) {
@@ -337,53 +313,39 @@ function regionGrow(mask, data, w, h, seeds, tolerance) {
       }
     };
 
-    tryNeighbor(x + 1, y);
-    tryNeighbor(x - 1, y);
-    tryNeighbor(x, y + 1);
-    tryNeighbor(x, y - 1);
+    tryNeighbor(x + 1, y); tryNeighbor(x - 1, y);
+    tryNeighbor(x, y + 1); tryNeighbor(x, y - 1);
   }
 }
 
 function erode(mask, w, h) {
   const copy = mask.slice();
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      const idx = y * w + x;
-      if (!copy[idx]) continue;
-      if (!copy[idx - 1] || !copy[idx + 1] || !copy[idx - w] || !copy[idx + w]) {
-        mask[idx] = 0;
-      }
-    }
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const idx = y * w + x;
+    if (!copy[idx]) continue;
+    if (!copy[idx - 1] || !copy[idx + 1] || !copy[idx - w] || !copy[idx + w]) mask[idx] = 0;
   }
 }
 
 function dilate(mask, w, h) {
   const copy = mask.slice();
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      const idx = y * w + x;
-      if (copy[idx]) continue;
-      if (copy[idx - 1] || copy[idx + 1] || copy[idx - w] || copy[idx + w]) {
-        mask[idx] = 1;
-      }
-    }
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const idx = y * w + x;
+    if (copy[idx]) continue;
+    if (copy[idx - 1] || copy[idx + 1] || copy[idx - w] || copy[idx + w]) mask[idx] = 1;
   }
 }
 
 function smoothOnce(mask, w, h) {
   const copy = mask.slice();
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      const idx = y * w + x;
-      let bgCount = 0;
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if (dx === 0 && dy === 0) continue;
-          bgCount += copy[idx + dy * w + dx];
-        }
-      }
-      if (bgCount >= 7) mask[idx] = 1;
-      else if (bgCount <= 1) mask[idx] = 0;
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const idx = y * w + x;
+    let bgCount = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      bgCount += copy[idx + dy * w + dx];
     }
+    if (bgCount >= 7) mask[idx] = 1;
+    else if (bgCount <= 1) mask[idx] = 0;
   }
-    }
+}
