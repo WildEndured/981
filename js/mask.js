@@ -170,6 +170,9 @@ function rebuildAll() {
   let autoSeeds = [];
   if (sourcePoints.length === 0) autoSeeds = getAutoSeeds();
 
+  const activePreset = getActivePropPreset();
+  const activePropLines = activePreset ? activePreset.lines : [];
+
   const payload = {
     imageData: { data: new Uint8ClampedArray(imgDataRef.data), width: imgWidth, height: imgHeight },
     width: imgWidth, height: imgHeight,
@@ -187,7 +190,7 @@ function rebuildAll() {
     regionTolerance: +regionTolEl.value,
     horizShiftPercent, vertShiftPercent,
     gridStepPercent, gridAlign,
-    propPresetHeadCount, propVisible: showPropLines
+    activePropLines
   };
 
   if (worker) {
@@ -224,7 +227,7 @@ function buildMaskMainThread(p) {
     imageData, width, height, mode, thresholdLum, colorSamples, thresholdDist,
     invert, sourcePoints, autoSeeds, useSmooth, smoothIter, morphOpen, morphClose,
     regionTolerance, horizShiftPercent, vertShiftPercent,
-    gridStepPercent, gridAlign, propPresetHeadCount, propVisible
+    gridStepPercent, gridAlign, activePropLines
   } = p;
 
   const w = width, h = height, N = w * h;
@@ -293,7 +296,7 @@ function buildMaskMainThread(p) {
   for (let i = 0; i < N; i++) if (mask[i]) bgCount++;
 
   const bbox = computeBBox(mask, w, h, 200);
-  let searchHorizLine = null, vertAxis = null, gridLines = [], gridInfo = null, propLines = null;
+  let searchHorizLine = null, vertAxis = null, gridLines = [], gridInfo = null, propLines = [];
 
   if (bbox) {
     const shiftVal = vertShiftPercent || 0;
@@ -329,29 +332,18 @@ function buildMaskMainThread(p) {
       align: gridAlign
     };
 
-    if (propVisible) {
-      propLines = buildProportionLinesLocal(bbox, propPresetHeadCount || 7.5);
+    if (Array.isArray(activePropLines) && activePropLines.length > 0) {
+      propLines = activePropLines.map(line => ({
+        id: line.id,
+        label: line.label,
+        percent: line.percent,
+        y: bbox.y + Math.round(bbox.h * (line.percent / 100)),
+        enabled: line.enabled !== false
+      }));
     }
   }
 
   return { mask, bgCount, width: w, height: h, bbox, searchHorizLine, vertAxis, gridLines, gridInfo, propLines };
-}
-
-function buildProportionLinesLocal(bbox, headCount) {
-  const N = (headCount && headCount > 0) ? headCount : 7.5;
-  const h = bbox.h;
-  const base = 7.5;
-  const pubicHeads = 0.43 * base;
-  const kneesHeads = 0.64 * base;
-  const yOf = (fraction) => bbox.y + Math.round(h * fraction);
-
-  return [
-    { id: 'crown',    label: 'Макушка',    percent: 0,                                  y: yOf(0),                   enabled: propEnabled.crown },
-    { id: 'chin',     label: 'Подбородок', percent: +(100 / N).toFixed(1),              y: yOf(1 / N),               enabled: propEnabled.chin },
-    { id: 'shoulders',label: 'Плечи',      percent: +(1.2 * 100 / N).toFixed(1),        y: yOf(1.2 / N),             enabled: propEnabled.shoulders },
-    { id: 'pubic',    label: 'Лобок',      percent: +(pubicHeads * 100 / N).toFixed(1), y: yOf(pubicHeads / N),      enabled: propEnabled.pubic },
-    { id: 'knees',    label: 'Колени',     percent: +(kneesHeads * 100 / N).toFixed(1), y: yOf(kneesHeads / N),      enabled: propEnabled.knees }
-  ];
 }
 
 function maskErode(mask, w, h) {
@@ -416,4 +408,4 @@ function computeBBox(mask, w, h, minSize) {
     area: best.size,
     fillRatio: best.size / ((best.maxX - best.minX + 1) * (best.maxY - best.minY + 1))
   };
-}
+        }
