@@ -326,4 +326,38 @@ function regionGrow(mask, data, w, h, seeds, tolerance) {
     };
 
     tryNeighbor(x + 1, y); tryNeighbor(x - 1, y);
-    tryNeighbor(x, y + 1); tryNeighbor(x, y -
+    tryNeighbor(x, y + 1); tryNeighbor(x, y - 1);
+  }
+}
+
+function erode(mask, w, h) {
+  const copy = mask.slice();
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const idx = y * w + x;
+    if (!copy[idx]) continue;
+    if (!copy[idx - 1] || !copy[idx + 1] || !copy[idx - w] || !copy[idx + w]) mask[idx] = 0;
+  }
+}
+
+function dilate(mask, w, h) {
+  const copy = mask.slice();
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const idx = y * w + x;
+    if (copy[idx]) continue;
+    if (copy[idx - 1] || copy[idx + 1] || copy[idx - w] || copy[idx + w]) mask[idx] = 1;
+  }
+}
+
+function smoothOnce(mask, w, h) {
+  const copy = mask.slice();
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const idx = y * w + x;
+    let bgCount = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      bgCount += copy[idx + dy * w + dx];
+    }
+    if (bgCount >= 7) mask[idx] = 1;
+    else if (bgCount <= 1) mask[idx] = 0;
+  }
+}
