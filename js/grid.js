@@ -1,6 +1,6 @@
 // ============================================================
 //  grid.js · сетка (шаг %), пресеты, поиск головы,
-//            анатомические линии пропорций, поисковые линии
+//            поисковые линии (гориз/верт)
 // ============================================================
 
 function updatePresetActive() {
@@ -149,45 +149,6 @@ if (showGridEl) {
   showGridEl.addEventListener('change', () => { showGrid = showGridEl.checked; drawOverlay(); });
 }
 
-// ---------- Анатомические линии ----------
-if (showPropLinesEl) {
-  showPropLinesEl.addEventListener('change', () => {
-    showPropLines = showPropLinesEl.checked;
-    if (lum) rebuildAll();
-  });
-}
-
-if (propPresetsRow) {
-  propPresetsRow.addEventListener('click', (e) => {
-    const btn = e.target.closest('.preset');
-    if (!btn) return;
-    propPresetHeadCount = +btn.dataset.prop;
-    propPresetsRow.querySelectorAll('.preset').forEach(b =>
-      b.classList.toggle('active', b === btn));
-    if (lum) rebuildAll();
-  });
-}
-
-if (propResetBtn) {
-  propResetBtn.addEventListener('click', () => {
-    propPresetHeadCount = 7.5;
-    if (propPresetsRow) {
-      propPresetsRow.querySelectorAll('.preset').forEach(b =>
-        b.classList.toggle('active', Math.abs(+b.dataset.prop - 7.5) < 0.01));
-    }
-    if (lum) rebuildAll();
-  });
-}
-
-['crown', 'chin', 'shoulders', 'pubic', 'knees'].forEach(id => {
-  const el = $(`prop${id.charAt(0).toUpperCase() + id.slice(1)}`);
-  if (!el) return;
-  el.addEventListener('change', () => {
-    propEnabled[id] = el.checked;
-    drawOverlay();
-  });
-});
-
 // ---------- Поисковые линии ----------
 if (horizShiftEl) {
   horizShiftEl.addEventListener('input', () => {
@@ -220,4 +181,4 @@ if (searchLinesResetBtn) {
     if (vertShiftVal) vertShiftVal.textContent = '0%';
     if (lum) rebuildAll();
   });
-      }
+}
