@@ -1,26 +1,15 @@
 // ============================================================
-//  Маска фона · BBox · Сетка пропорций
-//  Секции:
-//   1. DOM · 2. Состояние · 3. Стиль · 4. Утилиты
-//   5. Worker + fallback · 6. Загрузка · 7. Авто-семена
-//   8. Fallback-расчёт · 9. Пересчёт · 10. Отрисовка
-//   11. UI · 12. Zoom/Pan · 13. Клик
-//   14. Режимы · 15. Сетка (головы/пресеты/поиск головы)
-//   16. Экспорт · 17. Слушатели · 18. Init
+//  app.js · вариант A: шаг % первичен, головы = 100 / шаг
 // ============================================================
 
-// ---------- 0. Ошибки ----------
 const errBanner = document.getElementById('errBanner');
 function showError(msg) {
   console.error('[main]', msg);
   errBanner.textContent = '⚠ ' + msg;
   errBanner.classList.add('visible');
 }
-window.addEventListener('error', (e) => {
-  showError('JS error: ' + (e.message || e.error));
-});
+window.addEventListener('error', (e) => showError('JS error: ' + (e.message || e.error)));
 
-// ---------- 1. DOM ----------
 const $ = (id) => document.getElementById(id);
 
 const fileInput = $('file');
@@ -53,16 +42,15 @@ const showHorizEl = $('showHoriz');
 const showVertEl = $('showVert');
 const searchLinesResetBtn = $('searchLinesResetBtn');
 
-// Сетка — новые контролы
 const showGridEl = $('showGrid');
+const gridStepEl = $('gridStep');
+const gridStepVal = $('gridStepVal');
 const headCountEl = $('headCount');
 const headCountVal = $('headCountVal');
 const presetsRow = $('presetsRow');
 const findHeadBtn = $('findHeadBtn');
 const findHeadStatus = $('findHeadStatus');
 const gridAlignRadios = document.querySelectorAll('input[name="gridAlign"]');
-const gridStepEl = $('gridStep');
-const gridStepVal = $('gridStepVal');
 const gridResetBtn = $('gridResetBtn');
 const gridSummary = $('gridSummary');
 
@@ -104,7 +92,7 @@ const zoomResetBtn = $('zoomResetBtn');
 const baseCtx = baseCanvas.getContext('2d', { willReadFrequently: true });
 const overlayCtx = overlay.getContext('2d');
 
-// ---------- 2. Состояние ----------
+// ---------- Состояние ----------
 let imgWidth = 0, imgHeight = 0;
 let lum = null, isBg = null, imgDataRef = null, histogram = null;
 let selectedPointIndex = -1;
@@ -123,10 +111,9 @@ let gridLines = [];
 let horizShiftPercent = 0;
 let vertShiftPercent = 0;
 
-// Сетка: рост в головах
-let headCount = 7.5;
-let gridAlign = 'from-top'; // 'from-top' | 'centered'
-let gridInfo = { headCount: 7.5, stepPercent: 100 / 7.5, headPx: 0, lines: 0 };
+let gridStepPercent = 13;
+let gridAlign = 'from-top';
+let gridInfo = { stepPercent: 13, headCount: 100 / 13, headPx: 0, lines: 0, align: 'from-top' };
 
 let showHoriz = true;
 let showVert = true;
@@ -144,7 +131,7 @@ let pendingBuild = false;
 let _seedsCache = null;
 function invalidateSeeds() { _seedsCache = null; }
 
-// ---------- 3. Стиль ----------
+// ---------- Стиль ----------
 const styleDefaults = {
   grid:  { color: '#ffdc00', width: 2.5, alpha: 0.95, dashed: true, dashLen: 10, dashGap: 6, outline: true, showLabels: true },
   horiz: { color: '#50b4ff', width: 3,   alpha: 1,    dashed: true, dashLen: 6,  dashGap: 4, outline: false },
@@ -201,9 +188,7 @@ function syncStyleFromUI() {
     sw('bboxColorSwatch', style.bbox.color);
 
     drawOverlay();
-  } catch (e) {
-    showError('syncStyleFromUI: ' + (e.message || e));
-  }
+  } catch (e) { showError('syncStyleFromUI: ' + (e.message || e)); }
 }
 
 function bindStyleControls() {
@@ -236,13 +221,10 @@ function bindStyleControls() {
     });
   });
 
-  const ids = [
-    'gridColor','gridDashed','gridOutline','gridShowLabels',
-    'horizColor','horizDashed','horizOutline',
-    'vertColor','vertDashed','vertOutline',
-    'bboxColor','bboxShowCorners'
-  ];
-  ids.forEach(id => {
+  ['gridColor','gridDashed','gridOutline','gridShowLabels',
+   'horizColor','horizDashed','horizOutline',
+   'vertColor','vertDashed','vertOutline',
+   'bboxColor','bboxShowCorners'].forEach(id => {
     const el = $(id);
     if (!el) return;
     el.addEventListener('input', syncStyleFromUI);
@@ -251,64 +233,60 @@ function bindStyleControls() {
 }
 
 function setStyleUIFromState() {
-  try {
-    const setVal = (id, v) => { const el = $(id); if (el) el.value = v; };
-    const setChk = (id, v) => { const el = $(id); if (el) el.checked = v; };
-    const setTxt = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+  const setVal = (id, v) => { const el = $(id); if (el) el.value = v; };
+  const setChk = (id, v) => { const el = $(id); if (el) el.checked = v; };
+  const setTxt = (id, v) => { const el = $(id); if (el) el.textContent = v; };
 
-    setVal('gridColor', style.grid.color);
-    setVal('gridWidth', style.grid.width);
-    setVal('gridAlpha', style.grid.alpha);
-    setChk('gridDashed', style.grid.dashed);
-    setVal('gridDashLen', style.grid.dashLen);
-    setVal('gridDashGap', style.grid.dashGap);
-    setChk('gridOutline', style.grid.outline);
-    setChk('gridShowLabels', style.grid.showLabels);
+  setVal('gridColor', style.grid.color);
+  setVal('gridWidth', style.grid.width);
+  setVal('gridAlpha', style.grid.alpha);
+  setChk('gridDashed', style.grid.dashed);
+  setVal('gridDashLen', style.grid.dashLen);
+  setVal('gridDashGap', style.grid.dashGap);
+  setChk('gridOutline', style.grid.outline);
+  setChk('gridShowLabels', style.grid.showLabels);
 
-    setVal('horizColor', style.horiz.color);
-    setVal('horizWidth', style.horiz.width);
-    setVal('horizAlpha', style.horiz.alpha);
-    setChk('horizDashed', style.horiz.dashed);
-    setVal('horizDashLen', style.horiz.dashLen);
-    setVal('horizDashGap', style.horiz.dashGap);
-    setChk('horizOutline', style.horiz.outline);
+  setVal('horizColor', style.horiz.color);
+  setVal('horizWidth', style.horiz.width);
+  setVal('horizAlpha', style.horiz.alpha);
+  setChk('horizDashed', style.horiz.dashed);
+  setVal('horizDashLen', style.horiz.dashLen);
+  setVal('horizDashGap', style.horiz.dashGap);
+  setChk('horizOutline', style.horiz.outline);
 
-    setVal('vertColor', style.vert.color);
-    setVal('vertWidth', style.vert.width);
-    setVal('vertAlpha', style.vert.alpha);
-    setChk('vertDashed', style.vert.dashed);
-    setVal('vertDashLen', style.vert.dashLen);
-    setVal('vertDashGap', style.vert.dashGap);
-    setChk('vertOutline', style.vert.outline);
+  setVal('vertColor', style.vert.color);
+  setVal('vertWidth', style.vert.width);
+  setVal('vertAlpha', style.vert.alpha);
+  setChk('vertDashed', style.vert.dashed);
+  setVal('vertDashLen', style.vert.dashLen);
+  setVal('vertDashGap', style.vert.dashGap);
+  setChk('vertOutline', style.vert.outline);
 
-    setVal('bboxColor', style.bbox.color);
-    setVal('bboxWidth', style.bbox.width);
-    setVal('bboxAlpha', style.bbox.alpha);
-    setChk('bboxShowCorners', style.bbox.showCorners);
+  setVal('bboxColor', style.bbox.color);
+  setVal('bboxWidth', style.bbox.width);
+  setVal('bboxAlpha', style.bbox.alpha);
+  setChk('bboxShowCorners', style.bbox.showCorners);
 
-    setTxt('gridWidthVal', style.grid.width);
-    setTxt('gridAlphaVal', style.grid.alpha.toFixed(2));
-    setTxt('gridDashLenVal', style.grid.dashLen);
-    setTxt('gridDashGapVal', style.grid.dashGap);
-    setTxt('horizWidthVal', style.horiz.width);
-    setTxt('horizAlphaVal', style.horiz.alpha.toFixed(2));
-    setTxt('horizDashLenVal', style.horiz.dashLen);
-    setTxt('horizDashGapVal', style.horiz.dashGap);
-    setTxt('vertWidthVal', style.vert.width);
-    setTxt('vertAlphaVal', style.vert.alpha.toFixed(2));
-    setTxt('vertDashLenVal', style.vert.dashLen);
-    setTxt('vertDashGapVal', style.vert.dashGap);
-    setTxt('bboxWidthVal', style.bbox.width);
-    setTxt('bboxAlphaVal', style.bbox.alpha.toFixed(2));
+  setTxt('gridWidthVal', style.grid.width);
+  setTxt('gridAlphaVal', style.grid.alpha.toFixed(2));
+  setTxt('gridDashLenVal', style.grid.dashLen);
+  setTxt('gridDashGapVal', style.grid.dashGap);
+  setTxt('horizWidthVal', style.horiz.width);
+  setTxt('horizAlphaVal', style.horiz.alpha.toFixed(2));
+  setTxt('horizDashLenVal', style.horiz.dashLen);
+  setTxt('horizDashGapVal', style.horiz.dashGap);
+  setTxt('vertWidthVal', style.vert.width);
+  setTxt('vertAlphaVal', style.vert.alpha.toFixed(2));
+  setTxt('vertDashLenVal', style.vert.dashLen);
+  setTxt('vertDashGapVal', style.vert.dashGap);
+  setTxt('bboxWidthVal', style.bbox.width);
+  setTxt('bboxAlphaVal', style.bbox.alpha.toFixed(2));
 
-    const sw = (id, color) => { const el = $(id); if (el) el.style.background = color; };
-    sw('gridColorSwatch', style.grid.color);
-    sw('horizColorSwatch', style.horiz.color);
-    sw('vertColorSwatch', style.vert.color);
-    sw('bboxColorSwatch', style.bbox.color);
-  } catch (e) {
-    showError('setStyleUIFromState: ' + (e.message || e));
-  }
+  const sw = (id, color) => { const el = $(id); if (el) el.style.background = color; };
+  sw('gridColorSwatch', style.grid.color);
+  sw('horizColorSwatch', style.horiz.color);
+  sw('vertColorSwatch', style.vert.color);
+  sw('bboxColorSwatch', style.bbox.color);
 }
 
 $('styleResetBtn').addEventListener('click', () => {
@@ -317,7 +295,7 @@ $('styleResetBtn').addEventListener('click', () => {
   drawOverlay();
 });
 
-// ---------- 4. Утилиты ----------
+// ---------- Утилиты ----------
 function debounce(fn, ms = 80) {
   let t = null;
   return (...args) => {
@@ -333,15 +311,14 @@ function updateCursor() {
   else stageWrap.style.cursor = 'grab';
 }
 
-// ---------- 5. Worker + fallback ----------
+// ---------- Worker ----------
 function initWorker() {
   if (worker) return true;
   try {
     worker = new Worker('worker.js?v=' + Date.now());
   } catch (err) {
-    console.warn('[main] Worker creation failed, using main-thread fallback:', err);
     worker = null;
-    showError('Worker не создан (file:// или нет worker.js). Используется резервный расчёт в главном потоке.');
+    showError('Worker не создан. Используется fallback в главном потоке.');
     return false;
   }
   worker.onmessage = (e) => {
@@ -361,44 +338,35 @@ function initWorker() {
       if (pendingBuild) { pendingBuild = false; rebuildAll(); }
     } else if (type === 'headFound') {
       if (payload.ok) {
-        headCount = payload.headCount;
-        headCountEl.value = headCount.toFixed(1);
-        headCountVal.textContent = headCount.toFixed(1);
-        findHeadStatus.textContent = `✓ найдено: ${headCount.toFixed(1)} голов (высота головы ${payload.headPx}px)`;
+        applyGridStep(100 / payload.headCount);
+        findHeadStatus.textContent = `✓ ${payload.headCount.toFixed(2)} голов → шаг ${(100 / payload.headCount).toFixed(2)}% (голова ${payload.headPx}px)`;
         findHeadStatus.style.color = '#7bd88f';
-        updatePresetActive();
-        updateGridSummary();
-        rebuildAll();
       } else {
-        findHeadStatus.textContent = '✗ не удалось определить голову (' + (payload.reason || 'нет шеи') + ')';
+        findHeadStatus.textContent = '✗ не удалось (' + (payload.reason || 'нет шеи') + ')';
         findHeadStatus.style.color = '#ff9090';
       }
     } else if (type === 'error') {
-      console.error('[main] worker error:', payload);
       workerBusy = false;
       hideProgress();
       showError('Worker error: ' + payload);
     }
   };
   worker.onerror = (err) => {
-    console.error('[main] worker onerror:', err);
     workerBusy = false;
     hideProgress();
     worker = null;
     showError('Worker error: ' + (err.message || 'unknown'));
   };
-  console.log('[main] worker initialized');
   return true;
 }
 
 function showProgress() { progressOverlay.classList.add('visible'); }
 function hideProgress() { progressOverlay.classList.remove('visible'); }
 
-// ---------- 6. Загрузка изображения ----------
+// ---------- Загрузка ----------
 fileInput.addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
-
   errBanner.classList.remove('visible');
 
   const img = new Image();
@@ -406,7 +374,6 @@ fileInput.addEventListener('change', e => {
     try {
       imgWidth = img.naturalWidth;
       imgHeight = img.naturalHeight;
-      console.log('[main] image loaded', imgWidth, imgHeight);
 
       [baseCanvas, overlay].forEach(c => { c.width = imgWidth; c.height = imgHeight; });
       baseCtx.clearRect(0, 0, imgWidth, imgHeight);
@@ -432,7 +399,7 @@ fileInput.addEventListener('change', e => {
         rebuildAll();
       });
     } catch (err) {
-      showError('Ошибка обработки изображения: ' + (err.message || err));
+      showError('Ошибка обработки: ' + (err.message || err));
     }
   };
   img.onerror = () => showError('Не удалось загрузить изображение');
@@ -458,7 +425,7 @@ function computeHistogram() {
   }
 }
 
-// ---------- 7. Авто-порог и авто-семена ----------
+// ---------- Авто-порог ----------
 function otsuThreshold(hist, N) {
   let sum = 0;
   for (let i = 0; i < 256; i++) sum += i * hist[i];
@@ -486,6 +453,7 @@ function autoPickThreshold() {
   invalidateSeeds();
 }
 
+// ---------- Авто-семена ----------
 function isPixelBgMain(idx) {
   if (mode === 'lum' || mode === 'region') {
     const matched = lum[idx] >= +bgLumEl.value;
@@ -549,13 +517,70 @@ function getAutoSeeds() {
   return _seedsCache;
 }
 
-// ---------- 8. Fallback-расчёт маски в главном потоке ----------
+// ---------- Пересчёт ----------
+function rebuildAll() {
+  if (!lum || !imgDataRef) return;
+  if (!worker) initWorker();
+  if (workerBusy) { pendingBuild = true; return; }
+
+  workerBusy = true;
+  showProgress();
+
+  let autoSeeds = [];
+  if (sourcePoints.length === 0) autoSeeds = getAutoSeeds();
+
+  const payload = {
+    imageData: { data: new Uint8ClampedArray(imgDataRef.data), width: imgWidth, height: imgHeight },
+    width: imgWidth, height: imgHeight,
+    mode,
+    thresholdLum: +bgLumEl.value,
+    colorSamples: colorSamples.slice(),
+    thresholdDist: +bgDistEl.value,
+    invert: invertEl.checked,
+    sourcePoints: sourcePoints.slice(),
+    autoSeeds,
+    useSmooth: useSmoothEl.checked,
+    smoothIter: +smoothIterEl.value,
+    morphOpen: +morphOpenEl.value,
+    morphClose: +morphCloseEl.value,
+    regionTolerance: +regionTolEl.value,
+    horizShiftPercent, vertShiftPercent,
+    gridStepPercent, gridAlign
+  };
+
+  if (worker) {
+    worker.postMessage({ type: 'buildMask', payload });
+  } else {
+    setTimeout(() => {
+      try {
+        const r = buildMaskMainThread(payload);
+        isBg = r.mask;
+        bgCount = r.bgCount;
+        charBBox = r.bbox;
+        searchHorizLine = r.searchHorizLine;
+        vertAxis = r.vertAxis;
+        gridLines = r.gridLines;
+        gridInfo = r.gridInfo;
+        drawOverlay();
+        updateInfo();
+      } catch (e) { showError('Fallback: ' + (e.message || e)); }
+      finally {
+        workerBusy = false;
+        hideProgress();
+        if (pendingBuild) { pendingBuild = false; rebuildAll(); }
+      }
+    }, 0);
+  }
+}
+
+const rebuildAllDebounced = debounce(rebuildAll, 80);
+
+// ---------- Fallback-расчёт ----------
 function buildMaskMainThread(p) {
   const {
     imageData, width, height, mode, thresholdLum, colorSamples, thresholdDist,
     invert, sourcePoints, autoSeeds, useSmooth, smoothIter, morphOpen, morphClose,
-    regionTolerance, horizShiftPercent, vertShiftPercent,
-    headCount, gridAlign
+    regionTolerance, horizShiftPercent, vertShiftPercent, gridStepPercent, gridAlign
   } = p;
 
   const w = width, h = height, N = w * h;
@@ -572,9 +597,8 @@ function buildMaskMainThread(p) {
 
   function isPixelBg(idx) {
     let matched;
-    if (mode === 'lum') {
-      matched = lml[idx] >= thresholdLum;
-    } else if (mode === 'color') {
+    if (mode === 'lum') matched = lml[idx] >= thresholdLum;
+    else if (mode === 'color') {
       if (!colorMode) return invert;
       matched = false;
       const j = idx * 4;
@@ -584,9 +608,7 @@ function buildMaskMainThread(p) {
         const dr = r - s.r, dg = g - s.g, db = b - s.b;
         if (dr * dr + dg * dg + db * db <= dist2) { matched = true; break; }
       }
-    } else {
-      matched = lml[idx] >= thresholdLum;
-    }
+    } else matched = lml[idx] >= thresholdLum;
     return invert ? !matched : matched;
   }
 
@@ -602,11 +624,8 @@ function buildMaskMainThread(p) {
     queue[tail++] = idx;
   };
 
-  if (sourcePoints && sourcePoints.length > 0) {
-    for (const pt of sourcePoints) push(pt.x, pt.y);
-  } else if (autoSeeds && autoSeeds.length > 0) {
-    for (const pt of autoSeeds) push(pt.x, pt.y);
-  }
+  if (sourcePoints && sourcePoints.length > 0) for (const pt of sourcePoints) push(pt.x, pt.y);
+  else if (autoSeeds && autoSeeds.length > 0) for (const pt of autoSeeds) push(pt.x, pt.y);
   for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
   for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
 
@@ -624,9 +643,7 @@ function buildMaskMainThread(p) {
     for (let i = 0; i < morphClose; i++) maskDilate(mask, w, h);
     for (let i = 0; i < morphClose; i++) maskErode(mask, w, h);
   }
-  if (useSmooth) {
-    for (let i = 0; i < smoothIter; i++) maskSmooth(mask, w, h);
-  }
+  if (useSmooth) for (let i = 0; i < smoothIter; i++) maskSmooth(mask, w, h);
 
   let bgCount = 0;
   for (let i = 0; i < N; i++) if (mask[i]) bgCount++;
@@ -636,8 +653,7 @@ function buildMaskMainThread(p) {
 
   if (bbox) {
     const shiftVal = vertShiftPercent || 0;
-    const shift = shiftVal / 100;
-    let axisX = Math.round(bbox.x + bbox.w * (0.5 + shift));
+    let axisX = Math.round(bbox.x + bbox.w * (0.5 + shiftVal / 100));
     axisX = Math.max(bbox.x, Math.min(bbox.x + bbox.w - 1, axisX));
     vertAxis = { x: axisX, xNorm: (axisX - bbox.x) / bbox.w, shiftPercent: shiftVal };
 
@@ -649,43 +665,28 @@ function buildMaskMainThread(p) {
       shiftPercent: hs
     };
 
-    const r = buildGridLines(bbox, headCount, gridAlign);
-    gridLines = r.lines;
-    gridInfo = r.info;
+    const step = gridStepPercent > 0 ? gridStepPercent : 13;
+    const offset = (gridAlign === 'centered') ? step / 2 : 0;
+    for (let i = 1; ; i++) {
+      const pPct = i * step - offset;
+      if (pPct >= 100) break;
+      if (pPct <= 0.01) continue;
+      gridLines.push({
+        y: bbox.y + Math.round(bbox.h * pPct / 100),
+        yNorm: pPct / 100,
+        percent: +pPct.toFixed(2)
+      });
+    }
+    gridInfo = {
+      stepPercent: step,
+      headCount: 100 / step,
+      headPx: Math.round((bbox.h / (100 / step)) * 10) / 10,
+      lines: gridLines.length,
+      align: gridAlign
+    };
   }
 
   return { mask, bgCount, width: w, height: h, bbox, searchHorizLine, vertAxis, gridLines, gridInfo };
-}
-
-// Общая функция построения линий сетки по количеству голов
-function buildGridLines(bbox, heads, align) {
-  const N = heads;
-  const stepPercent = 100 / N;
-  const offset = (align === 'centered') ? stepPercent / 2 : 0;
-  const lines = [];
-  const headPx = bbox.h / N;
-
-  for (let i = 1; ; i++) {
-    const p = i * stepPercent - offset;
-    if (p >= 100) break;
-    if (p <= 0.01) continue;
-    lines.push({
-      y: bbox.y + Math.round(bbox.h * p / 100),
-      yNorm: p / 100,
-      percent: +p.toFixed(2)
-    });
-  }
-
-  return {
-    lines,
-    info: {
-      headCount: N,
-      stepPercent,
-      headPx: Math.round(headPx * 10) / 10,
-      lines: lines.length,
-      align
-    }
-  };
 }
 
 function maskErode(mask, w, h) {
@@ -752,66 +753,7 @@ function computeBBox(mask, w, h, minSize) {
   };
 }
 
-// ---------- 9. Пересчёт маски ----------
-function rebuildAll() {
-  if (!lum || !imgDataRef) return;
-  if (!worker) initWorker();
-
-  if (workerBusy) { pendingBuild = true; return; }
-  workerBusy = true;
-  showProgress();
-
-  let autoSeeds = [];
-  if (sourcePoints.length === 0) autoSeeds = getAutoSeeds();
-
-  const payload = {
-    imageData: { data: new Uint8ClampedArray(imgDataRef.data), width: imgWidth, height: imgHeight },
-    width: imgWidth, height: imgHeight,
-    mode,
-    thresholdLum: +bgLumEl.value,
-    colorSamples: colorSamples.slice(),
-    thresholdDist: +bgDistEl.value,
-    invert: invertEl.checked,
-    sourcePoints: sourcePoints.slice(),
-    autoSeeds,
-    useSmooth: useSmoothEl.checked,
-    smoothIter: +smoothIterEl.value,
-    morphOpen: +morphOpenEl.value,
-    morphClose: +morphCloseEl.value,
-    regionTolerance: +regionTolEl.value,
-    horizShiftPercent, vertShiftPercent,
-    headCount, gridAlign
-  };
-
-  if (worker) {
-    worker.postMessage({ type: 'buildMask', payload });
-  } else {
-    setTimeout(() => {
-      try {
-        const result = buildMaskMainThread(payload);
-        isBg = result.mask;
-        bgCount = result.bgCount;
-        charBBox = result.bbox;
-        searchHorizLine = result.searchHorizLine;
-        vertAxis = result.vertAxis;
-        gridLines = result.gridLines;
-        gridInfo = result.gridInfo || gridInfo;
-        drawOverlay();
-        updateInfo();
-      } catch (e) {
-        showError('Fallback error: ' + (e.message || e));
-      } finally {
-        workerBusy = false;
-        hideProgress();
-        if (pendingBuild) { pendingBuild = false; rebuildAll(); }
-      }
-    }, 0);
-  }
-}
-
-const rebuildAllDebounced = debounce(rebuildAll, 80);
-
-// ---------- 10. Отрисовка оверлея ----------
+// ---------- Отрисовка ----------
 function drawOverlay() {
   const w = imgWidth, h = imgHeight;
   if (!w) return;
@@ -841,7 +783,6 @@ function drawOverlay() {
 
     if (s.showCorners) {
       const cs = Math.min(bw, bh) * 0.12;
-      overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
       overlayCtx.lineWidth = lw * 2;
       const corners = [
         [x, y, 1, 1], [x + bw, y, -1, 1],
@@ -877,7 +818,6 @@ function drawOverlay() {
       overlayCtx.moveTo(ax, by); overlayCtx.lineTo(ax, by + bh);
       overlayCtx.stroke();
     }
-
     overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
     overlayCtx.lineWidth = lw;
     overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
@@ -906,7 +846,6 @@ function drawOverlay() {
       overlayCtx.moveTo(bx, py); overlayCtx.lineTo(bx + bw, py);
       overlayCtx.stroke();
     }
-
     overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
     overlayCtx.lineWidth = lw;
     overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
@@ -931,14 +870,13 @@ function drawOverlay() {
 
     for (const gl of gridLines) {
       if (s.outline) {
-        overlayCtx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+        overlayCtx.strokeStyle = 'rgba(0,0,0,0.75)';
         overlayCtx.lineWidth = lw * 2.5;
         overlayCtx.setLineDash([]);
         overlayCtx.beginPath();
         overlayCtx.moveTo(bx, gl.y); overlayCtx.lineTo(bx + bw, gl.y);
         overlayCtx.stroke();
       }
-
       overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
       overlayCtx.lineWidth = lw;
       overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
@@ -952,7 +890,7 @@ function drawOverlay() {
         const ty = gl.y - 4 / zoom;
         overlayCtx.textAlign = 'right';
         overlayCtx.lineWidth = 3 / zoom;
-        overlayCtx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+        overlayCtx.strokeStyle = 'rgba(0,0,0,0.9)';
         overlayCtx.setLineDash([]);
         overlayCtx.strokeText(label, tx, ty);
         overlayCtx.fillStyle = hexToRgba(s.color, s.alpha);
@@ -965,10 +903,10 @@ function drawOverlay() {
   }
 
   sourcePoints.forEach((p, i) => {
-    const isSelected = i === selectedPointIndex;
+    const sel = i === selectedPointIndex;
     overlayCtx.beginPath();
-    overlayCtx.arc(p.x, p.y, isSelected ? 10 : 8, 0, Math.PI * 2);
-    overlayCtx.fillStyle = isSelected ? '#ff5050' : '#ffcc00';
+    overlayCtx.arc(p.x, p.y, sel ? 10 : 8, 0, Math.PI * 2);
+    overlayCtx.fillStyle = sel ? '#ff5050' : '#ffcc00';
     overlayCtx.fill();
     overlayCtx.lineWidth = 2;
     overlayCtx.strokeStyle = '#000';
@@ -976,7 +914,7 @@ function drawOverlay() {
   });
 }
 
-// ---------- 11. UI ----------
+// ---------- UI ----------
 function updateInfo() {
   if (!lum) return;
   const N = imgWidth * imgHeight;
@@ -996,18 +934,16 @@ function updateInfo() {
   }
 
   infoHoriz.textContent = (charBBox && searchHorizLine)
-    ? `y:${searchHorizLine.y} (norm ${(searchHorizLine.yNorm * 100).toFixed(1)}%, сдвиг ${horizShiftPercent}%)`
-    : '—';
+    ? `y:${searchHorizLine.y} (norm ${(searchHorizLine.yNorm * 100).toFixed(1)}%)` : '—';
   infoVert.textContent = (charBBox && vertAxis)
-    ? `x:${vertAxis.x} (norm ${(vertAxis.xNorm * 100).toFixed(1)}%, сдвиг ${vertShiftPercent}%)`
-    : '—';
+    ? `x:${vertAxis.x} (norm ${(vertAxis.xNorm * 100).toFixed(1)}%)` : '—';
 
   if (charBBox && gridInfo) {
-    infoHeads.textContent = `${gridInfo.headCount.toFixed(1)}`;
     infoGrid.textContent = `${gridInfo.stepPercent.toFixed(2)}% (${gridInfo.lines} лин.)`;
+    infoHeads.textContent = `${gridInfo.headCount.toFixed(2)}`;
     infoHeadPx.textContent = `${gridInfo.headPx}px`;
   } else {
-    infoHeads.textContent = infoGrid.textContent = infoHeadPx.textContent = '—';
+    infoGrid.textContent = infoHeads.textContent = infoHeadPx.textContent = '—';
   }
 
   renderPointList();
@@ -1024,8 +960,8 @@ function renderPointList() {
     item.className = 'point-item' + (i === selectedPointIndex ? ' selected' : '');
     const left = document.createElement('div');
     left.className = 'left';
-    const dotColor = (i === selectedPointIndex) ? '#ff5050' : '#ffcc00';
-    left.innerHTML = `<span class="dot" style="background:${dotColor}"></span><span>#${i + 1}</span><span class="coords">x=${p.x}, y=${p.y}</span>`;
+    const dc = (i === selectedPointIndex) ? '#ff5050' : '#ffcc00';
+    left.innerHTML = `<span class="dot" style="background:${dc}"></span><span>#${i + 1}</span><span class="coords">x=${p.x}, y=${p.y}</span>`;
     left.addEventListener('click', () => {
       selectedPointIndex = i;
       drawOverlay();
@@ -1064,7 +1000,7 @@ function renderSamplesList() {
   });
 }
 
-// ---------- 12. Zoom / Pan ----------
+// ---------- Zoom / Pan ----------
 function applyTransform() {
   stageEl.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
   infoZoom.textContent = Math.round(zoom * 100) + '%';
@@ -1073,12 +1009,11 @@ function applyTransform() {
 
 function fitToView() {
   if (!imgWidth) return;
-  const wrapW = stageWrap.clientWidth;
-  const wrapH = stageWrap.clientHeight;
-  fitZoom = Math.min(wrapW / imgWidth, wrapH / imgHeight) * 0.98;
+  const ww = stageWrap.clientWidth, wh = stageWrap.clientHeight;
+  fitZoom = Math.min(ww / imgWidth, wh / imgHeight) * 0.98;
   zoom = fitZoom;
-  panX = (wrapW - imgWidth * zoom) / 2;
-  panY = (wrapH - imgHeight * zoom) / 2;
+  panX = (ww - imgWidth * zoom) / 2;
+  panY = (wh - imgHeight * zoom) / 2;
   applyTransform();
 }
 
@@ -1089,33 +1024,31 @@ function resetZoom() {
   applyTransform();
 }
 
-function zoomAt(factor, clientX, clientY) {
+function zoomAt(factor, cx, cy) {
   const rect = stageWrap.getBoundingClientRect();
-  const mx = clientX - rect.left;
-  const my = clientY - rect.top;
-  const newZoom = Math.max(0.05, Math.min(20, zoom * factor));
-  const k = newZoom / zoom;
+  const mx = cx - rect.left, my = cy - rect.top;
+  const nz = Math.max(0.05, Math.min(20, zoom * factor));
+  const k = nz / zoom;
   panX = mx - k * (mx - panX);
   panY = my - k * (my - panY);
-  zoom = newZoom;
+  zoom = nz;
   applyTransform();
 }
 
 zoomInBtn.addEventListener('click', () => {
-  const rect = stageWrap.getBoundingClientRect();
-  zoomAt(1.25, rect.left + stageWrap.clientWidth / 2, rect.top + stageWrap.clientHeight / 2);
+  const r = stageWrap.getBoundingClientRect();
+  zoomAt(1.25, r.left + stageWrap.clientWidth / 2, r.top + stageWrap.clientHeight / 2);
 });
 zoomOutBtn.addEventListener('click', () => {
-  const rect = stageWrap.getBoundingClientRect();
-  zoomAt(1 / 1.25, rect.left + stageWrap.clientWidth / 2, rect.top + stageWrap.clientHeight / 2);
+  const r = stageWrap.getBoundingClientRect();
+  zoomAt(1 / 1.25, r.left + stageWrap.clientWidth / 2, r.top + stageWrap.clientHeight / 2);
 });
 zoomFitBtn.addEventListener('click', fitToView);
 zoomResetBtn.addEventListener('click', resetZoom);
 
 stageWrap.addEventListener('wheel', (e) => {
   e.preventDefault();
-  const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-  zoomAt(factor, e.clientX, e.clientY);
+  zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX, e.clientY);
 }, { passive: false });
 
 stageWrap.addEventListener('mousedown', (e) => {
@@ -1170,34 +1103,33 @@ stageWrap.addEventListener('touchmove', (e) => {
     const [a, b] = e.touches;
     const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
     const factor = dist / touchStartDist;
-    const newZoom = Math.max(0.05, Math.min(20, touchStartZoom * factor));
+    const nz = Math.max(0.05, Math.min(20, touchStartZoom * factor));
     const mx = (a.clientX + b.clientX) / 2;
     const my = (a.clientY + b.clientY) / 2;
     const rect = stageWrap.getBoundingClientRect();
-    const localX = mx - rect.left, localY = my - rect.top;
-    const k = newZoom / zoom;
-    panX = localX - k * (localX - panX);
-    panY = localY - k * (localY - panY);
-    zoom = newZoom;
+    const lx = mx - rect.left, ly = my - rect.top;
+    const k = nz / zoom;
+    panX = lx - k * (lx - panX);
+    panY = ly - k * (ly - panY);
+    zoom = nz;
     applyTransform();
   }
 }, { passive: true });
 
 stageWrap.addEventListener('touchend', () => { touchMode = null; }, { passive: true });
 
-// ---------- 13. Клик по canvas ----------
-function clientToImage(clientX, clientY) {
+// ---------- Клик по canvas ----------
+function clientToImage(cx, cy) {
   const rect = stageEl.getBoundingClientRect();
   return {
-    x: Math.floor((clientX - rect.left) / zoom),
-    y: Math.floor((clientY - rect.top) / zoom)
+    x: Math.floor((cx - rect.left) / zoom),
+    y: Math.floor((cy - rect.top) / zoom)
   };
 }
 
 stageWrap.addEventListener('click', (e) => {
   if (!lum) return;
   if (isDragging) return;
-
   const { x, y } = clientToImage(e.clientX, e.clientY);
   if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) return;
 
@@ -1246,7 +1178,7 @@ function removePoint(index) {
   rebuildAll();
 }
 
-// ---------- 14. Режимы, курсор ----------
+// ---------- Режимы ----------
 function setMode(newMode) {
   mode = newMode;
   modeSeg.querySelectorAll('button').forEach(b => {
@@ -1292,68 +1224,54 @@ clearPointsBtn.addEventListener('click', () => {
   if (lum) rebuildAll();
 });
 
-// ---------- 15. Сетка: головы, пресеты, поиск головы, шаг % ----------
+// ---------- Сетка ----------
 function updatePresetActive() {
   presetsRow.querySelectorAll('.preset').forEach(btn => {
-    const v = +btn.dataset.heads;
-    btn.classList.toggle('active', Math.abs(v - headCount) < 0.05);
+    const heads = +btn.dataset.heads;
+    btn.classList.toggle('active', Math.abs(100 / heads - gridStepPercent) < 0.05);
   });
 }
 
 function updateGridSummary() {
   if (!gridInfo) return;
-  const alignLabel = gridAlign === 'centered' ? 'по центру головы' : 'от макушки';
-  gridSummary.textContent = `${gridInfo.headCount.toFixed(1)} голов · шаг ${gridInfo.stepPercent.toFixed(2)}% · ${gridInfo.lines} линий · ${alignLabel}`;
+  const al = gridAlign === 'centered' ? 'по центру головы' : 'от макушки';
+  gridSummary.textContent = `${gridInfo.stepPercent.toFixed(2)}% · ${gridInfo.headCount.toFixed(2)} голов · ${gridInfo.lines} линий · ${al}`;
 }
 
-// Слайдер голов
-headCountEl.addEventListener('input', () => {
-  headCount = +headCountEl.value;
-  headCountVal.textContent = headCount.toFixed(1);
-  // Обновить ручной шаг %
-  gridStepEl.value = (100 / headCount).toFixed(1);
-  gridStepVal.textContent = (100 / headCount).toFixed(2) + '%';
+function applyGridStep(step, opts = {}) {
+  if (!(step > 0)) return;
+  gridStepPercent = step;
+
+  gridStepEl.value = step.toFixed(1);
+  gridStepVal.textContent = step.toFixed(2) + '%';
+
+  const heads = 100 / step;
+  if (heads >= 2 && heads <= 20) headCountEl.value = heads.toFixed(2);
+  headCountVal.textContent = heads.toFixed(2);
+
   updatePresetActive();
+  if (lum && opts.rebuild !== false) rebuildAll();
+}
+
+gridStepEl.addEventListener('input', () => {
+  applyGridStep(+gridStepEl.value, { rebuild: false });
   if (lum) rebuildAllDebounced();
 });
 
-// Пресеты
 presetsRow.addEventListener('click', (e) => {
   const btn = e.target.closest('.preset');
   if (!btn) return;
-  headCount = +btn.dataset.heads;
-  headCountEl.value = headCount.toFixed(1);
-  headCountVal.textContent = headCount.toFixed(1);
-  gridStepEl.value = (100 / headCount).toFixed(1);
-  gridStepVal.textContent = (100 / headCount).toFixed(2) + '%';
-  updatePresetActive();
-  if (lum) rebuildAll();
+  applyGridStep(100 / +btn.dataset.heads);
 });
 
-// Ручной шаг % — пересчитывает головы
-gridStepEl.addEventListener('input', () => {
-  const stepPct = +gridStepEl.value;
-  if (stepPct > 0) {
-    headCount = 100 / stepPct;
-    headCountEl.value = Math.max(2.5, Math.min(10, headCount)).toFixed(1);
-    headCountVal.textContent = headCount.toFixed(1);
-    gridStepVal.textContent = stepPct.toFixed(2) + '%';
-    updatePresetActive();
-    if (lum) rebuildAllDebounced();
-  }
+headCountEl.addEventListener('input', () => {
+  const h = +headCountEl.value;
+  if (h > 0) applyGridStep(100 / h, { rebuild: false });
+  if (lum) rebuildAllDebounced();
 });
 
-gridResetBtn.addEventListener('click', () => {
-  headCount = 7.5;
-  headCountEl.value = '7.5';
-  headCountVal.textContent = '7.5';
-  gridStepEl.value = '13.3';
-  gridStepVal.textContent = '13.33%';
-  updatePresetActive();
-  if (lum) rebuildAll();
-});
+gridResetBtn.addEventListener('click', () => applyGridStep(13));
 
-// Выравнивание сетки
 gridAlignRadios.forEach(r => {
   r.addEventListener('change', () => {
     gridAlign = r.value;
@@ -1362,10 +1280,9 @@ gridAlignRadios.forEach(r => {
   });
 });
 
-// Поиск головы
 findHeadBtn.addEventListener('click', () => {
-  if (!lum) { findHeadStatus.textContent = 'Сначала загрузите изображение'; findHeadStatus.style.color = '#ff9090'; return; }
-  if (!charBBox) { findHeadStatus.textContent = 'Нет bbox — сначала выделите персонажа'; findHeadStatus.style.color = '#ff9090'; return; }
+  if (!lum) { findHeadStatus.textContent = 'Сначала изображение'; findHeadStatus.style.color = '#ff9090'; return; }
+  if (!charBBox) { findHeadStatus.textContent = 'Нет bbox'; findHeadStatus.style.color = '#ff9090'; return; }
 
   findHeadStatus.textContent = 'Поиск…';
   findHeadStatus.style.color = '';
@@ -1374,49 +1291,32 @@ findHeadBtn.addEventListener('click', () => {
   if (worker) {
     worker.postMessage({
       type: 'findHead',
-      payload: {
-        width: imgWidth,
-        height: imgHeight,
-        mask: isBg ? new Uint8Array(isBg) : null,
-        bbox: charBBox
-      }
+      payload: { width: imgWidth, height: imgHeight, mask: isBg ? new Uint8Array(isBg) : null, bbox: charBBox }
     });
   } else {
-    // Fallback: локальный поиск головы по маске
     const res = findHeadLocal(isBg, imgWidth, imgHeight, charBBox);
     if (res.ok) {
-      headCount = res.headCount;
-      headCountEl.value = headCount.toFixed(1);
-      headCountVal.textContent = headCount.toFixed(1);
-      findHeadStatus.textContent = `✓ найдено: ${headCount.toFixed(1)} голов (высота головы ${res.headPx}px)`;
+      applyGridStep(100 / res.headCount);
+      findHeadStatus.textContent = `✓ ${res.headCount.toFixed(2)} голов → шаг ${(100 / res.headCount).toFixed(2)}%`;
       findHeadStatus.style.color = '#7bd88f';
-      updatePresetActive();
-      rebuildAll();
     } else {
-      findHeadStatus.textContent = '✗ не удалось определить голову (' + (res.reason || 'нет шеи') + ')';
+      findHeadStatus.textContent = '✗ ' + (res.reason || 'нет шеи');
       findHeadStatus.style.color = '#ff9090';
     }
   }
 });
 
-// Локальный поиск головы (fallback)
 function findHeadLocal(mask, w, h, bbox) {
   if (!mask || !bbox) return { ok: false, reason: 'нет маски' };
   const bx = bbox.x, by = bbox.y, bw = bbox.w, bh = bbox.h;
   const maxY = Math.min(bh - 1, Math.floor(bh * 0.5));
   const profile = new Float32Array(maxY + 1);
-
   for (let yy = 0; yy <= maxY; yy++) {
-    const rowY = by + yy;
     let c = 0;
-    for (let xx = 0; xx < bw; xx++) {
-      const idx = rowY * w + (bx + xx);
-      if (mask[idx] === 0) c++;
-    }
+    const rowY = by + yy;
+    for (let xx = 0; xx < bw; xx++) if (mask[rowY * w + (bx + xx)] === 0) c++;
     profile[yy] = c;
   }
-
-  // Сглаживание
   const sm = new Float32Array(profile.length);
   const k = 3;
   for (let i = 0; i < profile.length; i++) {
@@ -1428,44 +1328,32 @@ function findHeadLocal(mask, w, h, bbox) {
     }
     sm[i] = s / n;
   }
-
-  // Ищем в верхней половине: локальный минимум в [0.15h, 0.45h]
-  const lo = Math.floor(bh * 0.15);
-  const hi = Math.min(sm.length - 1, Math.floor(bh * 0.45));
+  const lo = Math.floor(bh * 0.15), hi = Math.min(sm.length - 1, Math.floor(bh * 0.45));
   let maxW = 0;
   for (let i = 0; i <= hi; i++) if (sm[i] > maxW) maxW = sm[i];
-  if (maxW < 1) return { ok: false, reason: 'пустой верх' };
-
+  if (maxW < 1) return { ok: false, reason: 'пусто' };
   let bestY = -1, bestVal = Infinity;
-  for (let i = lo; i <= hi; i++) {
-    if (sm[i] < bestVal) { bestVal = sm[i]; bestY = i; }
-  }
-  if (bestY < 0 || bestVal > 0.7 * maxW) return { ok: false, reason: 'нет сужения (шея не найдена)' };
-
-  const headHeight = bestY;
-  if (headHeight < bh * 0.08) return { ok: false, reason: 'голова слишком мала' };
-  const N = bh / headHeight;
-  if (N < 2.5 || N > 10) return { ok: false, reason: 'нереалистичный рост ' + N.toFixed(1) };
-
-  return { ok: true, headCount: Math.round(N * 10) / 10, headPx: Math.round(headHeight) };
+  for (let i = lo; i <= hi; i++) if (sm[i] < bestVal) { bestVal = sm[i]; bestY = i; }
+  if (bestY < 0 || bestVal > 0.7 * maxW) return { ok: false, reason: 'нет сужения' };
+  const headH = bestY;
+  if (headH < bh * 0.08) return { ok: false, reason: 'мала' };
+  const N = bh / headH;
+  if (N < 2.5 || N > 10) return { ok: false, reason: 'N=' + N.toFixed(1) };
+  return { ok: true, headCount: Math.round(N * 100) / 100, headPx: Math.round(headH) };
 }
 
-// Checkbox «показывать сетку»
 showGridEl.addEventListener('change', () => { showGrid = showGridEl.checked; drawOverlay(); });
 
-// Старые слушатели для линий поиска
 horizShiftEl.addEventListener('input', () => {
   horizShiftPercent = +horizShiftEl.value;
   horizShiftVal.textContent = horizShiftPercent + '%';
   if (lum) rebuildAllDebounced();
 });
-
 vertShiftEl.addEventListener('input', () => {
   vertShiftPercent = +vertShiftEl.value;
   vertShiftVal.textContent = vertShiftPercent + '%';
   if (lum) rebuildAllDebounced();
 });
-
 showHorizEl.addEventListener('change', () => { showHoriz = showHorizEl.checked; drawOverlay(); });
 showVertEl.addEventListener('change', () => { showVert = showVertEl.checked; drawOverlay(); });
 
@@ -1475,7 +1363,7 @@ searchLinesResetBtn.addEventListener('click', () => {
   if (lum) rebuildAll();
 });
 
-// ---------- 16. Экспорт ----------
+// ---------- Экспорт ----------
 toggleImageBtn.addEventListener('click', () => {
   hideImage = !hideImage;
   stageEl.classList.toggle('hide-base', hideImage);
@@ -1526,7 +1414,7 @@ exportCutBtn.addEventListener('click', () => {
   downloadCanvasPNG(c, 'cutout.png');
 });
 
-// ---------- 17. Слушатели параметров маски ----------
+// ---------- Слушатели маски ----------
 bgLumEl.addEventListener('input', () => {
   bgLumVal.textContent = bgLumEl.value;
   invalidateSeeds();
@@ -1541,10 +1429,7 @@ regionTolEl.addEventListener('input', () => {
   regionTolVal.textContent = regionTolEl.value;
   if (mode === 'region') rebuildAllDebounced();
 });
-invertEl.addEventListener('change', () => {
-  invalidateSeeds();
-  if (lum) rebuildAll();
-});
+invertEl.addEventListener('change', () => { invalidateSeeds(); if (lum) rebuildAll(); });
 useSmoothEl.addEventListener('change', () => {
   smoothIterEl.disabled = !useSmoothEl.checked;
   if (lum) rebuildAll();
@@ -1562,23 +1447,15 @@ morphCloseEl.addEventListener('input', () => {
   if (lum) rebuildAllDebounced();
 });
 
-// ---------- 18. Init ----------
+// ---------- Init ----------
 try {
   initWorker();
   smoothIterEl.disabled = !useSmoothEl.checked;
   updateCursor();
   bindStyleControls();
   setStyleUIFromState();
-
-  // Инициализация сетки: слайдер голов, шаг %, пресеты
-  headCountEl.value = headCount.toFixed(1);
-  headCountVal.textContent = headCount.toFixed(1);
-  gridStepEl.value = (100 / headCount).toFixed(1);
-  gridStepVal.textContent = (100 / headCount).toFixed(2) + '%';
-  updatePresetActive();
-  updateGridSummary();
-
+  applyGridStep(13, { rebuild: false });
   console.log('[main] init OK');
 } catch (e) {
   showError('Init error: ' + (e.message || e));
-}
+      }
