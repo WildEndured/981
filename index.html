@@ -186,29 +186,27 @@
     </div>
   </div>
 
-  <div class="panel-section">
-    <h3>Линии пропорций (анатомия)</h3>
+  <div class="panel-section" id="propSection">
+    <h3>Линии пропорций</h3>
 
     <div class="row" style="margin-bottom: 10px;">
-      <label><input id="showPropLines" type="checkbox" checked /> Показывать линии пропорций</label>
+      <label><input id="showPropLines" type="checkbox" checked /> Показывать линии</label>
     </div>
 
-    <div class="presets" id="propPresetsRow">
-      <button class="preset active" data-prop="7.5">7.5 голов · классика</button>
-      <button class="preset" data-prop="7">7 голов · реализм</button>
-      <button class="preset" data-prop="6">6 голов · аниме</button>
+    <!-- Селектор пресетов + управление -->
+    <div class="row" style="gap: 6px; align-items: center; flex-wrap: nowrap;">
+      <select id="propPresetSelect" style="flex: 1; background: #232830; color: #fff; border: 1px solid #333a44; padding: 6px; border-radius: 8px; font-size: 13px;"></select>
+      <button id="propPresetAddBtn" class="btn-small" title="Сохранить текущие линии как новый пресет">+</button>
+      <button id="propPresetRenameBtn" class="btn-small" title="Переименовать пресет">✎</button>
+      <button id="propPresetDelBtn" class="btn-small" title="Удалить пресет" style="color: #ff6060; border-color: #ff6060;">✕</button>
     </div>
 
-    <div class="row" style="gap:8px; margin-top: 12px;">
-      <label class="prop-check"><input type="checkbox" id="propCrown" checked /> Макушка <span class="prop-val" id="propCrownVal">0%</span></label>
-      <label class="prop-check"><input type="checkbox" id="propChin" checked /> Подбородок <span class="prop-val" id="propChinVal">13%</span></label>
-      <label class="prop-check"><input type="checkbox" id="propShoulders" checked /> Плечи <span class="prop-val" id="propShouldersVal">16%</span></label>
-      <label class="prop-check"><input type="checkbox" id="propPubic" checked /> Лобок <span class="prop-val" id="propPubicVal">43%</span></label>
-      <label class="prop-check"><input type="checkbox" id="propKnees" checked /> Колени <span class="prop-val" id="propKneesVal">64%</span></label>
-    </div>
+    <!-- Список линий -->
+    <div id="propLinesList" style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;"></div>
 
-    <div class="row" style="gap:6px; margin-top: 10px;">
-      <button id="propResetBtn" class="btn-small">Сброс к 7.5</button>
+    <!-- Кнопка добавления линии -->
+    <div class="row" style="margin-top: 10px;">
+      <button id="addPropLineBtn" class="btn-small btn-accent" style="width: 100%;">+ Добавить линию</button>
     </div>
   </div>
 
@@ -372,6 +370,7 @@
 <script src="js/zoom.js"></script>
 <script src="js/interactions.js"></script>
 <script src="js/grid.js"></script>
+<script src="js/proportions.js"></script>
 <script src="js/init.js"></script>
 </body>
-      </html>
+  </html>
