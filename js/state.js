@@ -49,10 +49,6 @@ const gridAlignRadios = document.querySelectorAll('input[name="gridAlign"]');
 const gridResetBtn = $('gridResetBtn');
 const gridSummary = $('gridSummary');
 
-const showPropLinesEl = $('showPropLines');
-const propPresetsRow = $('propPresetsRow');
-const propResetBtn = $('propResetBtn');
-
 const autoThresholdBtn = $('autoThresholdBtn');
 const pickBgColorBtn = $('pickBgColorBtn');
 const addPointBtn = $('addPointBtn');
@@ -106,7 +102,7 @@ let charBBox = null;
 let searchHorizLine = null;
 let vertAxis = null;
 let gridLines = [];
-let propLines = [];
+let propLines = []; // вычисленные Y-координаты для рендера
 
 let horizShiftPercent = 0;
 let vertShiftPercent = 0;
@@ -120,17 +116,15 @@ let showHoriz = true;
 let showVert = true;
 let showGrid = true;
 
-// Анатомические линии
+// --- Линии пропорций ---
 let showPropLines = true;
-let propPresetHeadCount = 7.5;
-const propEnabled = {
-  crown: true,
-  chin: true,
-  shoulders: true,
-  pubic: true,
-  knees: true
-};
 
+// Пресеты линий пропорций (сохраняются в localStorage)
+// Структура: { id: string, name: string, lines: Array<{ id, label, percent, enabled }> }
+let propPresets = [];
+let activePropPresetId = 'classic-7.5';
+
+// Цвета/стили линий пропорций (оставляем дефолт)
 const propStyle = {
   color: '#ff7ad9',
   width: 3,
