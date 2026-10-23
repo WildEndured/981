@@ -159,7 +159,9 @@ function invalidateSeeds() { _seedsCache = null; }
 // ---------- Ошибки ----------
 function showError(msg) {
   console.error('[main]', msg);
-  errBanner.textContent = '⚠ ' + msg;
-  errBanner.classList.add('visible');
+  if (errBanner) {
+    errBanner.textContent = '⚠ ' + msg;
+    errBanner.classList.add('visible');
+  }
 }
 window.addEventListener('error', (e) => showError('JS error: ' + (e.message || e.error)));
