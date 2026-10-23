@@ -1,5 +1,5 @@
 // ============================================================
-//  Web Worker · вариант A: шаг % первичен, головы = 100 / шаг
+//  Web Worker · шаг сетки в целых процентах
 // ============================================================
 console.log('[worker] loaded');
 
@@ -149,8 +149,9 @@ function buildMaskInWorker(p) {
   };
 }
 
+// Шаг в целых процентах
 function buildGridLines(bbox, stepPercent, align) {
-  const step = stepPercent > 0 ? stepPercent : 13;
+  const step = Math.max(1, Math.round(stepPercent));
   const offset = (align === 'centered') ? step / 2 : 0;
   const lines = [];
   const headCount = 100 / step;
@@ -163,7 +164,7 @@ function buildGridLines(bbox, stepPercent, align) {
     lines.push({
       y: bbox.y + Math.round(bbox.h * p / 100),
       yNorm: p / 100,
-      percent: +p.toFixed(2)
+      percent: p
     });
   }
 
