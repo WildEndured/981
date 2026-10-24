@@ -7,6 +7,7 @@ function drawOverlay() {
   if (!w) return;
   overlayCtx.clearRect(0, 0, w, h);
 
+  // --- Маска фона ---
   if (isBg) {
     const img = overlayCtx.createImageData(w, h);
     const data = img.data;
@@ -54,7 +55,7 @@ function drawOverlay() {
 
   // --- Линии пропорций ---
   if (charBBox && showPropLines && propLines && propLines.length > 0) {
-    const { x: bx, w: bw } = charBBox;
+    const { x: bx, y: by, w: bw, h: bh } = charBBox;
     const s = style.prop;
     const lw = Math.max(1, s.width / zoom);
     const fs = Math.max(12, 14 / zoom);
@@ -69,30 +70,58 @@ function drawOverlay() {
       const lineW = pl.width !== undefined ? pl.width : 1.0;
       const startX = bx + (bw * (1 - lineW)) / 2;
       const endX = bx + bw - (bw * (1 - lineW)) / 2;
+      const yPos = by + (bh * pl.percent / 100);
 
-      if (s.outline) {
-        overlayCtx.strokeStyle = 'rgba(0,0,0,0.8)';
-        overlayCtx.lineWidth = lw * 2.5;
-        overlayCtx.setLineDash([]);
+      // Если линия помечена как круг (череп)
+      if (pl.isCircle) {
+        const centerX = bx + bw / 2;
+        // Центр круга находится на уровне макушки (0%).
+        // Радиус равен 3/5 высоты головы.
+        // Высота головы = bh / headCount. Но мы не знаем headCount здесь.
+        // Проще: радиус = yPos (расстояние от 0% до 3/5).
+        const radius = Math.abs(yPos - by);
+        
+        overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
+        overlayCtx.lineWidth = lw;
+        overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
         overlayCtx.beginPath();
-        overlayCtx.moveTo(startX, pl.y); 
-        overlayCtx.lineTo(endX, pl.y);
+        // Рисуем круг, центр которого на макушке (by), чтобы нижняя точка касалась линии 3/5.
+        // Но анатомически череп — это шар, вписанный в первые 3/5 головы.
+        // Поэтому центр круга на уровне 1.5/5 головы, радиус 1.5/5.
+        const centerY = by + (yPos - by) / 2;
+        const rad = (yPos - by) / 2;
+        overlayCtx.arc(centerX, centerY, rad, 0, Math.PI * 2);
         overlayCtx.stroke();
+        overlayCtx.setLineDash([]);
+
+      } else {
+        // Обычная горизонтальная линия
+        if (s.outline) {
+          overlayCtx.strokeStyle = 'rgba(0,0,0,0.8)';
+          overlayCtx.lineWidth = lw * 2.5;
+          overlayCtx.setLineDash([]);
+          overlayCtx.beginPath();
+          overlayCtx.moveTo(startX, yPos); 
+          overlayCtx.lineTo(endX, yPos);
+          overlayCtx.stroke();
+        }
+
+        overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
+        overlayCtx.lineWidth = lw;
+        overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(startX, yPos); 
+        overlayCtx.lineTo(endX, yPos);
+        overlayCtx.stroke();
+        overlayCtx.setLineDash([]);
       }
 
-      overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
-      overlayCtx.lineWidth = lw;
-      overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(startX, pl.y); 
-      overlayCtx.lineTo(endX, pl.y);
-      overlayCtx.stroke();
-      overlayCtx.setLineDash([]);
-
+      // Подпись
       if (s.showLabels) {
-        const label = `${pl.label} · ${pl.percent}%`;
+        const label = `${pl.label} · ${pl.percent.toFixed(1)}%`;
+        // Подпись для круга ставим чуть ниже, чтобы не перекрывать
         const tx = startX + 4 / zoom; 
-        const ty = pl.y - 4 / zoom;
+        const ty = yPos - 4 / zoom;
         
         overlayCtx.textAlign = 'left';
         overlayCtx.lineWidth = 3 / zoom;
