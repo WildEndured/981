@@ -150,61 +150,58 @@ function drawOverlay() {
     overlayCtx.textBaseline = 'alphabetic';
   }
 
-  // Анатомические линии пропорций
-  if (charBBox && showPropLines && propLines && propLines.length > 0) {
-    const { x: bx, w: bw } = charBBox;
-    const s = propStyle;
-    const lw = Math.max(1, s.width / zoom);
-    const fs = Math.max(12, 14 / zoom);
+  // ===== Анатомические линии пропорций =====
+if (charBBox && showPropLines && propLines && propLines.length > 0) {
+  const { x: bx, w: bw } = charBBox;
+  const s = propStyle;
+  const lw = Math.max(1, s.width / zoom);
+  const fs = Math.max(12, 14 / zoom);
 
-    overlayCtx.font = `bold ${fs}px system-ui, sans-serif`;
-    overlayCtx.textBaseline = 'bottom';
+  overlayCtx.font = `bold ${fs}px system-ui, sans-serif`;
+  overlayCtx.textBaseline = 'bottom';
+  overlayCtx.setLineDash([]);
+
+  for (const pl of propLines) {
+    if (!pl.enabled) continue;
+
+    // Вычисляем координаты с учётом ширины линии
+    const lineW = pl.width !== undefined ? pl.width : 1.0;
+    const startX = bx + (bw * (1 - lineW)) / 2;
+    const endX = bx + bw - (bw * (1 - lineW)) / 2;
+
+    if (s.outline) {
+      overlayCtx.strokeStyle = 'rgba(0,0,0,0.8)';
+      overlayCtx.lineWidth = lw * 2.5;
+      overlayCtx.setLineDash([]);
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(startX, pl.y); 
+      overlayCtx.lineTo(endX, pl.y);
+      overlayCtx.stroke();
+    }
+
+    overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
+    overlayCtx.lineWidth = lw;
+    overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(startX, pl.y); 
+    overlayCtx.lineTo(endX, pl.y);
+    overlayCtx.stroke();
     overlayCtx.setLineDash([]);
 
-    for (const pl of propLines) {
-      if (!pl.enabled) continue;
-
-      if (s.outline) {
-        overlayCtx.strokeStyle = 'rgba(0,0,0,0.8)';
-        overlayCtx.lineWidth = lw * 2.5;
-        overlayCtx.setLineDash([]);
-        overlayCtx.beginPath();
-        overlayCtx.moveTo(bx, pl.y); overlayCtx.lineTo(bx + bw, pl.y);
-        overlayCtx.stroke();
-      }
-
-      overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
-      overlayCtx.lineWidth = lw;
-      overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(bx, pl.y); overlayCtx.lineTo(bx + bw, pl.y);
-      overlayCtx.stroke();
-      overlayCtx.setLineDash([]);
-
-      if (s.showLabels) {
-        const label = `${pl.label} · ${pl.percent}%`;
-        const tx = bx + 6 / zoom;
-        const ty = pl.y - 4 / zoom;
-        overlayCtx.textAlign = 'left';
-        overlayCtx.lineWidth = 3 / zoom;
-        overlayCtx.strokeStyle = 'rgba(0,0,0,0.95)';
-        overlayCtx.strokeText(label, tx, ty);
-        overlayCtx.fillStyle = hexToRgba(s.color, s.alpha);
-        overlayCtx.fillText(label, tx, ty);
-      }
+    if (s.showLabels) {
+      const label = `${pl.label} · ${pl.percent}%`;
+      // Текст ставим слева от начала линии
+      const tx = startX + 4 / zoom; 
+      const ty = pl.y - 4 / zoom;
+      
+      overlayCtx.textAlign = 'left';
+      overlayCtx.lineWidth = 3 / zoom;
+      overlayCtx.strokeStyle = 'rgba(0,0,0,0.95)';
+      overlayCtx.strokeText(label, tx, ty);
+      overlayCtx.fillStyle = hexToRgba(s.color, s.alpha);
+      overlayCtx.fillText(label, tx, ty);
     }
-    overlayCtx.textAlign = 'start';
-    overlayCtx.textBaseline = 'alphabetic';
   }
-
-  sourcePoints.forEach((p, i) => {
-    const sel = i === selectedPointIndex;
-    overlayCtx.beginPath();
-    overlayCtx.arc(p.x, p.y, sel ? 10 : 8, 0, Math.PI * 2);
-    overlayCtx.fillStyle = sel ? '#ff5050' : '#ffcc00';
-    overlayCtx.fill();
-    overlayCtx.lineWidth = 2;
-    overlayCtx.strokeStyle = '#000';
-    overlayCtx.stroke();
-  });
+  overlayCtx.textAlign = 'start';
+  overlayCtx.textBaseline = 'alphabetic';
 }
