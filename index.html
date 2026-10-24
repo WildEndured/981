@@ -193,6 +193,13 @@
       <label><input id="showPropLines" type="checkbox" checked /> Показывать линии</label>
     </div>
 
+    <!-- Генератор пропорций -->
+    <div class="row" style="gap: 6px; align-items: center; margin-bottom: 12px; background: #101216; padding: 8px; border-radius: 8px; border: 1px solid var(--border, #2b2f37);">
+      <span style="font-size: 12px; color: var(--muted-2); white-space: nowrap;">Рост в головах:</span>
+      <input type="number" id="headCountGen" value="7" min="2" max="12" step="0.5" style="width: 60px; background: #232830; color: #fff; border: 1px solid #333a44; border-radius: 6px; padding: 4px; text-align: center;">
+      <button id="genPresetBtn" class="btn-small btn-accent" style="flex: 1;">⚡ Сгенерировать пресет</button>
+    </div>
+
     <!-- Селектор пресетов + управление -->
     <div class="row" style="gap: 6px; align-items: center; flex-wrap: nowrap;">
       <select id="propPresetSelect" style="flex: 1; background: #232830; color: #fff; border: 1px solid #333a44; padding: 6px; border-radius: 8px; font-size: 13px;"></select>
@@ -364,7 +371,7 @@
 <script src="js/style.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/worker.js"></script>
-<script src="js/overlay.js"></script>  <!-- Отрисовка должна идти ДО тех, кто её вызывает -->
+<script src="js/overlay.js"></script>
 <script src="js/mask.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/zoom.js"></script>
@@ -373,6 +380,4 @@
 <script src="js/proportions.js"></script>
 <script src="js/init.js"></script>
 </body>
-</html>
-</body>
-  </html>
+            </html>
