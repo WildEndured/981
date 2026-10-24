@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Маска фона · BBox · Сетка пропорций</title>
+<title>Маска фона · BBox · Линии пропорций</title>
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -105,87 +105,6 @@
     </div>
   </div>
 
-  <div class="panel-section">
-    <h3>Поисковые линии</h3>
-    <div class="row" style="margin-bottom: 12px;">
-      <label><input id="showHoriz" type="checkbox" checked /> Показывать горизонтальную</label>
-    </div>
-    <div class="slider-row">
-      <div class="label-line"><span>Горизонтальная (центр)</span><span id="horizShiftVal">0%</span></div>
-      <input id="horizShift" type="range" min="-50" max="50" value="0" step="1" />
-    </div>
-    <div class="row" style="margin-bottom: 12px; margin-top: 16px;">
-      <label><input id="showVert" type="checkbox" checked /> Показывать вертикальную</label>
-    </div>
-    <div class="slider-row">
-      <div class="label-line"><span>Вертикальная (сдвиг по X)</span><span id="vertShiftVal">0%</span></div>
-      <input id="vertShift" type="range" min="-50" max="50" value="0" step="1" />
-    </div>
-    <div class="row" style="gap:6px; margin-top: 12px;">
-      <button id="searchLinesResetBtn" class="btn-small">Сброс линий</button>
-      <span class="hint-inline">Горизонтальная: −50 верх / +50 низ. Вертикальная: −50 лево / +50 право.</span>
-    </div>
-  </div>
-
-  <div class="panel-section">
-    <h3>Сетка пропорций</h3>
-
-    <div class="row" style="margin-bottom: 10px;">
-      <label><input id="showGrid" type="checkbox" checked /> Показывать сетку</label>
-    </div>
-
-    <div class="slider-row">
-      <div class="label-line">
-        <span>Шаг сетки</span>
-        <span id="gridStepVal">13%</span>
-      </div>
-      <input id="gridStep" type="range" min="1" max="50" value="13" step="1" />
-    </div>
-
-    <div class="presets" id="presetsRow">
-      <button class="preset" data-heads="3">3 · чиби</button>
-      <button class="preset" data-heads="4">4 · супер-чиби</button>
-      <button class="preset" data-heads="5">5 · стилиз.</button>
-      <button class="preset" data-heads="6">6 · аниме</button>
-      <button class="preset" data-heads="7">7 · реализм</button>
-      <button class="preset active" data-heads="7.5">7.5 · классика</button>
-      <button class="preset" data-heads="8">8 · героич.</button>
-      <button class="preset" data-heads="9">9 · модель</button>
-    </div>
-
-    <details class="advanced" style="margin-top: 10px;">
-      <summary>Рост в головах (производное от шага)</summary>
-      <div class="slider-row" style="margin-top: 8px;">
-        <div class="label-line">
-          <span>Рост, голов</span>
-          <span id="headCountVal">7.69</span>
-        </div>
-        <input id="headCount" type="range" min="2" max="20" value="7.69" step="0.01" />
-      </div>
-      <div class="row" style="gap:6px; margin-top: 6px;">
-        <span class="hint-inline">Изменение голов пересчитает шаг = 100 / голов (целые %).</span>
-      </div>
-    </details>
-
-    <div class="row" style="gap:8px; margin-top: 12px;">
-      <button id="findHeadBtn" class="btn-small btn-accent">🔍 Найти голову</button>
-      <span id="findHeadStatus" class="hint-inline"></span>
-    </div>
-
-    <div class="row" style="margin-top: 10px;">
-      <label><input type="radio" name="gridAlign" value="from-top" checked /> От макушки</label>
-      <label><input type="radio" name="gridAlign" value="centered" /> По центру головы</label>
-    </div>
-
-    <div class="row" style="gap:6px; margin-top: 10px;">
-      <button id="gridResetBtn" class="btn-small">Сброс к 13%</button>
-    </div>
-
-    <div class="row" style="margin-top: 8px;">
-      <span id="gridSummary" class="hint-inline">13% · 7.69 голов · 7 линий · от макушки</span>
-    </div>
-  </div>
-
   <div class="panel-section" id="propSection">
     <h3>Линии пропорций</h3>
 
@@ -196,7 +115,7 @@
     <!-- Генератор пропорций -->
     <div class="row" style="gap: 6px; align-items: center; margin-bottom: 12px; background: #101216; padding: 8px; border-radius: 8px; border: 1px solid var(--border, #2b2f37);">
       <span style="font-size: 12px; color: var(--muted-2); white-space: nowrap;">Рост в головах:</span>
-      <input type="number" id="headCountGen" value="7" min="2" max="12" step="0.5" style="width: 60px; background: #232830; color: #fff; border: 1px solid #333a44; border-radius: 6px; padding: 4px; text-align: center;">
+      <input type="number" id="headCountGen" value="7.5" min="2" max="12" step="0.5" style="width: 60px; background: #232830; color: #fff; border: 1px solid #333a44; border-radius: 6px; padding: 4px; text-align: center;">
       <button id="genPresetBtn" class="btn-small btn-accent" style="flex: 1;">⚡ Сгенерировать пресет</button>
     </div>
 
@@ -218,99 +137,40 @@
   </div>
 
   <div class="panel-section">
-    <h3>Стиль сетки и линий</h3>
+    <h3>Стиль линий пропорций</h3>
     <div class="style-grid">
-
       <div class="style-block">
-        <h4><span class="swatch" id="gridColorSwatch" style="background:#ffdc00;"></span>Сетка пропорций</h4>
+        <h4><span class="swatch" id="propColorSwatch" style="background:#ff7ad9;"></span>Линии пропорций</h4>
         <div class="row">
-          <label>Цвет <input type="color" id="gridColor" value="#ffdc00" /></label>
+          <label>Цвет <input type="color" id="propColor" value="#ff7ad9" /></label>
         </div>
         <div class="slider-row">
-          <div class="label-line"><span>Толщина</span><span id="gridWidthVal">2.5</span></div>
-          <input id="gridWidth" type="range" min="1" max="10" value="2.5" step="0.5" />
+          <div class="label-line"><span>Толщина</span><span id="propWidthVal">3</span></div>
+          <input id="propWidth" type="range" min="1" max="10" value="3" step="0.5" />
         </div>
         <div class="slider-row">
-          <div class="label-line"><span>Прозрачность</span><span id="gridAlphaVal">0.95</span></div>
-          <input id="gridAlpha" type="range" min="0.05" max="1" value="0.95" step="0.05" />
+          <div class="label-line"><span>Прозрачность</span><span id="propAlphaVal">1</span></div>
+          <input id="propAlpha" type="range" min="0.05" max="1" value="1" step="0.05" />
         </div>
         <div class="row">
-          <label><input type="checkbox" id="gridDashed" checked /> Пунктир</label>
+          <label><input type="checkbox" id="propDashed" checked /> Пунктир</label>
         </div>
         <div class="slider-row">
-          <div class="label-line"><span>Длина штриха</span><span id="gridDashLenVal">10</span></div>
-          <input id="gridDashLen" type="range" min="2" max="40" value="10" step="1" />
+          <div class="label-line"><span>Длина штриха</span><span id="propDashLenVal">8</span></div>
+          <input id="propDashLen" type="range" min="2" max="40" value="8" step="1" />
         </div>
         <div class="slider-row">
-          <div class="label-line"><span>Промежуток</span><span id="gridDashGapVal">6</span></div>
-          <input id="gridDashGap" type="range" min="2" max="40" value="6" step="1" />
+          <div class="label-line"><span>Промежуток</span><span id="propDashGapVal">5</span></div>
+          <input id="propDashGap" type="range" min="2" max="40" value="5" step="1" />
         </div>
         <div class="row">
-          <label><input type="checkbox" id="gridOutline" checked /> Тёмная обводка</label>
+          <label><input type="checkbox" id="propOutline" checked /> Тёмная обводка</label>
         </div>
         <div class="row">
-          <label><input type="checkbox" id="gridShowLabels" checked /> Подписи %</label>
+          <label><input type="checkbox" id="propShowLabels" checked /> Подписи</label>
         </div>
       </div>
-
-      <div class="style-block">
-        <h4><span class="swatch" id="horizColorSwatch" style="background:#50b4ff;"></span>Горизонтальная линия</h4>
-        <div class="row">
-          <label>Цвет <input type="color" id="horizColor" value="#50b4ff" /></label>
-        </div>
-        <div class="slider-row">
-          <div class="label-line"><span>Толщина</span><span id="horizWidthVal">3</span></div>
-          <input id="horizWidth" type="range" min="1" max="12" value="3" step="0.5" />
-        </div>
-        <div class="slider-row">
-          <div class="label-line"><span>Прозрачность</span><span id="horizAlphaVal">1</span></div>
-          <input id="horizAlpha" type="range" min="0.05" max="1" value="1" step="0.05" />
-        </div>
-        <div class="row">
-          <label><input type="checkbox" id="horizDashed" checked /> Пунктир</label>
-        </div>
-        <div class="slider-row">
-          <div class="label-line"><span>Длина штриха</span><span id="horizDashLenVal">6</span></div>
-          <input id="horizDashLen" type="range" min="2" max="40" value="6" step="1" />
-        </div>
-        <div class="slider-row">
-          <div class="label-line"><span>Промежуток</span><span id="horizDashGapVal">4</span></div>
-          <input id="horizDashGap" type="range" min="2" max="40" value="4" step="1" />
-        </div>
-        <div class="row">
-          <label><input type="checkbox" id="horizOutline" /> Тёмная обводка</label>
-        </div>
-      </div>
-
-      <div class="style-block">
-        <h4><span class="swatch" id="vertColorSwatch" style="background:#c080ff;"></span>Вертикальная линия</h4>
-        <div class="row">
-          <label>Цвет <input type="color" id="vertColor" value="#c080ff" /></label>
-        </div>
-        <div class="slider-row">
-          <div class="label-line"><span>Толщина</span><span id="vertWidthVal">3</span></div>
-          <input id="vertWidth" type="range" min="1" max="12" value="3" step="0.5" />
-        </div>
-        <div class="slider-row">
-          <div class="label-line"><span>Прозрачность</span><span id="vertAlphaVal">1</span></div>
-          <input id="vertAlpha" type="range" min="0.05" max="1" value="1" step="0.05" />
-        </div>
-        <div class="row">
-          <label><input type="checkbox" id="vertDashed" checked /> Пунктир</label>
-        </div>
-        <div class="slider-row">
-          <div class="label-line"><span>Длина штриха</span><span id="vertDashLenVal">6</span></div>
-          <input id="vertDashLen" type="range" min="2" max="40" value="6" step="1" />
-        </div>
-        <div class="slider-row">
-          <div class="label-line"><span>Промежуток</span><span id="vertDashGapVal">4</span></div>
-          <input id="vertDashGap" type="range" min="2" max="40" value="4" step="1" />
-        </div>
-        <div class="row">
-          <label><input type="checkbox" id="vertOutline" /> Тёмная обводка</label>
-        </div>
-      </div>
-
+      
       <div class="style-block">
         <h4><span class="swatch" id="bboxColorSwatch" style="background:#00e0ff;"></span>BBox</h4>
         <div class="row">
@@ -328,9 +188,8 @@
           <label><input type="checkbox" id="bboxShowCorners" checked /> Уголки</label>
         </div>
       </div>
-
     </div>
-
+    
     <div class="row" style="gap:6px; margin-top: 12px;">
       <button id="styleResetBtn" class="btn-small">Сброс стиля</button>
     </div>
@@ -343,11 +202,6 @@
     <div class="kv"><span>Bbox</span><span id="infoBBox">—</span></div>
     <div class="kv"><span>W / H</span><span id="infoWH">—</span></div>
     <div class="kv"><span>Заполнение</span><span id="infoFill">—</span></div>
-    <div class="kv"><span>Гориз. поиск</span><span id="infoHoriz">—</span></div>
-    <div class="kv"><span>Верт. поиск</span><span id="infoVert">—</span></div>
-    <div class="kv"><span>Шаг сетки</span><span id="infoGrid">—</span></div>
-    <div class="kv"><span>Голов</span><span id="infoHeads">—</span></div>
-    <div class="kv"><span>Высота головы</span><span id="infoHeadPx">—</span></div>
   </div>
 </div>
 
@@ -376,8 +230,7 @@
 <script src="js/ui.js"></script>
 <script src="js/zoom.js"></script>
 <script src="js/interactions.js"></script>
-<script src="js/grid.js"></script>
 <script src="js/proportions.js"></script>
 <script src="js/init.js"></script>
 </body>
-            </html>
+</html>
