@@ -1,5 +1,5 @@
 // ============================================================
-//  overlay.js · отрисовка оверлея (маска, bbox, линии, сетка)
+//  overlay.js · отрисовка оверлея (маска, bbox, линии пропорций)
 // ============================================================
 
 function drawOverlay() {
@@ -18,6 +18,7 @@ function drawOverlay() {
     overlayCtx.putImageData(img, 0, 0);
   }
 
+  // --- BBox ---
   if (charBBox) {
     const { x, y, w: bw, h: bh } = charBBox;
     const s = style.bbox;
@@ -51,109 +52,10 @@ function drawOverlay() {
     overlayCtx.fillText(`bbox ${bw}×${bh}`, x, Math.max(fs, y - 6 / zoom));
   }
 
-  if (charBBox && vertAxis && showVert) {
-    const { y: by, h: bh } = charBBox;
-    const ax = vertAxis.x;
-    const s = style.vert;
-    const lw = Math.max(1, s.width / zoom);
-    const fs = Math.max(11, 13 / zoom);
-
-    if (s.outline) {
-      overlayCtx.strokeStyle = 'rgba(0,0,0,0.8)';
-      overlayCtx.lineWidth = lw * 2.5;
-      overlayCtx.setLineDash([]);
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(ax, by); overlayCtx.lineTo(ax, by + bh);
-      overlayCtx.stroke();
-    }
-    overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
-    overlayCtx.lineWidth = lw;
-    overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(ax, by); overlayCtx.lineTo(ax, by + bh);
-    overlayCtx.stroke();
-    overlayCtx.setLineDash([]);
-
-    overlayCtx.font = `${fs}px system-ui, sans-serif`;
-    overlayCtx.fillStyle = hexToRgba(s.color, s.alpha);
-    overlayCtx.fillText(`верт. поиск (${vertShiftPercent}%)`, ax + 6 / zoom, by + fs + 2 / zoom);
-  }
-
-  if (charBBox && searchHorizLine && showHoriz) {
-    const { x: bx, w: bw } = charBBox;
-    const py = searchHorizLine.y;
-    const s = style.horiz;
-    const lw = Math.max(1, s.width / zoom);
-    const fs = Math.max(11, 13 / zoom);
-
-    if (s.outline) {
-      overlayCtx.strokeStyle = 'rgba(0,0,0,0.8)';
-      overlayCtx.lineWidth = lw * 2.5;
-      overlayCtx.setLineDash([]);
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(bx, py); overlayCtx.lineTo(bx + bw, py);
-      overlayCtx.stroke();
-    }
-    overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
-    overlayCtx.lineWidth = lw;
-    overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(bx, py); overlayCtx.lineTo(bx + bw, py);
-    overlayCtx.stroke();
-    overlayCtx.setLineDash([]);
-
-    overlayCtx.font = `${fs}px system-ui, sans-serif`;
-    overlayCtx.fillStyle = hexToRgba(s.color, s.alpha);
-    overlayCtx.fillText(`гориз. поиск (${horizShiftPercent}%)`, bx + bw + 6 / zoom, py + fs / 3);
-  }
-
-  if (charBBox && gridLines && gridLines.length > 0 && showGrid) {
-    const { x: bx, w: bw } = charBBox;
-    const s = style.grid;
-    const lw = Math.max(1, s.width / zoom);
-    const fs = Math.max(11, 13 / zoom);
-
-    overlayCtx.font = `bold ${fs}px system-ui, sans-serif`;
-    overlayCtx.textBaseline = 'bottom';
-
-    for (const gl of gridLines) {
-      if (s.outline) {
-        overlayCtx.strokeStyle = 'rgba(0,0,0,0.75)';
-        overlayCtx.lineWidth = lw * 2.5;
-        overlayCtx.setLineDash([]);
-        overlayCtx.beginPath();
-        overlayCtx.moveTo(bx, gl.y); overlayCtx.lineTo(bx + bw, gl.y);
-        overlayCtx.stroke();
-      }
-      overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
-      overlayCtx.lineWidth = lw;
-      overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(bx, gl.y); overlayCtx.lineTo(bx + bw, gl.y);
-      overlayCtx.stroke();
-
-      if (s.showLabels) {
-        const label = `${gl.percent}%`;
-        const tx = bx + bw - 4 / zoom;
-        const ty = gl.y - 4 / zoom;
-        overlayCtx.textAlign = 'right';
-        overlayCtx.lineWidth = 3 / zoom;
-        overlayCtx.strokeStyle = 'rgba(0,0,0,0.9)';
-        overlayCtx.setLineDash([]);
-        overlayCtx.strokeText(label, tx, ty);
-        overlayCtx.fillStyle = hexToRgba(s.color, s.alpha);
-        overlayCtx.fillText(label, tx, ty);
-      }
-    }
-    overlayCtx.setLineDash([]);
-    overlayCtx.textAlign = 'start';
-    overlayCtx.textBaseline = 'alphabetic';
-  }
-
-  // ===== Анатомические линии пропорций =====
+  // --- Линии пропорций ---
   if (charBBox && showPropLines && propLines && propLines.length > 0) {
     const { x: bx, w: bw } = charBBox;
-    const s = propStyle;
+    const s = style.prop;
     const lw = Math.max(1, s.width / zoom);
     const fs = Math.max(12, 14 / zoom);
 
@@ -164,7 +66,6 @@ function drawOverlay() {
     for (const pl of propLines) {
       if (!pl.enabled) continue;
 
-      // Вычисляем координаты с учётом ширины линии
       const lineW = pl.width !== undefined ? pl.width : 1.0;
       const startX = bx + (bw * (1 - lineW)) / 2;
       const endX = bx + bw - (bw * (1 - lineW)) / 2;
@@ -190,7 +91,6 @@ function drawOverlay() {
 
       if (s.showLabels) {
         const label = `${pl.label} · ${pl.percent}%`;
-        // Текст ставим слева от начала линии
         const tx = startX + 4 / zoom; 
         const ty = pl.y - 4 / zoom;
         
@@ -206,6 +106,7 @@ function drawOverlay() {
     overlayCtx.textBaseline = 'alphabetic';
   }
 
+  // --- Точки-источники ---
   sourcePoints.forEach((p, i) => {
     const sel = i === selectedPointIndex;
     overlayCtx.beginPath();
