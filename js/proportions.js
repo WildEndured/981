@@ -1,51 +1,35 @@
 // ============================================================
-//  proportions.js · логика, UI и генератор пресетов пропорций
+//  proportions.js · линии + векторные фигуры (голова, шея)
 // ============================================================
 
 const LS_KEY = 'bbox_prop_presets_v8';
 
+// Настройки фигур головы (по умолчанию)
+// Значения в % от размера ОДНОЙ головы (headPercent)
+let headShapes = {
+  showSkull: true,      // Рисовать череп (круг)
+  showJaw: true,        // Рисовать челюсть
+  showNeck: true,       // Рисовать шею
+  skullRatio: 0.6,      // 1-3 части (3/5)
+  jawRatio: 0.2,        // 4 часть (1/5)
+  neckRatio: 0.2,       // 5 часть (1/5)
+  headWidthRatio: 0.8,  // Ширина головы относительно высоты головы
+  jawWidthRatio: 0.7,   // Ширина челюсти относительно ширины головы
+  neckWidthRatio: 0.4   // Ширина шеи относительно ширины головы
+};
+
 function generateEmptyPreset(headCount) {
   const N = headCount || 5;
-  const headPct = 100 / N; // Размер 1 головы в %
-  const partPct = headPct / 5; // Размер 1/5 головы в %
+  const headPercent = 100 / N;
+  const lines = [];
 
-  const lines = [
-    { id: 'crown', label: 'Макушка (0%)', percent: 0, width: 1.0, enabled: true }
-  ];
+  lines.push({ id: 'crown', label: 'Макушка (0%)', percent: 0, width: 1.0, enabled: true });
 
-  // Шаг 2: Делим первую голову на 5 частей
-  for (let i = 1; i <= 5; i++) {
-    const p = partPct * i;
-    let label = '';
-    let isCircle = false;
-
-    if (i === 3) {
-      label = 'Низ черепа (3/5)';
-      isCircle = true; // Метка для отрисовки круга
-    } else if (i === 4) {
-      label = 'Челюсть (4/5)';
-    } else if (i === 5) {
-      label = 'Шея (5/5)';
-    } else {
-      label = `Голова ${i}/5`;
-    }
-
-    lines.push({
-      id: 'head-part-' + i,
-      label: label,
-      percent: p,
-      width: 1.0,
-      enabled: true,
-      isCircle: isCircle
-    });
-  }
-
-  // Добавляем линии для остальных голов (просто деления)
-  for (let i = 2; i <= N; i++) {
+  for (let i = 1; i <= N; i++) {
     lines.push({
       id: 'head-' + i,
-      label: `Голова ${i} (${(i * headPct).toFixed(1)}%)`,
-      percent: i * headPct,
+      label: `Голова ${i} (${(i * headPercent).toFixed(1)}%)`,
+      percent: i * headPercent,
       width: 1.0,
       enabled: true
     });
@@ -54,11 +38,12 @@ function generateEmptyPreset(headCount) {
   return {
     id: 'grid-' + N + '-' + Date.now(),
     name: `Сетка · ${N} голов`,
+    headCount: N,
     lines: lines
   };
 }
 
-const DEFAULT_PRESETS = [ generateEmptyPreset(5) ];
+const DEFAULT_PRESETS = [generateEmptyPreset(5)];
 
 function loadPropPresets() {
   try {
@@ -70,21 +55,15 @@ function loadPropPresets() {
       propPresets = JSON.parse(raw);
     }
   } catch (e) {
-    console.warn('loadPropPresets fail', e);
     propPresets = JSON.parse(JSON.stringify(DEFAULT_PRESETS));
   }
-
   if (!propPresets.find(p => p.id === activePropPresetId)) {
     activePropPresetId = propPresets.length ? propPresets[0].id : null;
   }
 }
 
 function savePropPresets() {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(propPresets));
-  } catch (e) {
-    console.warn('savePropPresets fail', e);
-  }
+  try { localStorage.setItem(LS_KEY, JSON.stringify(propPresets)); } catch (e) {}
 }
 
 function getActivePropPreset() {
@@ -102,9 +81,13 @@ const propPresetRenameBtn = document.getElementById('propPresetRenameBtn');
 const propPresetDelBtn = document.getElementById('propPresetDelBtn');
 const propLinesList = document.getElementById('propLinesList');
 const addPropLineBtn = document.getElementById('addPropLineBtn');
-
 const headCountGenInput = document.getElementById('headCountGen');
 const genPresetBtn = document.getElementById('genPresetBtn');
+
+// Элементы управления фигурами головы (добавим их в index.html)
+const headSkullChk = document.getElementById('headSkullChk');
+const headJawChk = document.getElementById('headJawChk');
+const headNeckChk = document.getElementById('headNeckChk');
 
 // ============================================================
 //  Отрисовка UI
@@ -127,12 +110,10 @@ function renderPropLinesList() {
   propLinesList.innerHTML = '';
 
   const preset = getActivePropPreset();
-  if (!preset) {
-    propLinesList.innerHTML = '<div class="empty-note">Нет активного пресета</div>';
-    return;
-  }
+  if (!preset) return;
 
   preset.lines.forEach((line, idx) => {
+    // ... (код отрисовки строки линии оставляем без изменений)
     const row = document.createElement('div');
     row.style.display = 'grid';
     row.style.gridTemplateColumns = 'auto 1fr 60px auto auto';
@@ -147,88 +128,46 @@ function renderPropLinesList() {
     chk.type = 'checkbox';
     chk.checked = line.enabled !== false;
     chk.addEventListener('change', () => {
-      line.enabled = chk.checked;
-      savePropPresets();
+      line.enabled = chk.checked; savePropPresets();
       if (typeof lum !== 'undefined' && lum) rebuildAll();
     });
 
     const labelInput = document.createElement('input');
     labelInput.type = 'text';
     labelInput.value = line.label;
-    labelInput.style.background = '#232830';
-    labelInput.style.color = '#fff';
-    labelInput.style.border = '1px solid #333a44';
-    labelInput.style.borderRadius = '6px';
-    labelInput.style.padding = '4px 8px';
-    labelInput.style.fontSize = '12px';
-    labelInput.style.width = '100%';
+    labelInput.style = 'background:#232830; color:#fff; border:1px solid #333a44; border-radius:6px; padding:4px 8px; font-size:12px; width:100%;';
     labelInput.addEventListener('input', () => {
-      line.label = labelInput.value;
-      savePropPresets();
+      line.label = labelInput.value; savePropPresets();
       if (typeof lum !== 'undefined' && lum) rebuildAll();
     });
 
     const pctInput = document.createElement('input');
-    pctInput.type = 'number';
-    pctInput.min = 0;
-    pctInput.max = 100;
-    pctInput.step = 0.1;
-    pctInput.value = line.percent;
-    pctInput.style.background = '#232830';
-    pctInput.style.color = '#fff';
-    pctInput.style.border = '1px solid #333a44';
-    pctInput.style.borderRadius = '6px';
-    pctInput.style.padding = '4px 6px';
-    pctInput.style.fontSize = '12px';
-    pctInput.style.textAlign = 'center';
+    pctInput.type = 'number'; pctInput.value = line.percent; pctInput.step = 0.1;
+    pctInput.style = 'background:#232830; color:#fff; border:1px solid #333a44; border-radius:6px; padding:4px 6px; font-size:12px; text-align:center;';
     pctInput.addEventListener('input', () => {
-      const v = Math.max(0, Math.min(100, +pctInput.value || 0));
-      line.percent = v;
+      line.percent = Math.max(0, Math.min(100, +pctInput.value || 0));
       savePropPresets();
       if (typeof lum !== 'undefined' && lum) rebuildAllDebounced();
     });
 
     const widthInput = document.createElement('input');
-    widthInput.type = 'number';
-    widthInput.min = 0.1;
-    widthInput.max = 1;
-    widthInput.step = 0.1;
-    widthInput.value = line.width || 1.0;
-    widthInput.title = 'Ширина (1 = вся, 0.5 = половина)';
-    widthInput.style.background = '#232830';
-    widthInput.style.color = '#8b93a1';
-    widthInput.style.border = '1px solid #333a44';
-    widthInput.style.borderRadius = '6px';
-    widthInput.style.padding = '4px 6px';
-    widthInput.style.fontSize = '12px';
-    widthInput.style.textAlign = 'center';
+    widthInput.type = 'number'; widthInput.value = line.width || 1.0; widthInput.step = 0.1;
+    widthInput.style = 'background:#232830; color:#8b93a1; border:1px solid #333a44; border-radius:6px; padding:4px 6px; font-size:12px; text-align:center;';
     widthInput.addEventListener('input', () => {
-      const v = Math.max(0.1, Math.min(1, +widthInput.value || 1));
-      line.width = v;
+      line.width = Math.max(0.1, Math.min(1, +widthInput.value || 1));
       savePropPresets();
       if (typeof lum !== 'undefined' && lum) rebuildAllDebounced();
     });
 
     const delBtn = document.createElement('button');
-    delBtn.textContent = '✕';
-    delBtn.className = 'btn-small';
-    delBtn.style.color = '#ff6060';
-    delBtn.style.borderColor = '#ff6060';
-    delBtn.style.padding = '2px 6px';
-    delBtn.style.minWidth = '0';
-    delBtn.style.height = '26px';
+    delBtn.textContent = '✕'; delBtn.className = 'btn-small';
+    delBtn.style = 'color:#ff6060; border-color:#ff6060; padding:2px 6px; min-width:0; height:26px;';
     delBtn.addEventListener('click', () => {
-      preset.lines.splice(idx, 1);
-      savePropPresets();
-      renderPropLinesList();
+      preset.lines.splice(idx, 1); savePropPresets(); renderPropLinesList();
       if (typeof lum !== 'undefined' && lum) rebuildAll();
     });
 
-    row.appendChild(chk);
-    row.appendChild(labelInput);
-    row.appendChild(pctInput);
-    row.appendChild(widthInput);
-    row.appendChild(delBtn);
+    row.append(chk, labelInput, pctInput, widthInput, delBtn);
     propLinesList.appendChild(row);
   });
 }
@@ -259,61 +198,41 @@ if (propPresetAddBtn) {
     const newId = 'preset-' + Date.now();
     const current = getActivePropPreset();
     propPresets.push({
-      id: newId,
-      name: name.trim() || 'Без названия',
+      id: newId, name: name.trim() || 'Без названия',
       lines: current ? JSON.parse(JSON.stringify(current.lines)) : []
     });
-    activePropPresetId = newId;
-    savePropPresets();
-    renderPropPresetSelect();
-    renderPropLinesList();
+    activePropPresetId = newId; savePropPresets();
+    renderPropPresetSelect(); renderPropLinesList();
     if (typeof lum !== 'undefined' && lum) rebuildAll();
   });
 }
 
 if (propPresetRenameBtn) {
   propPresetRenameBtn.addEventListener('click', () => {
-    const preset = getActivePropPreset();
-    if (!preset) return;
-    const name = prompt('Новое название пресета:', preset.name);
-    if (!name) return;
+    const preset = getActivePropPreset(); if (!preset) return;
+    const name = prompt('Новое название пресета:', preset.name); if (!name) return;
     preset.name = name.trim() || preset.name;
-    savePropPresets();
-    renderPropPresetSelect();
+    savePropPresets(); renderPropPresetSelect();
   });
 }
 
 if (propPresetDelBtn) {
   propPresetDelBtn.addEventListener('click', () => {
-    if (propPresets.length <= 1) {
-      alert('Нельзя удалить последний пресет.');
-      return;
-    }
-    const preset = getActivePropPreset();
-    if (!preset) return;
+    if (propPresets.length <= 1) return alert('Нельзя удалить последний пресет.');
+    const preset = getActivePropPreset(); if (!preset) return;
     if (!confirm(`Удалить пресет "${preset.name}"?`)) return;
     propPresets = propPresets.filter(p => p.id !== preset.id);
-    activePropPresetId = propPresets[0].id;
-    savePropPresets();
-    renderPropPresetSelect();
-    renderPropLinesList();
+    activePropPresetId = propPresets[0].id; savePropPresets();
+    renderPropPresetSelect(); renderPropLinesList();
     if (typeof lum !== 'undefined' && lum) rebuildAll();
   });
 }
 
 if (addPropLineBtn) {
   addPropLineBtn.addEventListener('click', () => {
-    const preset = getActivePropPreset();
-    if (!preset) return;
-    preset.lines.push({
-      id: 'line-' + Date.now(),
-      label: 'Новая линия',
-      percent: 50,
-      width: 1.0,
-      enabled: true
-    });
-    savePropPresets();
-    renderPropLinesList();
+    const preset = getActivePropPreset(); if (!preset) return;
+    preset.lines.push({ id: 'line-' + Date.now(), label: 'Новая линия', percent: 50, width: 1.0, enabled: true });
+    savePropPresets(); renderPropLinesList();
     if (typeof lum !== 'undefined' && lum) rebuildAll();
   });
 }
@@ -321,19 +240,18 @@ if (addPropLineBtn) {
 if (genPresetBtn) {
   genPresetBtn.addEventListener('click', () => {
     const N = parseFloat(headCountGenInput.value);
-    if (isNaN(N) || N < 2 || N > 12) {
-      alert('Введите количество голов от 2 до 12');
-      return;
-    }
+    if (isNaN(N) || N < 2 || N > 12) return alert('Введите количество голов от 2 до 12');
     const newPreset = generateEmptyPreset(N);
-    propPresets.push(newPreset);
-    activePropPresetId = newPreset.id;
-    savePropPresets();
-    renderPropPresetSelect();
-    renderPropLinesList();
+    propPresets.push(newPreset); activePropPresetId = newPreset.id;
+    savePropPresets(); renderPropPresetSelect(); renderPropLinesList();
     if (typeof lum !== 'undefined' && lum) rebuildAll();
   });
 }
+
+// Слушатели для чекбоксов головы
+if (headSkullChk) headSkullChk.addEventListener('change', (e) => { headShapes.showSkull = e.target.checked; if (lum) rebuildAll(); });
+if (headJawChk) headJawChk.addEventListener('change', (e) => { headShapes.showJaw = e.target.checked; if (lum) rebuildAll(); });
+if (headNeckChk) headNeckChk.addEventListener('change', (e) => { headShapes.showNeck = e.target.checked; if (lum) rebuildAll(); });
 
 // ============================================================
 //  Инициализация
@@ -343,4 +261,8 @@ function initProportionsUI() {
   renderPropPresetSelect();
   renderPropLinesList();
   if (showPropLinesEl) showPropLinesEl.checked = showPropLines;
-      }
+  
+  if (headSkullChk) headSkullChk.checked = headShapes.showSkull;
+  if (headJawChk) headJawChk.checked = headShapes.showJaw;
+  if (headNeckChk) headNeckChk.checked = headShapes.showNeck;
+                       }
