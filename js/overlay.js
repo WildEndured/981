@@ -1,5 +1,5 @@
 // ============================================================
-//  overlay.js · отрисовка оверлея (маска, bbox, линии, фигуры головы)
+//  overlay.js · отрисовка оверлея (маска, bbox, линии сетки)
 // ============================================================
 
 function drawOverlay() {
@@ -104,70 +104,6 @@ function drawOverlay() {
     }
     overlayCtx.textAlign = 'start';
     overlayCtx.textBaseline = 'alphabetic';
-  }
-
-  // ============================================================
-  //  ФИГУРЫ ГОЛОВЫ (Шаг 2)
-  // ============================================================
-  if (charBBox && showPropLines) {
-    const preset = typeof getActivePropPreset === 'function' ? getActivePropPreset() : null;
-    let headCount = 5; 
-    
-    if (preset && preset.headCount) {
-      headCount = preset.headCount;
-    } else if (preset && preset.lines.length > 1) {
-      const firstHeadLine = preset.lines.find(l => l.id === 'head-1' || l.label.includes('Голова 1'));
-      if (firstHeadLine && firstHeadLine.percent > 0) headCount = 100 / firstHeadLine.percent;
-    }
-
-    const headH = charBBox.h / headCount; 
-    const headY = charBBox.y;
-    const cx = charBBox.x + charBBox.w / 2; 
-
-    const hShapes = typeof headShapes !== 'undefined' ? headShapes : { 
-      showSkull: true, showJaw: true, showNeck: true, 
-      headWidthRatio: 0.8, jawWidthRatio: 0.7, neckWidthRatio: 0.4 
-    };
-    
-    const s = style.prop;
-    const lw = Math.max(1, s.width / zoom);
-    const headColor = 'rgba(0, 230, 230, 0.8)';
-    
-    overlayCtx.strokeStyle = headColor;
-    overlayCtx.lineWidth = lw * 1.5;
-    overlayCtx.setLineDash([]);
-
-    // 1. Череп (1-3 секция = 60% высоты головы) - ИДЕАЛЬНЫЙ КРУГ
-    if (hShapes.showSkull) {
-      const radius = (headH * 0.6) / 2; // Радиус = половина высоты черепа
-      overlayCtx.beginPath();
-      overlayCtx.arc(cx, headY + radius, radius, 0, Math.PI * 2);
-      overlayCtx.stroke();
-    }
-
-    // 2. Челюсть (4 секция = 20% высоты, от 60% до 80%)
-    if (hShapes.showJaw) {
-      const skullH = headH * 0.6;
-      const jawH = headH * 0.2; 
-      // Ширину челюсти вычисляем относительно диаметра черепа
-      const jawW = skullH * hShapes.jawWidthRatio;
-      
-      overlayCtx.beginPath();
-      overlayCtx.ellipse(cx, headY + skullH + jawH / 2, jawW / 2, jawH / 2, 0, 0, Math.PI * 2);
-      overlayCtx.stroke();
-    }
-
-    // 3. Шея (5 секция = 20% высоты, от 80% до 100%)
-    if (hShapes.showNeck) {
-      const neckH = headH * 0.2; 
-      const skullH = headH * 0.6;
-      // Ширину шеи берем относительно диаметра черепа
-      const neckW = skullH * hShapes.neckWidthRatio;
-      
-      overlayCtx.beginPath();
-      overlayCtx.rect(cx - neckW / 2, headY + headH - neckH, neckW, neckH);
-      overlayCtx.stroke();
-    }
   }
 
   // --- Точки-источники ---
