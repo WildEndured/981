@@ -1,18 +1,24 @@
 // ============================================================
-//  init.js · финальный запуск
+//  utils.js · вспомогательные функции
 // ============================================================
 
-try {
-  initWorker();
-  smoothIterEl.disabled = !useSmoothEl.checked;
-  updateCursor();
-  bindStyleControls();
-  setStyleUIFromState();
+function debounce(fn, ms = 80) {
+  let t = null;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
+}
+
+function updateCursor() {
+  if (typeof isDragging !== 'undefined' && isDragging) return;
+  if (!stageWrap) return;
   
-  // Инициализация панели линий пропорций
-  initProportionsUI(); 
-  
-  console.log('[main] init OK');
-} catch (e) {
-  showError('Init error: ' + (e.message || e));
+  if (typeof addPointMode !== 'undefined' && addPointMode) {
+    stageWrap.style.cursor = 'copy';
+  } else if (typeof bgColorMode !== 'undefined' && bgColorMode) {
+    stageWrap.style.cursor = 'crosshair';
+  } else {
+    stageWrap.style.cursor = 'grab';
+  }
 }
