@@ -164,7 +164,7 @@ function renderPropLinesList() {
       if (lum) rebuildAllDebounced();
     });
 
-    // Ширина (новая фича)
+    // Ширина
     const widthInput = document.createElement('input');
     widthInput.type = 'number';
     widthInput.min = 0.1;
