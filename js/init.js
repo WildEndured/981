@@ -5,12 +5,16 @@
 try {
   initWorker();
   smoothIterEl.disabled = !useSmoothEl.checked;
-  updateCursor();
+  
+  // updateCursor() убран, так как он не нужен до загрузки картинки
+  // и может вызвать ошибку, если utils.js не успел загрузиться.
+
   bindStyleControls();
   setStyleUIFromState();
-  activePresetHeads = 7.5;
-  applyGridStep(13, { rebuild: false, fromPreset: true });
-  initProportionsUI(); // инициализация панели линий пропорций
+  
+  // Инициализация панели линий пропорций
+  initProportionsUI(); 
+  
   console.log('[main] init OK');
 } catch (e) {
   showError('Init error: ' + (e.message || e));
