@@ -2,41 +2,36 @@
 //  proportions.js · логика и UI для редактирования линий и пресетов
 // ============================================================
 
-const LS_KEY = 'bbox_prop_presets_v1';
+const LS_KEY = 'bbox_prop_presets_v2'; // v2 из-за нового формата
 
-// Дефолтные пресеты, если в localStorage пусто
+// Дефолтные пресеты
 const DEFAULT_PRESETS = [
+  {
+    id: 'female-5',
+    name: 'Женская фигура · 5 голов',
+    lines: [
+      { id: 'crown', label: 'Макушка (0%)', percent: 0, enabled: true, width: 1.0, color: '#ff7ad9' },
+      { id: 'head-top', label: 'Верх черепа (3/5 головы)', percent: 12, enabled: true, width: 1.0, color: '#ff7ad9' },
+      { id: 'eyes', label: 'Линия глаз (центр головы)', percent: 10, enabled: true, width: 0.3, color: '#ff7ad9' },
+      { id: 'chin', label: 'Подбородок (низ головы)', percent: 20, enabled: true, width: 1.0, color: '#ff7ad9' },
+      { id: 'neck', label: 'Основание шеи', percent: 24, enabled: true, width: 0.5, color: '#50b4ff' },
+      { id: 'chest', label: 'Грудная клетка (низ)', percent: 40, enabled: true, width: 1.0, color: '#50b4ff' },
+      { id: 'nipples', label: 'Соски', percent: 36, enabled: true, width: 0.6, color: '#50b4ff' },
+      { id: 'waist', label: 'Талия (U-форма)', percent: 50, enabled: true, width: 0.8, color: '#50b4ff' },
+      { id: 'pubic', label: 'Лобок / Низ таза', percent: 60, enabled: true, width: 1.0, color: '#50b4ff' },
+      { id: 'knees', label: 'Колени (середина)', percent: 75, enabled: true, width: 1.0, color: '#c080ff' },
+      { id: 'feet', label: 'Стопы', percent: 100, enabled: true, width: 1.0, color: '#c080ff' }
+    ]
+  },
   {
     id: 'classic-7.5',
     name: '7.5 голов · классика',
     lines: [
-      { id: 'crown', label: 'Макушка', percent: 0, enabled: true },
-      { id: 'chin', label: 'Подбородок', percent: 13, enabled: true },
-      { id: 'shoulders', label: 'Плечи', percent: 16, enabled: true },
-      { id: 'pubic', label: 'Лобок', percent: 43, enabled: true },
-      { id: 'knees', label: 'Колени', percent: 64, enabled: true }
-    ]
-  },
-  {
-    id: 'reality-7',
-    name: '7 голов · реализм',
-    lines: [
-      { id: 'crown', label: 'Макушка', percent: 0, enabled: true },
-      { id: 'chin', label: 'Подбородок', percent: 14, enabled: true },
-      { id: 'shoulders', label: 'Плечи', percent: 17, enabled: true },
-      { id: 'pubic', label: 'Лобок', percent: 46, enabled: true },
-      { id: 'knees', label: 'Колени', percent: 68, enabled: true }
-    ]
-  },
-  {
-    id: 'anime-6',
-    name: '6 голов · аниме',
-    lines: [
-      { id: 'crown', label: 'Макушка', percent: 0, enabled: true },
-      { id: 'chin', label: 'Подбородок', percent: 16, enabled: true },
-      { id: 'shoulders', label: 'Плечи', percent: 20, enabled: true },
-      { id: 'pubic', label: 'Лобок', percent: 53, enabled: true },
-      { id: 'knees', label: 'Колени', percent: 80, enabled: true }
+      { id: 'crown', label: 'Макушка', percent: 0, enabled: true, width: 1.0 },
+      { id: 'chin', label: 'Подбородок', percent: 13, enabled: true, width: 1.0 },
+      { id: 'shoulders', label: 'Плечи', percent: 16, enabled: true, width: 1.0 },
+      { id: 'pubic', label: 'Лобок', percent: 43, enabled: true, width: 1.0 },
+      { id: 'knees', label: 'Колени', percent: 64, enabled: true, width: 1.0 }
     ]
   }
 ];
@@ -55,7 +50,6 @@ function loadPropPresets() {
     propPresets = JSON.parse(JSON.stringify(DEFAULT_PRESETS));
   }
 
-  // Если активный пресет удалён — включаем первый
   if (!propPresets.find(p => p.id === activePropPresetId)) {
     activePropPresetId = propPresets.length ? propPresets[0].id : null;
   }
@@ -113,10 +107,9 @@ function renderPropLinesList() {
 
   preset.lines.forEach((line, idx) => {
     const row = document.createElement('div');
-    row.className = 'prop-line-row';
     row.style.display = 'grid';
-    row.style.gridTemplateColumns = 'auto 1fr 70px auto auto';
-    row.style.gap = '8px';
+    row.style.gridTemplateColumns = 'auto 1fr 60px auto auto';
+    row.style.gap = '6px';
     row.style.alignItems = 'center';
     row.style.background = '#101216';
     row.style.border = '1px solid var(--border, #2b2f37)';
@@ -147,7 +140,7 @@ function renderPropLinesList() {
     labelInput.addEventListener('input', () => {
       line.label = labelInput.value;
       savePropPresets();
-      if (lum) rebuildAll(); // на всякий случай пересчитаем подписи
+      if (lum) rebuildAll();
     });
 
     // Percent
@@ -171,11 +164,27 @@ function renderPropLinesList() {
       if (lum) rebuildAllDebounced();
     });
 
-    // Суффикс %
-    const pctLabel = document.createElement('span');
-    pctLabel.textContent = '%';
-    pctLabel.style.fontSize = '12px';
-    pctLabel.style.color = '#8b93a1';
+    // Ширина (новая фича)
+    const widthInput = document.createElement('input');
+    widthInput.type = 'number';
+    widthInput.min = 0.1;
+    widthInput.max = 1;
+    widthInput.step = 0.1;
+    widthInput.value = line.width || 1.0;
+    widthInput.title = 'Ширина линии (1 = вся, 0.5 = половина)';
+    widthInput.style.background = '#232830';
+    widthInput.style.color = '#8b93a1';
+    widthInput.style.border = '1px solid #333a44';
+    widthInput.style.borderRadius = '6px';
+    widthInput.style.padding = '4px 6px';
+    widthInput.style.fontSize = '12px';
+    widthInput.style.textAlign = 'center';
+    widthInput.addEventListener('input', () => {
+      const v = Math.max(0.1, Math.min(1, +widthInput.value || 1));
+      line.width = v;
+      savePropPresets();
+      if (lum) rebuildAllDebounced();
+    });
 
     // Кнопка удалить
     const delBtn = document.createElement('button');
@@ -183,10 +192,9 @@ function renderPropLinesList() {
     delBtn.className = 'btn-small';
     delBtn.style.color = '#ff6060';
     delBtn.style.borderColor = '#ff6060';
-    delBtn.style.padding = '2px 8px';
+    delBtn.style.padding = '2px 6px';
     delBtn.style.minWidth = '0';
-    delBtn.style.height = '28px';
-    delBtn.title = 'Удалить линию';
+    delBtn.style.height = '26px';
     delBtn.addEventListener('click', () => {
       preset.lines.splice(idx, 1);
       savePropPresets();
@@ -197,7 +205,7 @@ function renderPropLinesList() {
     row.appendChild(chk);
     row.appendChild(labelInput);
     row.appendChild(pctInput);
-    row.appendChild(pctLabel);
+    row.appendChild(widthInput);
     row.appendChild(delBtn);
     propLinesList.appendChild(row);
   });
@@ -279,32 +287,12 @@ if (addPropLineBtn) {
       id: 'line-' + Date.now(),
       label: 'Новая линия',
       percent: 50,
+      width: 1.0,
       enabled: true
     });
     savePropPresets();
     renderPropLinesList();
     if (lum) rebuildAll();
-  });
-}
-
-// ============================================================
-//  Вычисление Y-координат линий по активному пресету
-// ============================================================
-
-function computeActivePropLines(bbox) {
-  if (!bbox) return [];
-  const preset = getActivePropPreset();
-  if (!preset) return [];
-
-  return preset.lines.map(line => {
-    const y = bbox.y + Math.round(bbox.h * (line.percent / 100));
-    return {
-      id: line.id,
-      label: line.label,
-      percent: line.percent,
-      y,
-      enabled: line.enabled !== false
-    };
   });
 }
 
