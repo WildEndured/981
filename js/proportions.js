@@ -1,28 +1,43 @@
 // ============================================================
-//  proportions.js · логика и UI для редактирования линий и пресетов
+//  proportions.js · логика, UI и генератор пресетов пропорций
 // ============================================================
 
-const LS_KEY = 'bbox_prop_presets_v2'; // v2 из-за нового формата
+const LS_KEY = 'bbox_prop_presets_v3'; // v3 из-за нового формата
 
-// Дефолтные пресеты
+// Базовые коэффициенты (в головах) для женской фигуры
+const FEMALE_HEAD_RATIOS = [
+  { id: 'crown',    label: 'Макушка',               heads: 0.0,  width: 1.0, color: '#ff7ad9' },
+  { id: 'eyes',     label: 'Линия глаз',            heads: 0.5,  width: 0.3, color: '#ff7ad9' },
+  { id: 'chin',     label: 'Подбородок',            heads: 1.0,  width: 1.0, color: '#ff7ad9' },
+  { id: 'neck',     label: 'Основание шеи',         heads: 1.2,  width: 0.5, color: '#50b4ff' },
+  { id: 'nipples',  label: 'Соски',                 heads: 1.8,  width: 0.6, color: '#50b4ff' },
+  { id: 'chest',    label: 'Низ грудной клетки',    heads: 2.0,  width: 1.0, color: '#50b4ff' },
+  { id: 'waist',    label: 'Талия (пупок)',         heads: 2.5,  width: 0.8, color: '#50b4ff' },
+  { id: 'pubic',    label: 'Лобок / Низ таза',      heads: 3.0,  width: 1.0, color: '#50b4ff' },
+  { id: 'knees',    label: 'Колени (середина)',     heads: 3.75, width: 1.0, color: '#c080ff' },
+  { id: 'feet',     label: 'Стопы',                 heads: 5.0,  width: 1.0, color: '#c080ff' }
+];
+
+function generateFemalePreset(headCount) {
+  const N = headCount || 5;
+  const lines = FEMALE_HEAD_RATIOS.map(r => ({
+    id: r.id,
+    label: `${r.label}`,
+    percent: +((r.heads / N) * 100).toFixed(1), // Переводим головы в проценты
+    width: r.width,
+    color: r.color,
+    enabled: true
+  }));
+  return {
+    id: 'female-' + N + '-' + Date.now(),
+    name: `Женская фигура · ${N} голов`,
+    lines: lines
+  };
+}
+
 const DEFAULT_PRESETS = [
-  {
-    id: 'female-5',
-    name: 'Женская фигура · 5 голов',
-    lines: [
-      { id: 'crown', label: 'Макушка (0%)', percent: 0, enabled: true, width: 1.0, color: '#ff7ad9' },
-      { id: 'head-top', label: 'Верх черепа (3/5 головы)', percent: 12, enabled: true, width: 1.0, color: '#ff7ad9' },
-      { id: 'eyes', label: 'Линия глаз (центр головы)', percent: 10, enabled: true, width: 0.3, color: '#ff7ad9' },
-      { id: 'chin', label: 'Подбородок (низ головы)', percent: 20, enabled: true, width: 1.0, color: '#ff7ad9' },
-      { id: 'neck', label: 'Основание шеи', percent: 24, enabled: true, width: 0.5, color: '#50b4ff' },
-      { id: 'chest', label: 'Грудная клетка (низ)', percent: 40, enabled: true, width: 1.0, color: '#50b4ff' },
-      { id: 'nipples', label: 'Соски', percent: 36, enabled: true, width: 0.6, color: '#50b4ff' },
-      { id: 'waist', label: 'Талия (U-форма)', percent: 50, enabled: true, width: 0.8, color: '#50b4ff' },
-      { id: 'pubic', label: 'Лобок / Низ таза', percent: 60, enabled: true, width: 1.0, color: '#50b4ff' },
-      { id: 'knees', label: 'Колени (середина)', percent: 75, enabled: true, width: 1.0, color: '#c080ff' },
-      { id: 'feet', label: 'Стопы', percent: 100, enabled: true, width: 1.0, color: '#c080ff' }
-    ]
-  },
+  generateFemalePreset(5),
+  generateFemalePreset(7),
   {
     id: 'classic-7.5',
     name: '7.5 голов · классика',
@@ -68,7 +83,7 @@ function getActivePropPreset() {
 }
 
 // ============================================================
-//  DOM элементы (панель пропорций)
+//  DOM элементы
 // ============================================================
 const propSection = document.getElementById('propSection');
 const showPropLinesEl = document.getElementById('showPropLines');
@@ -78,6 +93,10 @@ const propPresetRenameBtn = document.getElementById('propPresetRenameBtn');
 const propPresetDelBtn = document.getElementById('propPresetDelBtn');
 const propLinesList = document.getElementById('propLinesList');
 const addPropLineBtn = document.getElementById('addPropLineBtn');
+
+// Новые элементы для генератора
+const headCountGenInput = document.getElementById('headCountGen');
+const genPresetBtn = document.getElementById('genPresetBtn');
 
 // ============================================================
 //  Отрисовка UI
@@ -116,7 +135,6 @@ function renderPropLinesList() {
     row.style.borderRadius = '8px';
     row.style.padding = '6px 8px';
 
-    // Checkbox
     const chk = document.createElement('input');
     chk.type = 'checkbox';
     chk.checked = line.enabled !== false;
@@ -126,7 +144,6 @@ function renderPropLinesList() {
       if (lum) rebuildAll();
     });
 
-    // Label
     const labelInput = document.createElement('input');
     labelInput.type = 'text';
     labelInput.value = line.label;
@@ -143,7 +160,6 @@ function renderPropLinesList() {
       if (lum) rebuildAll();
     });
 
-    // Percent
     const pctInput = document.createElement('input');
     pctInput.type = 'number';
     pctInput.min = 0;
@@ -164,14 +180,13 @@ function renderPropLinesList() {
       if (lum) rebuildAllDebounced();
     });
 
-    // Ширина
     const widthInput = document.createElement('input');
     widthInput.type = 'number';
     widthInput.min = 0.1;
     widthInput.max = 1;
     widthInput.step = 0.1;
     widthInput.value = line.width || 1.0;
-    widthInput.title = 'Ширина линии (1 = вся, 0.5 = половина)';
+    widthInput.title = 'Ширина (1 = вся, 0.5 = половина)';
     widthInput.style.background = '#232830';
     widthInput.style.color = '#8b93a1';
     widthInput.style.border = '1px solid #333a44';
@@ -186,7 +201,6 @@ function renderPropLinesList() {
       if (lum) rebuildAllDebounced();
     });
 
-    // Кнопка удалить
     const delBtn = document.createElement('button');
     delBtn.textContent = '✕';
     delBtn.className = 'btn-small';
@@ -296,6 +310,24 @@ if (addPropLineBtn) {
   });
 }
 
+// Новая кнопка генератора
+if (genPresetBtn) {
+  genPresetBtn.addEventListener('click', () => {
+    const N = parseFloat(headCountGenInput.value);
+    if (isNaN(N) || N < 2 || N > 12) {
+      alert('Введите количество голов от 2 до 12');
+      return;
+    }
+    const newPreset = generateFemalePreset(N);
+    propPresets.push(newPreset);
+    activePropPresetId = newPreset.id;
+    savePropPresets();
+    renderPropPresetSelect();
+    renderPropLinesList();
+    if (lum) rebuildAll();
+  });
+}
+
 // ============================================================
 //  Инициализация
 // ============================================================
@@ -304,4 +336,4 @@ function initProportionsUI() {
   renderPropPresetSelect();
   renderPropLinesList();
   if (showPropLinesEl) showPropLinesEl.checked = showPropLines;
-}
+      }
