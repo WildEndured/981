@@ -1,22 +1,8 @@
 // ============================================================
-//  proportions.js · линии + векторные фигуры (голова, шея)
+//  proportions.js · генератор сетки на X частей и пресеты
 // ============================================================
 
-const LS_KEY = 'bbox_prop_presets_v8';
-
-// Настройки фигур головы (по умолчанию)
-// Значения в % от размера ОДНОЙ головы (headPercent)
-let headShapes = {
-  showSkull: true,      // Рисовать череп (круг)
-  showJaw: true,        // Рисовать челюсть
-  showNeck: true,       // Рисовать шею
-  skullRatio: 0.6,      // 1-3 части (3/5)
-  jawRatio: 0.2,        // 4 часть (1/5)
-  neckRatio: 0.2,       // 5 часть (1/5)
-  headWidthRatio: 0.8,  // Ширина головы относительно высоты головы
-  jawWidthRatio: 0.7,   // Ширина челюсти относительно ширины головы
-  neckWidthRatio: 0.4   // Ширина шеи относительно ширины головы
-};
+const LS_KEY = 'bbox_prop_presets_v9'; // Откат к Шагу 1
 
 function generateEmptyPreset(headCount) {
   const N = headCount || 5;
@@ -28,7 +14,7 @@ function generateEmptyPreset(headCount) {
   for (let i = 1; i <= N; i++) {
     lines.push({
       id: 'head-' + i,
-      label: `Голова ${i} (${(i * headPercent).toFixed(1)}%)`,
+      label: `Линия ${i} (${(i * headPercent).toFixed(1)}%)`,
       percent: i * headPercent,
       width: 1.0,
       enabled: true
@@ -37,7 +23,7 @@ function generateEmptyPreset(headCount) {
 
   return {
     id: 'grid-' + N + '-' + Date.now(),
-    name: `Сетка · ${N} голов`,
+    name: `Сетка · ${N} частей`,
     headCount: N,
     lines: lines
   };
@@ -70,10 +56,7 @@ function getActivePropPreset() {
   return propPresets.find(p => p.id === activePropPresetId) || propPresets[0] || null;
 }
 
-// ============================================================
-//  DOM элементы
-// ============================================================
-const propSection = document.getElementById('propSection');
+// DOM
 const showPropLinesEl = document.getElementById('showPropLines');
 const propPresetSelect = document.getElementById('propPresetSelect');
 const propPresetAddBtn = document.getElementById('propPresetAddBtn');
@@ -84,15 +67,7 @@ const addPropLineBtn = document.getElementById('addPropLineBtn');
 const headCountGenInput = document.getElementById('headCountGen');
 const genPresetBtn = document.getElementById('genPresetBtn');
 
-// Элементы управления фигурами головы (добавим их в index.html)
-const headSkullChk = document.getElementById('headSkullChk');
-const headJawChk = document.getElementById('headJawChk');
-const headNeckChk = document.getElementById('headNeckChk');
-
-// ============================================================
-//  Отрисовка UI
-// ============================================================
-
+// UI рендер
 function renderPropPresetSelect() {
   if (!propPresetSelect) return;
   propPresetSelect.innerHTML = '';
@@ -113,7 +88,6 @@ function renderPropLinesList() {
   if (!preset) return;
 
   preset.lines.forEach((line, idx) => {
-    // ... (код отрисовки строки линии оставляем без изменений)
     const row = document.createElement('div');
     row.style.display = 'grid';
     row.style.gridTemplateColumns = 'auto 1fr 60px auto auto';
@@ -133,8 +107,7 @@ function renderPropLinesList() {
     });
 
     const labelInput = document.createElement('input');
-    labelInput.type = 'text';
-    labelInput.value = line.label;
+    labelInput.type = 'text'; labelInput.value = line.label;
     labelInput.style = 'background:#232830; color:#fff; border:1px solid #333a44; border-radius:6px; padding:4px 8px; font-size:12px; width:100%;';
     labelInput.addEventListener('input', () => {
       line.label = labelInput.value; savePropPresets();
@@ -172,10 +145,7 @@ function renderPropLinesList() {
   });
 }
 
-// ============================================================
-//  События UI
-// ============================================================
-
+// Events
 if (showPropLinesEl) {
   showPropLinesEl.addEventListener('change', () => {
     showPropLines = showPropLinesEl.checked;
@@ -240,7 +210,7 @@ if (addPropLineBtn) {
 if (genPresetBtn) {
   genPresetBtn.addEventListener('click', () => {
     const N = parseFloat(headCountGenInput.value);
-    if (isNaN(N) || N < 2 || N > 12) return alert('Введите количество голов от 2 до 12');
+    if (isNaN(N) || N < 2 || N > 12) return alert('Введите количество частей от 2 до 12');
     const newPreset = generateEmptyPreset(N);
     propPresets.push(newPreset); activePropPresetId = newPreset.id;
     savePropPresets(); renderPropPresetSelect(); renderPropLinesList();
@@ -248,21 +218,9 @@ if (genPresetBtn) {
   });
 }
 
-// Слушатели для чекбоксов головы
-if (headSkullChk) headSkullChk.addEventListener('change', (e) => { headShapes.showSkull = e.target.checked; if (lum) rebuildAll(); });
-if (headJawChk) headJawChk.addEventListener('change', (e) => { headShapes.showJaw = e.target.checked; if (lum) rebuildAll(); });
-if (headNeckChk) headNeckChk.addEventListener('change', (e) => { headShapes.showNeck = e.target.checked; if (lum) rebuildAll(); });
-
-// ============================================================
-//  Инициализация
-// ============================================================
 function initProportionsUI() {
   loadPropPresets();
   renderPropPresetSelect();
   renderPropLinesList();
   if (showPropLinesEl) showPropLinesEl.checked = showPropLines;
-  
-  if (headSkullChk) headSkullChk.checked = headShapes.showSkull;
-  if (headJawChk) headJawChk.checked = headShapes.showJaw;
-  if (headNeckChk) headNeckChk.checked = headShapes.showNeck;
-                       }
+}
