@@ -2,32 +2,55 @@
 //  proportions.js · логика, UI и генератор пресетов пропорций
 // ============================================================
 
-const LS_KEY = 'bbox_prop_presets_v3'; // v3 из-за нового формата
+const LS_KEY = 'bbox_prop_presets_v4'; // v4 из-за новой логики масштабирования
 
 // Базовые коэффициенты (в головах) для женской фигуры
-const FEMALE_HEAD_RATIOS = [
-  { id: 'crown',    label: 'Макушка',               heads: 0.0,  width: 1.0, color: '#ff7ad9' },
-  { id: 'eyes',     label: 'Линия глаз',            heads: 0.5,  width: 0.3, color: '#ff7ad9' },
-  { id: 'chin',     label: 'Подбородок',            heads: 1.0,  width: 1.0, color: '#ff7ad9' },
-  { id: 'neck',     label: 'Основание шеи',         heads: 1.2,  width: 0.5, color: '#50b4ff' },
-  { id: 'nipples',  label: 'Соски',                 heads: 1.8,  width: 0.6, color: '#50b4ff' },
-  { id: 'chest',    label: 'Низ грудной клетки',    heads: 2.0,  width: 1.0, color: '#50b4ff' },
-  { id: 'waist',    label: 'Талия (пупок)',         heads: 2.5,  width: 0.8, color: '#50b4ff' },
-  { id: 'pubic',    label: 'Лобок / Низ таза',      heads: 3.0,  width: 1.0, color: '#50b4ff' },
-  { id: 'knees',    label: 'Колени (середина)',     heads: 3.75, width: 1.0, color: '#c080ff' },
-  { id: 'feet',     label: 'Стопы',                 heads: 5.0,  width: 1.0, color: '#c080ff' }
-];
-
+// ВАЖНО: мы задаём анатомически правильные точки для всего диапазона.
 function generateFemalePreset(headCount) {
   const N = headCount || 5;
-  const lines = FEMALE_HEAD_RATIOS.map(r => ({
-    id: r.id,
-    label: `${r.label}`,
-    percent: +((r.heads / N) * 100).toFixed(1), // Переводим головы в проценты
-    width: r.width,
-    color: r.color,
-    enabled: true
-  }));
+
+  // Вычисляем проценты в зависимости от роста.
+  // Голова = 1/N * 100%.
+  // Подбородок = 1 голова.
+  // Плечи = 1.2 головы (чуть ниже подбородка).
+  // Грудь = 1.8 головы.
+  // Талия (пупок) = 2.5 головы (для 5 голов это 50%, для 7.5 это 33%).
+  // Лобок = 3 головы (для 5 это 60%, для 7.5 это 40%).
+  // Колени: рассчитываем как середину между лобком и стопами.
+  // Стопы = N голов (100%).
+  
+  // Если N = 5:
+  // - Лобок = 3/5 = 60%
+  // - Стопы = 100%
+  // - Колени = 60 + (100-60)/2 = 80%
+  //
+  // Если N = 7.5:
+  // - Лобок = 3/7.5 = 40% (как на скрине!)
+  // - Стопы = 100%
+  // - Колени = 40 + (100-40)/2 = 70%
+
+  const headPct = 100 / N; // Размер одной головы в процентах
+  
+  const pubicHeads = 3.0; // Лобок всегда на уровне 3 голов (анатомический стандарт)
+  const pubicPercent = (pubicHeads / N) * 100;
+  const kneePercent = pubicPercent + (100 - pubicPercent) * 0.5;
+
+  const lines = [
+    { id: 'crown',    label: 'Макушка',               percent: 0,                              width: 1.0, color: '#ff7ad9' },
+    { id: 'eyes',     label: 'Линия глаз',            percent: headPct * 0.5,                  width: 0.3, color: '#ff7ad9' },
+    { id: 'chin',     label: 'Подбородок',            percent: headPct * 1.0,                  width: 1.0, color: '#ff7ad9' },
+    { id: 'neck',     label: 'Основание шеи',         percent: headPct * 1.2,                  width: 0.5, color: '#50b4ff' },
+    { id: 'nipples',  label: 'Соски',                 percent: headPct * 1.8,                  width: 0.6, color: '#50b4ff' },
+    { id: 'chest',    label: 'Низ грудной клетки',    percent: headPct * 2.1,                  width: 1.0, color: '#50b4ff' },
+    { id: 'waist',    label: 'Талия (пупок)',         percent: headPct * 2.5,                  width: 0.8, color: '#50b4ff' },
+    { id: 'pubic',    label: 'Лобок / Низ таза',      percent: pubicPercent,                   width: 1.0, color: '#50b4ff' },
+    { id: 'knees',    label: 'Колени (середина)',     percent: kneePercent,                    width: 1.0, color: '#c080ff' },
+    { id: 'feet',     label: 'Стопы',                 percent: 100,                            width: 1.0, color: '#c080ff' }
+  ];
+
+  // Округляем проценты для красоты
+  lines.forEach(l => l.percent = +l.percent.toFixed(1));
+
   return {
     id: 'female-' + N + '-' + Date.now(),
     name: `Женская фигура · ${N} голов`,
@@ -37,10 +60,10 @@ function generateFemalePreset(headCount) {
 
 const DEFAULT_PRESETS = [
   generateFemalePreset(5),
-  generateFemalePreset(7),
+  generateFemalePreset(7.5),
   {
     id: 'classic-7.5',
-    name: '7.5 голов · классика',
+    name: '7.5 голов · базовая сетка',
     lines: [
       { id: 'crown', label: 'Макушка', percent: 0, enabled: true, width: 1.0 },
       { id: 'chin', label: 'Подбородок', percent: 13, enabled: true, width: 1.0 },
@@ -94,7 +117,7 @@ const propPresetDelBtn = document.getElementById('propPresetDelBtn');
 const propLinesList = document.getElementById('propLinesList');
 const addPropLineBtn = document.getElementById('addPropLineBtn');
 
-// Новые элементы для генератора
+// Элементы генератора
 const headCountGenInput = document.getElementById('headCountGen');
 const genPresetBtn = document.getElementById('genPresetBtn');
 
@@ -310,7 +333,7 @@ if (addPropLineBtn) {
   });
 }
 
-// Новая кнопка генератора
+// Кнопка генератора
 if (genPresetBtn) {
   genPresetBtn.addEventListener('click', () => {
     const N = parseFloat(headCountGenInput.value);
