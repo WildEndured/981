@@ -1,5 +1,5 @@
 // ============================================================
-//  overlay.js · отрисовка оверлея (маска, bbox, линии пропорций)
+//  overlay.js · отрисовка оверлея (маска, bbox, линии, фигуры головы)
 // ============================================================
 
 function drawOverlay() {
@@ -7,7 +7,6 @@ function drawOverlay() {
   if (!w) return;
   overlayCtx.clearRect(0, 0, w, h);
 
-  // --- Маска фона ---
   if (isBg) {
     const img = overlayCtx.createImageData(w, h);
     const data = img.data;
@@ -53,9 +52,9 @@ function drawOverlay() {
     overlayCtx.fillText(`bbox ${bw}×${bh}`, x, Math.max(fs, y - 6 / zoom));
   }
 
-  // --- Линии пропорций ---
+  // --- Линии пропорций (Сетка голов) ---
   if (charBBox && showPropLines && propLines && propLines.length > 0) {
-    const { x: bx, y: by, w: bw, h: bh } = charBBox;
+    const { x: bx, w: bw } = charBBox;
     const s = style.prop;
     const lw = Math.max(1, s.width / zoom);
     const fs = Math.max(12, 14 / zoom);
@@ -70,58 +69,30 @@ function drawOverlay() {
       const lineW = pl.width !== undefined ? pl.width : 1.0;
       const startX = bx + (bw * (1 - lineW)) / 2;
       const endX = bx + bw - (bw * (1 - lineW)) / 2;
-      const yPos = by + (bh * pl.percent / 100);
 
-      // Если линия помечена как круг (череп)
-      if (pl.isCircle) {
-        const centerX = bx + bw / 2;
-        // Центр круга находится на уровне макушки (0%).
-        // Радиус равен 3/5 высоты головы.
-        // Высота головы = bh / headCount. Но мы не знаем headCount здесь.
-        // Проще: радиус = yPos (расстояние от 0% до 3/5).
-        const radius = Math.abs(yPos - by);
-        
-        overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
-        overlayCtx.lineWidth = lw;
-        overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
-        overlayCtx.beginPath();
-        // Рисуем круг, центр которого на макушке (by), чтобы нижняя точка касалась линии 3/5.
-        // Но анатомически череп — это шар, вписанный в первые 3/5 головы.
-        // Поэтому центр круга на уровне 1.5/5 головы, радиус 1.5/5.
-        const centerY = by + (yPos - by) / 2;
-        const rad = (yPos - by) / 2;
-        overlayCtx.arc(centerX, centerY, rad, 0, Math.PI * 2);
-        overlayCtx.stroke();
+      if (s.outline) {
+        overlayCtx.strokeStyle = 'rgba(0,0,0,0.8)';
+        overlayCtx.lineWidth = lw * 2.5;
         overlayCtx.setLineDash([]);
-
-      } else {
-        // Обычная горизонтальная линия
-        if (s.outline) {
-          overlayCtx.strokeStyle = 'rgba(0,0,0,0.8)';
-          overlayCtx.lineWidth = lw * 2.5;
-          overlayCtx.setLineDash([]);
-          overlayCtx.beginPath();
-          overlayCtx.moveTo(startX, yPos); 
-          overlayCtx.lineTo(endX, yPos);
-          overlayCtx.stroke();
-        }
-
-        overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
-        overlayCtx.lineWidth = lw;
-        overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
         overlayCtx.beginPath();
-        overlayCtx.moveTo(startX, yPos); 
-        overlayCtx.lineTo(endX, yPos);
+        overlayCtx.moveTo(startX, pl.y); 
+        overlayCtx.lineTo(endX, pl.y);
         overlayCtx.stroke();
-        overlayCtx.setLineDash([]);
       }
 
-      // Подпись
+      overlayCtx.strokeStyle = hexToRgba(s.color, s.alpha);
+      overlayCtx.lineWidth = lw;
+      overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(startX, pl.y); 
+      overlayCtx.lineTo(endX, pl.y);
+      overlayCtx.stroke();
+      overlayCtx.setLineDash([]);
+
       if (s.showLabels) {
-        const label = `${pl.label} · ${pl.percent.toFixed(1)}%`;
-        // Подпись для круга ставим чуть ниже, чтобы не перекрывать
+        const label = `${pl.label} · ${pl.percent}%`;
         const tx = startX + 4 / zoom; 
-        const ty = yPos - 4 / zoom;
+        const ty = pl.y - 4 / zoom;
         
         overlayCtx.textAlign = 'left';
         overlayCtx.lineWidth = 3 / zoom;
@@ -133,6 +104,67 @@ function drawOverlay() {
     }
     overlayCtx.textAlign = 'start';
     overlayCtx.textBaseline = 'alphabetic';
+  }
+
+  // --- Фигуры головы (Шаг 2) ---
+  if (charBBox && showPropLines) {
+    const preset = typeof getActivePropPreset === 'function' ? getActivePropPreset() : null;
+    let headCount = 5; 
+    
+    if (preset && preset.headCount) {
+      headCount = preset.headCount;
+    } else if (preset && preset.lines.length > 1) {
+      const firstHeadLine = preset.lines.find(l => l.id === 'head-1' || l.label.includes('Голова 1'));
+      if (firstHeadLine && firstHeadLine.percent > 0) headCount = 100 / firstHeadLine.percent;
+    }
+
+    const headH = charBBox.h / headCount;
+    const headY = charBBox.y;
+    const cx = charBBox.x + charBBox.w / 2; 
+
+    // Берем настройки из глобального объекта headShapes (объявлен в proportions.js)
+    const hShapes = typeof headShapes !== 'undefined' ? headShapes : { showSkull: true, showJaw: true, showNeck: true, skullRatio: 0.6, jawRatio: 0.2, neckRatio: 0.2, headWidthRatio: 0.8, jawWidthRatio: 0.7, neckWidthRatio: 0.4 };
+    
+    const s = style.prop;
+    const lw = Math.max(1, s.width / zoom);
+    
+    // Цвет для фигур головы (бирюзовый)
+    const headColor = 'rgba(0, 230, 230, 0.8)';
+    
+    overlayCtx.strokeStyle = headColor;
+    overlayCtx.lineWidth = lw * 1.5;
+    overlayCtx.setLineDash([]);
+
+    const w = headH * hShapes.headWidthRatio;
+
+    // 1. Череп
+    if (hShapes.showSkull) {
+      const skullH = headH * hShapes.skullRatio;
+      overlayCtx.beginPath();
+      overlayCtx.ellipse(cx, headY + skullH / 2, w / 2, skullH / 2, 0, 0, Math.PI * 2);
+      overlayCtx.stroke();
+    }
+
+    // 2. Челюсть
+    if (hShapes.showJaw) {
+      const skullH = headH * hShapes.skullRatio;
+      const jawH = headH * hShapes.jawRatio;
+      const jawW = w * hShapes.jawWidthRatio;
+      
+      overlayCtx.beginPath();
+      overlayCtx.ellipse(cx, headY + skullH + jawH / 2, jawW / 2, jawH / 2, 0, 0, Math.PI * 2);
+      overlayCtx.stroke();
+    }
+
+    // 3. Шея
+    if (hShapes.showNeck) {
+      const neckH = headH * hShapes.neckRatio;
+      const neckW = w * hShapes.neckWidthRatio;
+      
+      overlayCtx.beginPath();
+      overlayCtx.rect(cx - neckW / 2, headY + headH - neckH, neckW, neckH);
+      overlayCtx.stroke();
+    }
   }
 
   // --- Точки-источники ---
