@@ -29,26 +29,6 @@ const morphOpenVal = $('morphOpenVal');
 const morphCloseEl = $('morphClose');
 const morphCloseVal = $('morphCloseVal');
 
-const horizShiftEl = $('horizShift');
-const horizShiftVal = $('horizShiftVal');
-const vertShiftEl = $('vertShift');
-const vertShiftVal = $('vertShiftVal');
-const showHorizEl = $('showHoriz');
-const showVertEl = $('showVert');
-const searchLinesResetBtn = $('searchLinesResetBtn');
-
-const showGridEl = $('showGrid');
-const gridStepEl = $('gridStep');
-const gridStepVal = $('gridStepVal');
-const headCountEl = $('headCount');
-const headCountVal = $('headCountVal');
-const presetsRow = $('presetsRow');
-const findHeadBtn = $('findHeadBtn');
-const findHeadStatus = $('findHeadStatus');
-const gridAlignRadios = document.querySelectorAll('input[name="gridAlign"]');
-const gridResetBtn = $('gridResetBtn');
-const gridSummary = $('gridSummary');
-
 const autoThresholdBtn = $('autoThresholdBtn');
 const pickBgColorBtn = $('pickBgColorBtn');
 const addPointBtn = $('addPointBtn');
@@ -70,11 +50,6 @@ const infoCharPct = $('infoCharPct');
 const infoBBox = $('infoBBox');
 const infoWH = $('infoWH');
 const infoFill = $('infoFill');
-const infoHoriz = $('infoHoriz');
-const infoVert = $('infoVert');
-const infoHeads = $('infoHeads');
-const infoGrid = $('infoGrid');
-const infoHeadPx = $('infoHeadPx');
 const infoPointsCount = $('infoPointsCount');
 const pointList = $('pointList');
 const samplesList = $('samplesList');
@@ -99,42 +74,14 @@ let hideImage = false;
 let bgCount = 0;
 
 let charBBox = null;
-let searchHorizLine = null;
-let vertAxis = null;
-let gridLines = [];
 let propLines = []; // вычисленные Y-координаты для рендера
-
-let horizShiftPercent = 0;
-let vertShiftPercent = 0;
-
-let gridStepPercent = 13;
-let activePresetHeads = 7.5;
-let gridAlign = 'from-top';
-let gridInfo = { stepPercent: 13, headCount: 100 / 13, headPx: 0, lines: 0, align: 'from-top' };
-
-let showHoriz = true;
-let showVert = true;
-let showGrid = true;
 
 // --- Линии пропорций ---
 let showPropLines = true;
 
-// Пресеты линий пропорций (сохраняются в localStorage)
-// Структура: { id: string, name: string, lines: Array<{ id, label, percent, enabled }> }
+// Пресеты линий пропорций
 let propPresets = [];
-let activePropPresetId = 'classic-7.5';
-
-// Цвета/стили линий пропорций (оставляем дефолт)
-const propStyle = {
-  color: '#ff7ad9',
-  width: 3,
-  alpha: 1,
-  dashed: true,
-  dashLen: 8,
-  dashGap: 5,
-  showLabels: true,
-  outline: true
-};
+let activePropPresetId = 'female-7.5';
 
 // Zoom / pan
 let zoom = 1, panX = 0, panY = 0;
