@@ -2,63 +2,45 @@
 //  proportions.js · логика, UI и генератор пресетов пропорций
 // ============================================================
 
-const LS_KEY = 'bbox_prop_presets_v6';
+const LS_KEY = 'bbox_prop_presets_v7';
 
-function generateFemalePreset(headCount) {
+// Базовый пресет: только деление на N частей
+function generateEmptyPreset(headCount) {
   const N = headCount || 5;
-  
-  // 1. Шаг 1: Делим bbox на N равных частей (голов)
-  const headPercent = 100 / N; // Размер 1 головы в процентах
-  
-  // 2. Шаг 2: Делим часть головы на 5 равных частей
-  const fifthOfHead = headPercent / 5;
-  
-  // --- Вычисляем ключевые точки ---
-  
-  const crownPct = 0;
-  const headTopPct = fifthOfHead * 3;
-  const eyesPct = fifthOfHead * 2.5;
-  const chinPct = fifthOfHead * 4;
-  const neckPct = fifthOfHead * 5; 
-  
-  // --- Туловище ---
-  const pubicPct = headPercent * 3;
-  const shouldersPct = neckPct + (headPercent * 0.3);
-  const nipplesPct = neckPct + (pubicPct - neckPct) * 0.4;
-  const waistPct = neckPct + (pubicPct - neckPct) * 0.66;
-  
-  // --- Ноги ---
-  const kneePct = pubicPct + (100 - pubicPct) * 0.5;
-  const anklePct = 100 - (fifthOfHead * 1.5);
-  const feetPct = 100;
+  const headPercent = 100 / N;
+  const lines = [];
 
-  const lines = [
-    { id: 'crown', label: 'Макушка (0)', percent: crownPct, width: 1.0, enabled: true },
-    { id: 'head-top', label: 'Верх черепа (3/5)', percent: headTopPct, width: 0.8, enabled: true },
-    { id: 'eyes', label: 'Линия глаз', percent: eyesPct, width: 0.3, enabled: true },
-    { id: 'chin', label: 'Подбородок (4/5)', percent: chinPct, width: 1.0, enabled: true },
-    { id: 'neck', label: 'Шея (5/5)', percent: neckPct, width: 0.5, enabled: true },
-    { id: 'shoulders', label: 'Плечи', percent: shouldersPct, width: 0.9, enabled: true },
-    { id: 'nipples', label: 'Соски', percent: nipplesPct, width: 0.4, enabled: true },
-    { id: 'waist', label: 'Талия', percent: waistPct, width: 0.6, enabled: true },
-    { id: 'pubic', label: 'Лобок (3 головы)', percent: pubicPct, width: 1.0, enabled: true },
-    { id: 'knees', label: 'Колени', percent: kneePct, width: 1.0, enabled: true },
-    { id: 'ankles', label: 'Лодыжки', percent: anklePct, width: 0.6, enabled: true },
-    { id: 'feet', label: 'Стопы (100)', percent: feetPct, width: 1.0, enabled: true }
-  ];
+  // Шаг 1: Генерируем линии, делящие BBox на X равных частей
+  // Начинаем с 1, так как 0% (макушка) — это край, его можно не рисовать, 
+  // но для удобства добавим и его.
+  lines.push({
+    id: 'crown',
+    label: 'Макушка (0%)',
+    percent: 0,
+    width: 1.0,
+    enabled: true
+  });
 
-  lines.forEach(l => l.percent = +l.percent.toFixed(2));
+  for (let i = 1; i <= N; i++) {
+    lines.push({
+      id: 'head-' + i,
+      label: `Голова ${i} (${i * headPercent}%)`,
+      percent: i * headPercent,
+      width: 1.0,
+      enabled: true
+    });
+  }
 
   return {
-    id: 'female-' + N + '-' + Date.now(),
-    name: `Фигура · ${N} голов`,
+    id: 'grid-' + N + '-' + Date.now(),
+    name: `Сетка · ${N} голов`,
     lines: lines
   };
 }
 
+// Начальный пресет при первом запуске (только линии деления)
 const DEFAULT_PRESETS = [
-  generateFemalePreset(5),
-  generateFemalePreset(7.5)
+  generateEmptyPreset(5)
 ];
 
 function loadPropPresets() {
@@ -326,7 +308,8 @@ if (genPresetBtn) {
       alert('Введите количество голов от 2 до 12');
       return;
     }
-    const newPreset = generateFemalePreset(N);
+    // Генерируем чистую сетку из N частей
+    const newPreset = generateEmptyPreset(N);
     propPresets.push(newPreset);
     activePropPresetId = newPreset.id;
     savePropPresets();
@@ -344,4 +327,4 @@ function initProportionsUI() {
   renderPropPresetSelect();
   renderPropLinesList();
   if (showPropLinesEl) showPropLinesEl.checked = showPropLines;
-                       }
+      }
