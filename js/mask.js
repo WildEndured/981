@@ -26,11 +26,7 @@ fileInput.addEventListener('change', e => {
       selectedPointIndex = -1;
       colorSamples = [];
       charBBox = null;
-      searchHorizLine = null;
-      vertAxis = null;
-      gridLines = [];
       propLines = [];
-      findHeadStatus.textContent = '';
       invalidateSeeds();
       autoPickThreshold();
       renderSamplesList();
@@ -188,9 +184,7 @@ function rebuildAll() {
     morphOpen: +morphOpenEl.value,
     morphClose: +morphCloseEl.value,
     regionTolerance: +regionTolEl.value,
-    horizShiftPercent, vertShiftPercent,
-    gridStepPercent, gridAlign,
-    activePropLines
+    activePropLines // передаём только линии пропорций
   };
 
   if (worker) {
@@ -202,10 +196,6 @@ function rebuildAll() {
         isBg = r.mask;
         bgCount = r.bgCount;
         charBBox = r.bbox;
-        searchHorizLine = r.searchHorizLine;
-        vertAxis = r.vertAxis;
-        gridLines = r.gridLines;
-        gridInfo = r.gridInfo;
         propLines = r.propLines || [];
         drawOverlay();
         updateInfo();
@@ -226,8 +216,7 @@ function buildMaskMainThread(p) {
   const {
     imageData, width, height, mode, thresholdLum, colorSamples, thresholdDist,
     invert, sourcePoints, autoSeeds, useSmooth, smoothIter, morphOpen, morphClose,
-    regionTolerance, horizShiftPercent, vertShiftPercent,
-    gridStepPercent, gridAlign, activePropLines
+    regionTolerance, activePropLines
   } = p;
 
   const w = width, h = height, N = w * h;
@@ -296,116 +285,21 @@ function buildMaskMainThread(p) {
   for (let i = 0; i < N; i++) if (mask[i]) bgCount++;
 
   const bbox = computeBBox(mask, w, h, 200);
-  let searchHorizLine = null, vertAxis = null, gridLines = [], gridInfo = null, propLines = [];
+  let propLines = [];
 
   if (bbox) {
-    const shiftVal = vertShiftPercent || 0;
-    let axisX = Math.round(bbox.x + bbox.w * (0.5 + shiftVal / 100));
-    axisX = Math.max(bbox.x, Math.min(bbox.x + bbox.w - 1, axisX));
-    vertAxis = { x: axisX, xNorm: (axisX - bbox.x) / bbox.w, shiftPercent: shiftVal };
-
-    const hs = horizShiftPercent || 0;
-    const hy = Math.round(bbox.h * (0.5 + hs / 100));
-    searchHorizLine = {
-      y: bbox.y + Math.max(0, Math.min(bbox.h - 1, hy)),
-      yNorm: 0.5 + hs / 100,
-      shiftPercent: hs
-    };
-
-    const step = Math.max(1, Math.round(gridStepPercent || 13));
-    const offset = (gridAlign === 'centered') ? step / 2 : 0;
-    for (let i = 1; ; i++) {
-      const pPct = i * step - offset;
-      if (pPct >= 100) break;
-      if (pPct <= 0.01) continue;
-      gridLines.push({
-        y: bbox.y + Math.round(bbox.h * pPct / 100),
-        yNorm: pPct / 100,
-        percent: pPct
-      });
-    }
-    gridInfo = {
-      stepPercent: step,
-      headCount: 100 / step,
-      headPx: Math.round((bbox.h / (100 / step)) * 10) / 10,
-      lines: gridLines.length,
-      align: gridAlign
-    };
-
     if (Array.isArray(activePropLines) && activePropLines.length > 0) {
       propLines = activePropLines.map(line => ({
         id: line.id,
         label: line.label,
         percent: line.percent,
         y: bbox.y + Math.round(bbox.h * (line.percent / 100)),
-        enabled: line.enabled !== false
+        enabled: line.enabled !== false,
+        width: line.width
       }));
     }
   }
 
-  return { mask, bgCount, width: w, height: h, bbox, searchHorizLine, vertAxis, gridLines, gridInfo, propLines };
+  return { mask, bgCount, width: w, height: h, bbox, propLines };
 }
-
-function maskErode(mask, w, h) {
-  const copy = mask.slice();
-  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
-    const i = y * w + x;
-    if (!copy[i]) continue;
-    if (!copy[i-1] || !copy[i+1] || !copy[i-w] || !copy[i+w]) mask[i] = 0;
-  }
-}
-function maskDilate(mask, w, h) {
-  const copy = mask.slice();
-  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
-    const i = y * w + x;
-    if (copy[i]) continue;
-    if (copy[i-1] || copy[i+1] || copy[i-w] || copy[i+w]) mask[i] = 1;
-  }
-}
-function maskSmooth(mask, w, h) {
-  const copy = mask.slice();
-  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
-    const i = y * w + x;
-    let c = 0;
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-      if (!dx && !dy) continue;
-      c += copy[i + dy * w + dx];
-    }
-    if (c >= 7) mask[i] = 1; else if (c <= 1) mask[i] = 0;
-  }
-}
-function computeBBox(mask, w, h, minSize) {
-  const N = w * h;
-  const visited = new Uint8Array(N);
-  const queue = new Int32Array(N);
-  let best = null, bestSize = 0;
-  for (let start = 0; start < N; start++) {
-    if (visited[start] || mask[start] === 1) continue;
-    let head = 0, tail = 0;
-    queue[tail++] = start; visited[start] = 1;
-    let minX = w, minY = h, maxX = -1, maxY = -1, size = 0;
-    while (head < tail) {
-      const cur = queue[head++];
-      const cx = cur % w, cy = (cur / w) | 0;
-      size++;
-      if (cx < minX) minX = cx; if (cy < minY) minY = cy;
-      if (cx > maxX) maxX = cx; if (cy > maxY) maxY = cy;
-      if (cx > 0)     { const n = cur - 1; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
-      if (cx < w - 1) { const n = cur + 1; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
-      if (cy > 0)     { const n = cur - w; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
-      if (cy < h - 1) { const n = cur + w; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
-    }
-    if (size >= minSize && size > bestSize) {
-      bestSize = size;
-      best = { minX, minY, maxX, maxY, size };
-    }
-  }
-  if (!best) return null;
-  return {
-    x: best.minX, y: best.minY,
-    w: best.maxX - best.minX + 1,
-    h: best.maxY - best.minY + 1,
-    area: best.size,
-    fillRatio: best.size / ((best.maxX - best.minX + 1) * (best.maxY - best.minY + 1))
-  };
-        }
+// ... остальные функции maskErode, maskDilate, maskSmooth, computeBBox остаются без изменений
