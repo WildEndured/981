@@ -1,18 +1,18 @@
 // ============================================================
-//  utils.js · debounce, курсор
+//  init.js · финальный запуск
 // ============================================================
 
-function debounce(fn, ms = 80) {
-  let t = null;
-  return (...args) => {
-    clearTimeout(t);
-    t = setTimeout(() => fn(...args), ms);
-  };
-}
-
-function updateCursor() {
-  if (isDragging) return;
-  if (addPointMode) stageWrap.style.cursor = 'copy';
-  else if (bgColorMode) stageWrap.style.cursor = 'crosshair';
-  else stageWrap.style.cursor = 'grab';
+try {
+  initWorker();
+  smoothIterEl.disabled = !useSmoothEl.checked;
+  updateCursor();
+  bindStyleControls();
+  setStyleUIFromState();
+  
+  // Инициализация панели линий пропорций
+  initProportionsUI(); 
+  
+  console.log('[main] init OK');
+} catch (e) {
+  showError('Init error: ' + (e.message || e));
 }
