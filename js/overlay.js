@@ -137,13 +137,11 @@ function drawOverlay() {
     overlayCtx.lineWidth = lw * 1.5;
     overlayCtx.setLineDash([]);
 
-    const w = headH * hShapes.headWidthRatio;
-
-    // 1. Череп (1-3 секция = 60% высоты головы)
+    // 1. Череп (1-3 секция = 60% высоты головы) - ИДЕАЛЬНЫЙ КРУГ
     if (hShapes.showSkull) {
-      const skullH = headH * 0.6; 
+      const radius = (headH * 0.6) / 2; // Радиус = половина высоты черепа
       overlayCtx.beginPath();
-      overlayCtx.ellipse(cx, headY + skullH / 2, w / 2, skullH / 2, 0, 0, Math.PI * 2);
+      overlayCtx.arc(cx, headY + radius, radius, 0, Math.PI * 2);
       overlayCtx.stroke();
     }
 
@@ -151,7 +149,8 @@ function drawOverlay() {
     if (hShapes.showJaw) {
       const skullH = headH * 0.6;
       const jawH = headH * 0.2; 
-      const jawW = w * hShapes.jawWidthRatio;
+      // Ширину челюсти вычисляем относительно диаметра черепа
+      const jawW = skullH * hShapes.jawWidthRatio;
       
       overlayCtx.beginPath();
       overlayCtx.ellipse(cx, headY + skullH + jawH / 2, jawW / 2, jawH / 2, 0, 0, Math.PI * 2);
@@ -161,7 +160,9 @@ function drawOverlay() {
     // 3. Шея (5 секция = 20% высоты, от 80% до 100%)
     if (hShapes.showNeck) {
       const neckH = headH * 0.2; 
-      const neckW = w * hShapes.neckWidthRatio;
+      const skullH = headH * 0.6;
+      // Ширину шеи берем относительно диаметра черепа
+      const neckW = skullH * hShapes.neckWidthRatio;
       
       overlayCtx.beginPath();
       overlayCtx.rect(cx - neckW / 2, headY + headH - neckH, neckW, neckH);
