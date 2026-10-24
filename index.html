@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>Маска фона · BBox · Линии пропорций</title>
-<link rel="stylesheet" href="style.css?v=12" />
+<link rel="stylesheet" href="style.css?v=16" />
 </head>
 <body>
 
@@ -106,10 +106,10 @@
   </div>
 
   <div class="panel-section" id="propSection">
-    <h3>Линии пропорций</h3>
+    <h3>Линии пропорций (Сетка)</h3>
 
     <div class="row" style="margin-bottom: 10px;">
-      <label><input id="showPropLines" type="checkbox" checked /> Показывать линии и фигуры</label>
+      <label><input id="showPropLines" type="checkbox" checked /> Показывать линии</label>
     </div>
 
     <!-- Генератор пропорций -->
@@ -119,22 +119,8 @@
       <button id="genPresetBtn" class="btn-small btn-accent" style="flex: 1;">⚡ Сгенерировать сетку</button>
     </div>
 
-    <!-- Управление фигурами головы -->
-    <div class="row" style="margin-top: 12px; padding: 8px; background: #101216; border-radius: 8px; border: 1px solid #333a44; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
-      <span style="font-size: 12px; color: #ffcc00; font-weight: bold;">Фигуры головы (Шаг 2)</span>
-      <label style="font-size: 12px; color: #b9c3d1; display: flex; align-items: center; gap: 6px;">
-        <input type="checkbox" id="headSkullChk" checked /> Череп (круг)
-      </label>
-      <label style="font-size: 12px; color: #b9c3d1; display: flex; align-items: center; gap: 6px;">
-        <input type="checkbox" id="headJawChk" checked /> Челюсть
-      </label>
-      <label style="font-size: 12px; color: #b9c3d1; display: flex; align-items: center; gap: 6px;">
-        <input type="checkbox" id="headNeckChk" checked /> Шея
-      </label>
-    </div>
-
     <!-- Селектор пресетов + управление -->
-    <div class="row" style="gap: 6px; align-items: center; flex-wrap: nowrap; margin-top: 12px;">
+    <div class="row" style="gap: 6px; align-items: center; flex-wrap: nowrap;">
       <select id="propPresetSelect" style="flex: 1; background: #232830; color: #fff; border: 1px solid #333a44; padding: 6px; border-radius: 8px; font-size: 13px;"></select>
       <button id="propPresetAddBtn" class="btn-small" title="Сохранить текущие линии как новый пресет">+</button>
       <button id="propPresetRenameBtn" class="btn-small" title="Переименовать пресет">✎</button>
@@ -235,17 +221,17 @@
   </div>
 </div>
 
-<!-- ПРАВИЛЬНЫЙ ПОРЯДОК ПОДКЛЮЧЕНИЯ -->
-<script src="js/state.js?v=12"></script>
-<script src="js/utils.js?v=12"></script>
-<script src="js/style.js?v=12"></script>
-<script src="js/ui.js?v=12"></script>
-<script src="js/overlay.js?v=12"></script>
-<script src="js/worker.js?v=12"></script>
-<script src="js/mask.js?v=12"></script>
-<script src="js/proportions.js?v=12"></script>
-<script src="js/zoom.js?v=12"></script>
-<script src="js/interactions.js?v=12"></script>
-<script src="js/init.js?v=12"></script>
+<!-- Версии ?v=16 сбрасывают кэш -->
+<script src="js/state.js?v=16"></script>
+<script src="js/utils.js?v=16"></script>
+<script src="js/style.js?v=16"></script>
+<script src="js/ui.js?v=16"></script>
+<script src="js/overlay.js?v=16"></script>
+<script src="js/worker.js?v=16"></script>
+<script src="js/mask.js?v=16"></script>
+<script src="js/proportions.js?v=16"></script>
+<script src="js/zoom.js?v=16"></script>
+<script src="js/interactions.js?v=16"></script>
+<script src="js/init.js?v=16"></script>
 </body>
-          </html>
+</html>
