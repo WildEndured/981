@@ -2,30 +2,50 @@
 //  proportions.js · логика, UI и генератор пресетов пропорций
 // ============================================================
 
-const LS_KEY = 'bbox_prop_presets_v7';
+const LS_KEY = 'bbox_prop_presets_v8';
 
-// Базовый пресет: только деление на N частей
 function generateEmptyPreset(headCount) {
   const N = headCount || 5;
-  const headPercent = 100 / N;
-  const lines = [];
+  const headPct = 100 / N; // Размер 1 головы в %
+  const partPct = headPct / 5; // Размер 1/5 головы в %
 
-  // Шаг 1: Генерируем линии, делящие BBox на X равных частей
-  // Начинаем с 1, так как 0% (макушка) — это край, его можно не рисовать, 
-  // но для удобства добавим и его.
-  lines.push({
-    id: 'crown',
-    label: 'Макушка (0%)',
-    percent: 0,
-    width: 1.0,
-    enabled: true
-  });
+  const lines = [
+    { id: 'crown', label: 'Макушка (0%)', percent: 0, width: 1.0, enabled: true }
+  ];
 
-  for (let i = 1; i <= N; i++) {
+  // Шаг 2: Делим первую голову на 5 частей
+  for (let i = 1; i <= 5; i++) {
+    const p = partPct * i;
+    let label = '';
+    let isCircle = false;
+
+    if (i === 3) {
+      label = 'Низ черепа (3/5)';
+      isCircle = true; // Метка для отрисовки круга
+    } else if (i === 4) {
+      label = 'Челюсть (4/5)';
+    } else if (i === 5) {
+      label = 'Шея (5/5)';
+    } else {
+      label = `Голова ${i}/5`;
+    }
+
+    lines.push({
+      id: 'head-part-' + i,
+      label: label,
+      percent: p,
+      width: 1.0,
+      enabled: true,
+      isCircle: isCircle
+    });
+  }
+
+  // Добавляем линии для остальных голов (просто деления)
+  for (let i = 2; i <= N; i++) {
     lines.push({
       id: 'head-' + i,
-      label: `Голова ${i} (${i * headPercent}%)`,
-      percent: i * headPercent,
+      label: `Голова ${i} (${(i * headPct).toFixed(1)}%)`,
+      percent: i * headPct,
       width: 1.0,
       enabled: true
     });
@@ -38,10 +58,7 @@ function generateEmptyPreset(headCount) {
   };
 }
 
-// Начальный пресет при первом запуске (только линии деления)
-const DEFAULT_PRESETS = [
-  generateEmptyPreset(5)
-];
+const DEFAULT_PRESETS = [ generateEmptyPreset(5) ];
 
 function loadPropPresets() {
   try {
@@ -308,7 +325,6 @@ if (genPresetBtn) {
       alert('Введите количество голов от 2 до 12');
       return;
     }
-    // Генерируем чистую сетку из N частей
     const newPreset = generateEmptyPreset(N);
     propPresets.push(newPreset);
     activePropPresetId = newPreset.id;
