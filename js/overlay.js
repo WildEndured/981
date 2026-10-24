@@ -106,7 +106,9 @@ function drawOverlay() {
     overlayCtx.textBaseline = 'alphabetic';
   }
 
-  // --- Фигуры головы (Шаг 2) ---
+  // ============================================================
+  //  ФИГУРЫ ГОЛОВЫ (Шаг 2)
+  // ============================================================
   if (charBBox && showPropLines) {
     const preset = typeof getActivePropPreset === 'function' ? getActivePropPreset() : null;
     let headCount = 5; 
@@ -118,17 +120,17 @@ function drawOverlay() {
       if (firstHeadLine && firstHeadLine.percent > 0) headCount = 100 / firstHeadLine.percent;
     }
 
-    const headH = charBBox.h / headCount;
+    const headH = charBBox.h / headCount; 
     const headY = charBBox.y;
     const cx = charBBox.x + charBBox.w / 2; 
 
-    // Берем настройки из глобального объекта headShapes (объявлен в proportions.js)
-    const hShapes = typeof headShapes !== 'undefined' ? headShapes : { showSkull: true, showJaw: true, showNeck: true, skullRatio: 0.6, jawRatio: 0.2, neckRatio: 0.2, headWidthRatio: 0.8, jawWidthRatio: 0.7, neckWidthRatio: 0.4 };
+    const hShapes = typeof headShapes !== 'undefined' ? headShapes : { 
+      showSkull: true, showJaw: true, showNeck: true, 
+      headWidthRatio: 0.8, jawWidthRatio: 0.7, neckWidthRatio: 0.4 
+    };
     
     const s = style.prop;
     const lw = Math.max(1, s.width / zoom);
-    
-    // Цвет для фигур головы (бирюзовый)
     const headColor = 'rgba(0, 230, 230, 0.8)';
     
     overlayCtx.strokeStyle = headColor;
@@ -137,18 +139,18 @@ function drawOverlay() {
 
     const w = headH * hShapes.headWidthRatio;
 
-    // 1. Череп
+    // 1. Череп (1-3 секция = 60% высоты головы)
     if (hShapes.showSkull) {
-      const skullH = headH * hShapes.skullRatio;
+      const skullH = headH * 0.6; 
       overlayCtx.beginPath();
       overlayCtx.ellipse(cx, headY + skullH / 2, w / 2, skullH / 2, 0, 0, Math.PI * 2);
       overlayCtx.stroke();
     }
 
-    // 2. Челюсть
+    // 2. Челюсть (4 секция = 20% высоты, от 60% до 80%)
     if (hShapes.showJaw) {
-      const skullH = headH * hShapes.skullRatio;
-      const jawH = headH * hShapes.jawRatio;
+      const skullH = headH * 0.6;
+      const jawH = headH * 0.2; 
       const jawW = w * hShapes.jawWidthRatio;
       
       overlayCtx.beginPath();
@@ -156,9 +158,9 @@ function drawOverlay() {
       overlayCtx.stroke();
     }
 
-    // 3. Шея
+    // 3. Шея (5 секция = 20% высоты, от 80% до 100%)
     if (hShapes.showNeck) {
-      const neckH = headH * hShapes.neckRatio;
+      const neckH = headH * 0.2; 
       const neckW = w * hShapes.neckWidthRatio;
       
       overlayCtx.beginPath();
