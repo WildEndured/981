@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Шаг 1. Пропорции</title>
+<title>Шаг 2. Голова и шея</title>
 <style>
   body {
     margin: 0;
@@ -43,6 +43,17 @@ const ctx = canvas.getContext('2d');
 const range = document.getElementById('range');
 const val = document.getElementById('val');
 
+const C = {
+  grid: '#4a4a5a',
+  text: '#b8b8c0',
+  accent: '#e8b04b',
+  head: 'rgba(232,176,75,0.15)',
+  headLine: 'rgba(232,176,75,0.9)',
+  eye: '#7ec8e3',
+  chin: '#e86b6b',
+  neck: 'rgba(232,176,75,0.35)'
+};
+
 function draw(parts) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -50,15 +61,15 @@ function draw(parts) {
   const top = pad;
   const bottom = canvas.height - pad;
   const height = bottom - top;
-  const step = height / parts;
+  const step = height / parts;         // одна голова
   const left = 20;
   const right = canvas.width - 20;
 
-  // Горизонтальные линии — деление на равные части
-  ctx.strokeStyle = '#4a4a5a';
+  // ===== Шаг 1: сетка =====
+  ctx.strokeStyle = C.grid;
   ctx.lineWidth = 1;
   ctx.font = '11px system-ui';
-  ctx.fillStyle = '#b8b8c0';
+  ctx.fillStyle = C.text;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
 
@@ -68,10 +79,7 @@ function draw(parts) {
     ctx.moveTo(left, y);
     ctx.lineTo(right, y);
     ctx.stroke();
-
-    if (i < parts) {
-      ctx.fillText(i + 1, right - 16, y + step / 2);
-    }
+    if (i < parts) ctx.fillText(i + 1, right - 16, y + step / 2);
   }
 
   // Осевая вертикаль
@@ -83,6 +91,90 @@ function draw(parts) {
   ctx.lineTo(cx, bottom);
   ctx.stroke();
   ctx.setLineDash([]);
+
+  // ===== Шаг 2: голова и шея =====
+  // Первая часть (сверху) — это голова. Делим её на 5 подчастей.
+  const headTop = top;
+  const headH = step;              // высота "головы" = 1 часть
+  const sub = headH / 5;           // 1/5 головы
+
+  const chinY   = headTop + sub * 4;   // 4-я линия — подбородок
+  const eyeY    = headTop + headH / 2; // центр головы — линия глаз
+  const neckY   = headTop + sub * 4;   // шея = 5-я часть (от подбородка до низа части)
+
+  // --- Подчасти головы (тонкие линии) ---
+  ctx.strokeStyle = 'rgba(232,176,75,0.25)';
+  ctx.setLineDash([2, 4]);
+  for (let i = 1; i <= 5; i++) {
+    const y = headTop + i * sub;
+    ctx.beginPath();
+    ctx.moveTo(left, y);
+    ctx.lineTo(right, y);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // --- Череп: круг, занимающий верхние 3/5 головы + подбородок = 4/5 ---
+  // "Основная масса черепа" — верхние 3 части. Рисуем круг,
+  // вписанный так, чтобы его центр совпал с линией глаз
+  // (линия глаз по центру головы, т.е. на 2.5/5).
+  // Радиус = половина высоты головы (примерно).
+  const skullRadius = headH * 0.4; // верхние ~3 части + немного
+  const skullCx = cx;
+  const skullCy = eyeY;            // центр круга = линия глаз (центр головы)
+
+  ctx.beginPath();
+  ctx.arc(skullCx, skullCy, skullRadius, 0, Math.PI * 2);
+  ctx.fillStyle = C.head;
+  ctx.fill();
+  ctx.strokeStyle = C.headLine;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // --- Линия подбородка ---
+  ctx.strokeStyle = C.chin;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx - skullRadius * 0.8, chinY);
+  ctx.lineTo(cx + skullRadius * 0.8, chinY);
+  ctx.stroke();
+
+  // --- Линия глаз ---
+  ctx.strokeStyle = C.eye;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  ctx.moveTo(cx - skullRadius, eyeY);
+  ctx.lineTo(cx + skullRadius, eyeY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Отметки глаз
+  const eyeOffset = skullRadius * 0.4;
+  ctx.fillStyle = C.eye;
+  ctx.beginPath();
+  ctx.arc(cx - eyeOffset, eyeY, 2.5, 0, Math.PI * 2);
+  ctx.arc(cx + eyeOffset, eyeY, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // --- Шея: 5-я подчасть головы (от подбородка до конца 1-й части) ---
+  const neckW = skullRadius * 0.6;
+  ctx.fillStyle = C.neck;
+  ctx.fillRect(cx - neckW / 2, chinY, neckW, neckY - chinY);
+  ctx.strokeStyle = C.headLine;
+  ctx.lineWidth = 1.2;
+  ctx.strokeRect(cx - neckW / 2, chinY, neckW, neckY - chinY);
+
+  // --- Подписи ---
+  ctx.fillStyle = C.accent;
+  ctx.font = 'bold 10px system-ui';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('линия глаз', cx - skullRadius - 6, eyeY);
+  ctx.fillStyle = C.chin;
+  ctx.fillText('подбородок', cx - skullRadius * 0.8 - 6, chinY);
+  ctx.fillStyle = C.neck;
+  ctx.fillText('шея', cx - neckW / 2 - 6, (chinY + neckY) / 2);
 }
 
 range.addEventListener('input', () => {
