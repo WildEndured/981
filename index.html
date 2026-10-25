@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Торс (яйцо) + Таз (квадрат)</title>
+<title>Грудная клетка — яйцо (по референсу)</title>
 <style>
   :root {
     --guide-red: #f03e6e;
     --guide-blue: #3b7cff;
+    --guide-ink: #2a2430;
     --bg: #faf8fc;
     --panel: #ffffff;
-    --text: #2a2430;
     --muted: #8a8394;
     --line: #e5e1eb;
     --accent: #7a4dff;
@@ -19,7 +19,7 @@
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    color: var(--text);
+    color: var(--guide-ink);
     background: var(--bg);
     display: grid;
     grid-template-columns: 1fr 340px;
@@ -29,56 +29,40 @@
   }
   header {
     grid-column: 1 / -1;
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    gap: 12px;
+    display: flex; align-items: center;
+    padding: 0 16px; gap: 12px;
     border-bottom: 1px solid var(--line);
     background: var(--panel);
   }
   header h1 { font-size: 15px; font-weight: 600; margin: 0; }
   header .view-name {
-    font-size: 12px;
-    color: var(--muted);
+    font-size: 12px; color: var(--muted);
     font-variant-numeric: tabular-nums;
     margin-left: auto;
   }
   #stage {
-    position: relative;
-    overflow: hidden;
+    position: relative; overflow: hidden;
     background: radial-gradient(circle at 50% 45%, #ffffff 0%, var(--bg) 70%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    touch-action: none;
-    cursor: grab;
+    display: flex; align-items: center; justify-content: center;
+    touch-action: none; cursor: grab;
   }
   #stage:active { cursor: grabbing; }
   #stage svg { width: 100%; height: 100%; display: block; user-select: none; }
   #stage .label {
-    font-size: 13px;
-    font-weight: 600;
-    paint-order: stroke;
-    stroke: #fff;
-    stroke-width: 3px;
-    stroke-linejoin: round;
-    pointer-events: none;
-    user-select: none;
+    font-size: 13px; font-weight: 600;
+    paint-order: stroke; stroke: #fff;
+    stroke-width: 3px; stroke-linejoin: round;
+    pointer-events: none; user-select: none;
   }
   .label--red  { fill: var(--guide-red); }
   .label--blue { fill: var(--guide-blue); }
-  .label--ink  { fill: var(--text); }
+  .label--ink  { fill: var(--guide-ink); }
   #drop-cover {
-    position: absolute;
-    inset: 0;
+    position: absolute; inset: 0;
     background: rgba(122, 77, 255, 0.15);
     border: 2px dashed var(--accent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 600; color: var(--accent);
     pointer-events: none;
   }
   #drop-cover[hidden] { display: none; }
@@ -90,59 +74,42 @@
   }
   section { padding: 0 16px 12px; }
   section h2 {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    font-weight: 600;
-    margin: 14px 0 8px;
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted);
+    font-weight: 600; margin: 14px 0 8px;
   }
   .btn {
-    font: inherit;
-    font-size: 12px;
+    font: inherit; font-size: 12px;
     padding: 7px 10px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: #fff;
-    color: var(--text);
-    cursor: pointer;
-    transition: all 0.12s;
+    border: 1px solid var(--line); border-radius: 8px;
+    background: #fff; color: var(--guide-ink);
+    cursor: pointer; transition: all 0.12s;
   }
   .btn:hover { border-color: var(--accent); color: var(--accent); }
   .btn[aria-pressed="true"] {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
+    background: var(--accent); border-color: var(--accent); color: #fff;
   }
   .row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
   .slider {
     display: grid;
     grid-template-columns: 1fr 52px;
-    gap: 2px 8px;
-    margin-bottom: 10px;
+    gap: 2px 8px; margin-bottom: 10px;
     align-items: center;
   }
-  .slider label { grid-column: 1 / -1; font-size: 12px; color: var(--text); }
+  .slider label { grid-column: 1 / -1; font-size: 12px; }
   .slider input[type="range"] { width: 100%; height: 20px; accent-color: var(--accent); }
   .slider output {
-    text-align: right;
-    font-size: 11px;
-    color: var(--muted);
+    text-align: right; font-size: 11px; color: var(--muted);
     font-variant-numeric: tabular-nums;
   }
   .group-h {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    font-weight: 600;
-    margin: 12px 0 6px;
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted);
+    font-weight: 600; margin: 12px 0 6px;
   }
   .hint {
-    font-size: 12px;
-    color: var(--muted);
-    line-height: 1.4;
-    margin-bottom: 8px;
+    font-size: 12px; color: var(--muted);
+    line-height: 1.4; margin-bottom: 8px;
   }
   @media (max-width: 800px) {
     body {
@@ -157,7 +124,7 @@
 <body>
 
 <header>
-  <h1>Торс (яйцо) + Таз (квадрат)</h1>
+  <h1>Грудная клетка — яйцо</h1>
   <span class="view-name" id="view-name">Анфас · 0°</span>
 </header>
 
@@ -201,12 +168,17 @@
   </section>
 
   <section>
-    <h2>Грудная клетка (яйцо)</h2>
+    <h2>Грудная клетка</h2>
     <div id="egg-sliders"></div>
   </section>
 
   <section>
-    <h2>Таз (квадрат)</h2>
+    <h2>Плечи и шея</h2>
+    <div id="body-sliders"></div>
+  </section>
+
+  <section>
+    <h2>Таз (для стыка)</h2>
     <div id="pelvis-sliders"></div>
   </section>
 
@@ -261,6 +233,7 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const len = (a) => Math.hypot(a[0], a[1], a[2]);
 const norm = (a) => { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
 const SEG = 96;
 const CX = 300, CY = 300;
@@ -270,26 +243,36 @@ const SCALE = 180;
  * параметры
  * ================================================================== */
 const EGG_PARAMS = [
-  { key: 'egg_top',    label: 'Сужение верха',      min: 0.3, max: 0.9,  step: 0.01, def: 0.55 },
-  { key: 'egg_bottom', label: 'Ширина низа',        min: 0.7, max: 1.1,  step: 0.01, def: 0.95 },
-  { key: 'egg_depth',  label: 'Глубина',            min: 0.5, max: 1.0,  step: 0.01, def: 0.72 },
-  { key: 'egg_round',  label: 'Скругление',         min: 0.3, max: 1.0,  step: 0.01, def: 0.6  },
-  { key: 'egg_bulge',  label: 'Выпуклость книзу',   min: 0,   max: 0.4,  step: 0.01, def: 0.12 },
+  { key: 'egg_top',    label: 'Сужение верха',       min: 0.3, max: 0.9,  step: 0.01, def: 0.55 },
+  { key: 'egg_bottom', label: 'Ширина низа',         min: 0.7, max: 1.1,  step: 0.01, def: 0.95 },
+  { key: 'egg_depth',  label: 'Глубина',             min: 0.5, max: 1.0,  step: 0.01, def: 0.72 },
+  { key: 'egg_round',  label: 'Скругление',          min: 0.3, max: 1.0,  step: 0.01, def: 0.6  },
+  { key: 'egg_bulge',  label: 'Выпуклость книзу',    min: 0,   max: 0.4,  step: 0.01, def: 0.12 },
+];
+
+const BODY_PARAMS = [
+  { key: 'neck_h',     label: 'Длина шеи',           min: 0.1, max: 0.4,  step: 0.01, def: 0.22 },
+  { key: 'neck_w',     label: 'Толщина шеи',         min: 0.2, max: 0.5,  step: 0.01, def: 0.30 },
+  { key: 'sh_w',       label: 'Ширина плеч',         min: 1.5, max: 2.5,  step: 0.01, def: 1.85 },
+  { key: 'sh_slope',   label: 'Наклон плеч',         min: -0.2, max: 0.4, step: 0.01, def: 0.12 },
+  { key: 'bust_level', label: 'Уровень груди',       min: 0.3, max: 0.9,  step: 0.01, def: 0.65 },
+  { key: 'bust_size',  label: 'Размер груди',        min: 0,   max: 1,    step: 0.01, def: 0.45 },
 ];
 
 const PELVIS_PARAMS = [
-  { key: 'p_w',     label: 'Ширина (×W)',          min: 0.7, max: 1.3,  step: 0.01, def: 1.0 },
-  { key: 'p_h',     label: 'Высота (×W)',          min: 0.7, max: 1.3,  step: 0.01, def: 1.0 },
-  { key: 'p_d',     label: 'Глубина (×W)',         min: 0.5, max: 1.0,  step: 0.01, def: 0.72 },
-  { key: 'p_n',     label: 'Квадратность',         min: 2.0, max: 8.0,  step: 0.1,  def: 4.0 },
-  { key: 'p_taper', label: 'Сужение книзу',        min: 0.7, max: 1.0,  step: 0.01, def: 0.92 },
-  { key: 'p_glute', label: 'Выступ ягодиц',        min: 0.6, max: 1.4,  step: 0.01, def: 1.05 },
-  { key: 'p_tilt',  label: 'Наклон таза',          min: -20, max: 20,   step: 1,    def: 6, unit: '°' },
+  { key: 'p_w',     label: 'Ширина (×W)',            min: 0.7, max: 1.3,  step: 0.01, def: 1.0 },
+  { key: 'p_h',     label: 'Высота (×W)',            min: 0.7, max: 1.3,  step: 0.01, def: 1.0 },
+  { key: 'p_d',     label: 'Глубина (×W)',           min: 0.5, max: 1.0,  step: 0.01, def: 0.72 },
+  { key: 'p_n',     label: 'Квадратность',           min: 2.0, max: 8.0,  step: 0.1,  def: 4.0 },
+  { key: 'p_taper', label: 'Сужение книзу',          min: 0.7, max: 1.0,  step: 0.01, def: 0.92 },
+  { key: 'p_glute', label: 'Выступ ягодиц',          min: 0.6, max: 1.4,  step: 0.01, def: 1.05 },
+  { key: 'p_tilt',  label: 'Наклон таза',            min: -20, max: 20,   step: 1,    def: 6, unit: '°' },
 ];
 
 const state = {
   W: 1.15,
   egg: Object.fromEntries(EGG_PARAMS.map(p => [p.key, p.def])),
+  body: Object.fromEntries(BODY_PARAMS.map(p => [p.key, p.def])),
   pelvis: Object.fromEntries(PELVIS_PARAMS.map(p => [p.key, p.def])),
   line: 0.006,
   view: { yaw: 0, pitch: 0 },
@@ -298,7 +281,7 @@ const state = {
 };
 
 /* ==================================================================
- * грудная клетка — яйцо
+ * яйцо
  * ================================================================== */
 function makeEgg(W, p) {
   const h = W;
@@ -322,11 +305,11 @@ function makeEgg(W, p) {
     (h / 2) * t,
   ];
 
-  return { h, point, widthAt, depthAt };
+  return { h, point, widthAt, depthAt, wBottom, wTop, depth };
 }
 
 /* ==================================================================
- * таз — суперэллипс (квадрат со скруглением)
+ * таз (для стыка)
  * ================================================================== */
 function makePelvis(W, p) {
   const w = W * p.p_w;
@@ -341,7 +324,6 @@ function makePelvis(W, p) {
   const widthAt = (t) => (w / 2) * scaleAt(t);
   const depthAt = (t) => (d / 2) * scaleAt(t) * (t < 0 ? glute : 1);
 
-  // superellipse
   const superX = (phi, a) => a * Math.sign(Math.cos(phi)) * Math.pow(Math.abs(Math.cos(phi)), 2 / n);
   const superY = (phi, b) => b * Math.sign(Math.sin(phi)) * Math.pow(Math.abs(Math.sin(phi)), 2 / n);
 
@@ -356,23 +338,31 @@ function makePelvis(W, p) {
     (h / 2) * t,
   ]);
 
-  return { h, point, widthAt, depthAt };
+  return { h, w, d, point, widthAt, depthAt };
 }
 
 /* ==================================================================
- * сборка фигуры
+ * сборка
  * ================================================================== */
 function buildFigure() {
   const W = state.W;
   const egg = makeEgg(W, state.egg);
   const pelvis = makePelvis(W, state.pelvis);
+  const b = state.body;
 
-  const gap = W * 0.10;
-  const pelvisTop = 0;
+  // вертикальные уровни
   const pelvisBottom = -pelvis.h;
-  const eggBottom = pelvisTop + gap;
+  const pelvisTop = 0;
+  const waistGap = W * 0.10;
+  const eggBottom = pelvisTop + waistGap;
   const eggTop = eggBottom + egg.h;
   const eggCenterZ = (eggTop + eggBottom) / 2;
+
+  const neckBottom = eggTop - W * 0.06;
+  const neckTop = neckBottom + W * b.neck_h;
+  const shoulderZ = eggTop - W * b.sh_slope;
+  const shoulderX = W * b.sh_w / 2;
+  const neckR = W * b.neck_w / 2;
 
   const eggAt = (phi, t) => {
     const p = egg.point(phi, t);
@@ -385,10 +375,13 @@ function buildFigure() {
 
   const lines = [];
   const labels = {};
-  const add = (id, color, pts, closed = false) => lines.push({ id, color, closed, pts });
+  const add = (id, color, pts, closed = false, width = 1) =>
+    lines.push({ id, color, closed, pts, width });
 
-  // --- грудная клетка: кольца ---
-  for (const t of [-0.75, -0.35, 0.0, 0.35, 0.75]) {
+  /* ---------- ГРУДНАЯ КЛЕТКА ---------- */
+  // кольца
+  const eggRings = [-0.85, -0.6, -0.3, 0, 0.3, 0.6, 0.85];
+  for (const t of eggRings) {
     const pts = [];
     for (let i = 0; i < SEG; i++) pts.push(eggAt((i / SEG) * Math.PI * 2, t));
     add('egg', 'red', pts, true);
@@ -397,40 +390,130 @@ function buildFigure() {
   for (const phi of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) {
     const pts = [];
     for (let i = 0; i <= SEG / 2; i++) {
-      const t = -1 + (i / (SEG / 2)) * 2;
-      pts.push(eggAt(phi, clamp(t, -0.999, 0.999)));
+      const t = -0.999 + (i / (SEG / 2)) * 1.998;
+      pts.push(eggAt(phi, t));
     }
     add('egg', 'red', pts);
   }
 
-  // --- таз: кольца ---
-  for (const t of [-0.75, -0.35, 0.0, 0.35, 0.75]) {
+  /* ---------- ШЕЯ ---------- */
+  for (const z of [neckBottom, neckTop]) {
+    const pts = [];
+    for (let i = 0; i < SEG; i++) {
+      const phi = (i / SEG) * Math.PI * 2;
+      pts.push([neckR * Math.cos(phi), neckR * 0.9 * Math.sin(phi), z]);
+    }
+    add('neck', 'red', pts, true);
+  }
+  for (const sx of [-1, 1]) {
+    const pts = [];
+    for (let i = 0; i <= 16; i++) {
+      const z = neckBottom + (neckTop - neckBottom) * (i / 16);
+      pts.push([sx * neckR, 0, z]);
+    }
+    add('neck', 'red', pts);
+  }
+
+  /* ---------- КЛЮЧИЦЫ И ПЛЕЧИ ---------- */
+  const sternumTop = [0, -egg.depth * 0.42, shoulderZ - W * 0.02];
+  for (const sx of [-1, 1]) {
+    const shoulder = [sx * shoulderX, 0, shoulderZ];
+    // ключица (изогнутая слегка вперёд)
+    const mid = [
+      (sternumTop[0] + shoulder[0]) * 0.5,
+      (sternumTop[1] + shoulder[1]) * 0.5 - W * 0.04,
+      (sternumTop[2] + shoulder[2]) * 0.5,
+    ];
+    add('clavicle', 'blue', [sternumTop, mid, shoulder]);
+
+    // плечевой сустав — маленькое кольцо
+    const r = W * 0.08;
+    const ringPts = [];
+    for (let i = 0; i < 32; i++) {
+      const a = (i / 32) * Math.PI * 2;
+      ringPts.push([shoulder[0] + r * Math.cos(a), shoulder[1], shoulder[2] + r * Math.sin(a) * 0.6]);
+    }
+    add('shoulder', 'blue', ringPts, true);
+
+    // линия от плеча вниз по боку
+    add('side', 'red', [
+      shoulder,
+      [sx * egg.widthAt(0.4) * 1.02, 0, eggBottom + egg.h * 0.4],
+      [sx * egg.widthAt(-0.4) * 1.02, 0, eggBottom + egg.h * 0.1],
+    ]);
+  }
+
+  /* ---------- ГРУДИНА ---------- */
+  add('sternum', 'red', [
+    sternumTop,
+    [0, -egg.depth * 0.45, eggTop - W * 0.25],
+    [0, -egg.depth * 0.5, eggCenterZ],
+  ]);
+
+  /* ---------- ГРУДЬ (дуги) ---------- */
+  const bustT = b.bust_level * 2 - 1;
+  const bustZ = eggCenterZ + (egg.h / 2) * bustT;
+  const bustX = egg.widthAt(bustT) * 0.35;
+  const bustY = -egg.depthAt(bustT) * 0.95;
+  const bustSize = b.bust_size;
+  if (bustSize > 0.02) {
+    for (const sx of [-1, 1]) {
+      const pts = [];
+      const c = [sx * bustX, bustY, bustZ];
+      const rX = egg.widthAt(bustT) * 0.30 * bustSize;
+      const rZ = W * 0.16 * bustSize;
+      for (let i = 0; i <= 24; i++) {
+        const a = -Math.PI * 0.15 + (i / 24) * Math.PI * 1.3;
+        pts.push([
+          c[0] + Math.cos(a) * rX * sx,
+          c[1] - Math.sin(a) * W * 0.04 * bustSize,
+          c[2] + Math.sin(a) * rZ,
+        ]);
+      }
+      add('bust', 'red', pts);
+    }
+  }
+
+  /* ---------- РЕБРА (наклонные линии) ---------- */
+  for (const t of [-0.5, -0.2, 0.1, 0.4]) {
+    for (const sx of [-1, 1]) {
+      const startPhi = sx > 0 ? -Math.PI * 0.08 : Math.PI + Math.PI * 0.08;
+      const endPhi = sx > 0 ? -Math.PI * 0.7 : Math.PI + Math.PI * 0.7;
+      const pts = [];
+      const steps = 18;
+      for (let i = 0; i <= steps; i++) {
+        const f = i / steps;
+        const phi = startPhi + (endPhi - startPhi) * f;
+        const tt = t - 0.15 * f; // наклон вниз
+        pts.push(eggAt(phi, clamp(tt, -0.95, 0.95)));
+      }
+      add('ribs', 'red', pts);
+    }
+  }
+
+  /* ---------- ТАЛИЯ (стык) ---------- */
+  const waistT = -0.95;
+  const waistPts = [];
+  for (let i = 0; i < SEG; i++) waistPts.push(eggAt((i / SEG) * Math.PI * 2, waistT));
+  add('waist', 'blue', waistPts, true);
+
+  /* ---------- ТАЗ (силуэт для стыка) ---------- */
+  for (const t of [-0.7, 0, 0.7]) {
     const pts = [];
     for (let i = 0; i < SEG; i++) pts.push(pelvisAt((i / SEG) * Math.PI * 2, t));
     add('pelvis', 'blue', pts, true);
   }
-  // меридианы по углам квадрата (45°, 135°, 225°, 315°)
   for (const phi of [Math.PI / 4, 3 * Math.PI / 4, 5 * Math.PI / 4, 7 * Math.PI / 4]) {
     const pts = [];
-    for (let i = 0; i <= SEG / 2; i++) {
-      const t = -1 + (i / (SEG / 2)) * 2;
-      pts.push(pelvisAt(phi, clamp(t, -0.999, 0.999)));
-    }
-    add('pelvis', 'blue', pts);
-  }
-  // осевые меридианы таза (для читаемости)
-  for (const phi of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) {
-    const pts = [];
-    for (let i = 0; i <= SEG / 2; i++) {
-      const t = -1 + (i / (SEG / 2)) * 2;
-      pts.push(pelvisAt(phi, clamp(t, -0.999, 0.999)));
-    }
+    for (let i = 0; i <= SEG / 2; i++) pts.push(pelvisAt(phi, -0.999 + (i / (SEG / 2)) * 1.998));
     add('pelvis', 'blue', pts);
   }
 
-  labels['egg'] = [{ p: eggAt(Math.PI / 2, 0.2), n: [0, 1, 0] }];
-  labels['pelvis'] = [{ p: pelvisAt(Math.PI / 4, 0.2), n: [1, 1, 0] }];
-  labels['waist'] = [{ p: [0, 0, eggBottom], n: [0, -1, 0] }];
+  /* ---------- ЛЕЙБЛЫ ---------- */
+  labels['egg'] = [{ p: eggAt(Math.PI / 2, 0.1), n: [0, 1, 0] }];
+  labels['clavicle'] = [{ p: [shoulderX * 0.6, -egg.depth * 0.35, shoulderZ], n: [0, -1, 0] }];
+  labels['bust'] = [{ p: [bustX, bustY - W * 0.02, bustZ], n: [0, -1, 0] }];
+  labels['waist'] = [{ p: [0, -egg.depth * 0.4, eggBottom], n: [0, -1, 0] }];
 
   return { lines, labels };
 }
@@ -457,7 +540,26 @@ function project(p) {
 }
 
 /* ==================================================================
- * SVG-рендер
+ * нормаль (численная, для скрытых линий)
+ * ================================================================== */
+function computeNormal(pts, i) {
+  const prev = pts[Math.max(0, i - 1)];
+  const next = pts[Math.min(pts.length - 1, i + 1)];
+  const tangent = sub(next, prev);
+  const p = pts[i];
+  const radial = [p[0], p[1], 0];
+  const n0 = [
+    tangent[1] * radial[2] - tangent[2] * radial[1],
+    tangent[2] * radial[0] - tangent[0] * radial[2],
+    tangent[0] * radial[1] - tangent[1] * radial[0],
+  ];
+  if (len(n0) < 1e-6) return norm(radial);
+  const sign = (n0[0] * radial[0] + n0[1] * radial[1]) >= 0 ? 1 : -1;
+  return norm([n0[0] * sign, n0[1] * sign, n0[2] * sign]);
+}
+
+/* ==================================================================
+ * SVG
  * ================================================================== */
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const svg = document.getElementById('canvas');
@@ -468,30 +570,9 @@ svg.appendChild(gHidden);
 svg.appendChild(gVisible);
 svg.appendChild(gLabels);
 
-const LABEL_TEXT = { egg: 'грудь', pelvis: 'таз', waist: 'талия' };
-const LABEL_COLOR = { egg: 'red', pelvis: 'blue', waist: 'ink' };
-
-function computeNormal(pts, i, centerAxis) {
-  // касательная по соседям
-  const prev = pts[Math.max(0, i - 1)];
-  const next = pts[Math.min(pts.length - 1, i + 1)];
-  const tangent = sub(next, prev);
-  // радиальная составляющая от центра
-  const p = pts[i];
-  // центр сечения: на той же высоте z, ось (0,0,z)
-  const radial = [p[0] - 0, p[1] - 0, 0]; // для симметричных тел нормаль ~ радиальная + вертикальная
-  // нормаль = tangent × radial (если не коллинеарны) -> даёт "боковую" нормаль
-  const n0 = [
-    tangent[1] * radial[2] - tangent[2] * radial[1],
-    tangent[2] * radial[0] - tangent[0] * radial[2],
-    tangent[0] * radial[1] - tangent[1] * radial[0],
-  ];
-  if (len(n0) < 1e-6) return norm(radial);
-  // ориентируем наружу
-  const outward = [radial[0], radial[1], 0];
-  const sign = (n0[0]*outward[0] + n0[1]*outward[1]) >= 0 ? 1 : -1;
-  return norm([n0[0]*sign, n0[1]*sign, n0[2]*sign]);
-}
+const LABEL_TEXT = { egg: 'грудь', clavicle: 'ключица', bust: 'грудь', waist: 'талия' };
+const LABEL_COLOR = { egg: 'red', clavicle: 'blue', bust: 'red', waist: 'blue' };
+const COLOR_MAP = { red: 'var(--guide-red)', blue: 'var(--guide-blue)', ink: 'var(--guide-ink)' };
 
 function render() {
   const fig = buildFigure();
@@ -508,8 +589,7 @@ function render() {
 
     for (let i = 0; i < l.pts.length; i++) {
       const n = computeNormal(l.pts, i);
-      const rn = rotate(n);
-      const v = rn[1] < 0; // нормаль смотрит на камеру
+      const v = rotate(n)[1] < 0;
 
       if (cur.vis === null) {
         cur.vis = v;
@@ -531,8 +611,8 @@ function render() {
       for (let i = 1; i < part.pts.length; i++) d += `L${part.pts[i].x.toFixed(1)},${part.pts[i].y.toFixed(1)}`;
       path.setAttribute('d', d);
       path.setAttribute('fill', 'none');
-      path.setAttribute('stroke', l.color === 'red' ? 'var(--guide-red)' : 'var(--guide-blue)');
-      path.setAttribute('stroke-width', sw.toFixed(2));
+      path.setAttribute('stroke', COLOR_MAP[l.color] || 'var(--guide-ink)');
+      path.setAttribute('stroke-width', (sw * (l.width || 1)).toFixed(2));
       path.setAttribute('stroke-linecap', 'round');
       path.setAttribute('stroke-linejoin', 'round');
       if (!part.vis) {
@@ -579,7 +659,7 @@ function buildSlider(host, param, get, set) {
   host.appendChild(row);
   const input = row.querySelector('input');
   const out = row.querySelector('output');
-  const fmt = (v) => param.unit ? `${Math.round(v)}${param.unit}` : v.toFixed(2);
+  const fmt = (v) => param.unit ? `${Math.round(v)}${param.unit}` : Number(v).toFixed(2);
   const sync = () => { input.value = get(); out.textContent = fmt(get()); };
   input.addEventListener('input', () => {
     set(Number(input.value));
@@ -600,6 +680,7 @@ function buildSlider(host, param, get, set) {
 })();
 
 EGG_PARAMS.forEach(p => buildSlider($('egg-sliders'), p, () => state.egg[p.key], v => state.egg[p.key] = v));
+BODY_PARAMS.forEach(p => buildSlider($('body-sliders'), p, () => state.body[p.key], v => state.body[p.key] = v));
 PELVIS_PARAMS.forEach(p => buildSlider($('pelvis-sliders'), p, () => state.pelvis[p.key], v => state.pelvis[p.key] = v));
 
 {
@@ -780,7 +861,7 @@ $('save-png').addEventListener('click', async () => {
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
     ctx.drawImage(img, 0, 0, c.width, c.height);
     URL.revokeObjectURL(url);
-    c.toBlob(b => download(b, 'torso-pelvis.png'));
+    c.toBlob(b => download(b, 'chest.png'));
   };
   img.src = url;
 });
@@ -788,7 +869,7 @@ $('save-svg').addEventListener('click', () => {
   const clone = svg.cloneNode(true);
   clone.setAttribute('xmlns', SVG_NS);
   const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone);
-  download(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }), 'torso-pelvis.svg');
+  download(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }), 'chest.svg');
 });
 function download(blob, name) {
   const a = document.createElement('a');
@@ -805,4 +886,4 @@ render();
 updateViewName();
 </script>
 </body>
-  </html>
+</html>
