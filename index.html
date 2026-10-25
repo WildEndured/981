@@ -3,16 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Шаг 2. Голова</title>
+<title>Шаг 2. Голова (Pro)</title>
 <style>
   :root {
     --bg: #141419;
     --panel: #1e1e26;
     --panel-2: #262630;
     --accent: #e8b04b;
+    --accent-dim: rgba(232, 176, 75, 0.2);
     --text: #e8e8f0;
     --muted: #8a8a99;
     --border: #33333f;
+    --danger: #e85b5b;
   }
 
   * { box-sizing: border-box; }
@@ -30,20 +32,9 @@
     gap: 20px;
   }
 
-  header {
-    text-align: center;
-  }
-  header h1 {
-    font-size: 1.15rem;
-    font-weight: 600;
-    margin: 0 0 4px;
-    letter-spacing: .3px;
-  }
-  header p {
-    margin: 0;
-    font-size: .8rem;
-    color: var(--muted);
-  }
+  header { text-align: center; }
+  header h1 { font-size: 1.15rem; font-weight: 600; margin: 0 0 4px; letter-spacing: .3px; }
+  header p { margin: 0; font-size: .8rem; color: var(--muted); }
 
   .app {
     display: flex;
@@ -52,7 +43,7 @@
     flex-wrap: wrap;
     justify-content: center;
     width: 100%;
-    max-width: 900px;
+    max-width: 950px;
   }
 
   .controls {
@@ -61,10 +52,10 @@
     border-radius: 16px;
     padding: 18px 20px;
     width: 100%;
-    max-width: 360px;
+    max-width: 340px;
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 16px;
     box-shadow: 0 10px 30px rgba(0,0,0,.35);
   }
 
@@ -75,25 +66,15 @@
     color: var(--muted);
     margin: 0 0 4px;
     font-weight: 600;
-  }
-
-  .control {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .control-head {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: .85rem;
   }
 
-  .control-head label {
-    color: var(--text);
-  }
-
+  .control { display: flex; flex-direction: column; gap: 6px; }
+  .control-head { display: flex; justify-content: space-between; align-items: center; font-size: .85rem; }
+  .control-head label { color: var(--text); cursor: pointer; }
+  
   .badge {
     background: var(--panel-2);
     border: 1px solid var(--border);
@@ -103,21 +84,39 @@
     font-weight: 600;
     padding: 2px 8px;
     border-radius: 999px;
-    min-width: 42px;
+    min-width: 46px;
     text-align: center;
   }
 
+  /* Стилизация ползунков */
   input[type="range"] {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
     height: 6px;
     border-radius: 3px;
-    background: linear-gradient(90deg, var(--accent) 0%, var(--accent) var(--fill, 50%), #33333f var(--fill, 50%), #33333f 100%);
+    background: #33333f;
     outline: none;
     cursor: pointer;
-    transition: opacity .2s;
+    position: relative;
   }
+  /* Заливка прогресса */
+  input[type="range"]::-webkit-slider-runnable-track {
+    background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--fill, 0%), #33333f var(--fill, 0%), #33333f 100%);
+    height: 6px;
+    border-radius: 3px;
+  }
+  input[type="range"]::-moz-range-track {
+    background: #33333f;
+    height: 6px;
+    border-radius: 3px;
+  }
+  input[type="range"]::-moz-range-progress {
+    background: var(--accent);
+    height: 6px;
+    border-radius: 3px;
+  }
+
   input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
@@ -129,18 +128,46 @@
     box-shadow: 0 2px 6px rgba(0,0,0,.4);
     cursor: pointer;
     transition: transform .15s;
+    margin-top: -5px;
   }
-  input[type="range"]::-webkit-slider-thumb:hover {
-    transform: scale(1.15);
-  }
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
   input[type="range"]::-moz-range-thumb {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #fff;
-    border: 3px solid var(--accent);
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #fff; border: 3px solid var(--accent);
     cursor: pointer;
   }
+
+  .actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+  }
+
+  .btn-reset {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: .75rem;
+    transition: all .2s;
+  }
+  .btn-reset:hover { border-color: var(--danger); color: var(--danger); }
+
+  .checkbox-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: .75rem;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+  }
+  .checkbox-wrap input { accent-color: var(--accent); }
 
   canvas {
     background: var(--panel);
@@ -149,14 +176,6 @@
     box-shadow: 0 10px 30px rgba(0,0,0,.35);
     max-width: 100%;
     height: auto;
-  }
-
-  .hint {
-    font-size: .75rem;
-    color: var(--muted);
-    line-height: 1.5;
-    border-top: 1px solid var(--border);
-    padding-top: 12px;
   }
 </style>
 </head>
@@ -173,7 +192,7 @@
 
     <div class="control">
       <div class="control-head">
-        <label>Частей (голов)</label>
+        <label for="rangeParts">Частей (голов)</label>
         <span class="badge" id="valParts">7</span>
       </div>
       <input id="rangeParts" type="range" min="3" max="10" value="7" step="1">
@@ -181,7 +200,7 @@
 
     <div class="control">
       <div class="control-head">
-        <label>Размер круга головы</label>
+        <label for="rangeRadius">Размер круга головы</label>
         <span class="badge" id="valRadius">1.5</span>
       </div>
       <input id="rangeRadius" type="range" min="1.0" max="2.0" value="1.5" step="0.1">
@@ -189,7 +208,7 @@
 
     <div class="control">
       <div class="control-head">
-        <label>Крепление челюсти</label>
+        <label for="rangeAttach">Крепление челюсти</label>
         <span class="badge" id="valAttach">2.0</span>
       </div>
       <input id="rangeAttach" type="range" min="1.0" max="3.0" value="2.0" step="0.1">
@@ -197,7 +216,7 @@
 
     <div class="control">
       <div class="control-head">
-        <label>Ширина подбородка</label>
+        <label for="rangeChinW">Ширина подбородка</label>
         <span class="badge" id="valChinW">0.50</span>
       </div>
       <input id="rangeChinW" type="range" min="0.05" max="1.0" value="0.5" step="0.05">
@@ -205,7 +224,7 @@
 
     <div class="control">
       <div class="control-head">
-        <label>Высота подбородка</label>
+        <label for="rangeChinH">Высота подбородка</label>
         <span class="badge" id="valChinH">4.0</span>
       </div>
       <input id="rangeChinH" type="range" min="3.0" max="5.0" value="4.0" step="0.1">
@@ -213,19 +232,22 @@
 
     <div class="control">
       <div class="control-head">
-        <label>Округлость</label>
+        <label for="rangeRound">Округлость</label>
         <span class="badge" id="valRound">0.00</span>
       </div>
       <input id="rangeRound" type="range" min="0" max="1" value="0" step="0.05">
     </div>
 
-    <div class="hint">
-      Значения подбородка измеряются в долях головы (от 3/5 до 5/5).
-      Округлость 0 — угловатая челюсть, 1 — мягкая дуга.
+    <div class="actions">
+      <label class="checkbox-wrap">
+        <input type="checkbox" id="showPoints" checked>
+        Опорные точки
+      </label>
+      <button class="btn-reset" id="btnReset">Сбросить</button>
     </div>
   </div>
 
-  <canvas id="canvas" width="400" height="700"></canvas>
+  <canvas id="canvas" width="450" height="800"></canvas>
 </div>
 
 <script>
@@ -233,15 +255,18 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
 const els = {
-  parts:  { r: document.getElementById('rangeParts'),  v: document.getElementById('valParts')  },
-  radius: { r: document.getElementById('rangeRadius'), v: document.getElementById('valRadius') },
-  attach: { r: document.getElementById('rangeAttach'), v: document.getElementById('valAttach') },
-  chinW:  { r: document.getElementById('rangeChinW'),  v: document.getElementById('valChinW')  },
-  chinH:  { r: document.getElementById('rangeChinH'),  v: document.getElementById('valChinH')  },
-  round:  { r: document.getElementById('rangeRound'),  v: document.getElementById('valRound')  }
+  parts:  { r: document.getElementById('rangeParts'),  v: document.getElementById('valParts'),  def: 7 },
+  radius: { r: document.getElementById('rangeRadius'), v: document.getElementById('valRadius'), def: 1.5 },
+  attach: { r: document.getElementById('rangeAttach'), v: document.getElementById('valAttach'), def: 2.0 },
+  chinW:  { r: document.getElementById('rangeChinW'),  v: document.getElementById('valChinW'),  def: 0.5 },
+  chinH:  { r: document.getElementById('rangeChinH'),  v: document.getElementById('valChinH'),  def: 4.0 },
+  round:  { r: document.getElementById('rangeRound'),  v: document.getElementById('valRound'),  def: 0 }
 };
 
-// Обновление полосы заполнения ползунка
+const showPointsEl = document.getElementById('showPoints');
+const btnReset = document.getElementById('btnReset');
+
+// Функция обновления заливки ползунка
 function updateFill(el) {
   const min = parseFloat(el.min);
   const max = parseFloat(el.max);
@@ -250,16 +275,62 @@ function updateFill(el) {
   el.style.setProperty('--fill', pct + '%');
 }
 
+function updateValDisplay(el, valEl) {
+  valEl.textContent = (el.id === 'rangeChinW' || el.id === 'rangeRound') 
+    ? parseFloat(el.value).toFixed(2) 
+    : parseFloat(el.value).toFixed(1).replace('.0', '');
+}
+
+// Обработчики
 Object.values(els).forEach(({ r, v }) => {
   r.addEventListener('input', () => {
-    v.textContent = r.id === 'rangeChinW' || r.id === 'rangeRound' 
-      ? parseFloat(r.value).toFixed(2) 
-      : parseFloat(r.value).toFixed(1).replace('.0', '');
+    // Умные ограничители
+    if (r.id === 'rangeAttach') {
+      const chinH = parseFloat(els.chinH.r.value);
+      // Крепление не может быть ниже подбородка
+      if (parseFloat(r.value) > chinH - 0.5) r.value = chinH - 0.5;
+    }
+    if (r.id === 'rangeChinH') {
+      const attach = parseFloat(els.attach.r.value);
+      // Подбородок не может быть выше крепления
+      if (parseFloat(r.value) < attach + 0.5) r.value = attach + 0.5;
+    }
+
+    updateValDisplay(r, v);
     updateFill(r);
+    
+    // Синхронизируем заливку зависимого ползунка, если его значение изменилось
+    if (r.id === 'rangeAttach') updateFill(els.chinH.r);
+    if (r.id === 'rangeChinH') updateFill(els.attach.r);
+
     draw();
   });
+  updateValDisplay(r, v);
   updateFill(r);
 });
+
+btnReset.addEventListener('click', () => {
+  Object.values(els).forEach(({ r, def }) => {
+    r.value = def;
+    updateFill(r);
+  });
+  Object.keys(els).forEach(k => {
+    updateValDisplay(els[k].r, els[k].v);
+  });
+  draw();
+});
+
+showPointsEl.addEventListener('change', draw);
+
+function drawPoint(x, y, color = '#e85b5b') {
+  ctx.beginPath();
+  ctx.arc(x, y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
 
 function draw() {
   const parts = parseInt(els.parts.r.value);
@@ -268,6 +339,7 @@ function draw() {
   const chinWidthMul = parseFloat(els.chinW.r.value);
   const chinHeightPos = parseFloat(els.chinH.r.value);
   const roundness = parseFloat(els.round.r.value);
+  const showPoints = showPointsEl.checked;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -343,35 +415,59 @@ function draw() {
   ctx.beginPath();
   const halfTop = jawWidthTop / 2;
   const halfBot = jawWidthBot / 2;
+  
+  const ptTopL = { x: cx - halfTop, y: yAttach };
+  const ptTopR = { x: cx + halfTop, y: yAttach };
+  const ptMidL = { x: cx - halfTop, y: y3 };
+  const ptMidR = { x: cx + halfTop, y: y3 };
+  const ptBotL = { x: cx - halfBot, y: yChin };
+  const ptBotR = { x: cx + halfBot, y: yChin };
 
-  ctx.moveTo(cx - halfTop, yAttach);
-  ctx.lineTo(cx - halfTop, y3);
+  ctx.moveTo(ptTopL.x, ptTopL.y);
+  ctx.lineTo(ptMidL.x, ptMidL.y);
 
   if (roundness > 0) {
-    const cpX = cx - halfBot - (halfTop - halfBot) * 0.5;
-    const cpY = y3 + (yChin - y3) * 0.5;
-    ctx.quadraticCurveTo(cpX, cpY, cx - halfBot, yChin);
+    // Bezier для более естественного изгиба скул
+    const cp1x = cx - halfBot - (halfTop - halfBot) * 0.7;
+    const cp1y = y3 + (yChin - y3) * 0.2;
+    const cp2x = cx - halfBot;
+    const cp2y = y3 + (yChin - y3) * 0.8;
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ptBotL.x, ptBotL.y);
   } else {
-    ctx.lineTo(cx - halfBot, yChin);
+    ctx.lineTo(ptBotL.x, ptBotL.y);
   }
 
   if (roundness > 0) {
     const dip = (yChin - y3) * 0.4 * roundness;
-    ctx.quadraticCurveTo(cx, yChin + dip, cx + halfBot, yChin);
+    ctx.quadraticCurveTo(cx, yChin + dip, ptBotR.x, ptBotR.y);
   } else {
-    ctx.lineTo(cx + halfBot, yChin);
+    ctx.lineTo(ptBotR.x, ptBotR.y);
   }
 
   if (roundness > 0) {
-    const cpX = cx + halfBot + (halfTop - halfBot) * 0.5;
-    const cpY = y3 + (yChin - y3) * 0.5;
-    ctx.quadraticCurveTo(cpX, cpY, cx + halfTop, y3);
+    const cp1x = cx + halfBot;
+    const cp1y = y3 + (yChin - y3) * 0.8;
+    const cp2x = cx + halfBot + (halfTop - halfBot) * 0.7;
+    const cp2y = y3 + (yChin - y3) * 0.2;
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ptMidR.x, ptMidR.y);
   } else {
-    ctx.lineTo(cx + halfTop, y3);
+    ctx.lineTo(ptMidR.x, ptMidR.y);
   }
 
-  ctx.lineTo(cx + halfTop, yAttach);
+  ctx.lineTo(ptTopR.x, ptTopR.y);
   ctx.stroke();
+
+  // Отрисовка опорных точек
+  if (showPoints) {
+    drawPoint(ptTopL.x, ptTopL.y);
+    drawPoint(ptTopR.x, ptTopR.y);
+    drawPoint(ptMidL.x, ptMidL.y);
+    drawPoint(ptMidR.x, ptMidR.y);
+    drawPoint(ptBotL.x, ptBotL.y, '#7fb4e8'); // Подбородок синим
+    drawPoint(ptBotR.x, ptBotR.y, '#7fb4e8');
+    // Точка по центру подбородка
+    drawPoint(cx, yChin, '#7fb4e8');
+  }
 
   // Подписи долей
   ctx.fillStyle = '#8a8a99';
