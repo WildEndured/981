@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Шаг 2. Голова и шея</title>
+<title>Шаг 3. Голова, шея, торс</title>
 <style>
   :root {
     --bg: #141419; --panel: #1e1e26; --panel-2: #262630;
@@ -30,7 +30,7 @@
     background: var(--panel); border: 1px solid var(--border);
     border-radius: 16px; padding: 18px 20px;
     width: 100%; max-width: 360px;
-    display: flex; flex-direction: column; gap: 14px;
+    display: flex; flex-direction: column; gap: 12px;
     box-shadow: 0 10px 30px rgba(0,0,0,.35);
     max-height: 85vh; overflow-y: auto;
   }
@@ -75,101 +75,73 @@
     border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
     display: block;
   }
-  .hint { font-size: .75rem; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--border); padding-top: 12px; }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Построение головы и шеи</h1>
-  <p>Настрой пропорции черепа, челюсти, подбородка и шеи</p>
+  <h1>Построение фигуры</h1>
+  <p>Голова, шея, грудная клетка и таз</p>
 </header>
 
 <div class="app">
   <div class="controls">
     <h2>Голова</h2>
-
     <div class="control">
-      <div class="control-head">
-        <label>Частей (голов)</label>
-        <span class="badge" id="valParts">7</span>
-      </div>
+      <div class="control-head"><label>Частей (голов)</label><span class="badge" id="valParts">7</span></div>
       <input id="rangeParts" type="range" min="3" max="10" value="7" step="1">
     </div>
-
     <div class="control">
-      <div class="control-head">
-        <label>Размер круга головы</label>
-        <span class="badge" id="valRadius">1.5</span>
-      </div>
+      <div class="control-head"><label>Размер круга</label><span class="badge" id="valRadius">1.5</span></div>
       <input id="rangeRadius" type="range" min="1.0" max="2.0" value="1.5" step="0.1">
     </div>
-
     <div class="control">
-      <div class="control-head">
-        <label>Крепление челюсти</label>
-        <span class="badge" id="valAttach">2.0</span>
-      </div>
+      <div class="control-head"><label>Крепление челюсти</label><span class="badge" id="valAttach">2.0</span></div>
       <input id="rangeAttach" type="range" min="1.0" max="3.0" value="2.0" step="0.1">
     </div>
-
     <div class="control">
-      <div class="control-head">
-        <label>Ширина подбородка</label>
-        <span class="badge" id="valChinW">0.50</span>
-      </div>
+      <div class="control-head"><label>Ширина подбородка</label><span class="badge" id="valChinW">0.50</span></div>
       <input id="rangeChinW" type="range" min="0.05" max="1.0" value="0.5" step="0.05">
     </div>
-
     <div class="control">
-      <div class="control-head">
-        <label>Высота подбородка</label>
-        <span class="badge" id="valChinH">4.0</span>
-      </div>
+      <div class="control-head"><label>Высота подбородка</label><span class="badge" id="valChinH">4.0</span></div>
       <input id="rangeChinH" type="range" min="3.0" max="5.0" value="4.0" step="0.1">
     </div>
-
     <div class="control">
-      <div class="control-head">
-        <label>Округлость</label>
-        <span class="badge" id="valRound">0.00</span>
-      </div>
+      <div class="control-head"><label>Округлость</label><span class="badge" id="valRound">0.00</span></div>
       <input id="rangeRound" type="range" min="0" max="1" value="0" step="0.05">
     </div>
 
-    <h2 style="margin-top: 16px;">Шея</h2>
-
+    <h2>Шея</h2>
     <div class="control">
-      <div class="control-head">
-        <label>Ширина шеи</label>
-        <span class="badge" id="valNeckW">0.60</span>
-      </div>
+      <div class="control-head"><label>Ширина шеи</label><span class="badge" id="valNeckW">0.60</span></div>
       <input id="rangeNeckW" type="range" min="0.1" max="2.0" value="0.6" step="0.05">
     </div>
-
     <div class="control">
-      <div class="control-head">
-        <label>Длина шеи</label>
-        <span class="badge" id="valNeckL">0.80</span>
-      </div>
+      <div class="control-head"><label>Длина шеи</label><span class="badge" id="valNeckL">0.8</span></div>
       <input id="rangeNeckL" type="range" min="0.1" max="1.0" value="0.8" step="0.05">
     </div>
-
     <div class="control">
-      <div class="control-head">
-        <label>Смещение шеи</label>
-        <span class="badge" id="valNeckX">0.00</span>
-      </div>
+      <div class="control-head"><label>Смещение шеи</label><span class="badge" id="valNeckX">0.00</span></div>
       <input id="rangeNeckX" type="range" min="-1.0" max="1.0" value="0.0" step="0.05">
+    </div>
+
+    <h2>Торс (Шаг 3)</h2>
+    <div class="control">
+      <div class="control-head"><label>Высота груди / Ширина таза</label><span class="badge" id="valTorsoSize">1.5</span></div>
+      <input id="rangeTorsoSize" type="range" min="1.0" max="2.5" value="1.5" step="0.1">
+    </div>
+    <div class="control">
+      <div class="control-head"><label>Ширина груди</label><span class="badge" id="valChestW">1.2</span></div>
+      <input id="rangeChestW" type="range" min="0.5" max="2.0" value="1.2" step="0.1">
+    </div>
+    <div class="control">
+      <div class="control-head"><label>Зазор (шея-таз)</label><span class="badge" id="valGap">0.5</span></div>
+      <input id="rangeGap" type="range" min="0" max="1.5" value="0.5" step="0.1">
     </div>
 
     <div class="actions">
       <button class="btn-reset" id="btnReset">Сбросить</button>
-    </div>
-
-    <div class="hint">
-      Значения подбородка измеряются в долях головы (от 3/5 до 5/5).
-      Округлость 0 — угловатая челюсть, 1 — мягкая дуга.
     </div>
   </div>
 
@@ -182,6 +154,7 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
+// Все параметры в одном месте
 const els = {
   parts:  { r: document.getElementById('rangeParts'),  v: document.getElementById('valParts'),  def: 7 },
   radius: { r: document.getElementById('rangeRadius'), v: document.getElementById('valRadius'), def: 1.5 },
@@ -191,7 +164,12 @@ const els = {
   round:  { r: document.getElementById('rangeRound'),  v: document.getElementById('valRound'),  def: 0 },
   neckW:  { r: document.getElementById('rangeNeckW'),  v: document.getElementById('valNeckW'),  def: 0.6 },
   neckL:  { r: document.getElementById('rangeNeckL'),  v: document.getElementById('valNeckL'),  def: 0.8 },
-  neckX:  { r: document.getElementById('rangeNeckX'),  v: document.getElementById('valNeckX'),  def: 0.0 }
+  neckX:  { r: document.getElementById('rangeNeckX'),  v: document.getElementById('valNeckX'),  def: 0.0 },
+  
+  // Шаг 3: Новые параметры для торса
+  torsoSize: { r: document.getElementById('rangeTorsoSize'), v: document.getElementById('valTorsoSize'), def: 1.5 },
+  chestW:    { r: document.getElementById('rangeChestW'),    v: document.getElementById('valChestW'),    def: 1.2 },
+  gap:       { r: document.getElementById('rangeGap'),       v: document.getElementById('valGap'),       def: 0.5 }
 };
 
 const btnReset = document.getElementById('btnReset');
@@ -208,6 +186,7 @@ function updateValDisplay(el, valEl) {
 
 Object.values(els).forEach(({ r, v }) => {
   r.addEventListener('input', () => {
+    // Логика ограничителей (голова)
     if (r.id === 'rangeAttach' && parseFloat(r.value) > parseFloat(els.chinH.r.value) - 0.5) {
       r.value = parseFloat(els.chinH.r.value) - 0.5;
     }
@@ -231,6 +210,21 @@ btnReset.addEventListener('click', () => {
   draw();
 });
 
+// Функция для скругления прямоугольника (таза)
+function roundedRect(ctx, x, y, width, height, radius) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+}
+
 function draw() {
   const parts = parseInt(els.parts.r.value);
   const radiusMultiplier = parseFloat(els.radius.r.value);
@@ -242,6 +236,10 @@ function draw() {
   const neckW = parseFloat(els.neckW.r.value);
   const neckL = parseFloat(els.neckL.r.value);
   const neckX = parseFloat(els.neckX.r.value);
+
+  const torsoSize = parseFloat(els.torsoSize.r.value);
+  const chestW = parseFloat(els.chestW.r.value);
+  const gap = parseFloat(els.gap.r.value);
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -261,7 +259,7 @@ function draw() {
   ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.setLineDash([4, 6]);
   ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, bottom); ctx.stroke(); ctx.setLineDash([]);
 
-  // Геометрия
+  // Геометрия головы
   const fifth = step / 5;
   const y0 = top;
   const yAttach = top + fifth * attachPos;
@@ -275,7 +273,7 @@ function draw() {
   const jawWidthTop = yAttachOffset < r ? 2 * Math.sqrt(r*r - yAttachOffset*yAttachOffset) : r * 2;
   const jawWidthBot = jawWidthTop * chinWidthMul;
 
-  // Вспомогательные линии
+  // Вспомогательные линии головы
   ctx.strokeStyle = 'rgba(232,176,75,0.22)'; ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
   for (let i = 1; i <= 5; i++) {
     const y = top + fifth * i;
@@ -283,17 +281,11 @@ function draw() {
   }
   ctx.setLineDash([]);
 
-  // --- ШЕЯ (ограничена снизу границей 5/5, то есть y0 + step) ---
+  // --- ШЕЯ ---
   const neckHalfW = (jawWidthBot / 2) * neckW;
   const neckShift = (jawWidthTop / 2) * neckX;
-  
-  // Шея начинается от подбородка
   const neckTopY = yChin - 2; 
-  
-  // Максимально возможная длина шеи — до нижней границы первой части сетки
   const maxNeckLength = (y0 + step) - neckTopY;
-  
-  // Фактическая длина с учетом ползунка (от 0 до 1)
   const neckBotY = neckTopY + (maxNeckLength * neckL);
 
   ctx.fillStyle = 'rgba(232,176,75,0.1)';
@@ -307,11 +299,58 @@ function draw() {
   ctx.stroke();
   ctx.fill();
 
-  // Череп
+  // --- ШАГ 3: ГРУДНАЯ КЛЕТКА И ТАЗ ---
+  // Отправная точка: линия шеи (5/5) + зазор
+  const torsoStartY = (y0 + step) + (step * gap);
+  
+  // Высота груди = Ширина таза = torsoSize
+  const chestH = step * torsoSize;
+  const pelvisW = step * torsoSize; 
+  
+  // Ширина таза = Высота таза = pelvisW
+  const pelvisH = pelvisW;
+
+  // Ширина груди (в верхней части она уже, это форма яйца)
+  const chestTopW = step * chestW * 0.6; // Узкая часть (верх)
+  const chestBotW = step * chestW;       // Широкая часть (низ)
+
+  // Рисуем грудную клетку (яйцо)
+  ctx.fillStyle = 'rgba(232,176,75,0.05)';
+  ctx.strokeStyle = '#e8b04b';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  
+  // Верхняя дуга (узкая)
+  ctx.moveTo(cx - chestTopW / 2, torsoStartY);
+  ctx.bezierCurveTo(
+    cx - chestBotW, torsoStartY + chestH * 0.3, 
+    cx - chestBotW, torsoStartY + chestH * 0.7, 
+    cx - chestTopW / 2, torsoStartY + chestH
+  );
+  // Нижняя дуга
+  ctx.bezierCurveTo(
+    cx + chestBotW, torsoStartY + chestH * 0.7, 
+    cx + chestBotW, torsoStartY + chestH * 0.3, 
+    cx + chestTopW / 2, torsoStartY
+  );
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Рисуем таз (квадрат с закруглёнными краями)
+  const pelvisStartY = torsoStartY + chestH + (step * 0.2); // Небольшой отступ между грудью и тазом
+  const pelvisX = cx - pelvisW / 2;
+  
+  ctx.beginPath();
+  roundedRect(ctx, pelvisX, pelvisStartY, pelvisW, pelvisH, pelvisW * 0.2);
+  ctx.fill();
+  ctx.stroke();
+
+  // --- ЧЕРЕП (рисуем поверх шеи) ---
   ctx.strokeStyle = '#e8b04b'; ctx.lineWidth = 1.8;
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
 
-  // Челюсть
+  // --- ЧЕЛЮСТЬ ---
   ctx.beginPath();
   const halfTop = jawWidthTop / 2;
   const halfBot = jawWidthBot / 2;
@@ -354,7 +393,7 @@ function draw() {
   ctx.lineTo(ptTopR.x, ptTopR.y);
   ctx.stroke();
 
-  // Подписи долей
+  // Подписи долей головы
   ctx.fillStyle = '#8a8a99'; ctx.font = '10px system-ui';
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   for (let i = 1; i <= 5; i++) {
