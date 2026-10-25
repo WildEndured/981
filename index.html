@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Голова: Внедрение логики three.js в 2D</title>
+<title>Голова: 3D-математика на 2D (Исправлено)</title>
 <style>
   :root {
     --bg: #141419;
@@ -114,7 +114,7 @@
 
 <header>
   <h1>Голова: Логика three.js в 2D</h1>
-  <p>Скрытие задних линий, сортировка по глубине и умные метки</p>
+  <p>Исправленная проекция сферы и челюсти</p>
 </header>
 
 <div class="app">
@@ -232,7 +232,6 @@ function makeBall({ cut, r0, top = 1, back = 1 }) {
   };
 }
 
-// Скругление углов (из исходного кода)
 function rounded(items, radius) {
   const pts0 = [];
   for (const it of items) {
@@ -288,7 +287,6 @@ function buildHead(p) {
   const labels = {};
   const add = (id, color, pts, closed = false) => lines.push({ id, color, closed, pts });
 
-  // 1. Центральная линия
   const pts1 = [];
   for (let i = 0; i < 64; i++) {
     const t = (i / 64) * Math.PI * 2;
@@ -296,7 +294,6 @@ function buildHead(p) {
   }
   add('1', 'red', pts1, true);
   
-  // 2. Линия глаз
   const pts2 = [];
   const zu = zEye / ball.sz(zEye);
   const rho = Math.sqrt(Math.max(0, 1 - zu * zu));
@@ -307,7 +304,6 @@ function buildHead(p) {
   }
   add('2', 'red', pts2, true);
 
-  // 3. Боковые круги
   for (const sx of [1, -1]) {
     const x = sx * xPlane;
     const circle = [];
@@ -315,7 +311,6 @@ function buildHead(p) {
     add('3', 'red', circle, true);
   }
 
-  // 7. Челюсть
   const A = rim(rad(-90));
   const tilt = rad(p.jaw_tilt);
   const B = [p.jaw_x, A[1] - p.jaw_len * Math.sin(tilt), A[2] - p.jaw_len * Math.cos(tilt)];
@@ -331,18 +326,15 @@ function buildHead(p) {
   const CfR = jaw.corners.find((c) => c.v === Cf)?.p ?? Cf;
   const CfL = mirror(CfR);
 
-  // 8. Щеки
   const zEyeU = zEye / ball.sz(zEye);
   const eyeEdge = [xPlane, -Math.sqrt(Math.max(0, r0 * r0 - zEyeU * zEyeU)), zEye];
   add('8', 'blue', [CfR, eyeEdge]);
   add('8', 'blue', [CfL, mirror(eyeEdge)]);
 
-  // 6. Центр лица
   const front = surf(stretch(0, -Math.sqrt(Math.max(0, 1 - zEyeU * zEyeU)), zEyeU));
   const chinMid = [0, -p.chin_front, zChin];
   add('6', 'red', [front, chinMid]);
 
-  // Лейблы (позиции для цифр)
   const out = (p) => norm(p);
   const BR = jaw.corners.find((c) => c.v === B)?.p ?? B;
   const jawMid = lerp(BR, CfR, 0.5);
@@ -363,7 +355,7 @@ function buildHead(p) {
   return { lines, labels, solid: { width, cut, r0, top: p.top, back: p.back } };
 }
 
-// --- ПРОЕКЦИЯ И ОТРИСОВКА ---
+// --- ПРОЕКЦИЯ ---
 let params = {
   parts: 7, cut: 0.73, top: 1.0, back: 1.0, eye: 0.0,
   jaw_x: 0.62, jaw_len: 0.40, jaw_tilt: 10,
@@ -372,17 +364,21 @@ let params = {
 };
 
 function project(x, y, z, scale, cx, cy) {
+  // Y - это глубина (перед/зад), Z - это верх/низ.
+  // Сначала вращение вокруг Y (поворот влево/вправо)
   const radY = rad(params.rotY);
   const cosY = Math.cos(radY), sinY = Math.sin(radY);
   let x1 = x * cosY - y * sinY;
   let y1 = x * sinY + y * cosY;
   let z1 = z;
 
+  // Затем вращение вокруг X (наклон вперед/назад)
   const radX = rad(params.rotX);
   const cosX = Math.cos(radX), sinX = Math.sin(radX);
   let y2 = y1 * cosX - z1 * sinX;
   let z2 = y1 * sinX + z1 * cosX;
   
+  // В canvas Y растет вниз, поэтому инвертируем Z
   return {
     x: cx + x1 * scale,
     y: cy - z2 * scale,
@@ -390,10 +386,10 @@ function project(x, y, z, scale, cx, cy) {
   };
 }
 
-// Проверка, скрыта ли точка (из three.js кода)
+// Проверка, скрыта ли точка
 function occluded(o3, target3, solid) {
   const { width, cut, r0, top, back } = solid;
-  const o = [o3[0], o3[2], o3[1]]; // В формат loomis (Y-глубина, Z-высота)
+  const o = [o3[0], o3[2], o3[1]]; 
   const q = [target3[0], target3[2], target3[1]];
   let d = [q[0] - o[0], q[1] - o[1], q[2] - o[2]];
   const dist = Math.hypot(...d);
@@ -430,7 +426,6 @@ function occluded(o3, target3, solid) {
   return hit < dist - 0.02;
 }
 
-// Создание элементов для меток
 const LABELS = { '1': '①', '2': '②', '3': '③', '4': '④', '5': '⑤', '6': '⑥', '7': '⑦', '8': '⑧', 'A': 'Ⓐ', 'B': 'Ⓑ', 'C': 'Ⓒ' };
 const labelEls = {};
 Object.keys(LABELS).forEach(id => {
@@ -450,8 +445,11 @@ function draw() {
   const height = canvas.height - pad * 2;
   const step = height / params.parts;
   
+  // Масштаб: сфера имеет диаметр 2 (от -1 до 1). 
+  // Чтобы она влезла ровно в одну часть сетки (step), нужно scale = step / 2.
   const scale = step / 2;
   const cx = canvas.width / 2;
+  // Центр сферы должен быть на границе 1-й и 2-й частей (top + step).
   const cy = top + step; 
 
   // Сетка
@@ -476,7 +474,6 @@ function draw() {
   // 3D-построение
   const head3D = buildHead(params);
   
-  // Проекция и сортировка
   const allLines = [];
   head3D.lines.forEach(line => {
     const projected = line.pts.map(p => project(p[0], p[1], p[2], scale, cx, cy));
@@ -485,10 +482,8 @@ function draw() {
   });
   allLines.sort((a, b) => a.avgZ - b.avgZ);
 
-  // Камера в локальных координатах (для проверки скрытия)
-  const camLocal = [0, -2, 0]; // Камера смотрит спереди-сверху
+  const camLocal = [0, -2, 0]; 
 
-  // Рисование линий
   allLines.forEach(line => {
     const isBack = line.avgZ > 0.1;
     ctx.beginPath();
@@ -528,7 +523,7 @@ function draw() {
     for (const c of cands) {
       const p = project(c.p[0], c.p[1], c.p[2], scale, cx, cy);
       const n = project(c.p[0] + c.n[0]*0.1, c.p[1] + c.n[1]*0.1, c.p[2] + c.n[2]*0.1, scale, cx, cy);
-      const facing = (n.x - p.x) * 0 + (n.y - p.y) * -1; // Упрощенно: смотрим на Z или Y
+      const facing = (n.x - p.x) * 0 + (n.y - p.y) * -1; 
       const hidden = occluded(camLocal, c.p, head3D.solid);
       
       const score = (c.p[2] > 0 ? 10 : 0) + (hidden ? -100 : 0) + facing;
