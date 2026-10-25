@@ -71,23 +71,24 @@ function draw(parts) {
   // ================= ШАГ 2: голова и шея =================
   const fifth = step / 5;
   
-  // Уровни
-  const yTop = top;                   // 0/5
-  const y2 = top + fifth * 2;         // 2/5 (линия глаз/середина)
-  const y3 = top + fifth * 3;         // 3/5 (низ черепа)
-  const y4 = top + fifth * 4;         // 4/5 (линия подбородка)
-  const y5 = top + fifth * 5;         // 5/5 (низ шеи)
+  // Ключевые уровни
+  const y0 = top;                   // 0/5 (верх головы)
+  const y2 = top + fifth * 2;       // 2/5 (линия глаз)
+  const y3 = top + fifth * 3;       // 3/5 (низ черепа)
+  const y4 = top + fifth * 4;       // 4/5 (линия подбородка)
+  const y5 = top + fifth * 5;       // 5/5 (низ шеи)
 
-  // Радиус круга (1.5 доли)
+  // Радиус круга: он занимает 3 доли (от 0 до 3/5). 
+  // Значит его диаметр = 3 * fifth. Радиус = 1.5 * fifth.
   const r = fifth * 1.5;
-  const cy = top + r;                 // Центр круга
+  const cy = y0 + r;                // Центр круга
 
-  // Ширина челюсти
-  const jawTopWidth = r * 2;          // Ширина на уровне 2/5 (совпадает с краями круга)
-  const jawBotWidth = r * 1.1;        // Ширина на уровне подбородка (4/5)
-  const neckWidth = r * 0.6;          // Ширина шеи
+  // Ширина челюсти (ровно по краям круга)
+  const jawWidthTop = r * 2;        // На уровне 2/5 (по экватору круга)
+  const jawWidthBot = r * 1.1;      // На уровне подбородка (4/5)
+  const neckWidth = r * 0.5;        // Ширина шеи
 
-  // Вспомогательные линии долей
+  // Вспомогательные пунктирные линии (5 долей)
   ctx.strokeStyle = 'rgba(232,176,75,0.30)';
   ctx.lineWidth = 1;
   ctx.setLineDash([3, 4]);
@@ -107,17 +108,18 @@ function draw(parts) {
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.stroke();
 
-  // 2. Челюсть (красная линия как на скрине)
-  ctx.strokeStyle = '#ff3b3b';
+  // 2. Челюсть
+  ctx.strokeStyle = '#e8b04b'; // Теперь того же цвета, что и круг
   ctx.lineWidth = 1.8;
   ctx.beginPath();
-  // Левая сторона
-  ctx.moveTo(cx - jawTopWidth / 2, y2);
-  ctx.lineTo(cx - jawBotWidth / 2, y4);
-  // Низ (подбородок)
-  ctx.lineTo(cx + jawBotWidth / 2, y4);
-  // Правая сторона
-  ctx.lineTo(cx + jawTopWidth / 2, y2);
+  // Начинаем от пересечения круга и линии 2/5 (слева)
+  ctx.moveTo(cx - jawWidthTop / 2, y2);
+  // Идем вниз к подбородку (слева)
+  ctx.lineTo(cx - jawWidthBot / 2, y4);
+  // Линия подбородка
+  ctx.lineTo(cx + jawWidthBot / 2, y4);
+  // Идем наверх к пересечению круга и линии 2/5 (справа)
+  ctx.lineTo(cx + jawWidthTop / 2, y2);
   ctx.stroke();
 
   // 3. Шея (от 4/5 до 5/5)
@@ -129,7 +131,7 @@ function draw(parts) {
   ctx.lineTo(cx + neckWidth / 2, y5);
   ctx.stroke();
 
-  // Подписи долей
+  // Подписи долей справа
   ctx.fillStyle = '#b8b8c0';
   ctx.font = '10px system-ui';
   ctx.textAlign = 'left';
