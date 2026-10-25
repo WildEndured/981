@@ -271,7 +271,7 @@
 
 <script type="module">
 /* ==================================================================
- * torso.js — математика формы грудной клетки
+ * torso.js — яйцевидная грудная клетка (метод Лумиса)
  * ================================================================== */
 
 const rad = (d) => (d * Math.PI) / 180;
@@ -290,13 +290,16 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const smooth = (t) => t * t * (3 - 2 * t);
 
 const SHAPE_PARAMS = [
-  { key: 'width_top',   label: 'Ширина сверху (ключицы)', min: 0.30, max: 1.00, step: 0.01, def: 0.62 },
-  { key: 'width_mid',   label: 'Ширина середины',         min: 0.40, max: 1.20, step: 0.01, def: 0.86 },
-  { key: 'width_bot',   label: 'Ширина снизу (дуга)',     min: 0.30, max: 1.10, step: 0.01, def: 0.72 },
+  { key: 'width_top',   label: 'Ширина сверху (ключицы)', min: 0.20, max: 0.90, step: 0.01, def: 0.46 },
+  { key: 'width_mid',   label: 'Ширина середины',         min: 0.30, max: 1.10, step: 0.01, def: 0.72 },
+  { key: 'width_bot',   label: 'Ширина снизу (дуга)',     min: 0.30, max: 1.10, step: 0.01, def: 0.62 },
   { key: 'height',      label: 'Высота торса',            min: 0.80, max: 1.60, step: 0.01, def: 1.20 },
-  { key: 'depth',       label: 'Глубина (толщина)',       min: 0.30, max: 1.00, step: 0.01, def: 0.52 },
+  { key: 'depth',       label: 'Глубина (толщина)',       min: 0.30, max: 1.00, step: 0.01, def: 0.50 },
+  { key: 'front_flat',  label: 'Плоскость переда',        min: 0.00, max: 0.60, step: 0.01, def: 0.28 },
+  { key: 'back_round',  label: 'Округлость спины',        min: 0.00, max: 0.60, step: 0.01, def: 0.18 },
+  { key: 'egg_bias',    label: 'Смещение яйца вниз',      min: 0.00, max: 0.60, step: 0.01, def: 0.22 },
   { key: 'ribs',        label: 'Количество рёбер',        min: 4,    max: 10,   step: 1,    def: 6 },
-  { key: 'rib_bulge',   label: 'Выпуклость рёбер',        min: 0.00, max: 0.30, step: 0.01, def: 0.10 },
+  { key: 'rib_bulge',   label: 'Выпуклость рёбер',        min: 0.00, max: 0.30, step: 0.01, def: 0.08 },
   { key: 'sternum_w',   label: 'Ширина грудины',          min: 0.02, max: 0.25, step: 0.01, def: 0.08 },
   { key: 'clavicle',    label: 'Ширина ключиц',           min: 0.20, max: 1.20, step: 0.01, def: 0.78 },
   { key: 'clav_h',      label: 'Высота ключиц',           min: -0.20, max: 0.20, step: 0.01, def: 0.02 },
@@ -327,6 +330,20 @@ function clampShape(input) {
   return s;
 }
 
+/* ==================================================================
+ * Яйцевидный профиль
+ * ==================================================================
+ *
+ * Форма яйца:
+ *   - сверху узко (ключицы),
+ *   - максимальная ширина в нижней трети (рёберная дуга),
+ *   - снизу снова чуть уже.
+ *
+ * Параметр egg_bias смещает «широкую» часть яйца вниз.
+ * front_flat уменьшает выпуклость передней стенки (z > 0),
+ * back_round увеличивает выпуклость спины (z < 0).
+ */
+
 function makeTorso(s) {
   const H = s.height;
   const Wtop = s.width_top;
@@ -337,29 +354,98 @@ function makeTorso(s) {
   const yTop = H * 0.5;
   const yBot = -H * 0.5;
 
-  function widthAt(y) {
-    const t = clamp((y - yBot) / (yTop - yBot), 0, 1);
-    if (t < 0.5) {
-      const u = smooth(t / 0.5);
-      return Wbot + (Wmid - Wbot) * u;
-    }
-    const u = smooth((t - 0.5) / 0.5);
-    return Wmid + (Wtop - Wmid) * u;
+  // t = 0 внизу, 1 сверху
+  function tOf(y) {
+    return clamp((y - yBot) / (yTop - yBot), 0, 1);
   }
 
+  // яйцевидная ширина: смещаем «максимум» вниз через egg_bias
+  function widthAt(y) {
+    const t = tOf(y);
+    // сдвигаем параметр так, чтобы максимум ширины был не в середине,
+    // а ниже — в районе рёберной дуги
+    const bias = s.egg_bias;
+    const u = clamp((t + bias) / (1 + bias), 0, 1);
+    // яйцо: sqrt-профиль с более плавным верхом
+    const egg = Math.sqrt(Math.max(0, 1 - u * u));
+    // три опорных значения — интерполируем по t
+    // нижняя треть — широкая (дуга), середина — максимум, верх — узко
+    const wBotMix = Wbot;
+    const wMidMix = Wmid;
+    const wTopMix = Wtop;
+    // базовая линия по t: снизу вверх
+    let base;
+    if (t < 0.33) {
+      const k = smooth(t / 0.33);
+      base = wBotMix + (wMidMix - wBotMix) * k;
+    } else {
+      const k = smooth((t - 0.33) / 0.67);
+      base = wMidMix + (wTopMix - wMidMix) * k;
+    }
+    // добавляем яйцевидную поправку: сверху сужаем сильнее
+    const eggFactor = 0.55 + 0.45 * egg;
+    return base * eggFactor;
+  }
+
+  // глубина: перед плоский, спина округлая
   function depthAt(y) {
-    const t = clamp((y - yBot) / (yTop - yBot), 0, 1);
+    const t = tOf(y);
     const bulge = Math.sin(t * Math.PI) * s.rib_bulge;
     return D * 0.5 + bulge * 0.5;
   }
 
+  // поперечное сечение — «яйцо», а не эллипс:
+  // θ = 0 → +z (перёд), θ = π → -z (спина)
+  // f(θ) даёт более плоский фронт и более округлый тыл
+  function crossSection(theta) {
+    const c = Math.cos(theta); // 1 спереди, -1 сзади
+    const s2 = Math.sin(theta);
+    // фронт сжимаем (плоскость), тыл растягиваем (округлость)
+    const front = s.front_flat;
+    const back = s.back_round;
+    let zScale;
+    if (c >= 0) {
+      // передняя половина: сжимаем к плоскости
+      zScale = 1 - front * (c * c);
+    } else {
+      // задняя половина: расширяем
+      zScale = 1 + back * (c * c);
+    }
+    return { x: Math.cos(theta), z: Math.sin(theta) * zScale };
+  }
+
+  // точка на поверхности по углу θ и высоте y
   function surf(theta, y) {
     const w = widthAt(y);
     const d = depthAt(y);
-    return [w * Math.cos(theta), y, d * Math.sin(theta)];
+    const cs = crossSection(theta);
+    // x умножаем на ширину, z — на глубину
+    // при этом x = cos, z = sin * zScale
+    return [w * cs.x, y, d * cs.z];
   }
 
-  return { H, yTop, yBot, widthAt, depthAt, surf };
+  // нормаль — численно через частные производные
+  function normalAt(theta, y) {
+    const eps = 1e-3;
+    const p0 = surf(theta, y);
+    const pT = surf(theta + eps, y);
+    const pY = surf(theta, y + eps);
+    const dT = sub(pT, p0);
+    const dY = sub(pY, p0);
+    const n = [
+      dT[1] * dY[2] - dT[2] * dY[1],
+      dT[2] * dY[0] - dT[0] * dY[2],
+      dT[0] * dY[1] - dT[1] * dY[0],
+    ];
+    // направляем наружу
+    const outward = [p0[0], 0, p0[2]];
+    if (n[0] * outward[0] + n[2] * outward[2] < 0) {
+      return norm([-n[0], -n[1], -n[2]]);
+    }
+    return norm(n);
+  }
+
+  return { H, yTop, yBot, widthAt, depthAt, surf, normalAt, crossSection };
 }
 
 /* ==================================================================
@@ -369,7 +455,7 @@ function makeTorso(s) {
 function buildTorso(input) {
   const s = clampShape(input);
   const T = makeTorso(s);
-  const { H, yTop, yBot, widthAt, depthAt, surf } = T;
+  const { H, yTop, yBot, widthAt, depthAt, surf, normalAt } = T;
 
   const lines = [];
   const labels = {};
@@ -378,33 +464,29 @@ function buildTorso(input) {
     lines.push({ id, color, closed, pts });
   }
 
-  function normalAt(x, y, z) {
-    const w = Math.max(widthAt(y), 1e-4);
-    const d = Math.max(depthAt(y), 1e-4);
-    return norm([x / (w * w), 0, z / (d * d)]);
+  // точки с нормалями через параметризацию (θ, y)
+  function surfWithNormal(theta, y) {
+    const p = surf(theta, y);
+    const n = normalAt(theta, y);
+    return { p, n };
   }
 
-  function withNormals(pts, normalFn) {
-    return pts.map((p) => ({
-      p,
-      n: normalFn ? normalFn(p) : normalAt(p[0], p[1], p[2]),
-    }));
-  }
-
-  /* ---------- ① Средняя линия ---------- */
+  /* ---------- ① Средняя линия (перед и спина) ---------- */
   {
     const front = [];
     const back = [];
     for (let i = 0; i <= 32; i++) {
       const y = yBot + (H * i) / 32;
-      front.push([0, y, depthAt(y)]);
-      back.push([0, y, -depthAt(y) * 0.85]);
+      const pf = surf(0, y);         // θ = 0 → перед
+      const pb = surf(Math.PI, y);   // θ = π → спина
+      front.push({ p: pf, n: norm([0, 0, 1]) });
+      back.push({ p: pb, n: norm([0, 0, -1]) });
     }
-    add('1f', RED, withNormals(front, () => [0, 0, 1]));
-    add('1b', RED, withNormals(back, () => [0, 0, -1]));
+    add('1f', RED, front);
+    add('1b', RED, back);
     labels['1'] = [
-      { p: [0, yTop * 0.9, depthAt(yTop * 0.9)], n: [0, 0, 1] },
-      { p: [0, yBot * 0.9, depthAt(yBot * 0.9)], n: [0, 0, 1] },
+      { p: surf(0, yTop * 0.9), n: [0, 0, 1] },
+      { p: surf(0, yBot * 0.9), n: [0, 0, 1] },
     ];
   }
 
@@ -418,69 +500,87 @@ function buildTorso(input) {
       const t = i / STEPS;
       const x = -w + 2 * w * t;
       const arc = Math.sin(t * Math.PI) * 0.02;
-      pts.push([x, y + arc + s.clav_h, depthAt(y) * 0.92]);
+      // берём z с передней стенки через угол
+      const theta = Math.asin(clamp(x / Math.max(widthAt(y), 1e-4), -1, 1));
+      const pf = surf(theta, y);
+      pts.push({ p: [x, y + arc + s.clav_h, pf[2] * 0.98], n: norm([0, 0.2, 1]) });
     }
-    add('2', RED, withNormals(pts, (p) => normalAt(p[0], p[1], p[2] * 1.2)));
-    labels['2'] = [{ p: [0, y + s.clav_h + 0.02, depthAt(y)], n: [0, 0.2, 1] }];
+    add('2', RED, pts);
+    labels['2'] = [{ p: [0, y + s.clav_h + 0.02, surf(0, y)[2]], n: [0, 0.2, 1] }];
   }
 
-  /* ---------- ③ Контур грудной клетки ---------- */
+  /* ---------- ③ Контур яйца (передний силуэт) ---------- */
   {
-    const frontEdge = [];
-    for (let i = 0; i <= 20; i++) {
-      const y = yBot + (H * i) / 20;
-      frontEdge.push([widthAt(y) * 0.5, y, depthAt(y) * 0.95]);
+    // передний контур: правый и левый край яйца по высоте
+    const rightEdge = [];
+    const leftEdge = [];
+    for (let i = 0; i <= 24; i++) {
+      const y = yBot + (H * i) / 24;
+      const w = widthAt(y);
+      // крайняя точка при θ ≈ 0 и θ ≈ π даёт z, а x=0;
+      // крайняя по x — при θ = ±π/2, но там z=0.
+      // Для силуэта «яйца» спереди берём θ = π/2 и -π/2.
+      const pr = surf(Math.PI / 2, y);
+      const pl = surf(-Math.PI / 2, y);
+      rightEdge.push({ p: [w, y, pr[2] * 0.2], n: norm([1, 0, 0]) });
+      leftEdge.push({ p: [-w, y, pl[2] * 0.2], n: norm([-1, 0, 0]) });
     }
-    add('3', BLUE, withNormals(frontEdge, (p) => normalAt(p[0], p[1], p[2])));
-    add('3', BLUE, withNormals(frontEdge.map(mirrorX), (p) => normalAt(p[0], p[1], p[2])));
+    add('3', BLUE, rightEdge);
+    add('3', BLUE, leftEdge);
 
-    const sideL = [];
-    for (let i = 0; i <= 20; i++) {
-      const y = yBot + (H * i) / 20;
-      sideL.push([widthAt(y), y, 0]);
-    }
-    add('3', BLUE, withNormals(sideL, () => [1, 0, 0]));
-    add('3', BLUE, withNormals(sideL.map(mirrorX), () => [-1, 0, 0]));
-
+    // нижняя рёберная дуга (по передней полуплоскости)
     const ribArch = [];
     const ARCH = 40;
     for (let i = 0; i <= ARCH; i++) {
-      const th = Math.PI * (i / ARCH);
-      ribArch.push(surf(Math.PI - th, yBot));
+      const th = -Math.PI / 2 + Math.PI * (i / ARCH);
+      const sw = surfWithNormal(th, yBot);
+      ribArch.push(sw);
     }
-    add('3', BLUE, withNormals(ribArch, (p) => normalAt(p[0], p[1], p[2])));
+    add('3', BLUE, ribArch);
+
+    // верхняя ключичная дуга (по передней полуплоскости)
+    const topArch = [];
+    for (let i = 0; i <= ARCH; i++) {
+      const th = -Math.PI / 2 + Math.PI * (i / ARCH);
+      const sw = surfWithNormal(th, yTop);
+      topArch.push(sw);
+    }
+    add('3', BLUE, topArch);
 
     labels['3'] = [
       { p: [widthAt(0) * 0.9, 0, 0], n: [1, 0, 0] },
       { p: [-widthAt(0) * 0.9, 0, 0], n: [-1, 0, 0] },
-      { p: [0, yBot, depthAt(yBot)], n: [0, 0, 1] },
+      { p: surf(0, yBot), n: [0, -1, 0.3] },
     ];
   }
 
   /* ---------- ④ Рёбра ---------- */
   {
     const nRib = Math.round(s.ribs);
-    const yRibTop = yTop - 0.06;
-    const yRibBot = yBot + 0.12;
+    const yRibTop = yTop - 0.08;
+    const yRibBot = yBot + 0.14;
     const ribPts = [];
     for (let r = 0; r < nRib; r++) {
       const t = nRib === 1 ? 0.5 : r / (nRib - 1);
       const y = yRibTop + (yRibBot - yRibTop) * t;
-      const w = widthAt(y);
-      const d = depthAt(y);
-      const pts = [];
+      // переднее ребро: θ от 0 (середина) до ±π/2 (бок)
+      const rightPts = [];
+      const leftPts = [];
       for (let i = 0; i <= RIB_SEG / 2; i++) {
-        const a = (i / (RIB_SEG / 2)) * Math.PI * 0.85;
-        pts.push([w * Math.sin(a), y, d * Math.cos(a) * 0.98]);
+        const a = (i / (RIB_SEG / 2)) * Math.PI / 2;
+        const sr = surfWithNormal(a, y);
+        const sl = surfWithNormal(-a, y);
+        rightPts.push(sr);
+        leftPts.push(sl);
       }
-      ribPts.push(pts);
-      add('4', BLUE, withNormals(pts, (p) => normalAt(p[0], p[1], p[2])));
-      add('4', BLUE, withNormals(pts.map(mirrorX), (p) => normalAt(p[0], p[1], p[2])));
+      ribPts.push(rightPts);
+      add('4', BLUE, rightPts);
+      add('4', BLUE, leftPts);
     }
     labels['4'] = ribPts.length
       ? [
-          { p: ribPts[0][Math.floor(ribPts[0].length / 2)], n: [0.3, 0, 1] },
-          { p: ribPts[ribPts.length - 1][Math.floor(ribPts[0].length / 2)], n: [0.3, 0, 1] },
+          { p: ribPts[0][Math.floor(ribPts[0].length / 2)].p, n: [0.3, 0, 1] },
+          { p: ribPts[ribPts.length - 1][Math.floor(ribPts[0].length / 2)].p, n: [0.3, 0, 1] },
         ]
       : [];
   }
@@ -488,48 +588,55 @@ function buildTorso(input) {
   /* ---------- ⑤ Грудина ---------- */
   {
     const sw = s.sternum_w;
-    const top = yTop - 0.06;
-    const bot = yBot + 0.18;
+    const top = yTop - 0.08;
+    const bot = yBot + 0.20;
     const left = [];
     const right = [];
     const STEPS = 16;
     for (let i = 0; i <= STEPS; i++) {
       const t = i / STEPS;
       const y = top + (bot - top) * t;
-      const d = depthAt(y) * 1.01;
+      const pf = surf(0, y);
       const half = sw * (0.5 + 0.5 * Math.sin(t * Math.PI));
-      left.push([-half, y, d]);
-      right.push([half, y, d]);
+      left.push({ p: [-half, y, pf[2] * 1.01], n: [0, 0, 1] });
+      right.push({ p: [half, y, pf[2] * 1.01], n: [0, 0, 1] });
     }
-    add('5', RED, withNormals(left, () => [0, 0, 1]));
-    add('5', RED, withNormals(right, () => [0, 0, 1]));
-    add('5', RED, withNormals([left[0], right[0]], () => [0, 0, 1]));
-    add('5', RED, withNormals([left[left.length - 1], right[right.length - 1]], () => [0, 0, 1]));
-    labels['5'] = [{ p: [0, (top + bot) / 2, depthAt((top + bot) / 2) * 1.05], n: [0, 0, 1] }];
+    add('5', RED, left);
+    add('5', RED, right);
+    add('5', RED, [left[0], right[0]]);
+    add('5', RED, [left[left.length - 1], right[right.length - 1]]);
+    labels['5'] = [{ p: [0, (top + bot) / 2, surf(0, (top + bot) / 2)[2] * 1.05], n: [0, 0, 1] }];
   }
 
   /* ---------- ⑥ Линия сосков ---------- */
   {
     const y = s.nipple_h;
     const w = s.nipple_w;
-    const d = depthAt(y);
     const pts = [];
     for (let i = 0; i <= 24; i++) {
       const t = i / 24;
       const x = -w + 2 * w * t;
+      // определяем θ по x и берём z на поверхности
+      const theta = Math.asin(clamp(x / Math.max(widthAt(y), 1e-4), -1, 1));
+      const pf = surf(theta, y);
       const droop = -Math.sin(t * Math.PI) * 0.015;
-      pts.push([x, y + droop, d * 0.98]);
+      pts.push({ p: [x, y + droop, pf[2] * 0.99], n: [0, 0, 1] });
     }
-    add('6', RED, withNormals(pts, () => [0, 0, 1]));
+    add('6', RED, pts);
     for (const sx of [1, -1]) {
       const circle = [];
+      const thetaN = sx > 0 ? Math.PI / 2 : -Math.PI / 2;
+      const base = surf(thetaN * 0.5, y);
       for (let i = 0; i < 16; i++) {
         const a = (i / 16) * Math.PI * 2;
-        circle.push([sx * w + Math.cos(a) * 0.015, y + Math.sin(a) * 0.015, d * 0.99]);
+        circle.push({
+          p: [sx * w + Math.cos(a) * 0.015, y + Math.sin(a) * 0.015, base[2]],
+          n: [0, 0, 1],
+        });
       }
-      add('6', RED, withNormals(circle, () => [0, 0, 1]), true);
+      add('6', RED, circle, true);
     }
-    labels['6'] = [{ p: [0, y, d], n: [0, 0, 1] }];
+    labels['6'] = [{ p: surf(0, y), n: [0, 0, 1] }];
   }
 
   /* ---------- ⑦ Талия ---------- */
@@ -541,11 +648,12 @@ function buildTorso(input) {
       const t = i / 24;
       const a = Math.PI * t;
       const x = -w + 2 * w * t;
-      const z = depthAt(y) * (0.4 + 0.6 * Math.sin(a));
-      pts.push([x, y, z]);
+      const theta = -Math.PI / 2 + a;
+      const sf = surf(theta, y);
+      pts.push({ p: [x, y, sf[2]], n: norm([x * 0.3, 0, sf[2]]) });
     }
-    add('7', ORANGE, withNormals(pts, (p) => normalAt(p[0], p[1], p[2])));
-    labels['7'] = [{ p: [0, y, depthAt(y) * 0.5], n: [0, 0, 1] }];
+    add('7', ORANGE, pts);
+    labels['7'] = [{ p: surf(0, y), n: [0, 0, 1] }];
   }
 
   /* ---------- ⑧ Плечи ---------- */
@@ -559,17 +667,20 @@ function buildTorso(input) {
       const t = i / 32;
       const x = -w + 2 * w * t;
       const arch = Math.cos(t * Math.PI - Math.PI / 2);
-      pts.push([x, y + arch * 0.03, d * 0.5]);
+      pts.push({ p: [x, y + arch * 0.03, d * 0.5], n: [0, 0, 1] });
     }
-    add('8', GREEN, withNormals(pts, () => [0, 0, 1]));
+    add('8', GREEN, pts);
 
     for (const sx of [1, -1]) {
       const circle = [];
       for (let i = 0; i < 24; i++) {
         const a = (i / 24) * Math.PI * 2;
-        circle.push([sx * w + Math.cos(a) * 0.03, y + Math.sin(a) * 0.03, d * 0.6]);
+        circle.push({
+          p: [sx * w + Math.cos(a) * 0.03, y + Math.sin(a) * 0.03, d * 0.6],
+          n: [0, 0, 1],
+        });
       }
-      add('8', GREEN, withNormals(circle, () => [0, 0, 1]), true);
+      add('8', GREEN, circle, true);
     }
     labels['8'] = [
       { p: [w, y + 0.03, d * 0.6], n: [1, 0.3, 0] },
@@ -581,7 +692,10 @@ function buildTorso(input) {
   {
     const top = [0, yTop, 0];
     const bot = [0, yBot, 0];
-    add('A', ORANGE, withNormals([bot, top], () => [1, 0, 0]));
+    add('A', ORANGE, [
+      { p: bot, n: [1, 0, 0] },
+      { p: top, n: [1, 0, 0] },
+    ]);
     labels['A'] = [{ p: lerp(bot, top, 0.5), n: [1, 0, 0] }];
   }
 
@@ -590,35 +704,36 @@ function buildTorso(input) {
     const y = yBot + 0.1;
     const w = widthAt(y);
     const d = depthAt(y);
-    const angle = [w, y, d * 0.4];
-    add('B', ORANGE, withNormals([angle, mirrorX(angle)], () => [0, 0, 1]));
-    labels['B'] = [
-      { p: angle, n: norm([1, 0, 0.4]) },
-      { p: mirrorX(angle), n: norm([-1, 0, 0.4]) },
-    ];
+    const angleR = { p: [w, y, d * 0.2], n: norm([1, 0, 0.2]) };
+    const angleL = { p: [-w, y, d * 0.2], n: norm([-1, 0, 0.2]) };
+    add('B', ORANGE, [angleR, angleL]);
+    labels['B'] = [angleR, angleL];
   }
 
   /* ---------- Ⓒ Пупок ---------- */
   {
     const y = yBot + 0.05;
-    const d = depthAt(y);
+    const pf = surf(0, y);
     const circle = [];
     for (let i = 0; i < 16; i++) {
       const a = (i / 16) * Math.PI * 2;
-      circle.push([Math.cos(a) * 0.02, y + Math.sin(a) * 0.02, d]);
+      circle.push({
+        p: [Math.cos(a) * 0.02, y + Math.sin(a) * 0.02, pf[2]],
+        n: [0, 0, 1],
+      });
     }
-    add('C', ORANGE, withNormals(circle, () => [0, 0, 1]), true);
-    labels['C'] = [{ p: [0, y, d * 1.05], n: [0, 0, 1] }];
+    add('C', ORANGE, circle, true);
+    labels['C'] = [{ p: [0, y, pf[2] * 1.05], n: [0, 0, 1] }];
   }
 
   /* ---------- Ⓓ Ключичные точки ---------- */
   {
     const y = yTop - 0.02;
     const w = s.clavicle;
-    const d = depthAt(y) * 0.92;
+    const pf = surf(0, y);
     labels['D'] = [
-      { p: [w, y, d], n: norm([1, 0.5, 0]) },
-      { p: [-w, y, d], n: norm([-1, 0.5, 0]) },
+      { p: [w, y, pf[2] * 0.9], n: norm([1, 0.5, 0]) },
+      { p: [-w, y, pf[2] * 0.9], n: norm([-1, 0.5, 0]) },
     ];
   }
 
@@ -632,26 +747,30 @@ function buildTorso(input) {
 const PRESETS = [
   {
     id: 'male', label: 'Мужской',
-    values: { width_top: 0.66, width_mid: 0.94, width_bot: 0.76, height: 1.25,
-              depth: 0.56, ribs: 6, rib_bulge: 0.12, sternum_w: 0.09,
+    values: { width_top: 0.48, width_mid: 0.78, width_bot: 0.64, height: 1.25,
+              depth: 0.54, front_flat: 0.26, back_round: 0.20, egg_bias: 0.22,
+              ribs: 6, rib_bulge: 0.10, sternum_w: 0.09,
               clavicle: 0.86, waist_w: 0.58, nipple_w: 0.30 },
   },
   {
     id: 'female', label: 'Женский',
-    values: { width_top: 0.56, width_mid: 0.78, width_bot: 0.66, height: 1.15,
-              depth: 0.48, ribs: 5, rib_bulge: 0.16, sternum_w: 0.07,
+    values: { width_top: 0.40, width_mid: 0.66, width_bot: 0.56, height: 1.15,
+              depth: 0.46, front_flat: 0.22, back_round: 0.18, egg_bias: 0.26,
+              ribs: 5, rib_bulge: 0.14, sternum_w: 0.07,
               clavicle: 0.70, waist_w: 0.50, nipple_w: 0.24 },
   },
   {
     id: 'child', label: 'Ребёнок',
-    values: { width_top: 0.48, width_mid: 0.62, width_bot: 0.54, height: 0.90,
-              depth: 0.40, ribs: 5, rib_bulge: 0.10, sternum_w: 0.07,
+    values: { width_top: 0.36, width_mid: 0.54, width_bot: 0.46, height: 0.90,
+              depth: 0.38, front_flat: 0.24, back_round: 0.16, egg_bias: 0.24,
+              ribs: 5, rib_bulge: 0.10, sternum_w: 0.07,
               clavicle: 0.58, waist_w: 0.46, nipple_w: 0.20 },
   },
   {
     id: 'athlete', label: 'Атлет',
-    values: { width_top: 0.80, width_mid: 1.05, width_bot: 0.78, height: 1.28,
-              depth: 0.62, ribs: 7, rib_bulge: 0.10, sternum_w: 0.10,
+    values: { width_top: 0.56, width_mid: 0.90, width_bot: 0.68, height: 1.28,
+              depth: 0.58, front_flat: 0.30, back_round: 0.20, egg_bias: 0.20,
+              ribs: 7, rib_bulge: 0.10, sternum_w: 0.10,
               clavicle: 0.98, waist_w: 0.54, nipple_w: 0.34 },
   },
 ];
@@ -665,7 +784,7 @@ function presetShape(id) {
  * Состояние
  * ================================================================== */
 
-const STORE_KEY = 'loomis-torso:v1';
+const STORE_KEY = 'loomis-torso:v2';
 const state = loadState();
 
 function wrapYaw(y) { return ((((y + 180) % 360) + 360) % 360) - 180; }
@@ -999,7 +1118,8 @@ function renderPresets() {
 const shapeSyncers = [];
 const shapeHost = $('shape-sliders');
 const SHAPE_GROUPS = {
-  width_top: 'Пропорции',
+  width_top: 'Яйцевидная форма',
+  front_flat: 'Поперечное сечение',
   ribs: 'Рёбра',
   sternum_w: 'Специфика',
   clavicle: 'Плечевой пояс',
@@ -1251,10 +1371,10 @@ function download(blob, name) {
 
 $('about-btn').addEventListener('click', () => {
   alert(
-    'Грудная клетка Лумиса (2D, 360°)\n\n' +
-    '① — средняя линия (спереди и сзади)\n' +
+    'Грудная клетка Лумиса (2D, 360°) — яйцевидная форма\n\n' +
+    '① — средняя линия (перед и спина)\n' +
     '② — ключичная линия\n' +
-    '③ — контур грудной клетки (ящик)\n' +
+    '③ — контур яйца (передний силуэт + дуги)\n' +
     '④ — рёбра (горизонтальные дуги)\n' +
     '⑤ — грудина\n' +
     '⑥ — линия сосков\n' +
@@ -1264,9 +1384,10 @@ $('about-btn').addEventListener('click', () => {
     'Ⓑ — угол рёбер\n' +
     'Ⓒ — пупок\n' +
     'Ⓓ — ключичные точки\n\n' +
-    'Перетаскивай мышью — вращение (yaw) и наклон (pitch).\n' +
-    'Кнопка «Крутить» — плавный автоповорот.\n' +
-    'Скрытые линии — приглушённый пунктир с обратной стороны.'
+    'Яйцевидная форма: широкая в нижней трети (рёберная дуга),\n' +
+    'узкая сверху (ключицы). Смещение «яйца» вниз — слайдер egg_bias.\n' +
+    'Поперечное сечение: front_flat делает перед плоским,\n' +
+    'back_round — спину более округлой.'
   );
 });
 
@@ -1354,4 +1475,4 @@ render();
 updateViewName();
 </script>
 </body>
-</html>
+  </html>
