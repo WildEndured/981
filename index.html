@@ -3,351 +3,314 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>2D Голова (Финальная)</title>
+<title>Шаг 2. Голова</title>
 <style>
   :root {
-    --bg: #141419; --panel: #1e1e26; --accent: #e8b04b;
-    --text: #e8e8f0; --muted: #8a8a99; --border: #33333f;
-    --danger: #e85b5b; --red: #f03e6e; --blue: #3b7cff;
+    --bg: #141419; --panel: #1e1e26; --panel-2: #262630;
+    --accent: #e8b04b; --text: #e8e8f0; --muted: #8a8a99;
+    --border: #33333f; --danger: #e85b5b;
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0; min-height: 100vh; background: radial-gradient(circle at top, #1c1c26 0%, var(--bg) 70%);
-    color: var(--text); font-family: system-ui, sans-serif;
-    display: flex; flex-direction: column; align-items: center; padding: 24px 16px; gap: 20px;
+    margin: 0; min-height: 100vh;
+    background: radial-gradient(circle at top, #1c1c26 0%, var(--bg) 70%);
+    color: var(--text); font-family: system-ui, -apple-system, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 24px 16px; gap: 20px;
   }
   header { text-align: center; }
-  header h1 { font-size: 1.15rem; font-weight: 600; margin: 0 0 4px; }
+  header h1 { font-size: 1.15rem; font-weight: 600; margin: 0 0 4px; letter-spacing: .3px; }
   header p { margin: 0; font-size: .8rem; color: var(--muted); }
-  .app { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 1000px; }
-  .controls {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px;
-    width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 12px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.35); max-height: 85vh; overflow-y: auto;
+  .app {
+    display: flex; gap: 24px; align-items: flex-start;
+    flex-wrap: wrap; justify-content: center;
+    width: 100%; max-width: 900px;
   }
-  .controls h2 { font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 8px 0 4px; font-weight: 600; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
-  .control { display: flex; flex-direction: column; gap: 4px; }
-  .control-head { display: flex; justify-content: space-between; align-items: center; font-size: .8rem; }
-  .badge { background: var(--panel); border: 1px solid var(--border); color: var(--accent); font-variant-numeric: tabular-nums; font-size: .7rem; font-weight: 600; padding: 1px 6px; border-radius: 999px; min-width: 40px; text-align: center; }
-  input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 2px; background: #33333f; outline: none; cursor: pointer; position: relative; }
-  input[type="range"]::-webkit-slider-runnable-track { background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--fill, 0%), #33333f var(--fill, 0%), #33333f 100%); height: 4px; border-radius: 2px; }
-  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,.4); cursor: pointer; margin-top: -5px; }
-  .actions { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--border); margin-top: 8px; }
-  .btn-reset { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: .75rem; transition: all .2s; }
+  .controls {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 16px; padding: 18px 20px;
+    width: 100%; max-width: 360px;
+    display: flex; flex-direction: column; gap: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  .controls h2 {
+    font-size: .75rem; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--muted);
+    margin: 0 0 4px; font-weight: 600;
+  }
+  .control { display: flex; flex-direction: column; gap: 6px; }
+  .control-head { display: flex; justify-content: space-between; align-items: center; font-size: .85rem; }
+  .badge {
+    background: var(--panel-2); border: 1px solid var(--border);
+    color: var(--accent); font-variant-numeric: tabular-nums;
+    font-size: .75rem; font-weight: 600; padding: 2px 8px;
+    border-radius: 999px; min-width: 46px; text-align: center;
+  }
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none; width: 100%;
+    height: 6px; border-radius: 3px; background: #33333f;
+    outline: none; cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 16px; height: 16px;
+    border-radius: 50%; background: #fff; border: 3px solid var(--accent);
+    box-shadow: 0 2px 6px rgba(0,0,0,.4); cursor: pointer; transition: transform .15s;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+  .actions {
+    display: flex; justify-content: flex-end; align-items: center;
+    padding-top: 12px; border-top: 1px solid var(--border); margin-top: 8px;
+  }
+  .btn-reset {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted); padding: 6px 12px; border-radius: 6px;
+    cursor: pointer; font-size: .75rem; transition: all .2s;
+  }
   .btn-reset:hover { border-color: var(--danger); color: var(--danger); }
-  .stage { position: relative; width: 500px; height: 800px; max-width: 100%; }
-  canvas { display: block; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
-  .label-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; }
-  .guide-label { position: absolute; top: 0; left: 0; font-family: monospace; font-weight: bold; font-size: 14px; text-shadow: 0 1px 3px #000; }
-  .label-red { color: var(--red); } .label-blue { color: var(--blue); } .label-ink { color: var(--muted); }
+  .stage { position: relative; }
+  canvas {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    display: block;
+  }
+  .hint { font-size: .75rem; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--border); padding-top: 12px; }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>2D Голова</h1>
-  <p>Анатомически правильные линии и шея</p>
+  <h1>Построение головы</h1>
+  <p>Настрой пропорции черепа, челюсти и подбородка</p>
 </header>
 
 <div class="app">
   <div class="controls">
-    <h2>Общие пропорции</h2>
+    <h2>Параметры</h2>
+
     <div class="control">
-      <div class="control-head"><label>Частей (голов)</label><span class="badge" id="valParts">7</span></div>
+      <div class="control-head">
+        <label>Частей (голов)</label>
+        <span class="badge" id="valParts">7</span>
+      </div>
       <input id="rangeParts" type="range" min="3" max="10" value="7" step="1">
     </div>
-    
-    <h2>Форма черепа</h2>
+
     <div class="control">
-      <div class="control-head"><label>Ширина головы</label><span class="badge" id="valCut">0.73</span></div>
-      <input id="rangeCut" type="range" min="0.4" max="0.95" value="0.73" step="0.01">
-    </div>
-    <div class="control">
-      <div class="control-head"><label>Высота верха</label><span class="badge" id="valTop">1.0</span></div>
-      <input id="rangeTop" type="range" min="0.8" max="1.4" value="1.0" step="0.01">
+      <div class="control-head">
+        <label>Размер круга головы</label>
+        <span class="badge" id="valRadius">1.5</span>
+      </div>
+      <input id="rangeRadius" type="range" min="1.0" max="2.0" value="1.5" step="0.1">
     </div>
 
-    <h2>Глаза</h2>
     <div class="control">
-      <div class="control-head"><label>Высота глаз</label><span class="badge" id="valEye">0.0</span></div>
-      <input id="rangeEye" type="range" min="-0.9" max="0.9" value="0.0" step="0.01">
+      <div class="control-head">
+        <label>Крепление челюсти</label>
+        <span class="badge" id="valAttach">2.0</span>
+      </div>
+      <input id="rangeAttach" type="range" min="1.0" max="3.0" value="2.0" step="0.1">
     </div>
 
-    <h2>Челюсть</h2>
     <div class="control">
-      <div class="control-head"><label>Ширина челюсти</label><span class="badge" id="valJawX">0.62</span></div>
-      <input id="rangeJawX" type="range" min="0.2" max="0.95" value="0.62" step="0.01">
-    </div>
-    <div class="control">
-      <div class="control-head"><label>Длина челюсти</label><span class="badge" id="valJawLen">0.40</span></div>
-      <input id="rangeJawLen" type="range" min="0" max="1.2" value="0.4" step="0.01">
-    </div>
-    <div class="control">
-      <div class="control-head"><label>Наклон челюсти</label><span class="badge" id="valJawTilt">10°</span></div>
-      <input id="rangeJawTilt" type="range" min="-40" max="70" value="10" step="1">
+      <div class="control-head">
+        <label>Ширина подбородка</label>
+        <span class="badge" id="valChinW">0.50</span>
+      </div>
+      <input id="rangeChinW" type="range" min="0.05" max="1.0" value="0.5" step="0.05">
     </div>
 
-    <h2>Подбородок</h2>
     <div class="control">
-      <div class="control-head"><label>Высота подбородка</label><span class="badge" id="valChinLen">1.0</span></div>
-      <input id="rangeChinLen" type="range" min="0.5" max="1.5" value="1.0" step="0.01">
-    </div>
-    <div class="control">
-      <div class="control-head"><label>Ширина подбородка</label><span class="badge" id="valChinW">0.22</span></div>
-      <input id="rangeChinW" type="range" min="0.03" max="0.6" value="0.22" step="0.01">
-    </div>
-    <div class="control">
-      <div class="control-head"><label>Округлость</label><span class="badge" id="valChinRound">0.50</span></div>
-      <input id="rangeChinRound" type="range" min="0" max="1" value="0.5" step="0.01">
+      <div class="control-head">
+        <label>Высота подбородка</label>
+        <span class="badge" id="valChinH">4.0</span>
+      </div>
+      <input id="rangeChinH" type="range" min="3.0" max="5.0" value="4.0" step="0.1">
     </div>
 
-    <h2>Шея</h2>
     <div class="control">
-      <div class="control-head"><label>Ширина шеи</label><span class="badge" id="valNeckW">0.4</span></div>
-      <input id="rangeNeckW" type="range" min="0.1" max="1.0" value="0.4" step="0.05">
-    </div>
-    <div class="control">
-      <div class="control-head"><label>Длина шеи</label><span class="badge" id="valNeckL">1.0</span></div>
-      <input id="rangeNeckL" type="range" min="0.2" max="2.0" value="1.0" step="0.1">
+      <div class="control-head">
+        <label>Округлость</label>
+        <span class="badge" id="valRound">0.00</span>
+      </div>
+      <input id="rangeRound" type="range" min="0" max="1" value="0" step="0.05">
     </div>
 
     <div class="actions">
       <button class="btn-reset" id="btnReset">Сбросить</button>
     </div>
+
+    <div class="hint">
+      Значения подбородка измеряются в долях головы (от 3/5 до 5/5).
+      Округлость 0 — угловатая челюсть, 1 — мягкая дуга.
+    </div>
   </div>
 
   <div class="stage">
-    <canvas id="canvas" width="500" height="800"></canvas>
-    <div class="label-layer" id="labelLayer"></div>
+    <canvas id="canvas" width="450" height="800"></canvas>
   </div>
 </div>
 
 <script>
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
-const labelLayer = document.getElementById('labelLayer');
 
-const rad = (d) => (d * Math.PI) / 180;
-
-function rounded2D(items, radius) {
-  const pts0 = [];
-  for (const it of items) {
-    if (!pts0.length || Math.hypot(it.p.x - pts0[pts0.length - 1].p.x, it.p.z - pts0[pts0.length - 1].p.z) > 1e-6) {
-      pts0.push(it);
-    }
-  }
-  if (pts0.length < 3) return { pts: pts0.map((it) => it.p), corners: [] };
-  const out = [pts0[0].p];
-  const corners = [];
-  for (let i = 1; i < pts0.length - 1; i++) {
-    const P = pts0[i - 1].p, V = pts0[i].p, N = pts0[i + 1].p;
-    const kk = pts0[i].k ?? 0;
-    const d1 = { x: V.x - P.x, z: V.z - P.z }, d2 = { x: N.x - V.x, z: N.z - V.z };
-    const L1 = Math.hypot(d1.x, d1.z), L2 = Math.hypot(d2.x, d2.z);
-    if (L1 < 1e-6 || L2 < 1e-6) { out.push(V); corners.push({ v: V, p: V }); continue; }
-    const u1 = { x: d1.x / L1, z: d1.z / L1 }, u2 = { x: d2.x / L2, z: d2.z / L2 };
-    const cos = Math.max(-1, Math.min(1, u1.x * u2.x + u1.z * u2.z));
-    const turn = Math.acos(cos);
-    if (turn < 1e-3) { out.push(V); corners.push({ v: V, p: V }); continue; }
-    const base = radius * Math.tan(Math.min(turn, Math.PI * 0.95) / 2);
-    const t1 = Math.min(Math.max(base, kk * 0.5 * L1), L1 * 0.5);
-    const t2 = Math.min(Math.max(base, kk * 0.5 * L2), L2 * 0.5);
-    const T1 = { x: V.x - u1.x * t1, z: V.z - u1.z * t1 };
-    const T2 = { x: V.x + u2.x * t2, z: V.z + u2.z * t2 };
-    const STEPS = 2 * (3 + Math.round(kk * 9));
-    for (let j = 0; j <= STEPS; j++) {
-      const s = j / STEPS, a = (1 - s) * (1 - s), b = 2 * s * (1 - s), c = s * s;
-      out.push({ x: a * T1.x + b * V.x + c * T2.x, z: a * T1.z + b * V.z + c * T2.z });
-    }
-    corners.push({ v: V, p: { x: 0.25 * T1.x + 0.5 * V.x + 0.25 * T2.x, z: 0.25 * T1.z + 0.5 * V.z + 0.25 * T2.z } });
-  }
-  out.push(pts0[pts0.length - 1].p);
-  return { pts: out, corners };
-}
-
-function buildHead2D(p) {
-  const lines = [];
-  const labels = {};
-  const add = (id, color, pts, closed = false) => lines.push({ id, color, closed, pts });
-
-  const zEye = p.eye;
-  const zTop = p.top;
-  const zBottom = -1; 
-  
-  const rx = p.cut;
-  const rz = 1;
-
-  // 1. Череп
-  const spherePts = [];
-  for (let i = 0; i < 64; i++) {
-    const t = (i / 64) * Math.PI * 2;
-    const zMult = Math.cos(t) > 0 ? zTop : 1;
-    spherePts.push({ x: rx * Math.sin(t), z: rz * Math.cos(t) * zMult });
-  }
-  add('1', 'red', spherePts, true);
-  labels['1'] = [{ p: {x: 0, z: zTop * 0.8} }];
-
-  // 2. Линия глаз
-  add('2', 'red', [{x: -rx, z: zEye}, {x: rx, z: zEye}], false);
-  labels['2'] = [{ p: {x: rx, z: zEye} }];
-
-  // 6. Ось (переносица -> подбородок)
-  const zChin = zBottom - p.chin_len;
-  const chinMid = { x: 0, z: zChin };
-  add('6', 'red', [{x: 0, z: zEye}, chinMid]);
-  labels['6'] = [{ p: { x: 0, z: (zEye + zChin) / 2 } }];
-
-  // 7. Челюсть
-  // Начинается от краев черепа (чуть ниже экватора)
-  const jawStartZ = zBottom * 0.4; 
-  const A_right = { x: rx, z: jawStartZ }; 
-  const A_left = { x: -rx, z: jawStartZ };
-  
-  const tilt = rad(p.jaw_tilt);
-  // Точка B (угол челюсти)
-  const B_right = { x: p.jaw_x, z: jawStartZ - p.jaw_len * Math.cos(tilt) };
-  const B_left = { x: -p.jaw_x, z: jawStartZ - p.jaw_len * Math.cos(tilt) };
-  
-  // Точка C (подбородок)
-  const Cf_right = { x: p.chin_w, z: zChin };
-  const Cf_left = { x: -p.chin_w, z: zChin };
-  const k = p.chin_round;
-
-  const jaw = rounded2D([
-    { p: A_right }, { p: B_right, k: 0 }, { p: Cf_right, k },
-    { p: Cf_left, k }, { p: B_left, k: 0 }, { p: A_left }
-  ], 0.05);
-  
-  add('7', 'blue', jaw.pts);
-  labels['7'] = [{ p: B_right }];
-
-  // 8. Щеки (идут от подбородка к скулам)
-  const cheekRight = { x: rx * 0.85, z: zEye };
-  const cheekLeft = { x: -rx * 0.85, z: zEye };
-  add('8', 'blue', [Cf_right, cheekRight]);
-  add('8', 'blue', [Cf_left, cheekLeft]);
-  labels['8'] = [{ p: { x: (Cf_right.x + cheekRight.x) / 2, z: (Cf_right.z + cheekRight.z) / 2 } }];
-
-  return { lines, labels };
-}
-
-let params = {
-  parts: 7, cut: 0.73, top: 1.0, eye: 0.0,
-  jaw_x: 0.62, jaw_len: 0.40, jaw_tilt: 10,
-  chin_len: 1.0, chin_w: 0.22, chin_round: 0.5,
-  neckW: 0.4, neckL: 1.0
+const els = {
+  parts:  { r: document.getElementById('rangeParts'),  v: document.getElementById('valParts'),  def: 7 },
+  radius: { r: document.getElementById('rangeRadius'), v: document.getElementById('valRadius'), def: 1.5 },
+  attach: { r: document.getElementById('rangeAttach'), v: document.getElementById('valAttach'), def: 2.0 },
+  chinW:  { r: document.getElementById('rangeChinW'),  v: document.getElementById('valChinW'),  def: 0.5 },
+  chinH:  { r: document.getElementById('rangeChinH'),  v: document.getElementById('valChinH'),  def: 4.0 },
+  round:  { r: document.getElementById('rangeRound'),  v: document.getElementById('valRound'),  def: 0 }
 };
 
-function project(x, z, scale, cx, cy) {
-  return { x: cx + x * scale, y: cy - z * scale };
+const btnReset = document.getElementById('btnReset');
+
+function updateFill(el) {
+  const min = parseFloat(el.min), max = parseFloat(el.max), val = parseFloat(el.value);
+  el.style.setProperty('--fill', ((val - min) / (max - min)) * 100 + '%');
 }
 
-const LABELS = { '1': '①', '2': '②', '6': '⑥', '7': '⑦', '8': '⑧' };
-const labelEls = {};
-Object.keys(LABELS).forEach(id => {
-  const el = document.createElement('div');
-  el.className = `guide-label label-${['1','2','6'].includes(id) ? 'red' : 'blue'}`;
-  el.textContent = LABELS[id];
-  el.style.display = 'none';
-  labelLayer.appendChild(el);
-  labelEls[id] = el;
+function updateValDisplay(el, valEl) {
+  valEl.textContent = (el.id === 'rangeChinW' || el.id === 'rangeRound') 
+    ? parseFloat(el.value).toFixed(2) 
+    : parseFloat(el.value).toFixed(1).replace('.0', '');
+}
+
+Object.values(els).forEach(({ r, v }) => {
+  r.addEventListener('input', () => {
+    if (r.id === 'rangeAttach' && parseFloat(r.value) > parseFloat(els.chinH.r.value) - 0.5) {
+      r.value = parseFloat(els.chinH.r.value) - 0.5;
+    }
+    if (r.id === 'rangeChinH' && parseFloat(r.value) < parseFloat(els.attach.r.value) + 0.5) {
+      r.value = parseFloat(els.attach.r.value) + 0.5;
+    }
+    
+    updateValDisplay(r, v);
+    updateFill(r);
+    if (r.id === 'rangeAttach') updateFill(els.chinH.r);
+    if (r.id === 'rangeChinH') updateFill(els.attach.r);
+    draw();
+  });
+  updateValDisplay(r, v);
+  updateFill(r);
 });
 
+btnReset.addEventListener('click', () => {
+  Object.values(els).forEach(({ r, def }) => { r.value = def; updateFill(r); });
+  Object.keys(els).forEach(k => updateValDisplay(els[k].r, els[k].v));
+  draw();
+});
+
+function drawPoint(x, y, color = '#e85b5b') {
+  ctx.beginPath();
+  ctx.arc(x, y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = color; ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+}
+
 function draw() {
+  const parts = parseInt(els.parts.r.value);
+  const radiusMultiplier = parseFloat(els.radius.r.value);
+  const attachPos = parseFloat(els.attach.r.value);
+  const chinWidthMul = parseFloat(els.chinW.r.value);
+  const chinHeightPos = parseFloat(els.chinH.r.value);
+  const roundness = parseFloat(els.round.r.value);
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  
-  const pad = 20;
-  const top = pad;
-  const height = canvas.height - pad * 2;
-  const step = height / params.parts;
-  
-  const scale = step / 2;
-  const cx = canvas.width / 2;
-  const cy = top + step; 
+
+  const pad = 20, top = pad, bottom = canvas.height - pad;
+  const height = bottom - top, step = height / parts;
+  const left = 20, right = canvas.width - 20, cx = (left + right) / 2;
 
   // Сетка
   ctx.strokeStyle = '#3a3a46'; ctx.lineWidth = 1;
   ctx.font = '11px system-ui'; ctx.fillStyle = '#8a8a99';
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  
-  for (let i = 0; i <= params.parts; i++) {
+  for (let i = 0; i <= parts; i++) {
     const y = top + i * step;
-    ctx.beginPath(); ctx.moveTo(20, y); ctx.lineTo(canvas.width - 20, y); ctx.stroke();
-    if (i < params.parts) ctx.fillText(i + 1, canvas.width - 40, y + step / 2);
+    ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(right, y); ctx.stroke();
+    if (i < parts) ctx.fillText(i + 1, right - 16, y + step / 2);
   }
-  
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.setLineDash([4, 6]);
-  ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, canvas.height - pad); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.setLineDash([4, 6]);
+  ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, bottom); ctx.stroke(); ctx.setLineDash([]);
 
-  const head2D = buildHead2D(params);
-  
-  head2D.lines.forEach(line => {
-    ctx.beginPath();
-    ctx.strokeStyle = line.color === 'red' ? '#f03e6e' : '#3b7cff';
-    ctx.lineWidth = 2;
-    
-    line.pts.forEach((pt, i) => {
-      const p = project(pt.x, pt.z, scale, cx, cy);
-      if (i === 0) ctx.moveTo(p.x, p.y);
-      else ctx.lineTo(p.x, p.y);
-    });
-    if (line.closed) ctx.closePath();
-    ctx.stroke();
-  });
+  // Геометрия
+  const fifth = step / 5;
+  const y0 = top;
+  const yAttach = top + fifth * attachPos;
+  const y3 = top + fifth * 3;
+  const yChin = top + fifth * chinHeightPos;
 
-  // Шея (строго из подбородка)
-  const chinMid = head2D.labels['6'][0].p;
-  const chinPt = project(chinMid.x, chinMid.z, scale, cx, cy);
-  const neckWidthPx = params.neckW * scale * 0.5;
-  const neckLenPx = params.neckL * scale;
-  
-  ctx.fillStyle = 'rgba(232,176,75,0.1)';
-  ctx.strokeStyle = '#e8b04b';
-  ctx.lineWidth = 1.5;
+  const r = fifth * radiusMultiplier;
+  const cy = y0 + r;
+
+  const yAttachOffset = Math.abs(yAttach - cy);
+  const jawWidthTop = yAttachOffset < r ? 2 * Math.sqrt(r*r - yAttachOffset*yAttachOffset) : r * 2;
+  const jawWidthBot = jawWidthTop * chinWidthMul;
+
+  // Вспомогательные линии
+  ctx.strokeStyle = 'rgba(232,176,75,0.22)'; ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
+  for (let i = 1; i <= 5; i++) {
+    const y = top + fifth * i;
+    ctx.beginPath(); ctx.moveTo(cx - r - 40, y); ctx.lineTo(cx + r + 40, y); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // Череп
+  ctx.strokeStyle = '#e8b04b'; ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+
+  // Челюсть
   ctx.beginPath();
-  ctx.moveTo(chinPt.x - neckWidthPx / 2, chinPt.y);
-  ctx.lineTo(chinPt.x - neckWidthPx / 2, chinPt.y + neckLenPx);
-  ctx.lineTo(chinPt.x + neckWidthPx / 2, chinPt.y + neckLenPx);
-  ctx.lineTo(chinPt.x + neckWidthPx / 2, chinPt.y);
-  ctx.fill(); ctx.stroke();
+  const halfTop = jawWidthTop / 2;
+  const halfBot = jawWidthBot / 2;
+  const ptTopL = { x: cx - halfTop, y: yAttach };
+  const ptTopR = { x: cx + halfTop, y: yAttach };
+  const ptBotL = { x: cx - halfBot, y: yChin };
+  const ptBotR = { x: cx + halfBot, y: yChin };
 
-  // Метки
-  Object.keys(labelEls).forEach(id => { labelEls[id].style.display = 'none'; });
-  Object.entries(head2D.labels).forEach(([id, cands]) => {
-    if (!cands || cands.length === 0) return;
-    const best = cands[0];
-    const p = project(best.p.x, best.p.z, scale, cx, cy);
-    const el = labelEls[id];
-    if (!el) return;
-    el.style.display = 'block';
-    el.style.transform = `translate(${p.x + 15}px, ${p.y - 15}px) translate(-50%, -50%)`;
-  });
+  ctx.moveTo(ptTopL.x, ptTopL.y);
+  const yBreak = Math.min(y3, yChin); 
+  ctx.lineTo(cx - halfTop, yBreak);
+
+  if (roundness > 0) {
+    const cp1x = cx - halfBot - (halfTop - halfBot) * 0.4;
+    const cp1y = yBreak + (yChin - yBreak) * 0.3;
+    const cp2x = cx - halfBot;
+    const cp2y = yBreak + (yChin - yBreak) * 0.8;
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ptBotL.x, ptBotL.y);
+  } else {
+    ctx.lineTo(ptBotL.x, ptBotL.y);
+  }
+
+  if (roundness > 0) {
+    const dip = (yChin - yBreak) * 0.4 * roundness;
+    ctx.quadraticCurveTo(cx, yChin + dip, ptBotR.x, ptBotR.y);
+  } else {
+    ctx.lineTo(ptBotR.x, ptBotR.y);
+  }
+
+  if (roundness > 0) {
+    const cp1x = cx + halfBot;
+    const cp1y = yBreak + (yChin - yBreak) * 0.8;
+    const cp2x = cx + halfBot + (halfTop - halfBot) * 0.4;
+    const cp2y = yBreak + (yChin - yBreak) * 0.3;
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ptTopR.x, yBreak);
+  } else {
+    ctx.lineTo(ptTopR.x, yBreak);
+  }
+
+  ctx.lineTo(ptTopR.x, ptTopR.y);
+  ctx.stroke();
+
+  // Подписи долей
+  ctx.fillStyle = '#8a8a99'; ctx.font = '10px system-ui';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  for (let i = 1; i <= 5; i++) {
+    ctx.fillText(`${i}/5`, cx + r + 10, top + fifth * i - fifth / 2);
+  }
 }
 
-const inputs = ['parts', 'cut', 'top', 'eye', 'jawX', 'jawLen', 'jawTilt', 'chinLen', 'chinW', 'chinRound', 'neckW', 'neckL'];
-const paramMap = { parts: 'parts', cut: 'cut', top: 'top', eye: 'eye', jawX: 'jaw_x', jawLen: 'jaw_len', jawTilt: 'jaw_tilt', chinLen: 'chin_len', chinW: 'chin_w', chinRound: 'chin_round', neckW: 'neckW', neckL: 'neckL' };
-
-inputs.forEach(id => {
-  const el = document.getElementById('range' + id.charAt(0).toUpperCase() + id.slice(1));
-  const valEl = document.getElementById('val' + id.charAt(0).toUpperCase() + id.slice(1));
-  if (!el) return;
-  const update = () => {
-    const val = parseFloat(el.value);
-    params[paramMap[id]] = val;
-    if (valEl) {
-      if (id === 'jawTilt') valEl.textContent = val + '°';
-      else if (id === 'parts') valEl.textContent = val;
-      else valEl.textContent = val.toFixed(2);
-    }
-    draw();
-  };
-  el.addEventListener('input', update);
-  if (id === 'parts') el.value = params.parts;
-  else el.value = params[paramMap[id]];
-  update();
-});
-
-document.getElementById('btnReset').addEventListener('click', () => location.reload());
 draw();
 </script>
 </body>
