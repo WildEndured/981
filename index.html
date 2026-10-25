@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Loomis 2D (по спецификации)</title>
+<title>Loomis 2D (Исправленная сфера)</title>
 <style>
   :root {
     --bg: #141419; --panel: #1e1e26; --accent: #e8b04b;
@@ -46,7 +46,7 @@
 
 <header>
   <h1>Loomis 2D</h1>
-  <p>Строго по спецификации геометрии</p>
+  <p>Нормальная сфера и челюсть</p>
 </header>
 
 <div class="app">
@@ -71,33 +71,28 @@ const mirror = (a) => [-a[0], a[1], a[2]];
 const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
 const SHAPE_PARAMS = [
-  { key: 'cut',        label: '頭の幅',                 min: 0.4,  max: 0.95, step: 0.01, def: 0.73 },
-  { key: 'top',        label: 'てっぺんの高さ',         min: 0.8,  max: 1.4,  step: 0.01, def: 1 },
-  { key: 'back',       label: '後頭部の出っ張り',       min: 0.8,  max: 1.4,  step: 0.01, def: 1 },
-  { key: 'r0',         label: '③ 側面の円の大きさ',     min: 0.3,  max: 0.95, step: 0.01, def: 0.68 },
-  { key: 'eye',        label: '② 眉・目の線の高さ',     min: -0.9, max: 0.9,  step: 0.01, def: 0 },
-  { key: 'forehead',   label: '④ 生え際の高さ',         min: 0.3,  max: 1.4,  step: 0.01, def: 1 },
-  { key: 'jaw_start',  label: 'Ⓐ 顎ラインの起点',       min: -60,  max: 60,   step: 1,    def: 0,  unit: '°' },
-  { key: 'jaw_len',    label: '⑦ 顎ライン Ⓐ→Ⓑの長さ', min: 0,    max: 1.2,  step: 0.01, def: 0.4 },
-  { key: 'jaw_tilt',   label: '⑦ 顎ライン Ⓐ→Ⓑの傾き', min: -40,  max: 70,   step: 1,    def: 10, unit: '°' },
-  { key: 'jaw_x',      label: 'Ⓑ エラの幅',             min: 0.2,  max: 0.95, step: 0.01, def: 0.62 },
-  { key: 'chin_len',   label: 'Ⓒ あご先の高さ',         min: 0.5,  max: 1.5,  step: 0.01, def: 1 },
-  { key: 'chin_front', label: 'Ⓒ あご先の前後',         min: 0.4,  max: 1.4,  step: 0.01, def: 0.85 },
-  { key: 'chin_w',     label: 'Ⓒ あご先の幅',           min: 0.03, max: 0.6,  step: 0.01, def: 0.22 },
-  { key: 'chin_round', label: 'Ⓒ あご先の丸み',         min: 0,    max: 1,    step: 0.01, def: 0.5 },
+  { key: 'cut',        label: 'Ширина головы',       min: 0.4,  max: 0.95, step: 0.01, def: 0.73 },
+  { key: 'top',        label: 'Высота верха',        min: 0.8,  max: 1.4,  step: 0.01, def: 1 },
+  { key: 'r0',         label: 'Размер кругов',       min: 0.3,  max: 0.95, step: 0.01, def: 0.68 },
+  { key: 'eye',        label: 'Высота глаз',         min: -0.9, max: 0.9,  step: 0.01, def: 0 },
+  { key: 'jaw_start',  label: 'Начало челюсти',      min: -60,  max: 60,   step: 1,    def: 0,  unit: '°' },
+  { key: 'jaw_len',    label: 'Длина челюсти',       min: 0,    max: 1.2,  step: 0.01, def: 0.4 },
+  { key: 'jaw_tilt',   label: 'Наклон челюсти',      min: -40,  max: 70,   step: 1,    def: 10, unit: '°' },
+  { key: 'jaw_x',      label: 'Ширина эла',          min: 0.2,  max: 0.95, step: 0.01, def: 0.62 },
+  { key: 'chin_len',   label: 'Высота подбородка',   min: 0.5,  max: 1.5,  step: 0.01, def: 1 },
+  { key: 'chin_front', label: 'Выступ подбородка',   min: 0.4,  max: 1.4,  step: 0.01, def: 0.85 },
+  { key: 'chin_w',     label: 'Ширина подбородка',   min: 0.03, max: 0.6,  step: 0.01, def: 0.22 },
+  { key: 'chin_round', label: 'Округлость',          min: 0,    max: 1,    step: 0.01, def: 0.5 },
 ];
 
 let params = {};
 SHAPE_PARAMS.forEach(p => params[p.key] = p.def);
 
-function makeBall({ cut, r0, top = 1, back = 1 }) {
+function makeBall({ cut, r0, top = 1 }) {
   const width = cut / Math.sqrt(1 - r0 * r0);
-  const sy = (y) => (y > 0 ? back : 1);
-  const sz = (z) => (z > 0 ? top : 1);
   return {
-    width, cut, r0, top, back, sy, sz,
-    stretch: (x, y, z) => [x, y * sy(y), z * sz(z)],
-    normal: (x, y, z) => norm([x / (width * width), y / (sy(y) ** 2), z / (sz(z) ** 2)]),
+    width, cut, r0, top,
+    sz: (z) => (z > 0 ? top : 1),
   };
 }
 
@@ -136,94 +131,70 @@ function rounded(items, radius) {
 
 function buildHead(p) {
   const ball = makeBall(p);
-  const { width, cut, r0, stretch, normal } = ball;
+  const { width, cut, r0 } = ball;
 
   const zEye = p.eye * r0;
   const zChin = -r0 - r0 * p.chin_len;
   const xPlane = cut;
 
-  const surf = (pt) => pt;
-  const rim = (t, x = xPlane) => {
-    const [, y, z] = stretch(0, r0 * Math.cos(t), r0 * Math.sin(t));
-    return [x, y, z];
-  };
-
   const lines = [];
   const labels = {};
 
-  // 1. Меридиан
-  const pts1 = [];
-  for (let i = 0; i < 128; i++) {
-    const t = (i / 128) * Math.PI * 2;
-    pts1.push(surf(stretch(0, Math.cos(t), Math.sin(t))));
-  }
-  lines.push({ id: '1', color: 'red', closed: true, pts: pts1 });
-  labels['1'] = [{ p: pts1[32] }];
+  // 1. Меридиан (вертикальная ось)
+  lines.push({ id: '1', color: 'red', closed: false, pts: [[0, -r0, -r0 * p.top], [0, -r0, r0 * p.top]] });
+  labels['1'] = [{ p: [0, -r0, r0 * p.top * 0.8] }];
 
   // 2. Линия глаз
-  const pts2 = [];
-  const zu = zEye / ball.sz(zEye);
-  const rho = Math.sqrt(Math.max(0, 1 - zu * zu));
-  const half2 = width * rho;
-  for (let i = 0; i < 128; i++) {
-    const t = (i / 128) * Math.PI * 2;
-    pts2.push(surf(stretch(half2 * Math.cos(t), rho * Math.sin(t), zu)));
-  }
-  lines.push({ id: '2', color: 'red', closed: true, pts: pts2 });
-  labels['2'] = [{ p: pts2[0] }];
+  lines.push({ id: '2', color: 'red', closed: false, pts: [[-xPlane, -r0, zEye], [xPlane, -r0, zEye]] });
+  labels['2'] = [{ p: [xPlane, -r0, zEye] }];
 
-  // 3. Боковые круги
+  // 3. Боковые круги (проекция)
   for (const sx of [1, -1]) {
     const x = sx * xPlane;
     const circle = [];
-    for (let i = 0; i < 128; i++) circle.push(rim((i / 128) * Math.PI * 2, x));
+    for (let i = 0; i < 64; i++) {
+      const t = (i / 64) * Math.PI * 2;
+      circle.push([x, r0 * Math.cos(t), r0 * Math.sin(t) * (Math.sin(t) > 0 ? p.top : 1)]);
+    }
     lines.push({ id: '3', color: 'red', closed: true, pts: circle });
   }
-  labels['3'] = [{ p: rim(Math.PI/4, xPlane) }];
+  labels['3'] = [{ p: [xPlane, -r0 * 0.7, r0 * 0.7] }];
 
   // 7. Челюсть
-  const A = rim(rad(-90 - p.jaw_start));
+  const A = [xPlane, -r0 * Math.cos(rad(-90 - p.jaw_start)), r0 * Math.sin(rad(-90 - p.jaw_start))];
   const tilt = rad(p.jaw_tilt);
-  const B = [p.jaw_x, A[1] - p.jaw_len * Math.sin(tilt), A[2] - p.jaw_len * Math.cos(tilt)];
+  const B = [p.jaw_x, A[1], A[2] - p.jaw_len * Math.cos(tilt)];
   const Cf = [p.chin_w, -p.chin_front, zChin];
+  const k = p.chin_round;
 
   const jaw = rounded([
-    { p: A }, { p: B, k: 0 }, { p: Cf, k: p.chin_round },
-    { p: mirror(Cf), k: p.chin_round }, { p: mirror(B), k: 0 }, { p: mirror(A) },
+    { p: A }, { p: B, k: 0 }, { p: Cf, k },
+    { p: mirror(Cf), k }, { p: mirror(B), k: 0 }, { p: mirror(A) },
   ], 0.05);
 
   lines.push({ id: '7', color: 'blue', closed: false, pts: jaw.pts });
   labels['7'] = [{ p: B }, { p: mirror(B) }];
 
   // 8. Щеки
-  const zEyeU = zEye / ball.sz(zEye);
-  const eyeEdge = [xPlane, -Math.sqrt(Math.max(0, r0 * r0 - zEyeU * zEyeU)), zEye];
-  const CfR = jaw.corners.find(c => c.v[0] === Cf[0] && c.v[2] === Cf[2])?.p ?? Cf;
+  const CfR = jaw.corners.find(c => Math.abs(c.v[0] - Cf[0]) < 1e-6 && Math.abs(c.v[2] - Cf[2]) < 1e-6)?.p ?? Cf;
+  const eyeEdge = [xPlane, -r0, zEye];
   lines.push({ id: '8', color: 'blue', closed: false, pts: [CfR, eyeEdge] });
   lines.push({ id: '8', color: 'blue', closed: false, pts: [mirror(CfR), mirror(eyeEdge)] });
   labels['8'] = [{ p: lerp(CfR, eyeEdge, 0.5) }];
 
   // 6. Центр лица
-  const front = surf(stretch(0, -Math.sqrt(Math.max(0, 1 - zEyeU * zEyeU)), zEyeU));
+  const front = [0, -r0, zEye];
   const chinMid = [0, -p.chin_front, zChin];
   lines.push({ id: '6', color: 'red', closed: false, pts: [front, chinMid] });
   labels['6'] = [{ p: lerp(front, chinMid, 0.8) }];
 
-  // Череп (обрезок сферы для 2D-отрисовки)
+  // Череп — эллипс по формуле (X = width * sin, Z = cos)
   const skullPts = [];
-  const a0 = Math.acos(Math.min(1, xPlane / width));
-  for (let i = 0; i <= 64; i++) {
-    const a = -a0 + (2 * a0 * i) / 64;
-    const x = width * Math.sin(a);
-    const z = Math.cos(a);
-    skullPts.push({ x: x, z: z * (z > 0 ? p.top : 1) });
-  }
-  // Замыкаем снизу
-  for (let i = 64; i >= 0; i--) {
-    const a = -a0 + (2 * a0 * i) / 64;
-    const x = width * Math.sin(a);
-    const z = -Math.cos(a);
-    skullPts.push({ x: x, z: z });
+  for (let i = 0; i < 64; i++) {
+    const t = (i / 64) * Math.PI * 2;
+    const x = width * Math.sin(t);
+    const z = Math.cos(t) * (Math.cos(t) > 0 ? p.top : 1);
+    skullPts.push([x, 0, z]);
   }
 
   return { lines, labels, skullPts };
@@ -231,7 +202,7 @@ function buildHead(p) {
 
 // ================= ПРОЕКЦИЯ В 2D =================
 function project(pt, scale, cx, cy) {
-  // pt = [X, Y(глубина), Z(высота)]. Для вида спереди берем X и Z.
+  // pt = [X, Y, Z]. X - ширина, Z - высота, Y - глубина (игнорируем для вида спереди).
   return { x: cx + pt[0] * scale, y: cy - pt[2] * scale };
 }
 
@@ -252,10 +223,10 @@ function draw() {
   const pad = 20;
   const top = pad;
   const height = canvas.height - pad * 2;
-  const parts = 7; // Фиксировано для сетки
+  const parts = 7;
   const step = height / parts;
 
-  // Масштаб: R=1 в 3D. 1 часть сетки = 2 единицы (диаметр сферы)
+  // Масштаб: R=1. 1 часть = 2 единицы (диаметр).
   const scale = step / 2;
   const cx = canvas.width / 2;
   const cy = top + step;
@@ -274,12 +245,12 @@ function draw() {
 
   const head = buildHead(params);
 
-  // Череп (контур)
+  // Череп
   ctx.beginPath();
   ctx.strokeStyle = '#e8b04b';
   ctx.lineWidth = 2;
   head.skullPts.forEach((pt, i) => {
-    const p = project([pt.x, 0, pt.z], scale, cx, cy);
+    const p = project(pt, scale, cx, cy);
     if (i === 0) ctx.moveTo(p.x, p.y);
     else ctx.lineTo(p.x, p.y);
   });
@@ -302,7 +273,7 @@ function draw() {
 
   // Шея
   const chinPt = project(head.labels['6'][0].p, scale, cx, cy);
-  const neckW = 60; // фикс
+  const neckW = 60;
   const neckL = 120;
   ctx.fillStyle = 'rgba(232,176,75,0.1)';
   ctx.strokeStyle = '#e8b04b';
@@ -359,7 +330,6 @@ SHAPE_PARAMS.forEach(p => {
   updateFill();
 });
 
-// Кнопка сброса
 const actions = document.createElement('div');
 actions.className = 'actions';
 actions.innerHTML = `<button class="btn-reset" id="btnReset">Сбросить</button>`;
