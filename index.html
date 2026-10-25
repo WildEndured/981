@@ -69,14 +69,14 @@ function draw(parts) {
   ctx.setLineDash([]);
 
   // ================= ШАГ 2: круг черепа =================
-  // Голова = первая часть сетки, делится на 5 долей
   const fifth = step / 5;
 
-  // Радиус = 3 доли
-  const r = fifth * 3;
-
-  // Центр круга — на верхней границе головы, по оси
-  const cy = top;
+  // Круг занимает доли 1, 2 и 3. Значит его высота = 3 доли.
+  // Радиус = половина высоты = 1.5 доли.
+  const r = fifth * 1.5;
+  
+  // Центр круга находится ровно посередине между верхом головы и линией 3/5
+  const cy = top + r; 
 
   // Вспомогательные линии долей внутри головы (пунктир)
   ctx.strokeStyle = 'rgba(232,176,75,0.30)';
@@ -85,8 +85,8 @@ function draw(parts) {
   for (let i = 1; i <= 5; i++) {
     const y = top + fifth * i;
     ctx.beginPath();
-    ctx.moveTo(cx - r - 20, y);
-    ctx.lineTo(cx + r + 20, y);
+    ctx.moveTo(cx - r - 40, y);
+    ctx.lineTo(cx + r + 40, y);
     ctx.stroke();
   }
   ctx.setLineDash([]);
@@ -104,7 +104,7 @@ function draw(parts) {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   for (let i = 1; i <= 5; i++) {
-    ctx.fillText(`${i}/5`, cx + r + 6, top + fifth * i - fifth / 2);
+    ctx.fillText(`${i}/5`, cx + r + 10, top + fifth * i - fifth / 2);
   }
 }
 
