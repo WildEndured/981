@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Loomis 2D (Строго по файлам)</title>
+<title>2D Голова (Финальная)</title>
 <style>
   :root {
     --bg: #141419; --panel: #1e1e26; --accent: #e8b04b;
@@ -22,7 +22,7 @@
   .app { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 1000px; }
   .controls {
     background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px;
-    width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 10px;
+    width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 12px;
     box-shadow: 0 10px 30px rgba(0,0,0,.35); max-height: 85vh; overflow-y: auto;
   }
   .controls h2 { font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 8px 0 4px; font-weight: 600; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
@@ -45,8 +45,8 @@
 <body>
 
 <header>
-  <h1>Loomis 2D</h1>
-  <p>Строго по математике из твоих файлов</p>
+  <h1>2D Голова</h1>
+  <p>Анатомически правильные линии и шея</p>
 </header>
 
 <div class="app">
@@ -59,57 +59,45 @@
     
     <h2>Форма черепа</h2>
     <div class="control">
-      <div class="control-head"><label>Ширина головы (cut)</label><span class="badge" id="valCut">0.73</span></div>
+      <div class="control-head"><label>Ширина головы</label><span class="badge" id="valCut">0.73</span></div>
       <input id="rangeCut" type="range" min="0.4" max="0.95" value="0.73" step="0.01">
     </div>
     <div class="control">
-      <div class="control-head"><label>Высота (top)</label><span class="badge" id="valTop">1.0</span></div>
+      <div class="control-head"><label>Высота верха</label><span class="badge" id="valTop">1.0</span></div>
       <input id="rangeTop" type="range" min="0.8" max="1.4" value="1.0" step="0.01">
-    </div>
-    <div class="control">
-      <div class="control-head"><label>Затылок (back)</label><span class="badge" id="valBack">1.0</span></div>
-      <input id="rangeBack" type="range" min="0.8" max="1.4" value="1.0" step="0.01">
     </div>
 
     <h2>Глаза</h2>
     <div class="control">
-      <div class="control-head"><label>Высота глаз (eye)</label><span class="badge" id="valEye">0.0</span></div>
+      <div class="control-head"><label>Высота глаз</label><span class="badge" id="valEye">0.0</span></div>
       <input id="rangeEye" type="range" min="-0.9" max="0.9" value="0.0" step="0.01">
     </div>
 
     <h2>Челюсть</h2>
     <div class="control">
-      <div class="control-head"><label>Начало (jaw_start)</label><span class="badge" id="valJawStart">0°</span></div>
-      <input id="rangeJawStart" type="range" min="-60" max="60" value="0" step="1">
+      <div class="control-head"><label>Ширина челюсти</label><span class="badge" id="valJawX">0.62</span></div>
+      <input id="rangeJawX" type="range" min="0.2" max="0.95" value="0.62" step="0.01">
     </div>
     <div class="control">
-      <div class="control-head"><label>Длина (jaw_len)</label><span class="badge" id="valJawLen">0.40</span></div>
+      <div class="control-head"><label>Длина челюсти</label><span class="badge" id="valJawLen">0.40</span></div>
       <input id="rangeJawLen" type="range" min="0" max="1.2" value="0.4" step="0.01">
     </div>
     <div class="control">
-      <div class="control-head"><label>Наклон (jaw_tilt)</label><span class="badge" id="valJawTilt">10°</span></div>
+      <div class="control-head"><label>Наклон челюсти</label><span class="badge" id="valJawTilt">10°</span></div>
       <input id="rangeJawTilt" type="range" min="-40" max="70" value="10" step="1">
-    </div>
-    <div class="control">
-      <div class="control-head"><label>Ширина эла (jaw_x)</label><span class="badge" id="valJawX">0.62</span></div>
-      <input id="rangeJawX" type="range" min="0.2" max="0.95" value="0.62" step="0.01">
     </div>
 
     <h2>Подбородок</h2>
     <div class="control">
-      <div class="control-head"><label>Высота (chin_len)</label><span class="badge" id="valChinLen">1.0</span></div>
+      <div class="control-head"><label>Высота подбородка</label><span class="badge" id="valChinLen">1.0</span></div>
       <input id="rangeChinLen" type="range" min="0.5" max="1.5" value="1.0" step="0.01">
     </div>
     <div class="control">
-      <div class="control-head"><label>Вперед (chin_front)</label><span class="badge" id="valChinFront">0.85</span></div>
-      <input id="rangeChinFront" type="range" min="0.4" max="1.4" value="0.85" step="0.01">
-    </div>
-    <div class="control">
-      <div class="control-head"><label>Ширина (chin_w)</label><span class="badge" id="valChinW">0.22</span></div>
+      <div class="control-head"><label>Ширина подбородка</label><span class="badge" id="valChinW">0.22</span></div>
       <input id="rangeChinW" type="range" min="0.03" max="0.6" value="0.22" step="0.01">
     </div>
     <div class="control">
-      <div class="control-head"><label>Округлость (chin_round)</label><span class="badge" id="valChinRound">0.50</span></div>
+      <div class="control-head"><label>Округлость</label><span class="badge" id="valChinRound">0.50</span></div>
       <input id="rangeChinRound" type="range" min="0" max="1" value="0.5" step="0.01">
     </div>
 
@@ -139,30 +127,14 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const labelLayer = document.getElementById('labelLayer');
 
-// ================= LOOMIS.JS (АДАПТАЦИЯ ПОД 2D) =================
 const rad = (d) => (d * Math.PI) / 180;
-const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const len = (a) => Math.hypot(a[0], a[1], a[2]);
-const norm = (a) => { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
-const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-const mirror = (a) => [-a[0], a[1], a[2]];
 
-function makeBall({ cut, r0, top = 1, back = 1 }) {
-  const width = cut / Math.sqrt(1 - r0 * r0);
-  const sy = (y) => (y > 0 ? back : 1);
-  const sz = (z) => (z > 0 ? top : 1);
-  return {
-    width, cut, r0, top, back, sy, sz,
-    stretch: (x, y, z) => [x, y * sy(y), z * sz(z)],
-    normal: (x, y, z) => norm([x / (width * width), y / (sy(y) ** 2), z / (sz(z) ** 2)]),
-  };
-}
-
-// Копируем функцию rounded как есть из loomis.js (без изменений)
-function rounded(items, radius) {
+function rounded2D(items, radius) {
   const pts0 = [];
   for (const it of items) {
-    if (!pts0.length || len(sub(it.p, pts0[pts0.length - 1].p)) > 1e-6) pts0.push(it);
+    if (!pts0.length || Math.hypot(it.p.x - pts0[pts0.length - 1].p.x, it.p.z - pts0[pts0.length - 1].p.z) > 1e-6) {
+      pts0.push(it);
+    }
   }
   if (pts0.length < 3) return { pts: pts0.map((it) => it.p), corners: [] };
   const out = [pts0[0].p];
@@ -170,130 +142,107 @@ function rounded(items, radius) {
   for (let i = 1; i < pts0.length - 1; i++) {
     const P = pts0[i - 1].p, V = pts0[i].p, N = pts0[i + 1].p;
     const kk = pts0[i].k ?? 0;
-    const d1 = sub(V, P), d2 = sub(N, V);
-    const L1 = len(d1), L2 = len(d2);
-    const u1 = norm(d1), u2 = norm(d2);
-    const cos = Math.max(-1, Math.min(1, u1[0] * u2[0] + u1[1] * u2[1] + u1[2] * u2[2]));
+    const d1 = { x: V.x - P.x, z: V.z - P.z }, d2 = { x: N.x - V.x, z: N.z - V.z };
+    const L1 = Math.hypot(d1.x, d1.z), L2 = Math.hypot(d2.x, d2.z);
+    if (L1 < 1e-6 || L2 < 1e-6) { out.push(V); corners.push({ v: V, p: V }); continue; }
+    const u1 = { x: d1.x / L1, z: d1.z / L1 }, u2 = { x: d2.x / L2, z: d2.z / L2 };
+    const cos = Math.max(-1, Math.min(1, u1.x * u2.x + u1.z * u2.z));
     const turn = Math.acos(cos);
     if (turn < 1e-3) { out.push(V); corners.push({ v: V, p: V }); continue; }
     const base = radius * Math.tan(Math.min(turn, Math.PI * 0.95) / 2);
     const t1 = Math.min(Math.max(base, kk * 0.5 * L1), L1 * 0.5);
     const t2 = Math.min(Math.max(base, kk * 0.5 * L2), L2 * 0.5);
-    const T1 = [V[0] - u1[0] * t1, V[1] - u1[1] * t1, V[2] - u1[2] * t1];
-    const T2 = [V[0] + u2[0] * t2, V[1] + u2[1] * t2, V[2] + u2[2] * t2];
+    const T1 = { x: V.x - u1.x * t1, z: V.z - u1.z * t1 };
+    const T2 = { x: V.x + u2.x * t2, z: V.z + u2.z * t2 };
     const STEPS = 2 * (3 + Math.round(kk * 9));
     for (let j = 0; j <= STEPS; j++) {
       const s = j / STEPS, a = (1 - s) * (1 - s), b = 2 * s * (1 - s), c = s * s;
-      out.push([a * T1[0] + b * V[0] + c * T2[0], a * T1[1] + b * V[1] + c * T2[1], a * T1[2] + b * V[2] + c * T2[2]]);
+      out.push({ x: a * T1.x + b * V.x + c * T2.x, z: a * T1.z + b * V.z + c * T2.z });
     }
-    corners.push({ v: V, p: [0.25 * T1[0] + 0.5 * V[0] + 0.25 * T2[0], 0.25 * T1[1] + 0.5 * V[1] + 0.25 * T2[1], 0.25 * T1[2] + 0.5 * V[2] + 0.25 * T2[2]] });
+    corners.push({ v: V, p: { x: 0.25 * T1.x + 0.5 * V.x + 0.25 * T2.x, z: 0.25 * T1.z + 0.5 * V.z + 0.25 * T2.z } });
   }
   out.push(pts0[pts0.length - 1].p);
   return { pts: out, corners };
 }
 
-function buildHead(p) {
-  const r0 = 0.68;
-  const ball = makeBall({ cut: p.cut, r0, top: p.top, back: p.back });
-  const { width, cut, stretch, normal } = ball;
-  
-  const zEye = p.eye * r0;
-  const zChin = -r0 - r0 * p.chin_len;
-  const xPlane = cut;
-
-  // Функция проекции 3D -> 2D (используем только X и Z для экрана)
-  const surf = (pt) => {
-    const n = normal(...pt);
-    return [pt[0] + n[0]*0.01, pt[1] + n[1]*0.01, pt[2] + n[2]*0.01];
-  };
-  const rim = (t, x = xPlane) => {
-    const [, y, z] = stretch(0, r0 * Math.cos(t), r0 * Math.sin(t));
-    return [x, y, z];
-  };
-
+function buildHead2D(p) {
   const lines = [];
   const labels = {};
   const add = (id, color, pts, closed = false) => lines.push({ id, color, closed, pts });
 
-  // 1. Центральная линия
-  const pts1 = [];
-  for (let i = 0; i < 64; i++) {
-    const t = (i / 64) * Math.PI * 2;
-    pts1.push(surf(stretch(0, Math.cos(t), Math.sin(t))));
-  }
-  add('1', 'red', pts1, true);
+  const zEye = p.eye;
+  const zTop = p.top;
+  const zBottom = -1; 
   
-  // 2. Линия глаз
-  const pts2 = [];
-  const zu = zEye / ball.sz(zEye);
-  const rho = Math.sqrt(Math.max(0, 1 - zu * zu));
-  const half2 = width * rho;
+  const rx = p.cut;
+  const rz = 1;
+
+  // 1. Череп
+  const spherePts = [];
   for (let i = 0; i < 64; i++) {
     const t = (i / 64) * Math.PI * 2;
-    pts2.push(surf(stretch(half2 * Math.cos(t), rho * Math.sin(t), zu)));
+    const zMult = Math.cos(t) > 0 ? zTop : 1;
+    spherePts.push({ x: rx * Math.sin(t), z: rz * Math.cos(t) * zMult });
   }
-  add('2', 'red', pts2, true);
+  add('1', 'red', spherePts, true);
+  labels['1'] = [{ p: {x: 0, z: zTop * 0.8} }];
 
-  // 3. Боковые круги
-  for (const sx of [1, -1]) {
-    const x = sx * xPlane;
-    const circle = [];
-    for (let i = 0; i < 64; i++) circle.push(rim((i / 64) * Math.PI * 2, x));
-    add('3', 'red', circle, true);
-  }
+  // 2. Линия глаз
+  add('2', 'red', [{x: -rx, z: zEye}, {x: rx, z: zEye}], false);
+  labels['2'] = [{ p: {x: rx, z: zEye} }];
+
+  // 6. Ось (переносица -> подбородок)
+  const zChin = zBottom - p.chin_len;
+  const chinMid = { x: 0, z: zChin };
+  add('6', 'red', [{x: 0, z: zEye}, chinMid]);
+  labels['6'] = [{ p: { x: 0, z: (zEye + zChin) / 2 } }];
 
   // 7. Челюсть
-  const A = rim(rad(-90 - p.jaw_start));
-  const tilt = rad(p.jaw_tilt);
-  const B = [p.jaw_x, A[1] - p.jaw_len * Math.sin(tilt), A[2] - p.jaw_len * Math.cos(tilt)];
-  const Cf = [p.chin_w, -p.chin_front, zChin];
-  const k = p.chin_round;
+  // Начинается от краев черепа (чуть ниже экватора)
+  const jawStartZ = zBottom * 0.4; 
+  const A_right = { x: rx, z: jawStartZ }; 
+  const A_left = { x: -rx, z: jawStartZ };
   
-  const jaw = rounded([
-    { p: A }, { p: B, k: 0 }, { p: Cf, k },
-    { p: mirror(Cf), k }, { p: mirror(B), k: 0 }, { p: mirror(A) },
+  const tilt = rad(p.jaw_tilt);
+  // Точка B (угол челюсти)
+  const B_right = { x: p.jaw_x, z: jawStartZ - p.jaw_len * Math.cos(tilt) };
+  const B_left = { x: -p.jaw_x, z: jawStartZ - p.jaw_len * Math.cos(tilt) };
+  
+  // Точка C (подбородок)
+  const Cf_right = { x: p.chin_w, z: zChin };
+  const Cf_left = { x: -p.chin_w, z: zChin };
+  const k = p.chin_round;
+
+  const jaw = rounded2D([
+    { p: A_right }, { p: B_right, k: 0 }, { p: Cf_right, k },
+    { p: Cf_left, k }, { p: B_left, k: 0 }, { p: A_left }
   ], 0.05);
   
   add('7', 'blue', jaw.pts);
-  const CfR = jaw.corners.find((c) => c.v === Cf)?.p ?? Cf;
+  labels['7'] = [{ p: B_right }];
 
-  // 8. Щеки
-  const zEyeU = zEye / ball.sz(zEye);
-  const eyeEdge = [xPlane, -Math.sqrt(Math.max(0, r0 * r0 - zEyeU * zEyeU)), zEye];
-  add('8', 'blue', [CfR, eyeEdge]);
-  add('8', 'blue', [mirror(CfR), mirror(eyeEdge)]);
+  // 8. Щеки (идут от подбородка к скулам)
+  const cheekRight = { x: rx * 0.85, z: zEye };
+  const cheekLeft = { x: -rx * 0.85, z: zEye };
+  add('8', 'blue', [Cf_right, cheekRight]);
+  add('8', 'blue', [Cf_left, cheekLeft]);
+  labels['8'] = [{ p: { x: (Cf_right.x + cheekRight.x) / 2, z: (Cf_right.z + cheekRight.z) / 2 } }];
 
-  // 6. Центр лица
-  const front = surf(stretch(0, -Math.sqrt(Math.max(0, 1 - zEyeU * zEyeU)), zEyeU));
-  const chinMid = [0, -p.chin_front, zChin];
-  add('6', 'red', [front, chinMid]);
-
-  // Лейблы
-  labels['1'] = [{ p: pts1[16] }];
-  labels['2'] = [{ p: pts2[0] }];
-  labels['3'] = [{ p: rim(Math.PI/4, xPlane) }];
-  labels['6'] = [{ p: lerp(front, chinMid, 0.8) }];
-  labels['7'] = [{ p: B }, { p: mirror(B) }];
-  labels['8'] = [{ p: lerp(CfR, eyeEdge, 0.5) }];
-
-  return { lines, labels, solid: { width, cut, r0, top: p.top, back: p.back } };
+  return { lines, labels };
 }
 
-// ================= ПРОЕКЦИЯ В 2D =================
 let params = {
-  parts: 7, cut: 0.73, top: 1.0, back: 1.0, eye: 0.0,
-  jaw_start: 0, jaw_x: 0.62, jaw_len: 0.40, jaw_tilt: 10,
-  chin_len: 1.0, chin_front: 0.85, chin_w: 0.22, chin_round: 0.5,
+  parts: 7, cut: 0.73, top: 1.0, eye: 0.0,
+  jaw_x: 0.62, jaw_len: 0.40, jaw_tilt: 10,
+  chin_len: 1.0, chin_w: 0.22, chin_round: 0.5,
   neckW: 0.4, neckL: 1.0
 };
 
-function project(p3d, scale, cx, cy) {
-  // p3d = [X, Y(глубина), Z(высота)]
-  // В 2D экран X = X3d, Y = -Z3d. Глубину Y игнорируем.
-  return { x: cx + p3d[0] * scale, y: cy - p3d[2] * scale };
+function project(x, z, scale, cx, cy) {
+  return { x: cx + x * scale, y: cy - z * scale };
 }
 
-const LABELS = { '1': '①', '2': '②', '3': '③', '6': '⑥', '7': '⑦', '8': '⑧' };
+const LABELS = { '1': '①', '2': '②', '6': '⑥', '7': '⑦', '8': '⑧' };
 const labelEls = {};
 Object.keys(LABELS).forEach(id => {
   const el = document.createElement('div');
@@ -312,10 +261,8 @@ function draw() {
   const height = canvas.height - pad * 2;
   const step = height / params.parts;
   
-  // 3D-сфера имеет диаметр 2. Масштаб = половина клетки.
   const scale = step / 2;
   const cx = canvas.width / 2;
-  // Центр сферы смещен вниз на 1 клетку от верха.
   const cy = top + step; 
 
   // Сетка
@@ -332,17 +279,15 @@ function draw() {
   ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.setLineDash([4, 6]);
   ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, canvas.height - pad); ctx.stroke(); ctx.setLineDash([]);
 
-  // Генерация 3D
-  const head3D = buildHead(params);
+  const head2D = buildHead2D(params);
   
-  // Рисуем линии
-  head3D.lines.forEach(line => {
+  head2D.lines.forEach(line => {
     ctx.beginPath();
     ctx.strokeStyle = line.color === 'red' ? '#f03e6e' : '#3b7cff';
     ctx.lineWidth = 2;
     
     line.pts.forEach((pt, i) => {
-      const p = project(pt, scale, cx, cy);
+      const p = project(pt.x, pt.z, scale, cx, cy);
       if (i === 0) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     });
@@ -350,10 +295,10 @@ function draw() {
     ctx.stroke();
   });
 
-  // Шея
-  const chinMid3D = head3D.labels['6'][0].p;
-  const chinPt = project(chinMid3D, scale, cx, cy);
-  const neckWidthPx = params.neckW * scale;
+  // Шея (строго из подбородка)
+  const chinMid = head2D.labels['6'][0].p;
+  const chinPt = project(chinMid.x, chinMid.z, scale, cx, cy);
+  const neckWidthPx = params.neckW * scale * 0.5;
   const neckLenPx = params.neckL * scale;
   
   ctx.fillStyle = 'rgba(232,176,75,0.1)';
@@ -368,9 +313,10 @@ function draw() {
 
   // Метки
   Object.keys(labelEls).forEach(id => { labelEls[id].style.display = 'none'; });
-  Object.entries(head3D.labels).forEach(([id, cands]) => {
+  Object.entries(head2D.labels).forEach(([id, cands]) => {
     if (!cands || cands.length === 0) return;
-    const p = project(cands[0].p, scale, cx, cy);
+    const best = cands[0];
+    const p = project(best.p.x, best.p.z, scale, cx, cy);
     const el = labelEls[id];
     if (!el) return;
     el.style.display = 'block';
@@ -378,8 +324,8 @@ function draw() {
   });
 }
 
-const inputs = ['parts', 'cut', 'top', 'back', 'eye', 'jawStart', 'jawX', 'jawLen', 'jawTilt', 'chinLen', 'chinFront', 'chinW', 'chinRound', 'neckW', 'neckL'];
-const paramMap = { parts: 'parts', cut: 'cut', top: 'top', back: 'back', eye: 'eye', jawStart: 'jaw_start', jawX: 'jaw_x', jawLen: 'jaw_len', jawTilt: 'jaw_tilt', chinLen: 'chin_len', chinFront: 'chin_front', chinW: 'chin_w', chinRound: 'chin_round', neckW: 'neckW', neckL: 'neckL' };
+const inputs = ['parts', 'cut', 'top', 'eye', 'jawX', 'jawLen', 'jawTilt', 'chinLen', 'chinW', 'chinRound', 'neckW', 'neckL'];
+const paramMap = { parts: 'parts', cut: 'cut', top: 'top', eye: 'eye', jawX: 'jaw_x', jawLen: 'jaw_len', jawTilt: 'jaw_tilt', chinLen: 'chin_len', chinW: 'chin_w', chinRound: 'chin_round', neckW: 'neckW', neckL: 'neckL' };
 
 inputs.forEach(id => {
   const el = document.getElementById('range' + id.charAt(0).toUpperCase() + id.slice(1));
@@ -389,7 +335,7 @@ inputs.forEach(id => {
     const val = parseFloat(el.value);
     params[paramMap[id]] = val;
     if (valEl) {
-      if (id === 'jawStart' || id === 'jawTilt') valEl.textContent = val + '°';
+      if (id === 'jawTilt') valEl.textContent = val + '°';
       else if (id === 'parts') valEl.textContent = val;
       else valEl.textContent = val.toFixed(2);
     }
