@@ -2,1022 +2,401 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Anime Face Detector — face + eyes + zones</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Пропорции фигуры</title>
 <style>
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; }
-  body { margin: 0; font-family: system-ui, sans-serif; background: #1e1e24; color: #e5e5ea; overflow: hidden; display: flex; flex-direction: column; }
-  header { padding: 8px 14px; background: #2a2a33; border-bottom: 1px solid #3a3a45; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
-  h1 { margin: 0; font-size: 16px; }
-  .hint { font-size: 11px; color: #9a9aa8; }
-  .app { display: grid; grid-template-columns: 300px 1fr; flex: 1; min-height: 0; }
-  @media (max-width: 720px) {
-    .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-    .side { max-height: 45vh; overflow-y: auto; border-right: none !important; border-bottom: 1px solid #3a3a45; }
+  :root {
+    --bg: #1e1e24;
+    --panel: #2a2a33;
+    --line: #4a4a5a;
+    --accent: #e8b04b;
+    --text: #e6e6e6;
   }
-  .side { background: #23232b; border-right: 1px solid #3a3a45; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
-  .panel { background: #26262e; padding: 10px 12px; border-radius: 8px; flex-shrink: 0; }
-  .panel h2 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #9a9aa8; }
-  .methods label { display: block; padding: 6px 8px; border-radius: 6px; cursor: pointer; margin-bottom: 4px; background: #1e1e24; border: 1px solid transparent; font-size: 12px; }
-  .methods label:hover { background: #2f2f3a; }
-  .methods input { margin-right: 8px; }
-  .methods label.active { border-color: #4f9dff; background: #2b3550; }
-  .desc { font-size: 11px; color: #9a9aa8; margin-top: 6px; line-height: 1.4; }
-  .row { display: flex; gap: 6px; margin-top: 6px; }
-  .row button { flex: 1; }
-  button { background: #4f9dff; color: #fff; border: 0; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; }
-  button:hover { background: #6aabff; }
-  button:disabled { opacity: .4; cursor: default; }
-  button.gray { background: #3a3a45; }
-  button.gray:hover { background: #4a4a55; }
-  button.active { background: #ff9d4f; }
-  .stat { font-size: 11px; color: #b0b0be; margin-top: 8px; line-height: 1.4; }
-  .slider-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; }
-  .slider-row span { width: 40px; text-align: right; color: #9a9aa8; }
-  .toggle { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: #c0c0cc; cursor: pointer; user-select: none; }
-  .toggle input { cursor: pointer; }
-  .legend { font-size: 11px; color: #88889a; margin-top: 8px; line-height: 1.7; }
-  .legend .l { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px solid; vertical-align: middle; }
-  .legend .d { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px dashed; vertical-align: middle; }
-  .zone-info { font-size: 11px; color: #9a9aa8; margin-top: 6px; line-height: 1.5; }
-  
-  .canvasWrap { position: relative; overflow: hidden; background: #0f0f14; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; min-width: 0; min-height: 0; }
-  .canvasWrap.panning { cursor: grabbing; }
-  .canvasWrap.empty::after { content: 'Перетащите картинку сюда, Ctrl+V или «Пример»'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #55556a; font-size: 13px; pointer-events: none; text-align: center; padding: 20px; }
-  .canvasWrap.drag { box-shadow: inset 0 0 0 3px #4f9dff; }
-  .canvasWrap.drawing { cursor: crosshair; }
-  #cv { position: absolute; top: 0; left: 0; transform-origin: 0 0; image-rendering: auto; will-change: transform; pointer-events: none; display: block; }
-  
-  .zoomBar { position: absolute; bottom: 12px; right: 12px; display: flex; gap: 4px; background: rgba(30,30,36,0.92); border: 1px solid #3a3a45; border-radius: 8px; padding: 4px; align-items: center; z-index: 5; }
-  .zoomBar button { width: 32px; height: 32px; padding: 0; background: #2a2a33; font-size: 16px; line-height: 1; }
-  .zoomBar button:hover { background: #3a3a45; }
-  .zoomBar .level { font-size: 11px; color: #b0b0be; min-width: 48px; text-align: center; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  h1 { font-size: 1.2rem; font-weight: 500; margin: 0 0 16px; opacity: .85; }
+
+  .controls {
+    background: var(--panel);
+    padding: 16px 20px;
+    border-radius: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.3);
+  }
+  .controls label { font-size: .9rem; display: flex; align-items: center; gap: 8px; }
+  .controls input[type="range"] { width: 160px; accent-color: var(--accent); }
+  .controls input[type="number"] {
+    width: 60px;
+    background: #1a1a20;
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 4px 6px;
+    border-radius: 6px;
+    font-size: .9rem;
+  }
+  .controls button {
+    background: var(--accent);
+    border: none;
+    color: #1a1a20;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: .9rem;
+  }
+  .controls button:hover { filter: brightness(1.1); }
+
+  .stage {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.3);
+    position: relative;
+  }
+
+  canvas { display: block; }
+
+  .hint {
+    margin-top: 16px;
+    font-size: .8rem;
+    opacity: .6;
+    max-width: 600px;
+    text-align: center;
+    line-height: 1.5;
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>🎨 Anime Face Detector — face + eyes + zones</h1>
-  <span class="hint">колесо/пинч — зум · 2 пальца / пробел — пан · Enter — искать · Z — разметка</span>
-</header>
 
-<div class="app">
-  <aside class="side">
-    <div class="panel">
-      <h2>Изображение</h2>
-      <input type="file" id="file" accept="image/*" style="width:100%; font-size:11px; margin-bottom:6px;">
-      <div class="row" style="margin-top:0;">
-        <button id="btn2" class="gray">Пример</button>
-        <button id="btnSave" class="gray" disabled>PNG</button>
-      </div>
-      <div class="slider-row"><label>Порог</label><input type="range" id="thr" min="1" max="100" value="50" style="flex:1"><span id="thrV">50</span></div>
-    </div>
+<h1>Построение пропорций фигуры</h1>
 
-    <div class="panel">
-      <h2>Метод-детектор</h2>
-      <div class="methods" id="methods">
-        <label class="active"><input type="radio" name="m" value="skin" checked>1. Skin (YCbCr)</label>
-        <label><input type="radio" name="m" value="eyes">2. Глаза + геометрия</label>
-        <label><input type="radio" name="m" value="ncc">3. Template Matching (NCC)</label>
-        <label><input type="radio" name="m" value="sym">4. Симметрия</label>
-        <label><input type="radio" name="m" value="all">5. Все + NMS</label>
-      </div>
-      <div class="desc" id="desc"></div>
-      <label class="toggle"><input type="checkbox" id="verify" checked> Верификация глазами</label>
-    </div>
+<div class="controls">
+  <label>
+    Частей (голов):
+    <input id="partsRange" type="range" min="3" max="10" value="7" step="1">
+    <input id="partsNum" type="number" min="3" max="10" value="7">
+  </label>
+  <label>
+    <input id="showFigure" type="checkbox" checked>
+    Показывать фигуру
+  </label>
+  <button id="resetBtn">Сбросить</button>
+</div>
 
-    <div class="panel">
-      <h2>Зоны поиска</h2>
-      <button id="btnZoneMode" class="gray" style="width:100%">🖊 Разметка (Z)</button>
-      <div class="row">
-        <button id="btnAutoZones" class="gray">Авто-зоны</button>
-        <button id="btnClearZones" class="gray">Очистить</button>
-      </div>
-      <div class="zone-info" id="zoneInfo">Зон: 0 (поиск по всему изображению)</div>
-    </div>
+<div class="stage">
+  <canvas id="canvas" width="400" height="600"></canvas>
+</div>
 
-    <div class="panel">
-      <div class="stat" id="stat">Загрузите картинку</div>
-      <div class="legend">
-        <span class="l" style="border-color:#4f9dff"></span>лицо
-        <span class="l" style="border-color:#ff4f9d; margin-left:6px"></span>глаза<br>
-        <span class="d" style="border-color:#ffd24f"></span>зона
-        <span class="l" style="border-color:#ff9d4f; margin-left:6px"></span>рисуемая
-      </div>
-    </div>
-
-    <div class="row" style="padding: 0 2px;">
-      <button id="btn" style="flex:2">Искать (Enter)</button>
-    </div>
-  </aside>
-
-  <div class="canvasWrap empty" id="wrap">
-    <canvas id="cv"></canvas>
-    <div class="zoomBar">
-      <button id="zOut" title="Уменьшить">−</button>
-      <span class="level" id="zLevel">100%</span>
-      <button id="zIn" title="Увеличить">+</button>
-      <button id="zFit" title="Вписать" style="font-size:11px;">⤢</button>
-      <button id="z1" title="1:1" style="font-size:11px;">1:1</button>
-    </div>
-  </div>
+<div class="hint">
+  Сетка делит высоту на N равных частей (по количеству «голов»).
+  Классические пропорции: <b>7–8 голов</b> — взрослый человек,
+  <b>5–6</b> — подросток / стилизованная фигура,
+  <b>3–4</b> — ребёнок / мультяшный стиль.
 </div>
 
 <script>
-// ============================================================
-// ГЛОБАЛЬНЫЕ
-// ============================================================
-const cv = document.getElementById('cv');
-const ctx = cv.getContext('2d');
-const wrap = document.getElementById('wrap');
+(() => {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
 
-let imgData = null, W = 0, H = 0;
-let srcImage = null;
-let lastBoxes = [];
+  const rangeEl = document.getElementById('partsRange');
+  const numEl   = document.getElementById('partsNum');
+  const figEl   = document.getElementById('showFigure');
+  const resetEl = document.getElementById('resetBtn');
 
-const view = { scale: 1, tx: 0, ty: 0 };
-const MIN_SCALE = 0.05, MAX_SCALE = 32;
-
-let zones = [];
-let drawingMode = false;
-let drawing = null;
-let selectedZone = -1;
-let interaction = null;
-let tapStart = null;
-const HANDLE_R_PX = 14;
-const CORNER_HIT_PX = 22;
-
-const pointers = new Map();
-let gesture = null;
-let spaceDown = false;
-let lastTap = { time: 0, x: 0, y: 0 };
-
-const DESCR = {
-  skin: "Маска кожи YCbCr → компоненты → фильтр формы. Затем внутри каждого бокса ищем пару глаз; без пары — отсев.",
-  eyes: "Тёмные блобы → пары 'глаз' по геометрии → бокс лица. Верификация повторно подтверждает пару внутри ROI.",
-  ncc:  "NCC с синтетическим шаблоном глаза → боксы лица. Верификация ищет независимую пару глаз внутри ROI.",
-  sym:  "Skin-кандидаты + проверка симметрии. Верификация глазами отсеивает несимметричные/безглазые.",
-  all:  "Объединение skin+eyes+NCC, симметрия как верификатор, затем проверка глаз и NMS."
-};
-
-// ============================================================
-// VIEWPORT
-// ============================================================
-function applyView() {
-  cv.style.transform = `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`;
-  document.getElementById('zLevel').textContent = Math.round(view.scale * 100) + '%';
-}
-function fitToScreen() {
-  if (!W || !H) return;
-  const rw = Math.max(100, wrap.clientWidth);
-  const rh = Math.max(100, wrap.clientHeight);
-  const s = Math.min(rw / W, rh / H) * 0.96;
-  view.scale = s;
-  view.tx = (rw - W * s) / 2;
-  view.ty = (rh - H * s) / 2;
-  applyView();
-}
-function setZoom(newScale, cx, cy) {
-  if (cx === undefined) cx = wrap.clientWidth / 2;
-  if (cy === undefined) cy = wrap.clientHeight / 2;
-  const s = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
-  const wx = (cx - view.tx) / view.scale;
-  const wy = (cy - view.ty) / view.scale;
-  view.scale = s;
-  view.tx = cx - wx * s;
-  view.ty = cy - wy * s;
-  applyView();
-}
-function zoomBy(f, cx, cy) { setZoom(view.scale * f, cx, cy); }
-function localPoint(e) {
-  const r = wrap.getBoundingClientRect();
-  return { x: e.clientX - r.left, y: e.clientY - r.top };
-}
-function screenToImage(sx, sy) {
-  return { x: (sx - view.tx) / view.scale, y: (sy - view.ty) / view.scale };
-}
-function imageToScreen(ix, iy) {
-  return { x: ix * view.scale + view.tx, y: iy * view.scale + view.ty };
-}
-
-// ============================================================
-// ЗАГРУЗКА
-// ============================================================
-document.getElementById('file').addEventListener('change', e => {
-  const f = e.target.files[0]; if (!f) return;
-  const r = new FileReader();
-  r.onload = ev => loadImage(ev.target.result);
-  r.readAsDataURL(f);
-});
-
-document.getElementById('btn2').addEventListener('click', () => {
-  const c = document.createElement('canvas'); c.width = 500; c.height = 400;
-  const g = c.getContext('2d');
-  g.fillStyle = '#c8d8e8'; g.fillRect(0, 0, 500, 400);
-  g.fillStyle = '#3a2545'; g.beginPath(); g.ellipse(250, 220, 170, 210, 0, 0, 7); g.fill();
-  g.fillStyle = '#ffe0c8'; g.beginPath(); g.ellipse(250, 220, 130, 160, 0, 0, 7); g.fill();
-  g.fillStyle = '#1a1a3a';
-  g.beginPath(); g.ellipse(200, 200, 28, 38, 0, 0, 7); g.fill();
-  g.beginPath(); g.ellipse(300, 200, 28, 38, 0, 0, 7); g.fill();
-  g.fillStyle = '#4f9dff';
-  g.beginPath(); g.ellipse(200, 205, 16, 22, 0, 0, 7); g.fill();
-  g.beginPath(); g.ellipse(300, 205, 16, 22, 0, 0, 7); g.fill();
-  g.fillStyle = '#fff';
-  g.beginPath(); g.arc(192, 190, 9, 0, 7); g.fill();
-  g.beginPath(); g.arc(292, 190, 9, 0, 7); g.fill();
-  g.strokeStyle = '#c04060'; g.lineWidth = 4;
-  g.beginPath(); g.arc(250, 290, 22, 0.2, Math.PI - 0.2); g.stroke();
-  loadImage(c.toDataURL());
-});
-
-function loadImage(src) {
-  const im = new Image();
-  im.onload = () => {
-    srcImage = im;
-    W = im.width; H = im.height;
-    cv.width = W; cv.height = H;
-    ctx.drawImage(im, 0, 0);
-    imgData = ctx.getImageData(0, 0, W, H);
-
-    lastBoxes = []; zones = []; selectedZone = -1; drawing = null; interaction = null; tapStart = null;
-    updateZoneInfo();
-    wrap.classList.remove('empty');
-    document.getElementById('btnSave').disabled = true;
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => { fitToScreen(); drawAll(); });
-    });
-    document.getElementById('stat').textContent = `Готово: ${W}×${H}`;
+  // Цвета
+  const C = {
+    bg:      '#2a2a33',
+    line:    '#4a4a5a',
+    accent:  '#e8b04b',
+    figure:  'rgba(232,176,75,0.15)',
+    figureS:'rgba(232,176,75,0.9)',
+    text:    '#b8b8c0'
   };
-  im.src = src;
-}
-window.addEventListener('resize', () => { if (W) applyView(); });
 
-// ============================================================
-// УТИЛИТЫ
-// ============================================================
-function grayPixels() {
-  const g = new Uint8Array(W * H);
-  const d = imgData.data;
-  for (let i = 0, j = 0; i < d.length; i += 4, j++)
-    g[j] = (0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2]) | 0;
-  return g;
-}
-function iou(a, b) {
-  const x1 = Math.max(a.x, b.x), y1 = Math.max(a.y, b.y);
-  const x2 = Math.min(a.x+a.w, b.x+b.w), y2 = Math.min(a.y+a.h, b.y+b.h);
-  const iw = Math.max(0, x2-x1), ih = Math.max(0, y2-y1);
-  const inter = iw*ih;
-  return inter / (a.w*a.h + b.w*b.h - inter || 1);
-}
-function nms(boxes, thr = 0.3) {
-  const sorted = [...boxes].sort((a, b) => (b.score||0) - (a.score||0));
-  const keep = [];
-  for (const b of sorted) if (keep.every(k => iou(k, b) < thr)) keep.push(b);
-  return keep;
-}
-function erode(mask, w, h) {
-  const out = new Uint8Array(w*h);
-  for (let y = 1; y < h-1; y++) for (let x = 1; x < w-1; x++) {
-    let s = 1;
-    for (let dy = -1; dy <= 1 && s; dy++)
-      for (let dx = -1; dx <= 1; dx++)
-        if (!mask[(y+dy)*w + (x+dx)]) { s = 0; break; }
-    out[y*w + x] = s;
-  }
-  return out;
-}
-function dilate(mask, w, h) {
-  const out = new Uint8Array(w*h);
-  for (let y = 1; y < h-1; y++) for (let x = 1; x < w-1; x++) {
-    let s = 0;
-    for (let dy = -1; dy <= 1 && !s; dy++)
-      for (let dx = -1; dx <= 1; dx++)
-        if (mask[(y+dy)*w + (x+dx)]) { s = 1; break; }
-    out[y*w + x] = s;
-  }
-  return out;
-}
-function connectedComponents(mask, w, h, minArea = 20) {
-  const labels = new Int32Array(w*h).fill(-1);
-  const comps = [];
-  const stack = [];
-  let L = 0;
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const idx = y*w + x;
-    if (!mask[idx] || labels[idx] !== -1) continue;
-    stack.length = 0; stack.push(x, y);
-    labels[idx] = L;
-    let minX = x, minY = y, maxX = x, maxY = y, area = 0;
-    while (stack.length) {
-      const py = stack.pop(), px = stack.pop();
-      area++;
-      if (px < minX) minX = px; if (px > maxX) maxX = px;
-      if (py < minY) minY = py; if (py > maxY) maxY = py;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-        if (!dx && !dy) continue;
-        const nx = px + dx, ny = py + dy;
-        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-        const ni = ny*w + nx;
-        if (mask[ni] && labels[ni] === -1) { labels[ni] = L; stack.push(nx, ny); }
-      }
-    }
-    if (area >= minArea)
-      comps.push({ x: minX, y: minY, w: maxX-minX+1, h: maxY-minY+1, area });
-    L++;
-  }
-  return comps;
-}
-
-// ============================================================
-// МЕТОДЫ-ДЕТЕКТОРЫ
-// ============================================================
-function methodSkin(threshold = 0.5) {
-  const d = imgData.data;
-  const mask = new Uint8Array(W*H);
-  for (let i = 0, j = 0; i < d.length; i += 4, j++) {
-    const r = d[i], g = d[i+1], b = d[i+2];
-    const cb = 128 - 0.168736*r - 0.331264*g + 0.5*b;
-    const cr = 128 + 0.5*r - 0.418688*g - 0.081312*b;
-    if (cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173) mask[j] = 1;
-  }
-  const m2 = erode(mask, W, H), m3 = dilate(m2, W, H);
-  const comps = connectedComponents(m3, W, H, 300);
-  const boxes = [];
-  for (const c of comps) {
-    const ar = c.h / c.w;
-    if (ar < 0.4 || ar > 1.6) continue;
-    const fill = c.area / (c.w*c.h);
-    if (fill < 0.35) continue;
-    boxes.push({ x: c.x, y: c.y, w: c.w, h: c.h, score: Math.min(1, fill*1.2) });
-  }
-  return nms(boxes, 0.4);
-}
-
-function methodEyes(threshold = 0.5) {
-  const g = grayPixels();
-  const t = 60 + threshold * 40;
-  const mask = new Uint8Array(W*H);
-  for (let i = 0; i < g.length; i++) if (g[i] < t) mask[i] = 1;
-  const m2 = erode(mask, W, H);
-  const comps = connectedComponents(m2, W, H, 60);
-  const eyes = comps.filter(c => {
-    const ar = c.w / c.h;
-    const fill = c.area / (c.w*c.h);
-    return ar > 0.4 && ar < 2.5 && fill > 0.35 &&
-           c.area > 80 && c.area < W*H*0.05;
-  });
-  const boxes = [];
-  for (let i = 0; i < eyes.length; i++) for (let j = i+1; j < eyes.length; j++) {
-    const a = eyes[i], b = eyes[j];
-    const dy = Math.abs((a.y+a.h/2) - (b.y+b.h/2));
-    const dx = Math.abs((a.x+a.w/2) - (b.x+b.w/2));
-    const sizeAvg = (a.w + b.w) / 2;
-    if (dy > sizeAvg * 0.6) continue;
-    const ratio = dx / sizeAvg;
-    if (ratio < 1.2 || ratio > 4) continue;
-    if (Math.max(a.w,b.w) / Math.min(a.w,b.w) > 2) continue;
-    const cx = (a.x + a.w/2 + b.x + b.w/2) / 2;
-    const cyEyes = (a.y + a.h/2 + b.y + b.h/2) / 2;
-    const eyeSpan = dx + sizeAvg;
-    const fw = eyeSpan * 1.6, fh = fw * 1.3;
-    boxes.push({ x: cx - fw/2, y: cyEyes - fh * 0.42, w: fw, h: fh, score: 0.9 });
-  }
-  return nms(boxes, 0.3);
-}
-
-function makeEyeTemplate(size = 24) {
-  const t = new Float32Array(size*size);
-  const cx = size/2, cy = size/2;
-  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    const dx = (x - cx) / (size*0.32), dy = (y - cy) / (size*0.45);
-    const r2 = dx*dx + dy*dy;
-    let v = r2 < 1 ? 0.15 : 0.9;
-    const bx = (x - cx*0.7) / (size*0.1), by = (y - cy*0.8) / (size*0.12);
-    if (bx*bx + by*by < 1) v = 1;
-    t[y*size + x] = v;
-  }
-  return { data: t, size };
-}
-
-function methodNCC(threshold = 0.5) {
-  const g = grayPixels();
-  const gF = new Float32Array(W*H);
-  for (let i = 0; i < g.length; i++) gF[i] = g[i] / 255;
-  const { data: T, size: S } = makeEyeTemplate(24);
-  const tMin = 0.45 + threshold * 0.3;
-  const I = new Float64Array((W+1)*(H+1));
-  const I2 = new Float64Array((W+1)*(H+1));
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const v = gF[y*W + x];
-    I[(y+1)*(W+1) + (x+1)]  = v   + I[y*(W+1)+(x+1)]     + I[(y+1)*(W+1)+x]     - I[y*(W+1)+x];
-    I2[(y+1)*(W+1) + (x+1)] = v*v + I2[y*(W+1)+(x+1)]    + I2[(y+1)*(W+1)+x]    - I2[y*(W+1)+x];
-  }
-  const STEP = 3, raw = [];
-  const sumT = T.reduce((a, b) => a + b, 0);
-  const sumT2 = T.reduce((a, b) => a + b*b, 0);
-  const N = S*S;
-  for (let y = 0; y + S < H; y += STEP) for (let x = 0; x + S < W; x += STEP) {
-    const a  = I[y*(W+1)+x],      b  = I[y*(W+1)+x+S];
-    const c  = I[(y+S)*(W+1)+x],  dd = I[(y+S)*(W+1)+x+S];
-    const sumI = dd - b - c + a;
-    const a2  = I2[y*(W+1)+x],     b2  = I2[y*(W+1)+x+S];
-    const c2  = I2[(y+S)*(W+1)+x], d2  = I2[(y+S)*(W+1)+x+S];
-    const sumI2 = d2 - b2 - c2 + a2;
-    let sumIT = 0;
-    for (let yy = 0; yy < S; yy++) for (let xx = 0; xx < S; xx++)
-      sumIT += gF[(y+yy)*W + (x+xx)] * T[yy*S + xx];
-    const num = sumIT - sumI*sumT/N;
-    const den = Math.sqrt((sumI2 - sumI*sumI/N) * (sumT2 - sumT*sumT/N));
-    const ncc = den > 1e-6 ? num / den : 0;
-    if (ncc > tMin) raw.push({ x, y, w: S, h: S, score: ncc });
-  }
-  const face = raw.map(b => {
-    const fw = b.w * 3, fh = fw * 1.3;
-    return { x: b.x - fw*0.28, y: b.y + b.h*0.1, w: fw, h: fh, score: b.score };
-  });
-  return nms(face, 0.25);
-}
-
-function symmetryScore(g, b) {
-  const x0 = Math.max(0, b.x), x1 = Math.min(W, b.x + b.w);
-  const y0 = Math.max(0, b.y), y1 = Math.min(H, b.y + b.h);
-  const bw = x1 - x0, half = Math.floor(bw / 2);
-  let sad = 0, n = 0;
-  for (let y = y0; y < y1; y++) for (let x = 0; x < half; x++) {
-    sad += Math.abs(g[y*W + x0+x] - g[y*W + x1-1-x]); n++;
-  }
-  if (!n) return 0;
-  return Math.max(0, Math.min(1, 1 - (sad / n) / 255));
-}
-
-function methodSymmetry(threshold = 0.5) {
-  const g = grayPixels();
-  const base = methodSkin(threshold);
-  const out = [];
-  for (const b of base) {
-    const s = symmetryScore(g, b);
-    if (s > 0.72) out.push({ ...b, score: s });
-  }
-  return out;
-}
-
-function methodAll(threshold = 0.5) {
-  const g = grayPixels();
-  const a = methodSkin(threshold), b = methodEyes(threshold), c = methodNCC(threshold);
-  const all = [...a, ...b, ...c].map(x => ({
-    ...x, score: (x.score||0) * 0.5 + symmetryScore(g, x) * 0.5
-  }));
-  return nms(all.filter(b => symmetryScore(g, b) > 0.65), 0.3);
-}
-
-// ============================================================
-// ПОИСК ГЛАЗ В ROI + ВЕРИФИКАЦИЯ
-// ============================================================
-function findEyesInROI(gray, roi) {
-  const rx = Math.max(0, roi.x | 0);
-  const ry = Math.max(0, roi.y | 0);
-  const rw = Math.min(W - rx, roi.w | 0);
-  const rh = Math.min(H - ry, roi.h | 0);
-  if (rw < 20 || rh < 20) return null;
-
-  let sum = 0;
-  for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
-    sum += gray[(ry + y)*W + (rx + x)];
-  const mean = sum / (rw * rh);
-  const t = Math.min(115, mean * 0.6);
-
-  const mask = new Uint8Array(rw * rh);
-  for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++)
-    if (gray[(ry + y)*W + (rx + x)] < t) mask[y*rw + x] = 1;
-
-  const m2 = erode(mask, rw, rh), m3 = dilate(m2, rw, rh);
-  const comps = connectedComponents(m3, rw, rh, 20);
-  const eyes = comps.filter(c => {
-    const ar = c.w / c.h;
-    const fill = c.area / (c.w * c.h);
-    const areaRatio = c.area / (rw * rh);
-    return ar > 0.35 && ar < 3.0 && fill > 0.3 &&
-           areaRatio > 0.004 && areaRatio < 0.25;
-  });
-  if (eyes.length < 2) return null;
-
-  let best = null, bestScore = -Infinity;
-  for (let i = 0; i < eyes.length; i++) for (let j = i + 1; j < eyes.length; j++) {
-    const a = eyes[i], b = eyes[j];
-    const ax = a.x + a.w/2, ay = a.y + a.h/2;
-    const bx = b.x + b.w/2, by = b.y + b.h/2;
-    const dx = Math.abs(ax - bx), dy = Math.abs(ay - by);
-    const sAvg = (a.w + b.w) / 2;
-    const sRatio = Math.max(a.w, b.w) / Math.min(a.w, b.w);
-    if (sAvg < 3) continue;
-    if (dy > sAvg * 0.7) continue;
-    const rel = dx / sAvg;
-    if (rel < 1.0 || rel > 4.5) continue;
-    if (sRatio > 2.2) continue;
-    const avgY = (ay + by) / 2;
-    if (avgY > rh * 0.8) continue;
-    const score = (1 - Math.abs(rel - 2) / 2.5) - dy / sAvg * 1.5 - (sRatio - 1) * 1.5;
-    if (score > bestScore) {
-      bestScore = score;
-      best = [
-        { x: rx + a.x, y: ry + a.y, w: a.w, h: a.h },
-        { x: rx + b.x, y: ry + b.y, w: b.w, h: b.h }
-      ];
-    }
-  }
-  return best ? { pair: best, score: Math.max(0, bestScore) } : null;
-}
-
-function verifyFaceByEyes(gray, faceBox) {
-  const res = findEyesInROI(gray, faceBox);
-  if (!res) return null;
-  const [e1, e2] = res.pair;
-  const cx = (e1.x + e1.w/2 + e2.x + e2.w/2) / 2;
-  const cyEyes = (e1.y + e1.h/2 + e2.y + e2.h/2) / 2;
-  const eyeSpan = Math.abs((e1.x + e1.w/2) - (e2.x + e2.w/2)) + (e1.w + e2.w)/2;
-  const fw = Math.max(eyeSpan * 1.7, faceBox.w * 0.8);
-  const fh = fw * 1.25;
-  return {
-    x: cx - fw/2,
-    y: cyEyes - fh * 0.40,
-    w: fw,
-    h: fh,
-    score: Math.max(0, Math.min(1, (faceBox.score||0.5) * 0.5 + 0.5 + res.score*0.05)),
-    eyes: res.pair
+  const state = {
+    parts: 7,
+    showFigure: true
   };
-}
 
-// ============================================================
-// ЗОНЫ
-// ============================================================
-function inAnyZone(box) {
-  if (!zones.length) return true;
-  const cx = box.x + box.w/2, cy = box.y + box.h/2;
-  for (const z of zones)
-    if (cx >= z.x && cx <= z.x + z.w && cy >= z.y && cy <= z.y + z.h) return true;
-  return false;
-}
-function updateZoneInfo() {
-  const el = document.getElementById('zoneInfo');
-  el.textContent = zones.length
-    ? `Зон: ${zones.length} · тап — выбрать, тянуть за ручки, двойной тап — удалить`
-    : 'Зон: 0 (поиск по всему изображению)';
-}
-function getScreenHandles(zone) {
-  const x0 = zone.x * view.scale + view.tx;
-  const y0 = zone.y * view.scale + view.ty;
-  const x1 = (zone.x + zone.w) * view.scale + view.tx;
-  const y1 = (zone.y + zone.h) * view.scale + view.ty;
-  const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
-  return {
-    nw: { x: x0, y: y0 }, n: { x: mx, y: y0 }, ne: { x: x1, y: y0 },
-    w:  { x: x0, y: my },                     e:  { x: x1, y: my },
-    sw: { x: x0, y: y1 }, s: { x: mx, y: y1 }, se: { x: x1, y: y1 }
-  };
-}
-function hitZone(sx, sy) {
-  if (selectedZone >= 0 && selectedZone < zones.length) {
-    const h = getScreenHandles(zones[selectedZone]);
-    for (const key in h) {
-      const dx = sx - h[key].x, dy = sy - h[key].y;
-      if (dx*dx + dy*dy < CORNER_HIT_PX * CORNER_HIT_PX)
-        return { type: 'resize', idx: selectedZone, handle: key };
-    }
-  }
-  for (let i = zones.length - 1; i >= 0; i--) {
-    const z = zones[i];
-    const s = imageToScreen(z.x, z.y);
-    const x1 = s.x + z.w * view.scale;
-    const y1 = s.y + z.h * view.scale;
-    if (sx >= s.x && sx <= x1 && sy >= s.y && sy <= y1)
-      return { type: 'move', idx: i };
-  }
-  return null;
-}
+  // --- Геометрия ---
+  function getLayout() {
+    const pad = 40;
+    const top = pad;
+    const bottom = canvas.height - pad;
+    const height = bottom - top;
 
-// ============================================================
-// РИСОВАНИЕ
-// ============================================================
-function drawAll() {
-  if (!srcImage) return;
-  ctx.clearRect(0, 0, W, H);
-  ctx.drawImage(srcImage, 0, 0);
+    // Ширина фигуры зависит от высоты головы:
+    // примерно 1.6 головы в ширину для торса — но для наглядности
+    // рисуем силуэт, масштабируемый по числу частей.
+    const headH = height / state.parts;
+    const headW = headH * 0.7;
 
-  for (const b of lastBoxes) {
-    ctx.lineWidth = 2 / view.scale;
-    ctx.strokeStyle = '#4f9dff';
-    ctx.strokeRect(b.x, b.y, b.w, b.h);
-    ctx.fillStyle = '#4f9dff';
-    const fs = Math.max(10, 12 / view.scale);
-    ctx.font = `bold ${fs}px sans-serif`;
-    ctx.fillText(Math.round((b.score||0) * 100) + '%',
-      b.x, Math.max(fs, b.y - 4 / view.scale));
-    if (b.eyes) {
-      ctx.strokeStyle = '#ff4f9d';
-      for (const e of b.eyes) ctx.strokeRect(e.x, e.y, e.w, e.h);
-    }
+    return { pad, top, bottom, height, headH, headW };
   }
 
-  for (let i = 0; i < zones.length; i++) {
-    const z = zones[i];
-    const isSel = i === selectedZone;
-    ctx.setLineDash([6/view.scale, 4/view.scale]);
-    ctx.lineWidth = (isSel ? 3 : 2) / view.scale;
-    ctx.strokeStyle = isSel ? '#ffd24f' : 'rgba(255,210,79,0.75)';
-    ctx.strokeRect(z.x, z.y, z.w, z.h);
-    if (isSel) {
-      ctx.fillStyle = 'rgba(255,210,79,0.08)';
-      ctx.fillRect(z.x, z.y, z.w, z.h);
-      ctx.setLineDash([]);
-      const sh = getScreenHandles(z);
-      const rImg = HANDLE_R_PX / view.scale;
-      for (const k in sh) {
-        const ix = (sh[k].x - view.tx) / view.scale;
-        const iy = (sh[k].y - view.ty) / view.scale;
-        ctx.fillStyle = '#ffd24f';
-        ctx.beginPath(); ctx.arc(ix, iy, rImg, 0, 7); ctx.fill();
-        ctx.strokeStyle = '#1e1e24'; ctx.lineWidth = 2 / view.scale;
-        ctx.beginPath(); ctx.arc(ix, iy, rImg, 0, 7); ctx.stroke();
-      }
-    }
+  // --- Отрисовка сетки ---
+  function drawGrid() {
+    const { top, bottom, height, headH } = getLayout();
+    const left = 60;
+    const right = canvas.width - 60;
+
+    ctx.save();
+
+    // Вертикальные границы
+    ctx.strokeStyle = C.line;
+    ctx.lineWidth = 1;
     ctx.setLineDash([]);
+
+    for (let i = 0; i <= state.parts; i++) {
+      const y = top + i * headH;
+      ctx.beginPath();
+      ctx.moveTo(left, y);
+      ctx.lineTo(right, y);
+      ctx.stroke();
+
+      // Подписи номеров частей
+      ctx.fillStyle = C.text;
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      if (i < state.parts) {
+        ctx.fillText(String(i + 1), right + 8, y + headH / 2);
+      }
+    }
+
+    // Основные вертикали (осевая)
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.setLineDash([4, 6]);
+    const cx = (left + right) / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, top);
+    ctx.lineTo(cx, bottom);
+    ctx.stroke();
+
+    ctx.restore();
   }
 
-  if (drawing) {
-    ctx.setLineDash([6/view.scale, 4/view.scale]);
-    ctx.lineWidth = 2 / view.scale;
-    ctx.strokeStyle = '#ff9d4f';
-    ctx.strokeRect(drawing.x, drawing.y, drawing.w, drawing.h);
-    ctx.setLineDash([]);
+  // --- Отрисовка фигуры (стилизованный силуэт) ---
+  function drawFigure() {
+    if (!state.showFigure) return;
+
+    const { top, height, headH, headW } = getLayout();
+    const cx = canvas.width / 2;
+
+    ctx.save();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = C.figureS;
+    ctx.fillStyle = C.figure;
+
+    // 1. Голова (первая часть)
+    const headCy = top + headH / 2;
+    ctx.beginPath();
+    ctx.ellipse(cx, headCy, headW / 2, headH * 0.45, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 2. Шея (короткая, ~0.1 головы)
+    const neckW = headW * 0.35;
+    const neckTop = top + headH * 0.9;
+    const neckBottom = top + headH * 1.05;
+
+    // 3. Плечи — примерно на границе 1-й и 2-й части
+    const shoulderY = top + headH * 1.05;
+    const shoulderW = headW * 2.0;
+
+    // 4. Талия — примерно на 3-й части
+    const waistY = top + headH * 3.0;
+    const waistW = headW * 1.3;
+
+    // 5. Бёдра — 4-я часть
+    const hipY = top + headH * 4.0;
+    const hipW = headW * 1.7;
+
+    // 6. Колени — середина между бедром и ступнями
+    const kneeY = top + headH * 5.5;
+
+    // 7. Ступни — низ
+    const footY = top + height;
+
+    // === Торс ===
+    ctx.beginPath();
+    ctx.moveTo(cx - neckW, neckBottom);
+    ctx.lineTo(cx - shoulderW / 2, shoulderY);
+    ctx.lineTo(cx - waistW / 2, waistY);
+    ctx.lineTo(cx - hipW / 2, hipY);
+    ctx.lineTo(cx + hipW / 2, hipY);
+    ctx.lineTo(cx + waistW / 2, waistY);
+    ctx.lineTo(cx + shoulderW / 2, shoulderY);
+    ctx.lineTo(cx + neckW, neckBottom);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // === Ноги (две) ===
+    const legGap = headW * 0.18;
+    const legTop = hipY;
+    const legBottom = footY;
+
+    // Левая нога
+    ctx.beginPath();
+    ctx.moveTo(cx - hipW / 2 + 2, legTop);
+    ctx.quadraticCurveTo(
+      cx - legGap - headW * 0.25, kneeY,
+      cx - legGap - headW * 0.15, legBottom
+    );
+    ctx.lineTo(cx - legGap + headW * 0.15, legBottom);
+    ctx.quadraticCurveTo(
+      cx - legGap + headW * 0.1, kneeY,
+      cx - hipW * 0.15, legTop
+    );
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Правая нога (зеркально)
+    ctx.beginPath();
+    ctx.moveTo(cx + hipW / 2 - 2, legTop);
+    ctx.quadraticCurveTo(
+      cx + legGap + headW * 0.25, kneeY,
+      cx + legGap + headW * 0.15, legBottom
+    );
+    ctx.lineTo(cx + legGap - headW * 0.15, legBottom);
+    ctx.quadraticCurveTo(
+      cx + legGap - headW * 0.1, kneeY,
+      cx + hipW * 0.15, legTop
+    );
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // === Руки (упрощённо) ===
+    const armTop = shoulderY + headH * 0.05;
+    const armBottom = top + headH * 4.2;
+    const armOut = shoulderW / 2 + headW * 0.25;
+
+    // Левая
+    ctx.beginPath();
+    ctx.moveTo(cx - shoulderW / 2 + 3, armTop);
+    ctx.quadraticCurveTo(
+      cx - armOut, (armTop + armBottom) / 2,
+      cx - armOut + headW * 0.15, armBottom
+    );
+    ctx.lineTo(cx - armOut + headW * 0.35, armBottom);
+    ctx.quadraticCurveTo(
+      cx - armOut + headW * 0.35, (armTop + armBottom) / 2,
+      cx - shoulderW / 2 + headW * 0.35, armTop
+    );
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Правая
+    ctx.beginPath();
+    ctx.moveTo(cx + shoulderW / 2 - 3, armTop);
+    ctx.quadraticCurveTo(
+      cx + armOut, (armTop + armBottom) / 2,
+      cx + armOut - headW * 0.15, armBottom
+    );
+    ctx.lineTo(cx + armOut - headW * 0.35, armBottom);
+    ctx.quadraticCurveTo(
+      cx + armOut - headW * 0.35, (armTop + armBottom) / 2,
+      cx + shoulderW / 2 - headW * 0.35, armTop
+    );
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.restore();
   }
-}
 
-// ============================================================
-// UI
-// ============================================================
-const methods = { skin: methodSkin, eyes: methodEyes, ncc: methodNCC, sym: methodSymmetry, all: methodAll };
-let currentMethod = 'skin';
+  // --- Отрисовка подписи "1 голова" ---
+  function drawHeadLabel() {
+    const { top, headH, headW } = getLayout();
+    const cx = canvas.width / 2;
 
-document.querySelectorAll('input[name="m"]').forEach(r => {
-  r.addEventListener('change', () => {
-    currentMethod = r.value;
-    document.querySelectorAll('.methods label').forEach(l =>
-      l.classList.toggle('active', l.querySelector('input').checked));
-    document.getElementById('desc').textContent = DESCR[currentMethod];
-    drawAll();
-    if (imgData) run();
+    ctx.save();
+    ctx.strokeStyle = C.accent;
+    ctx.fillStyle = C.accent;
+    ctx.lineWidth = 1;
+
+    // Фигурная скобка справа от первой части
+    const x = canvas.width - 60 - 20;
+    ctx.beginPath();
+    ctx.moveTo(x, top + 4);
+    ctx.lineTo(x + 8, top + 4);
+    ctx.lineTo(x + 8, top + headH - 4);
+    ctx.lineTo(x, top + headH - 4);
+    ctx.stroke();
+
+    ctx.font = 'bold 11px system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('1 голова', x - 4, top + headH / 2);
+
+    ctx.restore();
+  }
+
+  // --- Главная функция отрисовки ---
+  function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Фон
+    ctx.fillStyle = C.bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    drawGrid();
+    drawFigure();
+    drawHeadLabel();
+
+    // Заголовок с числом частей
+    ctx.save();
+    ctx.fillStyle = C.accent;
+    ctx.font = 'bold 13px system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`${state.parts} частей`, 60, 10);
+    ctx.restore();
+  }
+
+  // --- Обработчики ---
+  function setParts(val) {
+    const n = Math.max(3, Math.min(10, parseInt(val) || 7));
+    state.parts = n;
+    rangeEl.value = n;
+    numEl.value = n;
+    render();
+  }
+
+  rangeEl.addEventListener('input', e => setParts(e.target.value));
+  numEl.addEventListener('input', e => setParts(e.target.value));
+  figEl.addEventListener('change', e => {
+    state.showFigure = e.target.checked;
+    render();
   });
-});
-document.getElementById('desc').textContent = DESCR[currentMethod];
+  resetEl.addEventListener('click', () => {
+    state.showFigure = true;
+    figEl.checked = true;
+    setParts(7);
+  });
 
-document.getElementById('thr').addEventListener('input', e =>
-  document.getElementById('thrV').textContent = e.target.value);
-document.getElementById('btn').addEventListener('click', run);
-document.getElementById('verify').addEventListener('change', () => { if (imgData) run(); });
-
-document.getElementById('btnZoneMode').addEventListener('click', () => {
-  drawingMode = !drawingMode;
-  const btn = document.getElementById('btnZoneMode');
-  btn.classList.toggle('active', drawingMode);
-  btn.textContent = drawingMode ? '🖊 Разметка (ВКЛ)' : '🖊 Разметка (Z)';
-  wrap.classList.toggle('drawing', drawingMode);
-  if (drawingMode) selectedZone = -1;
-  drawAll();
-});
-document.getElementById('btnAutoZones').addEventListener('click', () => {
-  if (!lastBoxes.length) return;
-  zones = lastBoxes.map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h }));
-  selectedZone = zones.length ? 0 : -1;
-  updateZoneInfo(); drawAll();
-  if (imgData) run();
-});
-document.getElementById('btnClearZones').addEventListener('click', () => {
-  zones = []; selectedZone = -1;
-  updateZoneInfo(); drawAll();
-  if (imgData) run();
-});
-
-document.getElementById('zIn').addEventListener('click', () => zoomBy(1.25));
-document.getElementById('zOut').addEventListener('click', () => zoomBy(0.8));
-document.getElementById('zFit').addEventListener('click', fitToScreen);
-document.getElementById('z1').addEventListener('click', () => {
-  const rw = wrap.clientWidth, rh = wrap.clientHeight;
-  const cx = rw / 2, cy = rh / 2;
-  const wx = (cx - view.tx) / view.scale;
-  const wy = (cy - view.ty) / view.scale;
-  view.scale = 1;
-  view.tx = cx - wx;
-  view.ty = cy - wy;
-  applyView();
-});
-
-// ============================================================
-// ВЗАИМОДЕЙСТВИЕ
-// ============================================================
-wrap.addEventListener('wheel', e => {
-  if (!imgData) return;
-  e.preventDefault();
-  const p = localPoint(e);
-  zoomBy(Math.exp(-e.deltaY * 0.0015), p.x, p.y);
-}, { passive: false });
-
-wrap.addEventListener('pointerdown', e => {
-  if (!imgData) return;
-  e.preventDefault();
-  try { wrap.setPointerCapture(e.pointerId); } catch (_) {}
-  const p = localPoint(e);
-  pointers.set(e.pointerId, p);
-  tapStart = { x: p.x, y: p.y, time: Date.now(), moved: false };
-
-  if (pointers.size === 2) {
-    const pts = [...pointers.values()];
-    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-    const center = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
-    gesture = { kind: 'pinch', startDist: dist, startCenter: center,
-                startScale: view.scale, startTx: view.tx, startTy: view.ty };
-    drawing = null; interaction = null;
-    drawAll();
-    return;
-  }
-  if (e.button === 1 || spaceDown) {
-    gesture = { kind: 'pan', startX: p.x, startY: p.y, startTx: view.tx, startTy: view.ty };
-    wrap.classList.add('panning');
-    return;
-  }
-  if (pointers.size !== 1) return;
-
-  if (drawingMode) {
-    const hit = hitZone(p.x, p.y);
-    if (hit && hit.type === 'resize') {
-      const z = zones[hit.idx];
-      interaction = { type: 'resize', idx: hit.idx, handle: hit.handle,
-                      startImg: screenToImage(p.x, p.y),
-                      orig: { x: z.x, y: z.y, w: z.w, h: z.h } };
-      return;
-    }
-    if (hit && hit.type === 'move') {
-      selectedZone = hit.idx;
-      const z = zones[hit.idx];
-      interaction = { type: 'move', idx: hit.idx,
-                      startImg: screenToImage(p.x, p.y),
-                      orig: { x: z.x, y: z.y, w: z.w, h: z.h } };
-      drawAll();
-      return;
-    }
-    const ip = screenToImage(p.x, p.y);
-    drawing = { x: ip.x, y: ip.y, w: 0, h: 0 };
-    selectedZone = -1;
-    drawAll();
-  } else {
-    const hit = hitZone(p.x, p.y);
-    if (hit) {
-      selectedZone = hit.idx;
-      drawAll();
-    } else {
-      selectedZone = -1;
-      gesture = { kind: 'pan', startX: p.x, startY: p.y, startTx: view.tx, startTy: view.ty };
-      wrap.classList.add('panning');
-      drawAll();
-    }
-  }
-});
-
-wrap.addEventListener('pointermove', e => {
-  if (!pointers.has(e.pointerId)) return;
-  const p = localPoint(e);
-  pointers.set(e.pointerId, p);
-
-  if (tapStart && Math.hypot(p.x - tapStart.x, p.y - tapStart.y) > 8) tapStart.moved = true;
-
-  if (gesture && gesture.kind === 'pinch' && pointers.size >= 2) {
-    const pts = [...pointers.values()];
-    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-    const center = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
-    const scaleFactor = dist / gesture.startDist;
-    const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, gesture.startScale * scaleFactor));
-    const wx = (gesture.startCenter.x - gesture.startTx) / gesture.startScale;
-    const wy = (gesture.startCenter.y - gesture.startTy) / gesture.startScale;
-    view.scale = newScale;
-    view.tx = center.x - wx * newScale;
-    view.ty = center.y - wy * newScale;
-    applyView(); drawAll();
-    return;
-  }
-  if (gesture && gesture.kind === 'pan') {
-    view.tx = gesture.startTx + (p.x - gesture.startX);
-    view.ty = gesture.startTy + (p.y - gesture.startY);
-    applyView(); drawAll();
-    return;
-  }
-  if (pointers.size !== 1) return;
-
-  if (drawing) {
-    const ip = screenToImage(p.x, p.y);
-    drawing.w = ip.x - drawing.x;
-    drawing.h = ip.y - drawing.y;
-    drawAll();
-    return;
-  }
-  if (interaction) {
-    const ip = screenToImage(p.x, p.y);
-    const dx = ip.x - interaction.startImg.x;
-    const dy = ip.y - interaction.startImg.y;
-    const o = interaction.orig;
-    if (interaction.type === 'move') {
-      zones[interaction.idx] = {
-        x: Math.max(0, Math.min(W - o.w, o.x + dx)),
-        y: Math.max(0, Math.min(H - o.h, o.y + dy)),
-        w: o.w, h: o.h
-      };
-    } else if (interaction.type === 'resize') {
-      let x1 = o.x, y1 = o.y, x2 = o.x + o.w, y2 = o.y + o.h;
-      const hd = interaction.handle;
-      if (hd.includes('w')) x1 = o.x + dx;
-      if (hd.includes('e')) x2 = o.x + o.w + dx;
-      if (hd.includes('n')) y1 = o.y + dy;
-      if (hd.includes('s')) y2 = o.y + o.h + dy;
-      let nx = Math.min(x1, x2), ny = Math.min(y1, y2);
-      let nw = Math.abs(x2 - x1), nh = Math.abs(y2 - y1);
-      nx = Math.max(0, Math.min(W - 10, nx));
-      ny = Math.max(0, Math.min(H - 10, ny));
-      nw = Math.max(10, Math.min(W - nx, nw));
-      nh = Math.max(10, Math.min(H - ny, nh));
-      zones[interaction.idx] = { x: nx, y: ny, w: nw, h: nh };
-    }
-    drawAll();
-  }
-});
-
-wrap.addEventListener('pointerup', e => {
-  if (!pointers.has(e.pointerId)) return;
-  const p = localPoint(e);
-  pointers.delete(e.pointerId);
-
-  if (pointers.size === 0 && gesture && gesture.kind === 'pan') {
-    gesture = null;
-    wrap.classList.remove('panning');
-  }
-  if (pointers.size < 2 && gesture && gesture.kind === 'pinch') gesture = null;
-
-  if (tapStart && !tapStart.moved && Date.now() - tapStart.time < 300) {
-    const now = Date.now();
-    if (now - lastTap.time < 320 &&
-        Math.abs(p.x - lastTap.x) < 25 && Math.abs(p.y - lastTap.y) < 25) {
-      const hit = hitZone(p.x, p.y);
-      if (hit) {
-        zones.splice(hit.idx, 1);
-        selectedZone = -1;
-        updateZoneInfo(); drawAll();
-        lastTap.time = 0;
-        tapStart = null;
-        if (imgData) run();
-        return;
-      } else {
-        fitToScreen();
-        lastTap.time = 0;
-        tapStart = null;
-        return;
-      }
-    }
-    lastTap = { time: now, x: p.x, y: p.y };
-  }
-  tapStart = null;
-
-  if (drawing) {
-    if (drawing.w < 0) { drawing.x += drawing.w; drawing.w = -drawing.w; }
-    if (drawing.h < 0) { drawing.y += drawing.h; drawing.h = -drawing.h; }
-    const sw = drawing.w * view.scale;
-    const sh = drawing.h * view.scale;
-    if (sw > 15 && sh > 15) {
-      zones.push({ ...drawing });
-      selectedZone = zones.length - 1;
-    }
-    drawing = null;
-    updateZoneInfo(); drawAll();
-    if (imgData) run();
-  }
-  if (interaction) {
-    interaction = null;
-    updateZoneInfo();
-    if (imgData) run();
-  }
-});
-
-wrap.addEventListener('pointercancel', e => {
-  pointers.delete(e.pointerId);
-  if (!drawing) {
-    gesture = null;
-    interaction = null;
-    wrap.classList.remove('panning');
-  }
-});
-
-window.addEventListener('keydown', e => {
-  if (e.code === 'Space' && !spaceDown && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-    spaceDown = true; wrap.style.cursor = 'grab'; e.preventDefault();
-  }
-  if (e.key === 'Enter' && imgData && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') run();
-  if ((e.key === 'z' || e.key === 'Z') && imgData && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA')
-    document.getElementById('btnZoneMode').click();
-  if ((e.key === 'Delete' || e.key === 'Backspace') && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-    zones = []; selectedZone = -1;
-    updateZoneInfo(); drawAll();
-    if (imgData) run();
-  }
-  if (e.key === '0') { if (imgData) fitToScreen(); }
-  if (e.key === '1') { if (imgData) document.getElementById('z1').click(); }
-});
-window.addEventListener('keyup', e => {
-  if (e.code === 'Space') { spaceDown = false; wrap.style.cursor = ''; }
-});
-
-document.getElementById('btnSave').addEventListener('click', () => {
-  const a = document.createElement('a');
-  a.download = 'faces.png';
-  a.href = cv.toDataURL('image/png');
-  a.click();
-});
-
-['dragenter','dragover'].forEach(ev => wrap.addEventListener(ev, e => {
-  e.preventDefault(); wrap.classList.add('drag');
-}));
-['dragleave','drop'].forEach(ev => wrap.addEventListener(ev, e => {
-  e.preventDefault(); wrap.classList.remove('drag');
-}));
-wrap.addEventListener('drop', e => {
-  const f = e.dataTransfer.files[0];
-  if (f && f.type.startsWith('image/')) {
-    const r = new FileReader();
-    r.onload = ev => loadImage(ev.target.result);
-    r.readAsDataURL(f);
-  }
-});
-window.addEventListener('paste', e => {
-  for (const item of e.clipboardData.items) {
-    if (item.type.startsWith('image/')) {
-      const f = item.getAsFile();
-      const r = new FileReader();
-      r.onload = ev => loadImage(ev.target.result);
-      r.readAsDataURL(f);
-      break;
-    }
-  }
-});
-
-// ============================================================
-// ЗАПУСК
-// ============================================================
-function run() {
-  if (!imgData) return;
-  const thr = +document.getElementById('thr').value / 100;
-  const needVerify = document.getElementById('verify').checked;
-  document.getElementById('btn').disabled = true;
-  const t0 = performance.now();
-
-  setTimeout(() => {
-    try {
-      const candidates = methods[currentMethod](thr);
-      let boxes;
-
-      if (needVerify) {
-        const gray = grayPixels();
-        const verified = [];
-        for (const b of candidates) {
-          const v = verifyFaceByEyes(gray, b);
-          if (v) verified.push(v);
-        }
-        boxes = nms(verified, 0.3);
-      } else {
-        boxes = candidates;
-      }
-
-      let inZonesCount = boxes.length, outZonesCount = 0;
-      if (zones.length) {
-        const before = boxes.length;
-        boxes = boxes.filter(b => inAnyZone(b));
-        inZonesCount = boxes.length;
-        outZonesCount = before - inZonesCount;
-      }
-
-      lastBoxes = boxes;
-      drawAll();
-      document.getElementById('btnSave').disabled = boxes.length === 0;
-
-      const dt = (performance.now() - t0).toFixed(0);
-      document.getElementById('stat').textContent =
-        `Метод: ${currentMethod} | кандидатов: ${candidates.length} | ` +
-        `итог: ${boxes.length}` +
-        (zones.length ? ` (в зонах: ${inZonesCount}, вне: ${outZonesCount})` : '') +
-        ` | ${dt} мс`;
-    } catch (err) {
-      drawAll();
-      document.getElementById('stat').textContent = 'Ошибка: ' + err.message;
-      console.error(err);
-    }
-    document.getElementById('btn').disabled = false;
-  }, 10);
-}
+  // Старт
+  render();
+})();
 </script>
 </body>
 </html>
