@@ -317,6 +317,7 @@ const MAX_Z = 0.98;
 const LOOP_SEGMENTS = 96;
 
 const rad = (d) => (d * Math.PI) / 180;
+const deg = (r) => (r * 180) / Math.PI;
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const len = (a) => Math.hypot(a[0], a[1], a[2]);
 const norm = (a) => { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
@@ -540,6 +541,7 @@ const STORE_KEY = 'loomis-2d:v1';
 const state = loadState();
 
 function wrapYaw(y) {
+  // приводит к диапазону [-180, 180)
   return ((((y + 180) % 360) + 360) % 360) - 180;
 }
 
@@ -589,15 +591,11 @@ const VIEW_SIZE = 600;
 const CX = VIEW_SIZE / 2, CY = VIEW_SIZE / 2;
 const SCALE = 200;
 
-// Порядок слоёв: подложка -> фон головы -> скрытые -> видимые -> подписи
 const gUnderlay = document.createElementNS(SVG_NS, 'g');
-const gHeadBg = document.createElementNS(SVG_NS, 'g');
 const gHidden = document.createElementNS(SVG_NS, 'g');
 const gVisible = document.createElementNS(SVG_NS, 'g');
 const gLabels = document.createElementNS(SVG_NS, 'g');
-
 svg.appendChild(gUnderlay);
-svg.appendChild(gHeadBg);
 svg.appendChild(gHidden);
 svg.appendChild(gVisible);
 svg.appendChild(gLabels);
@@ -614,6 +612,8 @@ gUnderlay.appendChild(underlayImg);
 const LABEL_TEXT = { 1: '①', 2: '②', 3: '③', 4: '④', 5: '⑤', 6: '⑥', 7: '⑦', 8: '⑧', A: 'Ⓐ', B: 'Ⓑ', C: 'Ⓒ' };
 const LABEL_COLOR = { 1: 'red', 2: 'red', 3: 'red', 6: 'red', 4: 'blue', 5: 'blue', 7: 'blue', 8: 'blue', A: 'ink', B: 'ink', C: 'ink' };
 
+// Вращение точки: yaw вокруг Z, затем pitch вокруг X.
+// Лицо = -Y по спецификации (three.js версия переводит в +Z).
 function rotate(p) {
   const yaw = rad(state.view.yaw), pitch = rad(state.view.pitch);
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
@@ -632,6 +632,8 @@ function project(p) {
   return { x: CX + r[0] * SCALE, y: CY - r[2] * SCALE, depth: r[1] };
 }
 
+// видимость точки: нормаль в этой позе смотрит на камеру?
+// Камера смотрит вдоль +Y (спереди -Y), значит "к камере" — нормаль с отрицательным Y после поворота.
 function isVisiblePoint(p, n) {
   const rn = rotate(n);
   return rn[1] < 0;
@@ -645,13 +647,14 @@ function lineToPath(pts, closed) {
   return d;
 }
 
+// разбить линию на видимые/невидимые сегменты
 function splitByVisibility(pts, projected) {
   const result = [];
   if (!pts.length) return result;
   let cur = { visible: null, pts2d: [] };
   for (let i = 0; i < pts.length; i++) {
     const p = pts[i];
-    const n = norm(p);   // грубая нормаль к сфере
+    const n = norm(p);
     const vis = isVisiblePoint(p, n);
     if (cur.visible === null) {
       cur.visible = vis;
@@ -670,32 +673,12 @@ function splitByVisibility(pts, projected) {
 
 function render() {
   const head = buildHead(state.shape, state.line);
-  gHeadBg.innerHTML = '';
   gVisible.innerHTML = '';
   gHidden.innerHTML = '';
   gLabels.innerHTML = '';
 
   const strokeW = state.line * SCALE;
 
-  // --- 1. Силуэт головы (заливка) ---
-  // Строим проекцию "сферы" головы. Используем эллипс, опираясь на ширину и верх.
-  const { cut, top } = head.solid;
-  const yawRad = rad(state.view.yaw);
-  
-  // При повороте ширина видимой части меняется по косинусу
-  const rx = Math.max(cut * Math.abs(Math.cos(yawRad)), 0.05) * SCALE;
-  const ry = top * SCALE;
-  
-  const bgEllipse = document.createElementNS(SVG_NS, 'ellipse');
-  bgEllipse.setAttribute('cx', CX);
-  bgEllipse.setAttribute('cy', CY);
-  bgEllipse.setAttribute('rx', (rx + 4).toFixed(1));
-  bgEllipse.setAttribute('ry', (ry + 4).toFixed(1));
-  bgEllipse.setAttribute('fill', '#f4f1f7');
-  bgEllipse.setAttribute('stroke', 'none');
-  gHeadBg.appendChild(bgEllipse);
-
-  // --- 2. Линии ---
   for (const l of head.lines) {
     const projected = l.pts.map((p) => project(p));
     const parts = splitByVisibility(l.pts, projected);
@@ -709,28 +692,18 @@ function render() {
       path.setAttribute('stroke-width', strokeW.toFixed(2));
       path.setAttribute('stroke-linecap', 'round');
       path.setAttribute('stroke-linejoin', 'round');
-      
       if (!part.visible) {
         if (!state.display.hidden) continue;
-        path.setAttribute('stroke-opacity', '0.2');
+        path.setAttribute('stroke-opacity', '0.22');
         path.setAttribute('stroke-dasharray', `${(strokeW * 1.5).toFixed(1)} ${(strokeW * 2.5).toFixed(1)}`);
         gHidden.appendChild(path);
       } else {
-        // Приглушаем линии ③, если они "схлопнулись" в вертикальную черту (взгляд строго спереди/сзади)
-        if (l.id === '3') {
-          const first = part.pts2d[0];
-          const last = part.pts2d[part.pts2d.length - 1];
-          const dist = Math.hypot(first.x - last.x, first.y - last.y);
-          if (dist < 10) {
-            path.setAttribute('stroke-opacity', '0.3');
-          }
-        }
         gVisible.appendChild(path);
       }
     }
   }
 
-  // --- 3. Подписи ---
+  // метки
   if (state.display.labels) {
     for (const [id, cands] of Object.entries(head.labels)) {
       let best = null;
@@ -772,10 +745,10 @@ const $ = (id) => document.getElementById(id);
 function viewName() {
   const y = state.view.yaw;
   const ay = Math.abs(y);
-  if (ay <= 22) return 'Анфас';
+  if (ay <= 22) return y >= 0 ? 'Анфас' : 'Анфас';
   if (ay <= 68) return y > 0 ? '3/4 влево' : '3/4 вправо';
   if (ay <= 112) return y > 0 ? 'Профиль влево' : 'Профиль вправо';
-  if (ay <= 158) return 'Задний 3/4';
+  if (ay <= 158) return y > 0 ? 'Задний 3/4' : 'Задний 3/4';
   return 'Спина';
 }
 
@@ -802,6 +775,7 @@ pitchInput.addEventListener('input', () => {
   save();
 });
 
+// кнопки углов
 document.querySelectorAll('[data-angle]').forEach((b) => {
   b.addEventListener('click', () => {
     stopSpin();
@@ -832,6 +806,7 @@ $('reset-view').addEventListener('click', () => {
   save();
 });
 
+// автоповорот
 let spinRAF = 0;
 const spinBtn = $('spin');
 function stopSpin() {
@@ -846,7 +821,7 @@ spinBtn.addEventListener('click', () => {
     const tick = (now) => {
       const dt = Math.min(64, now - last);
       last = now;
-      state.view.yaw = wrapYaw(state.view.yaw + dt * 0.04);
+      state.view.yaw = wrapYaw(state.view.yaw + dt * 0.04);   // ~40°/сек
       yawInput.value = state.view.yaw;
       $('yaw-out').textContent = Math.round(state.view.yaw) + '°';
       render();
@@ -860,6 +835,7 @@ spinBtn.addEventListener('click', () => {
   }
 });
 
+// пресеты
 const presetButtons = PRESETS.map((p) => {
   const b = document.createElement('button');
   b.type = 'button';
@@ -881,6 +857,7 @@ function renderPresets() {
   PRESETS.forEach((p, i) => presetButtons[i].setAttribute('aria-pressed', String(state.preset === p.id)));
 }
 
+// слайдеры формы
 const shapeSyncers = [];
 const shapeHost = $('shape-sliders');
 const SHAPE_GROUPS = { cut: 'Голова', eye: 'Лицо', jaw_start: 'Челюсть', chin_len: 'Подбородок' };
@@ -921,6 +898,7 @@ function syncShapeSliders() {
   for (const s of shapeSyncers) s();
 }
 
+// толщина линии
 const lineInput = $('line'), lineOut = $('line-out');
 lineInput.value = state.line;
 lineOut.textContent = state.line.toFixed(3);
@@ -931,6 +909,7 @@ lineInput.addEventListener('input', () => {
   save();
 });
 
+// переключатели
 const toggleHidden = $('toggle-hidden');
 const toggleLabels = $('toggle-labels');
 toggleHidden.setAttribute('aria-pressed', String(state.display.hidden));
@@ -947,6 +926,10 @@ toggleLabels.addEventListener('click', () => {
   render();
   save();
 });
+
+/* ==================================================================
+ * Подложка
+ * ================================================================== */
 
 const underlayPick = $('underlay-pick');
 const underlayInput = $('underlay-input');
@@ -1046,6 +1029,10 @@ document.addEventListener('paste', (e) => {
   }
 });
 
+/* ==================================================================
+ * Экспорт
+ * ================================================================== */
+
 $('save-png').addEventListener('click', async () => {
   const clone = svg.cloneNode(true);
   clone.setAttribute('xmlns', SVG_NS);
@@ -1089,6 +1076,10 @@ function download(blob, name) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
+/* ==================================================================
+ * О методе
+ * ================================================================== */
+
 $('about-btn').addEventListener('click', () => {
   alert(
     'Голова Лумиса (2D, 360°)\n\n' +
@@ -1105,6 +1096,10 @@ $('about-btn').addEventListener('click', () => {
     'Скрытые линии — приглушённый пунктир на обратной стороне.'
   );
 });
+
+/* ==================================================================
+ * Перетаскивание мышью (yaw — бесконечное вращение с wrap-around)
+ * ================================================================== */
 
 let dragStart = null;
 stage.addEventListener('pointerdown', (e) => {
@@ -1129,10 +1124,14 @@ stage.addEventListener('pointermove', (e) => {
 stage.addEventListener('pointerup', () => { dragStart = null; save(); });
 stage.addEventListener('pointercancel', () => { dragStart = null; save(); });
 
+/* ==================================================================
+ * Запуск
+ * ================================================================== */
+
 syncShapeSliders();
 renderPresets();
 render();
 updateViewName();
 </script>
 </body>
-  </html>
+</html>
