@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Шаг 3. Голова, шея, торс</title>
+<title>Шаг 3. Фигура</title>
 <style>
   :root {
     --bg: #141419; --panel: #1e1e26; --panel-2: #262630;
     --accent: #e8b04b; --text: #e8e8f0; --muted: #8a8a99;
     --border: #33333f; --danger: #e85b5b;
+    --line-figure: #d97d5a; /* Цвет фигуры как на референсе */
   }
   * { box-sizing: border-box; }
   body {
@@ -81,7 +82,7 @@
 
 <header>
   <h1>Построение фигуры</h1>
-  <p>Голова, шея, грудная клетка и таз</p>
+  <p>Голова, шея, торс (форма чаши)</p>
 </header>
 
 <div class="app">
@@ -126,18 +127,18 @@
       <input id="rangeNeckX" type="range" min="-1.0" max="1.0" value="0.0" step="0.05">
     </div>
 
-    <h2>Торс (Шаг 3)</h2>
+    <h2>Торс и таз</h2>
     <div class="control">
-      <div class="control-head"><label>Высота груди / Ширина таза</label><span class="badge" id="valTorsoSize">1.5</span></div>
+      <div class="control-head"><label>Размер торса</label><span class="badge" id="valTorsoSize">1.5</span></div>
       <input id="rangeTorsoSize" type="range" min="1.0" max="2.5" value="1.5" step="0.1">
     </div>
     <div class="control">
-      <div class="control-head"><label>Ширина груди</label><span class="badge" id="valChestW">1.2</span></div>
+      <div class="control-head"><label>Ширина плеч</label><span class="badge" id="valChestW">1.2</span></div>
       <input id="rangeChestW" type="range" min="0.5" max="2.0" value="1.2" step="0.1">
     </div>
     <div class="control">
-      <div class="control-head"><label>Зазор (шея-таз)</label><span class="badge" id="valGap">0.5</span></div>
-      <input id="rangeGap" type="range" min="0" max="1.5" value="0.5" step="0.1">
+      <div class="control-head"><label>Отступ от шеи</label><span class="badge" id="valGap">0.2</span></div>
+      <input id="rangeGap" type="range" min="0" max="1.0" value="0.2" step="0.1">
     </div>
 
     <div class="actions">
@@ -154,7 +155,6 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-// Все параметры в одном месте
 const els = {
   parts:  { r: document.getElementById('rangeParts'),  v: document.getElementById('valParts'),  def: 7 },
   radius: { r: document.getElementById('rangeRadius'), v: document.getElementById('valRadius'), def: 1.5 },
@@ -165,11 +165,9 @@ const els = {
   neckW:  { r: document.getElementById('rangeNeckW'),  v: document.getElementById('valNeckW'),  def: 0.6 },
   neckL:  { r: document.getElementById('rangeNeckL'),  v: document.getElementById('valNeckL'),  def: 0.8 },
   neckX:  { r: document.getElementById('rangeNeckX'),  v: document.getElementById('valNeckX'),  def: 0.0 },
-  
-  // Шаг 3: Новые параметры для торса
   torsoSize: { r: document.getElementById('rangeTorsoSize'), v: document.getElementById('valTorsoSize'), def: 1.5 },
   chestW:    { r: document.getElementById('rangeChestW'),    v: document.getElementById('valChestW'),    def: 1.2 },
-  gap:       { r: document.getElementById('rangeGap'),       v: document.getElementById('valGap'),       def: 0.5 }
+  gap:       { r: document.getElementById('rangeGap'),       v: document.getElementById('valGap'),       def: 0.2 }
 };
 
 const btnReset = document.getElementById('btnReset');
@@ -186,7 +184,6 @@ function updateValDisplay(el, valEl) {
 
 Object.values(els).forEach(({ r, v }) => {
   r.addEventListener('input', () => {
-    // Логика ограничителей (голова)
     if (r.id === 'rangeAttach' && parseFloat(r.value) > parseFloat(els.chinH.r.value) - 0.5) {
       r.value = parseFloat(els.chinH.r.value) - 0.5;
     }
@@ -210,21 +207,6 @@ btnReset.addEventListener('click', () => {
   draw();
 });
 
-// Функция для скругления прямоугольника (таза)
-function roundedRect(ctx, x, y, width, height, radius) {
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + width - radius, y);
-  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-  ctx.lineTo(x + width, y + height - radius);
-  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-  ctx.lineTo(x + radius, y + height);
-  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-  ctx.lineTo(x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
-  ctx.closePath();
-}
-
 function draw() {
   const parts = parseInt(els.parts.r.value);
   const radiusMultiplier = parseFloat(els.radius.r.value);
@@ -247,16 +229,16 @@ function draw() {
   const height = bottom - top, step = height / parts;
   const left = 20, right = canvas.width - 20, cx = (left + right) / 2;
 
-  // Сетка
-  ctx.strokeStyle = '#3a3a46'; ctx.lineWidth = 1;
-  ctx.font = '11px system-ui'; ctx.fillStyle = '#8a8a99';
+  // Сетка (приглушенная)
+  ctx.strokeStyle = '#2e2e36'; ctx.lineWidth = 1;
+  ctx.font = '11px system-ui'; ctx.fillStyle = '#6b6b7a';
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   for (let i = 0; i <= parts; i++) {
     const y = top + i * step;
     ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(right, y); ctx.stroke();
     if (i < parts) ctx.fillText(i + 1, right - 16, y + step / 2);
   }
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.setLineDash([4, 6]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.setLineDash([4, 6]);
   ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, bottom); ctx.stroke(); ctx.setLineDash([]);
 
   // Геометрия головы
@@ -274,23 +256,108 @@ function draw() {
   const jawWidthBot = jawWidthTop * chinWidthMul;
 
   // Вспомогательные линии головы
-  ctx.strokeStyle = 'rgba(232,176,75,0.22)'; ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
+  ctx.strokeStyle = 'rgba(232,176,75,0.15)'; ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
   for (let i = 1; i <= 5; i++) {
     const y = top + fifth * i;
     ctx.beginPath(); ctx.moveTo(cx - r - 40, y); ctx.lineTo(cx + r + 40, y); ctx.stroke();
   }
   ctx.setLineDash([]);
 
-  // --- ШЕЯ ---
+  // ================= ШАГ 3: ТОРС И ТАЗ (по референсу) =================
+  
+  // Базовые точки
+  const torsoStartY = (y0 + step) + (step * gap);
+  const chestH = step * torsoSize; // Высота груди = Ширина таза
+  const pelvisH = chestH;          // Высота таза = Ширина таза
+  const pelvisW = chestH;          // Квадрат
+
+  // Ширина плеч (верх груди)
+  const shoulderW = step * chestW;
+  // Ширина талии (низ груди)
+  const waistW = shoulderW * 0.65;
+
+  ctx.strokeStyle = 'var(--line-figure)';
+  ctx.lineWidth = 2;
+
+  // --- ГРУДНАЯ КЛЕТКА (Яйцо) ---
+  ctx.beginPath();
+  // Верх (плечи)
+  ctx.moveTo(cx - shoulderW / 2, torsoStartY);
+  // Левая сторона вниз к талии
+  ctx.bezierCurveTo(
+    cx - shoulderW * 0.6, torsoStartY + chestH * 0.5,
+    cx - waistW / 2, torsoStartY + chestH * 0.8,
+    cx - waistW / 2, torsoStartY + chestH
+  );
+  // Линия талии (низ груди)
+  ctx.lineTo(cx + waistW / 2, torsoStartY + chestH);
+  // Правая сторона вверх к плечу
+  ctx.bezierCurveTo(
+    cx + waistW / 2, torsoStartY + chestH * 0.8,
+    cx + shoulderW * 0.6, torsoStartY + chestH * 0.5,
+    cx + shoulderW / 2, torsoStartY
+  );
+  ctx.closePath();
+  ctx.stroke();
+
+  // --- ТАЗ (Форма чаши / трусов) ---
+  const pelvisTopY = torsoStartY + chestH;
+  const pelvisBotY = pelvisTopY + pelvisH;
+  const hipW = pelvisW; // Ширина таза по условию
+  const crotchY = pelvisTopY + pelvisH * 0.6; // Высота промежности
+
+  ctx.beginPath();
+  // Верхний левый угол (талия)
+  ctx.moveTo(cx - waistW / 2, pelvisTopY);
+  // Левая сторона вниз к бедру
+  ctx.bezierCurveTo(
+    cx - waistW / 2 - (hipW - waistW) * 0.2, pelvisTopY + pelvisH * 0.2,
+    cx - hipW / 2, pelvisTopY + pelvisH * 0.3,
+    cx - hipW / 2, pelvisTopY + pelvisH * 0.5
+  );
+  // Левая нога (вырез)
+  ctx.quadraticCurveTo(
+    cx - hipW * 0.3, crotchY,
+    cx, crotchY // Центр (промежность)
+  );
+  // Правая нога (вырез)
+  ctx.quadraticCurveTo(
+    cx + hipW * 0.3, crotchY,
+    cx + hipW / 2, pelvisTopY + pelvisH * 0.5
+  );
+  // Правая сторона вверх к талии
+  ctx.bezierCurveTo(
+    cx + hipW / 2, pelvisTopY + pelvisH * 0.3,
+    cx + waistW / 2 + (hipW - waistW) * 0.2, pelvisTopY + pelvisH * 0.2,
+    cx + waistW / 2, pelvisTopY
+  );
+  ctx.stroke();
+
+  // Верхняя дуга таза (от талии до талии)
+  ctx.beginPath();
+  ctx.moveTo(cx - waistW / 2, pelvisTopY);
+  ctx.quadraticCurveTo(cx, pelvisTopY - pelvisH * 0.1, cx + waistW / 2, pelvisTopY);
+  ctx.stroke();
+
+  // Вспомогательная линия таза (по центру)
+  ctx.beginPath();
+  ctx.moveTo(cx, torsoStartY);
+  ctx.lineTo(cx, pelvisBotY);
+  ctx.strokeStyle = 'rgba(217, 125, 90, 0.3)';
+  ctx.setLineDash([4, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // --- ШЕЯ (рисуем поверх шеи, чтобы скрыть верх торса) ---
   const neckHalfW = (jawWidthBot / 2) * neckW;
   const neckShift = (jawWidthTop / 2) * neckX;
   const neckTopY = yChin - 2; 
   const maxNeckLength = (y0 + step) - neckTopY;
   const neckBotY = neckTopY + (maxNeckLength * neckL);
 
-  ctx.fillStyle = 'rgba(232,176,75,0.1)';
-  ctx.strokeStyle = '#e8b04b';
-  ctx.lineWidth = 1.8;
+  ctx.fillStyle = 'var(--panel)'; // Заливаем фоном, чтобы перекрыть линии торса
+  ctx.strokeStyle = 'var(--line-figure)';
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(cx - neckHalfW + neckShift, neckTopY);
   ctx.lineTo(cx - neckHalfW + neckShift, neckBotY);
@@ -299,55 +366,8 @@ function draw() {
   ctx.stroke();
   ctx.fill();
 
-  // --- ШАГ 3: ГРУДНАЯ КЛЕТКА И ТАЗ ---
-  // Отправная точка: линия шеи (5/5) + зазор
-  const torsoStartY = (y0 + step) + (step * gap);
-  
-  // Высота груди = Ширина таза = torsoSize
-  const chestH = step * torsoSize;
-  const pelvisW = step * torsoSize; 
-  
-  // Ширина таза = Высота таза = pelvisW
-  const pelvisH = pelvisW;
-
-  // Ширина груди (в верхней части она уже, это форма яйца)
-  const chestTopW = step * chestW * 0.6; // Узкая часть (верх)
-  const chestBotW = step * chestW;       // Широкая часть (низ)
-
-  // Рисуем грудную клетку (яйцо)
-  ctx.fillStyle = 'rgba(232,176,75,0.05)';
-  ctx.strokeStyle = '#e8b04b';
-  ctx.lineWidth = 1.8;
-  ctx.beginPath();
-  
-  // Верхняя дуга (узкая)
-  ctx.moveTo(cx - chestTopW / 2, torsoStartY);
-  ctx.bezierCurveTo(
-    cx - chestBotW, torsoStartY + chestH * 0.3, 
-    cx - chestBotW, torsoStartY + chestH * 0.7, 
-    cx - chestTopW / 2, torsoStartY + chestH
-  );
-  // Нижняя дуга
-  ctx.bezierCurveTo(
-    cx + chestBotW, torsoStartY + chestH * 0.7, 
-    cx + chestBotW, torsoStartY + chestH * 0.3, 
-    cx + chestTopW / 2, torsoStartY
-  );
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // Рисуем таз (квадрат с закруглёнными краями)
-  const pelvisStartY = torsoStartY + chestH + (step * 0.2); // Небольшой отступ между грудью и тазом
-  const pelvisX = cx - pelvisW / 2;
-  
-  ctx.beginPath();
-  roundedRect(ctx, pelvisX, pelvisStartY, pelvisW, pelvisH, pelvisW * 0.2);
-  ctx.fill();
-  ctx.stroke();
-
-  // --- ЧЕРЕП (рисуем поверх шеи) ---
-  ctx.strokeStyle = '#e8b04b'; ctx.lineWidth = 1.8;
+  // --- ЧЕРЕП ---
+  ctx.strokeStyle = 'var(--line-figure)'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
 
   // --- ЧЕЛЮСТЬ ---
@@ -394,14 +414,15 @@ function draw() {
   ctx.stroke();
 
   // Подписи долей головы
-  ctx.fillStyle = '#8a8a99'; ctx.font = '10px system-ui';
+  ctx.fillStyle = '#6b6b7a'; ctx.font = '10px system-ui';
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   for (let i = 1; i <= 5; i++) {
     ctx.fillText(`${i}/5`, cx + r + 10, top + fifth * i - fifth / 2);
   }
 }
 
-draw();
+// Запускаем отрисовку с задержкой, чтобы CSS переменные успели примениться
+setTimeout(draw, 50);
 </script>
 </body>
 </html>
