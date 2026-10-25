@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Шаг 2. Голова (Расширенная)</title>
+<title>Шаг 2. Голова</title>
 <style>
   :root {
     --bg: #141419; --panel: #1e1e26; --panel-2: #262630;
@@ -32,13 +32,11 @@
     width: 100%; max-width: 360px;
     display: flex; flex-direction: column; gap: 14px;
     box-shadow: 0 10px 30px rgba(0,0,0,.35);
-    max-height: 85vh; overflow-y: auto;
   }
   .controls h2 {
     font-size: .75rem; text-transform: uppercase;
     letter-spacing: 1px; color: var(--muted);
-    margin: 8px 0 4px; font-weight: 600;
-    border-bottom: 1px solid var(--border); padding-bottom: 4px;
+    margin: 0 0 4px; font-weight: 600;
   }
   .control { display: flex; flex-direction: column; gap: 6px; }
   .control-head { display: flex; justify-content: space-between; align-items: center; font-size: .85rem; }
@@ -75,18 +73,76 @@
     border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
     display: block;
   }
+  .hint { font-size: .75rem; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--border); padding-top: 12px; }
 </style>
 </head>
 <body>
 
 <header>
   <h1>Построение головы</h1>
-  <p>Расширенные настройки формы</p>
+  <p>Настрой пропорции черепа, челюсти и подбородка</p>
 </header>
 
 <div class="app">
-  <div class="controls" id="controls-container">
-    <!-- Сюда будут добавлены ползунки через JS -->
+  <div class="controls">
+    <h2>Параметры</h2>
+
+    <div class="control">
+      <div class="control-head">
+        <label>Частей (голов)</label>
+        <span class="badge" id="valParts">7</span>
+      </div>
+      <input id="rangeParts" type="range" min="3" max="10" value="7" step="1">
+    </div>
+
+    <div class="control">
+      <div class="control-head">
+        <label>Размер круга головы</label>
+        <span class="badge" id="valRadius">1.5</span>
+      </div>
+      <input id="rangeRadius" type="range" min="1.0" max="2.0" value="1.5" step="0.1">
+    </div>
+
+    <div class="control">
+      <div class="control-head">
+        <label>Крепление челюсти</label>
+        <span class="badge" id="valAttach">2.0</span>
+      </div>
+      <input id="rangeAttach" type="range" min="1.0" max="3.0" value="2.0" step="0.1">
+    </div>
+
+    <div class="control">
+      <div class="control-head">
+        <label>Ширина подбородка</label>
+        <span class="badge" id="valChinW">0.50</span>
+      </div>
+      <input id="rangeChinW" type="range" min="0.05" max="1.0" value="0.5" step="0.05">
+    </div>
+
+    <div class="control">
+      <div class="control-head">
+        <label>Высота подбородка</label>
+        <span class="badge" id="valChinH">4.0</span>
+      </div>
+      <input id="rangeChinH" type="range" min="3.0" max="5.0" value="4.0" step="0.1">
+    </div>
+
+    <div class="control">
+      <div class="control-head">
+        <label>Округлость</label>
+        <span class="badge" id="valRound">0.00</span>
+      </div>
+      <input id="rangeRound" type="range" min="0" max="1" value="0" step="0.05">
+    </div>
+
+    <div class="actions">
+      <button class="btn-reset" id="btnReset">Сбросить</button>
+    </div>
+
+    <div class="hint">
+      Значения подбородка измеряются в долях головы (от 3/5 до 5/5).
+      Округлость 0 — угловатая челюсть, 1 — мягкая дуга.
+    </div>
   </div>
 
   <div class="stage">
@@ -98,86 +154,72 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-// Конфигурация параметров (взята из loomis.js + твои старые)
-const SHAPE_PARAMS = [
-  { key: 'parts',      label: 'Частей (голов)',      min: 3,   max: 10,  step: 1,    def: 7 },
-  { key: 'cut',        label: 'Ширина головы',       min: 0.4, max: 0.95, step: 0.01, def: 0.73 },
-  { key: 'top',        label: 'Высота верха',        min: 0.8, max: 1.4,  step: 0.01, def: 1.0 },
-  { key: 'r0',         label: 'Размер кругов (r0)',  min: 0.3, max: 0.95, step: 0.01, def: 0.68 },
-  { key: 'eye',        label: 'Высота глаз',         min: -0.9, max: 0.9, step: 0.01, def: 0.0 },
-  { key: 'jaw_start',  label: 'Начало челюсти',      min: -60,  max: 60,  step: 1,    def: 0, unit: '°' },
-  { key: 'jaw_len',    label: 'Длина челюсти',       min: 0,   max: 1.2,  step: 0.01, def: 0.4 },
-  { key: 'jaw_tilt',   label: 'Наклон челюсти',      min: -40,  max: 70,  step: 1,    def: 10, unit: '°' },
-  { key: 'jaw_x',      label: 'Ширина эла (B)',      min: 0.2, max: 0.95, step: 0.01, def: 0.62 },
-  { key: 'chin_len',   label: 'Высота подбородка',   min: 0.5, max: 1.5,  step: 0.01, def: 1.0 },
-  { key: 'chin_front', label: 'Выступ подбородка',   min: 0.4, max: 1.4,  step: 0.01, def: 0.85 },
-  { key: 'chin_w',     label: 'Ширина подбородка',   min: 0.03, max: 0.6, step: 0.01, def: 0.22 },
-  { key: 'chin_round', label: 'Округлость',          min: 0,   max: 1,    step: 0.01, def: 0.5 }
-];
+const els = {
+  parts:  { r: document.getElementById('rangeParts'),  v: document.getElementById('valParts'),  def: 7 },
+  radius: { r: document.getElementById('rangeRadius'), v: document.getElementById('valRadius'), def: 1.5 },
+  attach: { r: document.getElementById('rangeAttach'), v: document.getElementById('valAttach'), def: 2.0 },
+  chinW:  { r: document.getElementById('rangeChinW'),  v: document.getElementById('valChinW'),  def: 0.5 },
+  chinH:  { r: document.getElementById('rangeChinH'),  v: document.getElementById('valChinH'),  def: 4.0 },
+  round:  { r: document.getElementById('rangeRound'),  v: document.getElementById('valRound'),  def: 0 }
+};
 
-let params = {};
-SHAPE_PARAMS.forEach(p => params[p.key] = p.def);
+const btnReset = document.getElementById('btnReset');
 
-// ================= МАТЕМАТИКА =================
-const rad = (d) => (d * Math.PI) / 180;
-const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const len = (a) => Math.hypot(a[0], a[1], a[2]);
-const norm = (a) => { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
-const mirror = (a) => [-a[0], a[1], a[2]];
-const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+function updateFill(el) {
+  const min = parseFloat(el.min), max = parseFloat(el.max), val = parseFloat(el.value);
+  el.style.setProperty('--fill', ((val - min) / (max - min)) * 100 + '%');
+}
 
-function rounded(items, radius) {
-  const pts0 = [];
-  for (const it of items) {
-    if (!pts0.length || len(sub(it.p, pts0[pts0.length - 1].p)) > 1e-6) pts0.push(it);
-  }
-  if (pts0.length < 3) return { pts: pts0.map((it) => it.p), corners: [] };
-  const out = [pts0[0].p];
-  const corners = [];
-  for (let i = 1; i < pts0.length - 1; i++) {
-    const P = pts0[i - 1].p, V = pts0[i].p, N = pts0[i + 1].p;
-    const kk = pts0[i].k ?? 0;
-    const d1 = sub(V, P), d2 = sub(N, V);
-    const L1 = len(d1), L2 = len(d2);
-    const u1 = norm(d1), u2 = norm(d2);
-    const cos = Math.max(-1, Math.min(1, u1[0] * u2[0] + u1[1] * u2[1] + u1[2] * u2[2]));
-    const turn = Math.acos(cos);
-    if (turn < 1e-3) { out.push(V); corners.push({ v: V, p: V }); continue; }
-    const base = radius * Math.tan(Math.min(turn, Math.PI * 0.95) / 2);
-    const t1 = Math.min(Math.max(base, kk * 0.5 * L1), L1 * 0.5);
-    const t2 = Math.min(Math.max(base, kk * 0.5 * L2), L2 * 0.5);
-    const T1 = [V[0] - u1[0] * t1, V[1] - u1[1] * t1, V[2] - u1[2] * t1];
-    const T2 = [V[0] + u2[0] * t2, V[1] + u2[1] * t2, V[2] + u2[2] * t2];
-    const STEPS = 2 * (3 + Math.round(kk * 9));
-    for (let j = 0; j <= STEPS; j++) {
-      const s = j / STEPS, a = (1 - s) * (1 - s), b = 2 * s * (1 - s), c = s * s;
-      out.push([a * T1[0] + b * V[0] + c * T2[0], a * T1[1] + b * V[1] + c * T2[1], a * T1[2] + b * V[2] + c * T2[2]]);
+function updateValDisplay(el, valEl) {
+  valEl.textContent = (el.id === 'rangeChinW' || el.id === 'rangeRound') 
+    ? parseFloat(el.value).toFixed(2) 
+    : parseFloat(el.value).toFixed(1).replace('.0', '');
+}
+
+Object.values(els).forEach(({ r, v }) => {
+  r.addEventListener('input', () => {
+    if (r.id === 'rangeAttach' && parseFloat(r.value) > parseFloat(els.chinH.r.value) - 0.5) {
+      r.value = parseFloat(els.chinH.r.value) - 0.5;
     }
-    corners.push({ v: V, p: [0.25 * T1[0] + 0.5 * V[0] + 0.25 * T2[0], 0.25 * T1[1] + 0.5 * V[1] + 0.25 * T2[1], 0.25 * T1[2] + 0.5 * V[2] + 0.25 * T2[2]] });
-  }
-  out.push(pts0[pts0.length - 1].p);
-  return { pts: out, corners };
+    if (r.id === 'rangeChinH' && parseFloat(r.value) < parseFloat(els.attach.r.value) + 0.5) {
+      r.value = parseFloat(els.attach.r.value) + 0.5;
+    }
+    
+    updateValDisplay(r, v);
+    updateFill(r);
+    if (r.id === 'rangeAttach') updateFill(els.chinH.r);
+    if (r.id === 'rangeChinH') updateFill(els.attach.r);
+    draw();
+  });
+  updateValDisplay(r, v);
+  updateFill(r);
+});
+
+btnReset.addEventListener('click', () => {
+  Object.values(els).forEach(({ r, def }) => { r.value = def; updateFill(r); });
+  Object.keys(els).forEach(k => updateValDisplay(els[k].r, els[k].v));
+  draw();
+});
+
+function drawPoint(x, y, color = '#e85b5b') {
+  ctx.beginPath();
+  ctx.arc(x, y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = color; ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
 }
 
 function draw() {
-  const parts = params.parts;
-  const cut = params.cut;
-  const top = params.top;
-  const r0 = params.r0;
-  const eye = params.eye;
-  const jaw_start = params.jaw_start;
-  const jaw_len = params.jaw_len;
-  const jaw_tilt = params.jaw_tilt;
-  const jaw_x = params.jaw_x;
-  const chin_len = params.chin_len;
-  const chin_front = params.chin_front;
-  const chin_w = params.chin_w;
-  const chin_round = params.chin_round;
+  const parts = parseInt(els.parts.r.value);
+  const radiusMultiplier = parseFloat(els.radius.r.value);
+  const attachPos = parseFloat(els.attach.r.value);
+  const chinWidthMul = parseFloat(els.chinW.r.value);
+  const chinHeightPos = parseFloat(els.chinH.r.value);
+  const roundness = parseFloat(els.round.r.value);
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const pad = 20, topPad = pad, bottom = canvas.height - pad;
-  const height = bottom - topPad, step = height / parts;
+  const pad = 20, top = pad, bottom = canvas.height - pad;
+  const height = bottom - top, step = height / parts;
   const left = 20, right = canvas.width - 20, cx = (left + right) / 2;
 
   // Сетка
@@ -185,178 +227,89 @@ function draw() {
   ctx.font = '11px system-ui'; ctx.fillStyle = '#8a8a99';
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   for (let i = 0; i <= parts; i++) {
-    const y = topPad + i * step;
+    const y = top + i * step;
     ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(right, y); ctx.stroke();
     if (i < parts) ctx.fillText(i + 1, right - 16, y + step / 2);
   }
   ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.setLineDash([4, 6]);
-  ctx.beginPath(); ctx.moveTo(cx, topPad); ctx.lineTo(cx, bottom); ctx.stroke(); ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, bottom); ctx.stroke(); ctx.setLineDash([]);
 
-  // Масштаб: R=1 в 3D. 1 часть сетки = 2 единицы.
-  const scale = step / 2;
-  const cy = topPad + step;
+  // Геометрия
+  const fifth = step / 5;
+  const y0 = top;
+  const yAttach = top + fifth * attachPos;
+  const y3 = top + fifth * 3;
+  const yChin = top + fifth * chinHeightPos;
 
-  // --- ЧЕРЕП (Сфера) ---
-  const width = cut / Math.sqrt(1 - r0 * r0);
-  ctx.beginPath();
-  ctx.strokeStyle = '#e8b04b';
-  ctx.lineWidth = 2;
-  for (let i = 0; i <= 64; i++) {
-    const t = (i / 64) * Math.PI * 2;
-    const x = width * Math.sin(t);
-    const z = Math.cos(t) * (Math.cos(t) > 0 ? top : 1);
-    const px = cx + x * scale;
-    const py = cy - z * scale;
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
+  const r = fifth * radiusMultiplier;
+  const cy = y0 + r;
+
+  const yAttachOffset = Math.abs(yAttach - cy);
+  const jawWidthTop = yAttachOffset < r ? 2 * Math.sqrt(r*r - yAttachOffset*yAttachOffset) : r * 2;
+  const jawWidthBot = jawWidthTop * chinWidthMul;
+
+  // Вспомогательные линии
+  ctx.strokeStyle = 'rgba(232,176,75,0.22)'; ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
+  for (let i = 1; i <= 5; i++) {
+    const y = top + fifth * i;
+    ctx.beginPath(); ctx.moveTo(cx - r - 40, y); ctx.lineTo(cx + r + 40, y); ctx.stroke();
   }
-  ctx.closePath();
+  ctx.setLineDash([]);
+
+  // Череп
+  ctx.strokeStyle = '#e8b04b'; ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+
+  // Челюсть
+  ctx.beginPath();
+  const halfTop = jawWidthTop / 2;
+  const halfBot = jawWidthBot / 2;
+  const ptTopL = { x: cx - halfTop, y: yAttach };
+  const ptTopR = { x: cx + halfTop, y: yAttach };
+  const ptBotL = { x: cx - halfBot, y: yChin };
+  const ptBotR = { x: cx + halfBot, y: yChin };
+
+  ctx.moveTo(ptTopL.x, ptTopL.y);
+  const yBreak = Math.min(y3, yChin); 
+  ctx.lineTo(cx - halfTop, yBreak);
+
+  if (roundness > 0) {
+    const cp1x = cx - halfBot - (halfTop - halfBot) * 0.4;
+    const cp1y = yBreak + (yChin - yBreak) * 0.3;
+    const cp2x = cx - halfBot;
+    const cp2y = yBreak + (yChin - yBreak) * 0.8;
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ptBotL.x, ptBotL.y);
+  } else {
+    ctx.lineTo(ptBotL.x, ptBotL.y);
+  }
+
+  if (roundness > 0) {
+    const dip = (yChin - yBreak) * 0.4 * roundness;
+    ctx.quadraticCurveTo(cx, yChin + dip, ptBotR.x, ptBotR.y);
+  } else {
+    ctx.lineTo(ptBotR.x, ptBotR.y);
+  }
+
+  if (roundness > 0) {
+    const cp1x = cx + halfBot;
+    const cp1y = yBreak + (yChin - yBreak) * 0.8;
+    const cp2x = cx + halfBot + (halfTop - halfBot) * 0.4;
+    const cp2y = yBreak + (yChin - yBreak) * 0.3;
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ptTopR.x, yBreak);
+  } else {
+    ctx.lineTo(ptTopR.x, yBreak);
+  }
+
+  ctx.lineTo(ptTopR.x, ptTopR.y);
   ctx.stroke();
 
-  const zEye = eye * r0;
-  const zChin = -r0 - r0 * chin_len;
-
-  // --- ЛИНИИ (2D проекция) ---
-  // 1. Вертикаль
-  ctx.beginPath();
-  ctx.strokeStyle = '#f03e6e'; ctx.lineWidth = 2;
-  ctx.moveTo(cx, cy - top * scale);
-  ctx.lineTo(cx, cy - (-r0) * scale);
-  ctx.stroke();
-
-  // 2. Линия глаз
-  ctx.beginPath();
-  ctx.moveTo(cx - cut * scale, cy - zEye * scale);
-  ctx.lineTo(cx + cut * scale, cy - zEye * scale);
-  ctx.stroke();
-
-  // 3. Боковые линии
-  ctx.beginPath();
-  ctx.moveTo(cx - cut * scale, cy - top * scale);
-  ctx.lineTo(cx - cut * scale, cy - (-r0) * scale);
-  ctx.moveTo(cx + cut * scale, cy - top * scale);
-  ctx.lineTo(cx + cut * scale, cy - (-r0) * scale);
-  ctx.stroke();
-
-  // 7. Челюсть
-  const A_r = [cut, 0, -r0];
-  const A_l = [-cut, 0, -r0];
-  const tilt = rad(jaw_tilt);
-  const B_r = [jaw_x, 0, -r0 - jaw_len * Math.cos(tilt)];
-  const B_l = [-jaw_x, 0, -r0 - jaw_len * Math.cos(tilt)];
-  const C_r = [chin_w, 0, zChin];
-  const C_l = [-chin_w, 0, zChin];
-
-  const jaw = rounded([
-    { p: A_r }, { p: B_r, k: 0 }, { p: C_r, k: chin_round },
-    { p: C_l, k: chin_round }, { p: B_l, k: 0 }, { p: A_l }
-  ], 0.05);
-
-  ctx.beginPath();
-  ctx.strokeStyle = '#3b7cff';
-  jaw.pts.forEach((pt, i) => {
-    const px = cx + pt[0] * scale;
-    const py = cy - pt[2] * scale;
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
-  });
-  ctx.stroke();
-
-  // 8. Щеки
-  ctx.beginPath();
-  const cheekR = [cut, 0, zEye];
-  const cheekL = [-cut, 0, zEye];
-  const Cr_r = jaw.corners.find(c => c.v[0] === chin_w && c.v[2] === zChin)?.p || C_r;
-  const Cr_l = jaw.corners.find(c => c.v[0] === -chin_w && c.v[2] === zChin)?.p || C_l;
-  
-  ctx.moveTo(cx + Cr_r[0] * scale, cy - Cr_r[2] * scale);
-  ctx.lineTo(cx + cheekR[0] * scale, cy - cheekR[2] * scale);
-  ctx.moveTo(cx + Cr_l[0] * scale, cy - Cr_l[2] * scale);
-  ctx.lineTo(cx + cheekL[0] * scale, cy - cheekL[2] * scale);
-  ctx.stroke();
-
-  // 6. Центр лица (переносица -> подбородок)
-  ctx.beginPath();
-  ctx.strokeStyle = '#f03e6e';
-  ctx.moveTo(cx, cy - zEye * scale);
-  ctx.lineTo(cx, cy - zChin * scale);
-  ctx.stroke();
-
-  // --- ШЕЯ ---
-  const chinPtY = cy - zChin * scale;
-  const neckWidthPx = 60;
-  const neckLenPx = 120;
-  ctx.fillStyle = 'rgba(232,176,75,0.1)';
-  ctx.strokeStyle = '#e8b04b';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(cx - neckWidthPx / 2, chinPtY);
-  ctx.lineTo(cx - neckWidthPx / 2, chinPtY + neckLenPx);
-  ctx.lineTo(cx + neckWidthPx / 2, chinPtY + neckLenPx);
-  ctx.lineTo(cx + neckWidthPx / 2, chinPtY);
-  ctx.fill(); ctx.stroke();
+  // Подписи долей
+  ctx.fillStyle = '#8a8a99'; ctx.font = '10px system-ui';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  for (let i = 1; i <= 5; i++) {
+    ctx.fillText(`${i}/5`, cx + r + 10, top + fifth * i - fifth / 2);
+  }
 }
-
-// ================= UI =================
-const container = document.getElementById('controls-container');
-const inputs = {};
-
-SHAPE_PARAMS.forEach(p => {
-  const row = document.createElement('div');
-  row.className = 'control';
-  
-  let labelGroup = '';
-  if (p.key === 'cut') labelGroup = '<h2>Форма черепа</h2>';
-  if (p.key === 'eye') labelGroup = '<h2>Глаза</h2>';
-  if (p.key === 'jaw_start') labelGroup = '<h2>Челюсть</h2>';
-  if (p.key === 'chin_len') labelGroup = '<h2>Подбородок</h2>';
-  
-  row.innerHTML = `
-    ${labelGroup}
-    <div class="control-head">
-      <label>${p.label}</label>
-      <span class="badge" id="val-${p.key}">${p.def}</span>
-    </div>
-    <input id="range-${p.key}" type="range" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.def}">
-  `;
-  container.appendChild(row);
-
-  const input = row.querySelector('input');
-  const badge = row.querySelector('.badge');
-  
-  const updateFill = () => {
-    const val = parseFloat(input.value);
-    const pct = ((val - p.min) / (p.max - p.min)) * 100;
-    input.style.setProperty('--fill', pct + '%');
-    badge.textContent = p.unit ? `${Math.round(val)}${p.unit}` : val.toFixed(2);
-  };
-
-  input.addEventListener('input', () => {
-    params[p.key] = parseFloat(input.value);
-    updateFill();
-    draw();
-  });
-
-  updateFill();
-});
-
-const actions = document.createElement('div');
-actions.className = 'actions';
-actions.innerHTML = `<button class="btn-reset" id="btnReset">Сбросить</button>`;
-container.appendChild(actions);
-
-document.getElementById('btnReset').addEventListener('click', () => {
-  SHAPE_PARAMS.forEach(p => {
-    params[p.key] = p.def;
-    const input = document.getElementById(`range-${p.key}`);
-    const badge = document.getElementById(`val-${p.key}`);
-    input.value = p.def;
-    const pct = ((p.def - p.min) / (p.max - p.min)) * 100;
-    input.style.setProperty('--fill', pct + '%');
-    badge.textContent = p.unit ? `${Math.round(p.def)}${p.unit}` : p.def.toFixed(2);
-  });
-  draw();
-});
 
 draw();
 </script>
