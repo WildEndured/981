@@ -8,7 +8,6 @@
   :root {
     --guide-red: #f03e6e;
     --guide-blue: #3b7cff;
-    --guide-gray: #cdc7d6;
     --bg: #faf8fc;
     --panel: #ffffff;
     --text: #2a2430;
@@ -16,9 +15,7 @@
     --line: #e5e1eb;
     --accent: #7a4dff;
   }
-
   * { box-sizing: border-box; }
-
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -30,7 +27,6 @@
     height: 100vh;
     overflow: hidden;
   }
-
   header {
     grid-column: 1 / -1;
     display: flex;
@@ -41,132 +37,63 @@
     background: var(--panel);
   }
   header h1 { font-size: 15px; font-weight: 600; margin: 0; }
-  header .view-name {
-    font-size: 12px;
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
-    margin-left: auto;
-  }
+  header .view-name { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; margin-left: auto; }
   header .btn { font-size: 13px; padding: 6px 10px; }
-
   #stage {
     position: relative;
     overflow: hidden;
     background: radial-gradient(circle at 50% 45%, #ffffff 0%, var(--bg) 70%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    touch-action: none;
-    cursor: grab;
+    display: flex; align-items: center; justify-content: center;
+    touch-action: none; cursor: grab;
   }
   #stage:active { cursor: grabbing; }
   #stage svg { width: 100%; height: 100%; display: block; user-select: none; }
-
   #stage .label {
-    font-size: 13px;
-    font-weight: 600;
-    paint-order: stroke;
-    stroke: #fff;
-    stroke-width: 3px;
-    stroke-linejoin: round;
-    pointer-events: none;
-    user-select: none;
+    font-size: 13px; font-weight: 600;
+    paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round;
+    pointer-events: none; user-select: none;
   }
-  .label--red  { fill: var(--guide-red); }
+  .label--red { fill: var(--guide-red); }
   .label--blue { fill: var(--guide-blue); }
-  .label--ink  { fill: var(--text); }
-
+  .label--ink { fill: var(--text); }
   #drop-cover {
-    position: absolute;
-    inset: 0;
+    position: absolute; inset: 0;
     background: rgba(122, 77, 255, 0.15);
     border: 2px dashed var(--accent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 600; color: var(--accent);
     pointer-events: none;
   }
   #drop-cover[hidden] { display: none; }
-
-  aside {
-    border-left: 1px solid var(--line);
-    background: var(--panel);
-    overflow-y: auto;
-    padding: 12px 0;
-  }
+  aside { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding: 12px 0; }
   section { padding: 0 16px 12px; }
   section h2 {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    font-weight: 600;
-    margin: 14px 0 8px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); font-weight: 600; margin: 14px 0 8px;
   }
-
   .btn {
-    font: inherit;
-    font-size: 12px;
-    padding: 7px 10px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: #fff;
-    color: var(--text);
-    cursor: pointer;
-    transition: all 0.12s;
+    font: inherit; font-size: 12px; padding: 7px 10px;
+    border: 1px solid var(--line); border-radius: 8px;
+    background: #fff; color: var(--text); cursor: pointer; transition: all 0.12s;
   }
   .btn:hover { border-color: var(--accent); color: var(--accent); }
-  .btn:disabled { opacity: 0.4; cursor: default; }
-  .btn[aria-pressed="true"] {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-  }
-
+  .btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
   .row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-
   .slider {
-    display: grid;
-    grid-template-columns: 1fr 52px;
-    grid-template-rows: auto auto;
-    gap: 2px 8px;
-    margin-bottom: 10px;
-    align-items: center;
+    display: grid; grid-template-columns: 1fr 52px;
+    grid-template-rows: auto auto; gap: 2px 8px;
+    margin-bottom: 10px; align-items: center;
   }
   .slider label { grid-column: 1 / -1; font-size: 12px; color: var(--text); }
   .slider input[type="range"] { width: 100%; height: 20px; accent-color: var(--accent); }
-  .slider output {
-    text-align: right;
-    font-size: 11px;
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
-  }
-
+  .slider output { text-align: right; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .group-h {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    font-weight: 600;
-    margin: 12px 0 6px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); font-weight: 600; margin: 12px 0 6px;
   }
-
-  .hint {
-    font-size: 12px;
-    color: var(--muted);
-    line-height: 1.4;
-    margin-bottom: 8px;
-  }
-
+  .hint { font-size: 12px; color: var(--muted); line-height: 1.4; margin-bottom: 8px; }
   @media (max-width: 800px) {
-    body {
-      grid-template-columns: 1fr;
-      grid-template-rows: 48px 1fr auto;
-      height: 100dvh;
-    }
+    body { grid-template-columns: 1fr; grid-template-rows: 48px 1fr auto; height: 100dvh; }
     aside { border-left: none; border-top: 1px solid var(--line); max-height: 45vh; }
   }
 </style>
@@ -233,7 +160,6 @@
     <h2>Отображение</h2>
     <div class="row">
       <button class="btn" id="toggle-head" aria-pressed="true" type="button">Голова</button>
-      <button class="btn" id="toggle-neck" aria-pressed="true" type="button">Шея</button>
       <button class="btn" id="toggle-torso" aria-pressed="true" type="button">Торс</button>
     </div>
     <div class="slider">
@@ -283,7 +209,6 @@
 
 const RED = 'red', BLUE = 'blue';
 const CORNER = 0.05;
-const MAX_Z = 0.98;
 const LOOP_SEGMENTS = 96;
 
 const rad = (d) => (d * Math.PI) / 180;
@@ -300,7 +225,6 @@ function rounded(items, radius) {
     if (!pts0.length || len(sub(it.p, pts0[pts0.length - 1].p)) > 1e-6) pts0.push(it);
   }
   if (pts0.length < 3) return { pts: pts0.map((it) => it.p), corners: [] };
-
   const out = [pts0[0].p];
   const corners = [];
   for (let i = 1; i < pts0.length - 1; i++) {
@@ -354,7 +278,6 @@ function defaultShape() {
   for (const p of SHAPE_PARAMS) s[p.key] = p.def;
   return s;
 }
-
 function clampShape(input) {
   const s = {};
   for (const p of SHAPE_PARAMS) {
@@ -381,7 +304,7 @@ function buildHead(input, lift = 0) {
   const { width, cut, r0, stretch, normal } = ball;
 
   const zEye = s.eye * r0;
-  const zHair = Math.min(s.forehead * r0, MAX_Z * s.top);
+  const zHair = Math.min(s.forehead * r0, 0.98 * s.top);
   const zNose = -r0;
   const zChin = -r0 - r0 * s.chin_len;
   const xPlane = cut + lift;
@@ -448,14 +371,12 @@ function buildHead(input, lift = 0) {
     });
   }
 
-  // ② ④ ⑤
   for (const [id, color, z] of [['2', RED, zEye], ['4', BLUE, zHair], ['5', BLUE, zNose]]) {
     const parts = ring(z);
     for (const part of parts) add(id, color, part.pts, part.closed);
     labels[id] = ringLabels(parts);
   }
 
-  // ③ боковые круги и кресты
   labels['3'] = [];
   for (const sx of [1, -1]) {
     const x = sx * xPlane;
@@ -467,13 +388,11 @@ function buildHead(input, lift = 0) {
     labels['3'].push({ p: rim(Math.PI / 4, x), n: [sx, 0, 0], t: [0, -1, 1] });
   }
 
-  // контрольные точки челюсти
   const A = rim(rad(-90 - s.jaw_start));
   const tilt = rad(s.jaw_tilt);
   const B = [s.jaw_x, A[1] - s.jaw_len * Math.sin(tilt), A[2] - s.jaw_len * Math.cos(tilt)];
   const Cf = [s.chin_w, -s.chin_front, zChin];
 
-  // ⑦ челюсть
   const k = s.chin_round;
   const jaw = rounded([
     { p: A }, { p: B, k: 0 }, { p: Cf, k },
@@ -484,18 +403,15 @@ function buildHead(input, lift = 0) {
   const CfR = cornerOf(Cf);
   const CfL = mirror(CfR);
 
-  // ⑧ скула
   const zEyeU = zEye / ball.sz(zEye);
   const eyeEdge = [xPlane, -Math.sqrt(Math.max(0, r0 * r0 - zEyeU * zEyeU)), zEye];
   add('8', BLUE, [CfR, eyeEdge]);
   add('8', BLUE, [CfL, mirror(eyeEdge)]);
 
-  // ⑥ центральная линия лица
   const front = surf(stretch(0, -Math.sqrt(Math.max(0, 1 - zEyeU * zEyeU)), zEyeU));
   const chinMid = [0, -s.chin_front, zChin];
   add('6', RED, [front, chinMid]);
 
-  // метки
   const out = (p) => norm(p);
   const BR = cornerOf(B);
   const jawMid = lerp(BR, CfR, 0.5);
@@ -509,7 +425,7 @@ function buildHead(input, lift = 0) {
   labels['B'] = [{ p: BR, n: out(BR) }, { p: mirror(BR), n: out(mirror(BR)) }];
   labels['C'] = [{ p: chinMid, n: norm([0, -1, -1]) }];
 
-  return { lines, labels, solid: { width, cut, r0, top: s.top, back: s.back }, bottom: zChin };
+  return { lines, labels, bottom: zChin };
 }
 
 /* ==================================================================
@@ -526,7 +442,6 @@ const TORSO_PARAMS = [
   { key: 'chestZ',    label: 'Уровень сосков',         min: -0.4, max: 0.7,  step: 0.01, def: 0.2 },
   { key: 'ribsZ',     label: 'Уровень рёбер',          min: -0.95,max: -0.1, step: 0.01, def: -0.55 },
   { key: 'shoulderZ', label: 'Уровень ключиц',         min: 0.5,  max: 0.95, step: 0.01, def: 0.75 },
-  { key: 'neckW',     label: 'Ширина шеи',             min: 0.15, max: 0.6,  step: 0.01, def: 0.32 },
 ];
 
 function defaultTorso() {
@@ -534,7 +449,6 @@ function defaultTorso() {
   for (const p of TORSO_PARAMS) s[p.key] = p.def;
   return s;
 }
-
 function clampTorso(input) {
   const s = {};
   for (const p of TORSO_PARAMS) {
@@ -544,188 +458,168 @@ function clampTorso(input) {
   return s;
 }
 
-/* Капсула-яйцо: переменная полуширина по высоте z ∈ [-1, 1].
- * три опорных уровня: низ (waist), середина (chest), верх (shoulder).
- * спереди срез по cut, сзади — глубина depth.
+/* Полуширина по высоте z ∈ [-1, 1] */
+function halfWidthAt(z, s) {
+  if (z >= 0) {
+    const t = smoothstep(Math.min(1, Math.max(0, z)));
+    return lerp(s.chestW, s.shoulderW, t) * Math.sqrt(Math.max(0, 1 - 0.15 * z * z));
+  }
+  const t = smoothstep(Math.min(1, Math.max(0, (z + 1) / 1)));
+  return lerp(s.waistW, s.chestW, t) * Math.sqrt(Math.max(0, 1 - 0.35 * z * z));
+}
+
+/* Точка на поверхности грудной клетки по параметрам (x, y, z), где
+ * x ∈ [-1, 1] — нормированная доля полуширины,
+ * y ∈ [-1, 1] — нормированная доля глубины (отрицательное — перед),
+ * z ∈ [-1, 1] — высота.
+ * Возвращает [X, Y, Z] в мировых единицах.
  */
-function makeRibCage({ chestW, waistW, shoulderW, depth, cut, lean }) {
-  const halfW = (z) => {
-    // z = -1 → waist, z = 0 → chest, z = +1 → shoulder
-    const tUp = smoothstep(Math.max(0, Math.min(1, (z + 0.15) / 1.15)));
-    const tLo = smoothstep(Math.max(0, Math.min(1, (z + 1) / 0.85)));
-    if (z >= 0) return lerp(chestW, shoulderW, tUp) * Math.sqrt(Math.max(0, 1 - 0.15 * z * z));
-    return lerp(waistW, chestW, tLo) * Math.sqrt(Math.max(0, 1 - 0.35 * z * z));
-  };
-  const depthAt = (y) => (y > 0 ? depth : 1);
-  const frontZ = (z) => -cut * Math.sqrt(Math.max(0, 1 - 0.2 * z * z));
-  return { halfW, depthAt, frontZ, cut, lean };
+function torsoPoint(x, y, z, s, lift = 0) {
+  const w = halfWidthAt(z, s);
+  const depth = y > 0 ? s.depth : 1;
+  const cut = s.cut;
+
+  let Y = y * depth;
+  if (Y < 0) Y = Math.max(Y, -cut);
+
+  let X = x * w;
+
+  // наклон корпуса
+  const lean = rad(s.lean);
+  const cL = Math.cos(lean), sL = Math.sin(lean);
+  const Y2 = Y * cL - z * sL;
+  const Z2 = Y * sL + z * cL;
+
+  // нормаль численно, для lift
+  if (lift !== 0) {
+    const e = 1e-3;
+    const p0 = [x * w, Y, z];
+    const wx = halfWidthAt(z, s);
+    const px = [(x + e) * wx, Y, z];
+    const pz = [x * halfWidthAt(z + e, s), Y, z + e];
+    // грубое приближение нормали в плоскости XZ + учёт Y
+    const nX = px[0] - p0[0];
+    const nZ = pz[2] - p0[2];
+    const nY = Y < 0 ? -1 : 1;
+    const nl = Math.hypot(nX, nY, nZ) || 1;
+    X += (nX / nl) * lift;
+  }
+
+  return [X, Y2, Z2];
+}
+
+/* Нормаль к поверхности грудной клетки в точке (x, y, z) в локальных осях (до наклона) */
+function torsoNormal(x, y, z, s) {
+  const e = 1e-3;
+  const p0 = torsoPoint(x, y, z, s, 0);
+  const px = torsoPoint(x + e, y, z, s, 0);
+  const py = torsoPoint(x, y + e, z, s, 0);
+  const pz = torsoPoint(x, y, z + e, s, 0);
+  const du = sub(px, p0), dv = sub(py, p0), dw = sub(pz, p0);
+  const n1 = [dv[1] * dw[2] - dv[2] * dw[1], dv[2] * dw[0] - dv[0] * dw[2], dv[0] * dw[1] - dv[1] * dw[0]];
+  const n2 = [dw[1] * du[2] - dw[2] * du[1], dw[2] * du[0] - dw[0] * du[2], dw[0] * du[1] - dw[1] * du[0]];
+  return norm([n1[0] + n2[0], n1[1] + n2[1], n1[2] + n2[2]]);
 }
 
 function buildTorso(input, lift = 0) {
   const s = clampTorso(input);
-  const cage = makeRibCage(s);
-  const { halfW, depthAt, cut } = cage;
-
-  const lean = rad(s.lean);
-  const cosL = Math.cos(lean), sinL = Math.sin(lean);
-  const tiltXZ = (p) => {
-    const x = p[0];
-    const y = p[1];
-    const z = p[2];
-    const yy = y * cosL - z * sinL;
-    const zz = y * sinL + z * cosL;
-    return [x, yy, zz];
-  };
-
-  // stretch: эллипсоид с переменной шириной, глубиной, плоским передом
-  const stretch = (x, y, z) => {
-    const w = halfW(z);
-    const d = depthAt(y);
-    const yScaled = y * d;
-    // передняя плоскость: если y < 0, ограничиваем по frontZ
-    const yFinal = yScaled < 0 ? Math.max(yScaled, -cut) : yScaled;
-    return [x * w, yFinal, z];
-  };
-  const normal = (x, y, z) => {
-    // численно
-    const e = 1e-3;
-    const p0 = stretch(x, y, z);
-    const px = stretch(x + e, y, z);
-    const py = stretch(x, y + e, z);
-    const pz = stretch(x, y, z + e);
-    const du = sub(px, p0), dv = sub(py, p0), dw = sub(pz, p0);
-    const n1 = [dv[1] * dw[2] - dv[2] * dw[1], dv[2] * dw[0] - dv[0] * dw[2], dv[0] * dw[1] - dv[1] * dw[0]];
-    return norm(n1);
-  };
-  const surf = (p) => {
-    const n = normal(...p);
-    const q = stretch(...p);
-    return tiltXZ([q[0] + n[0] * lift, q[1] + n[1] * lift, q[2] + n[2] * lift]);
-  };
-
   const lines = [];
   const labels = {};
   const add = (id, color, pts, closed = false) => lines.push({ id, color, closed, pts });
 
-  // базовое кольцо на высоте z
-  const ring = (z) => {
-    const rho = Math.sqrt(Math.max(0, 1 - z * z * 0.15));
-    const w = halfW(z);
-    const at = (t) => {
-      const x = Math.cos(t) * rho;
-      const y = Math.sin(t) * rho;
-      return surf([x, y, z]);
-    };
-    const tCut = Math.acos(Math.min(1, cut / Math.max(1e-6, w * rho)));
-    // перед — плоский срез, поэтому рисуем дуги от -PI+tCut до -tCut и от tCut до PI-tCut
-    const arc = (a, b) => {
-      const n = Math.max(10, Math.round((LOOP_SEGMENTS * (b - a)) / (Math.PI * 2)));
-      const pts = [];
-      for (let i = 0; i <= n; i++) pts.push(at(a + ((b - a) * i) / n));
-      return { pts, closed: false };
-    };
-    // передняя дуга: через -y (t = -PI/2)
-    return [arc(-Math.PI + tCut, -tCut), arc(tCut, Math.PI - tCut)];
-  };
-
-  const ringLabels = (parts) => {
-    const out = [];
-    for (const part of parts) {
-      const last = part.pts.length - 1;
-      for (const f of [0.28, 0.72]) {
-        const i = Math.round(f * last);
-        const p = part.pts[i];
-        out.push({ p, n: normal(...p), t: sub(part.pts[Math.min(last, i + 1)], part.pts[Math.max(0, i - 1)]) });
-      }
-    }
-    return out;
-  };
-
-  // ① центральная линия (грудь → спина), вертикальный «меридиан»
+  // ① центральный меридиан (грудь → спина → низ)
   {
     const pts = [];
     for (let i = 0; i < LOOP_SEGMENTS; i++) {
       const t = (i / LOOP_SEGMENTS) * Math.PI * 2;
-      pts.push(surf([0, Math.cos(t), Math.sin(t)]));
+      const x = 0;
+      const y = Math.cos(t);
+      const z = Math.sin(t);
+      pts.push(torsoPoint(x, y, z, s, lift));
     }
     add('1', RED, pts, true);
-    labels['1'] = [0.2, 0.7].map((f) => {
-      const t = f * Math.PI;
-      const p = surf([0, Math.cos(t), Math.sin(t)]);
-      return { p, n: normal(0, Math.cos(t), Math.sin(t)), t: [0, -Math.sin(t), Math.cos(t)] };
-    });
+    labels['1'] = [
+      { p: torsoPoint(0, -1, 0, s, lift), n: [0, -1, 0], t: [0, 0, 1] },
+      { p: torsoPoint(0, 1, 0, s, lift), n: [0, 1, 0], t: [0, 0, 1] },
+    ];
   }
+
+  // helper: кольцо на высоте z
+  const ringAt = (z) => {
+    const pts = [];
+    const N = 72;
+    for (let i = 0; i <= N; i++) {
+      const t = (i / N) * Math.PI * 2;
+      pts.push(torsoPoint(Math.cos(t), Math.sin(t), z, s, lift));
+    }
+    return pts;
+  };
 
   // ② уровень ключиц
   {
-    const parts = ring(s.shoulderZ);
-    for (const part of parts) add('2', RED, part.pts, part.closed);
-    labels['2'] = ringLabels(parts);
+    const pts = ringAt(s.shoulderZ);
+    add('2', RED, pts);
+    labels['2'] = [
+      { p: torsoPoint(1, 0, s.shoulderZ, s, lift), n: [1, 0, 0], t: [0, 0, 1] },
+      { p: torsoPoint(-1, 0, s.shoulderZ, s, lift), n: [-1, 0, 0], t: [0, 0, 1] },
+    ];
   }
 
   // ③ уровень сосков
   {
-    const parts = ring(s.chestZ);
-    for (const part of parts) add('3', BLUE, part.pts, part.closed);
-    labels['3'] = ringLabels(parts);
+    const pts = ringAt(s.chestZ);
+    add('3', BLUE, pts);
+    labels['3'] = [
+      { p: torsoPoint(1, 0, s.chestZ, s, lift), n: [1, 0, 0], t: [0, 0, 1] },
+      { p: torsoPoint(-1, 0, s.chestZ, s, lift), n: [-1, 0, 0], t: [0, 0, 1] },
+    ];
   }
 
-  // ④ рёберная дуга — только передняя половина
+  // ④ рёберная дуга — передняя половина
   {
     const z = s.ribsZ;
-    const rho = Math.sqrt(Math.max(0, 1 - z * z * 0.15));
-    const w = halfW(z);
-    const at = (t) => {
-      const x = Math.cos(t) * rho;
-      const y = Math.sin(t) * rho;
-      return surf([x, y, z]);
-    };
-    const t0 = rad(80);
     const pts = [];
-    for (let i = 0; i <= 32; i++) {
-      const t = -Math.PI / 2 - t0 + (2 * t0 * i) / 32;
-      pts.push(at(t));
+    const N = 40;
+    for (let i = 0; i <= N; i++) {
+      const t = -Math.PI / 2 - rad(80) + (rad(160) * i) / N;
+      pts.push(torsoPoint(Math.cos(t), Math.sin(t), z, s, lift));
     }
     add('4', RED, pts);
-    const mid = pts[16];
-    labels['4'] = [{ p: mid, n: normal(...mid), t: [0, 1, 0] }];
+    labels['4'] = [{ p: pts[Math.floor(N / 2)], n: [0, -1, 0], t: [0, 0, 1] }];
   }
 
-  // ⑤ боковой контур (вертикальный срез по x)
+  // ⑤ боковой контур
   for (const sx of [1, -1]) {
     const pts = [];
     const N = 32;
     for (let i = 0; i <= N; i++) {
       const z = -1 + (2 * i) / N;
-      const rho = Math.sqrt(Math.max(0, 1 - z * z * 0.15));
-      pts.push(surf([sx, 0, z]));
+      pts.push(torsoPoint(sx, 0, z, s, lift));
     }
     add('5', BLUE, pts);
-    const mid = pts[16];
+    const mid = pts[Math.floor(N / 2)];
     labels['5'] = labels['5'] || [];
     labels['5'].push({ p: mid, n: [sx, 0, 0], t: [0, 0, 1] });
   }
 
-  // ⑥ позвоночник (вертикальная линия сзади)
+  // ⑥ позвоночник (сзади)
   {
     const pts = [];
     const N = 32;
     for (let i = 0; i <= N; i++) {
       const z = -1 + (2 * i) / N;
-      const rho = Math.sqrt(Math.max(0, 1 - z * z * 0.15));
-      pts.push(surf([0, rho, z]));
+      pts.push(torsoPoint(0, 1, z, s, lift));
     }
     add('6', BLUE, pts);
-    labels['6'] = [{ p: pts[16], n: [0, 1, 0], t: [0, 0, 1] }];
+    labels['6'] = [{ p: pts[Math.floor(N / 2)], n: [0, 1, 0], t: [0, 0, 1] }];
   }
 
-  // ⑦ ключицы: яремная ямка → плечо (сглаженно)
+  // ⑦ ключицы: яремная ямка → плечо
   {
     const zS = s.shoulderZ;
-    const rho = Math.sqrt(Math.max(0, 1 - zS * zS * 0.15));
-    const w = halfW(zS);
-    const jugular = surf([0, -rho, zS]);
-    const shR = surf([w * rho, 0, zS]);
+    const jugular = torsoPoint(0, -1, zS, s, lift);
+    const shR = torsoPoint(1, 0, zS, s, lift);
+    const shL = mirror(shR);
     const clavR = rounded([
       { p: shR },
       { p: lerp(jugular, shR, 0.5), k: 0.3 },
@@ -736,56 +630,19 @@ function buildTorso(input, lift = 0) {
     labels['7'] = [{ p: lerp(jugular, shR, 0.55), n: [0, -1, 0], t: sub(shR, jugular) }];
   }
 
-  // ⑧ грудина: вертикальная линия по переднему срезу
+  // ⑧ грудина
   {
     const pts = [];
     const N = 24;
-    const zTop = s.shoulderZ;
-    const zBot = s.ribsZ;
     for (let i = 0; i <= N; i++) {
-      const z = lerp(zTop, zBot, i / N);
-      const rho = Math.sqrt(Math.max(0, 1 - z * z * 0.15));
-      pts.push(surf([0, -rho, z]));
+      const z = lerp(s.shoulderZ, s.ribsZ, i / N);
+      pts.push(torsoPoint(0, -1, z, s, lift));
     }
     add('8', RED, pts);
-    labels['8'] = [{ p: pts[Math.round(N * 0.5)], n: [0, -1, 0], t: [0, 0, 1] }];
+    labels['8'] = [{ p: pts[Math.floor(N / 2)], n: [0, -1, 0], t: [0, 0, 1] }];
   }
 
-  return { lines, labels, solid: { chestW: s.chestW, waistW: s.waistW, shoulderW: s.shoulderW, cut, depth: s.depth }, top: s.shoulderZ, bottom: -1 };
-}
-
-/* Шея — цилиндр между головой и торсом */
-function buildNeck(shape, torso, lift = 0) {
-  const headBottom = shape.bottom ?? -1.5;
-  const torsoTop = torso.top ?? 0.75;
-  const wNeck = torso.neckW ?? 0.32;
-  const lines = [];
-  const labels = {};
-  const add = (id, color, pts, closed = false) => lines.push({ id, color, closed, pts });
-
-  const zHead = headBottom - 0.05;
-  const zTorso = torsoTop + 0.05;
-
-  const ringAt = (z, r) => {
-    const pts = [];
-    for (let i = 0; i < LOOP_SEGMENTS; i++) {
-      const t = (i / LOOP_SEGMENTS) * Math.PI * 2;
-      pts.push([Math.cos(t) * r, Math.sin(t) * r * 0.85, z]);
-    }
-    return pts;
-  };
-
-  // верхнее и нижнее кольца
-  add('9', BLUE, ringAt(zHead, wNeck * 0.9), true);
-  add('9', BLUE, ringAt(zTorso, wNeck), true);
-
-  // боковые вертикали
-  for (const sx of [1, -1]) {
-    add('9', BLUE, [[sx * wNeck * 0.9, 0, zHead], [sx * wNeck, 0, zTorso]]);
-  }
-  labels['9'] = [{ p: [wNeck, 0, lerp(zHead, zTorso, 0.5)], n: [1, 0, 0], t: [0, 0, 1] }];
-
-  return { lines, labels };
+  return { lines, labels, top: s.shoulderZ, bottom: -1 };
 }
 
 /* ==================================================================
@@ -798,19 +655,17 @@ const PRESETS = [
   { id: 'girl',     label: 'Девушка',   values: { r0: 0.64, eye: -0.35, jaw_len: 0.30, jaw_x: 0.55, chin_len: 0.85, chin_w: 0.16 } },
   { id: 'child',    label: 'Ребёнок',   values: { r0: 0.58, eye: -0.6,  jaw_len: 0.20, jaw_x: 0.60, chin_len: 0.65, chin_w: 0.25 } },
 ];
-
 function presetShape(id) {
   const p = PRESETS.find((x) => x.id === id) ?? PRESETS[0];
   return { ...defaultShape(), ...p.values };
 }
 
 const TORSO_PRESETS = [
-  { id: 'standard',  label: 'Стандарт',    values: { chestW: 1.0, waistW: 0.75, shoulderW: 1.0, depth: 1.0, cut: 0.68 } },
-  { id: 'athletic',  label: 'Атлет',       values: { chestW: 1.2, waistW: 0.7,  shoulderW: 1.3, depth: 1.1, cut: 0.75 } },
-  { id: 'female',    label: 'Женский',     values: { chestW: 0.95,waistW: 0.62, shoulderW: 0.88,depth: 0.9, cut: 0.7 } },
-  { id: 'child',     label: 'Ребёнок',     values: { chestW: 0.85,waistW: 0.8,  shoulderW: 0.8, depth: 0.9, cut: 0.65 } },
+  { id: 'standard', label: 'Стандарт', values: { chestW: 1.0,  waistW: 0.75, shoulderW: 1.0,  depth: 1.0, cut: 0.68 } },
+  { id: 'athletic', label: 'Атлет',    values: { chestW: 1.2,  waistW: 0.7,  shoulderW: 1.3,  depth: 1.1, cut: 0.75 } },
+  { id: 'female',   label: 'Женский',  values: { chestW: 0.95, waistW: 0.62, shoulderW: 0.88, depth: 0.9, cut: 0.7 } },
+  { id: 'child',    label: 'Ребёнок',  values: { chestW: 0.85, waistW: 0.8,  shoulderW: 0.8,  depth: 0.9, cut: 0.65 } },
 ];
-
 function presetTorso(id) {
   const p = TORSO_PRESETS.find((x) => x.id === id) ?? TORSO_PRESETS[0];
   return { ...defaultTorso(), ...p.values };
@@ -820,9 +675,8 @@ function presetTorso(id) {
  * Состояние
  * ================================================================== */
 
-const STORE_KEY = 'loomis-2d:v2';
+const STORE_KEY = 'loomis-2d:v3';
 const state = loadState();
-
 function wrapYaw(y) { return ((((y + 180) % 360) + 360) % 360) - 180; }
 
 function loadState() {
@@ -833,7 +687,7 @@ function loadState() {
     torsoPreset: 'standard',
     line: 0.012,
     view: { yaw: 0, pitch: 0 },
-    display: { hidden: true, labels: true, head: true, neck: true, torso: true },
+    display: { hidden: true, labels: true, head: true, torso: true },
     underlay: { opacity: 0.4, scale: 1 },
   };
   try {
@@ -854,7 +708,6 @@ function loadState() {
         hidden: raw.display?.hidden !== false,
         labels: raw.display?.labels !== false,
         head: raw.display?.head !== false,
-        neck: raw.display?.neck !== false,
         torso: raw.display?.torso !== false,
       },
       underlay: { opacity: 0.4, scale: 1 },
@@ -879,9 +732,9 @@ const svg = document.getElementById('canvas');
 const stage = document.getElementById('stage');
 const VIEW_W = 600, VIEW_H = 720;
 const CX = VIEW_W / 2, CY = VIEW_H / 2;
-const SCALE = 190;
-const OFFSET_HEAD_Z = 1.7;
-const OFFSET_TORSO_Z = 0;
+const SCALE = 170;
+const HEAD_Z = 1.9;
+const TORSO_Z = 0;
 
 const gUnderlay = document.createElementNS(SVG_NS, 'g');
 const gHidden = document.createElementNS(SVG_NS, 'g');
@@ -901,8 +754,8 @@ underlayImg.setAttribute('height', SCALE * 3.8);
 underlayImg.style.display = 'none';
 gUnderlay.appendChild(underlayImg);
 
-const LABEL_TEXT = { 1: '①', 2: '②', 3: '③', 4: '④', 5: '⑤', 6: '⑥', 7: '⑦', 8: '⑧', 9: '⑨', A: 'Ⓐ', B: 'Ⓑ', C: 'Ⓒ' };
-const LABEL_COLOR = { 1: 'red', 2: 'red', 3: 'red', 4: 'red', 6: 'red', 7: 'red', 8: 'red', 9: 'blue', 5: 'blue', A: 'ink', B: 'ink', C: 'ink' };
+const LABEL_TEXT = { 1: '①', 2: '②', 3: '③', 4: '④', 5: '⑤', 6: '⑥', 7: '⑦', 8: '⑧', A: 'Ⓐ', B: 'Ⓑ', C: 'Ⓒ' };
+const LABEL_COLOR = { 1: 'red', 2: 'red', 3: 'red', 4: 'red', 6: 'red', 7: 'red', 8: 'red', 5: 'blue', A: 'ink', B: 'ink', C: 'ink' };
 
 function rotate(p) {
   const yaw = rad(state.view.yaw), pitch = rad(state.view.pitch);
@@ -916,25 +769,20 @@ function rotate(p) {
   const z2 = y1 * sp + z1 * cp;
   return [x2, y2, z2];
 }
-
 function project(p) {
   const r = rotate(p);
-  return { x: CX + r[0] * SCALE, y: CY - r[2] * SCALE, depth: r[1] };
+  return { x: CX + r[0] * SCALE, y: CY - r[2] * SCALE };
 }
-
 function isVisiblePoint(p, n) {
   const rn = rotate(n);
   return rn[1] < 0;
 }
-
-function lineToPath(pts, closed) {
+function lineToPath(pts) {
   if (!pts.length) return '';
   let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
   for (let i = 1; i < pts.length; i++) d += `L${pts[i].x.toFixed(1)},${pts[i].y.toFixed(1)}`;
-  if (closed) d += 'Z';
   return d;
 }
-
 function splitByVisibility(pts, projected) {
   const result = [];
   if (!pts.length) return result;
@@ -943,16 +791,9 @@ function splitByVisibility(pts, projected) {
     const p = pts[i];
     const n = norm(p);
     const vis = isVisiblePoint(p, n);
-    if (cur.visible === null) {
-      cur.visible = vis;
-      cur.pts2d.push(projected[i]);
-    } else if (cur.visible === vis) {
-      cur.pts2d.push(projected[i]);
-    } else {
-      cur.pts2d.push(projected[i]);
-      result.push(cur);
-      cur = { visible: vis, pts2d: [projected[i]] };
-    }
+    if (cur.visible === null) { cur.visible = vis; cur.pts2d.push(projected[i]); }
+    else if (cur.visible === vis) { cur.pts2d.push(projected[i]); }
+    else { cur.pts2d.push(projected[i]); result.push(cur); cur = { visible: vis, pts2d: [projected[i]] }; }
   }
   if (cur.pts2d.length) result.push(cur);
   return result;
@@ -963,14 +804,15 @@ function render() {
   gHidden.innerHTML = '';
   gLabels.innerHTML = '';
 
-  const head = buildHead(state.shape, state.line);
-  const torso = buildTorso(state.torso, state.line);
-  const neck = buildNeck({ ...head, ...state.torso }, torso, state.line);
-
   const parts = [];
-  if (state.display.head) parts.push({ lines: head.lines, labels: head.labels, offsetZ: OFFSET_HEAD_Z });
-  if (state.display.neck) parts.push({ lines: neck.lines.map((l) => ({ ...l, pts: l.pts.map((p) => [p[0], p[1], p[2] + OFFSET_TORSO_Z + 1.55]) })), labels: neck.labels, offsetZ: 0 });
-  if (state.display.torso) parts.push({ lines: torso.lines, labels: torso.labels, offsetZ: OFFSET_TORSO_Z });
+  if (state.display.head) {
+    const head = buildHead(state.shape, state.line);
+    parts.push({ lines: head.lines, labels: head.labels, offsetZ: HEAD_Z });
+  }
+  if (state.display.torso) {
+    const torso = buildTorso(state.torso, state.line);
+    parts.push({ lines: torso.lines, labels: torso.labels, offsetZ: TORSO_Z });
+  }
 
   const strokeW = state.line * SCALE;
 
@@ -978,11 +820,11 @@ function render() {
     for (const l of part.lines) {
       const shifted = l.pts.map((p) => [p[0], p[1], p[2] + part.offsetZ]);
       const projected = shifted.map((p) => project(p));
-      const parts2 = splitByVisibility(shifted, projected);
-      for (const seg of parts2) {
+      const segs = splitByVisibility(shifted, projected);
+      for (const seg of segs) {
         if (seg.pts2d.length < 2) continue;
         const path = document.createElementNS(SVG_NS, 'path');
-        path.setAttribute('d', lineToPath(seg.pts2d, false));
+        path.setAttribute('d', lineToPath(seg.pts2d));
         path.setAttribute('fill', 'none');
         path.setAttribute('stroke', l.color === RED ? 'var(--guide-red)' : 'var(--guide-blue)');
         path.setAttribute('stroke-width', strokeW.toFixed(2));
@@ -998,7 +840,6 @@ function render() {
         }
       }
     }
-
     if (state.display.labels) {
       for (const [id, cands] of Object.entries(part.labels)) {
         let best = null;
@@ -1019,10 +860,8 @@ function render() {
         let dy = nProj.y - best.proj.y;
         const dl = Math.hypot(dx, dy) || 1;
         dx /= dl; dy /= dl;
-        const x = best.proj.x + dx * 14;
-        const y = best.proj.y + dy * 14;
-        t.setAttribute('x', x.toFixed(1));
-        t.setAttribute('y', y.toFixed(1));
+        t.setAttribute('x', (best.proj.x + dx * 14).toFixed(1));
+        t.setAttribute('y', (best.proj.y + dy * 14).toFixed(1));
         t.setAttribute('text-anchor', 'middle');
         t.setAttribute('dominant-baseline', 'central');
         t.setAttribute('class', `label label--${LABEL_COLOR[id] ?? 'ink'}`);
@@ -1048,7 +887,6 @@ function viewName() {
   if (ay <= 158) return 'Задний 3/4';
   return 'Спина';
 }
-
 function updateViewName() {
   const p = state.view.pitch;
   const sign = p > 0 ? ` · ↑${Math.round(p)}°` : p < 0 ? ` · ↓${Math.round(-p)}°` : '';
@@ -1073,10 +911,8 @@ document.querySelectorAll('[data-angle]').forEach((b) => {
     stopSpin();
     const angles = { front: [0, 0], three: [45, 0], side: [90, 0], back: [180, 0] };
     const [yaw, pitch] = angles[b.dataset.angle] || [0, 0];
-    state.view.yaw = yaw;
-    state.view.pitch = pitch;
-    yawInput.value = yaw;
-    pitchInput.value = pitch;
+    state.view.yaw = yaw; state.view.pitch = pitch;
+    yawInput.value = yaw; pitchInput.value = pitch;
     $('yaw-out').textContent = yaw + '°';
     $('pitch-out').textContent = pitch + '°';
     render(); updateViewName(); save();
@@ -1085,10 +921,8 @@ document.querySelectorAll('[data-angle]').forEach((b) => {
 
 $('reset-view').addEventListener('click', () => {
   stopSpin();
-  state.view.yaw = 0;
-  state.view.pitch = 0;
-  yawInput.value = 0;
-  pitchInput.value = 0;
+  state.view.yaw = 0; state.view.pitch = 0;
+  yawInput.value = 0; pitchInput.value = 0;
   $('yaw-out').textContent = '0°';
   $('pitch-out').textContent = '0°';
   render(); updateViewName(); save();
@@ -1106,8 +940,7 @@ spinBtn.addEventListener('click', () => {
   if (on) {
     let last = performance.now();
     const tick = (now) => {
-      const dt = Math.min(64, now - last);
-      last = now;
+      const dt = Math.min(64, now - last); last = now;
       state.view.yaw = wrapYaw(state.view.yaw + dt * 0.04);
       yawInput.value = state.view.yaw;
       $('yaw-out').textContent = Math.round(state.view.yaw) + '°';
@@ -1115,22 +948,17 @@ spinBtn.addEventListener('click', () => {
       spinRAF = requestAnimationFrame(tick);
     };
     spinRAF = requestAnimationFrame(tick);
-  } else {
-    stopSpin(); save();
-  }
+  } else { stopSpin(); save(); }
 });
 
 // пресеты головы
 const presetButtons = PRESETS.map((p) => {
   const b = document.createElement('button');
-  b.type = 'button';
-  b.className = 'btn';
-  b.textContent = p.label;
+  b.type = 'button'; b.className = 'btn'; b.textContent = p.label;
   b.addEventListener('click', () => {
     state.preset = p.id;
     state.shape = presetShape(p.id);
-    syncShapeSliders();
-    renderPresets(); render(); save();
+    syncShapeSliders(); renderPresets(); render(); save();
   });
   $('presets').appendChild(b);
   return b;
@@ -1142,14 +970,11 @@ function renderPresets() {
 // пресеты торса
 const torsoPresetButtons = TORSO_PRESETS.map((p) => {
   const b = document.createElement('button');
-  b.type = 'button';
-  b.className = 'btn';
-  b.textContent = p.label;
+  b.type = 'button'; b.className = 'btn'; b.textContent = p.label;
   b.addEventListener('click', () => {
     state.torsoPreset = p.id;
     state.torso = presetTorso(p.id);
-    syncTorsoSliders();
-    renderTorsoPresets(); render(); save();
+    syncTorsoSliders(); renderTorsoPresets(); render(); save();
   });
   $('torso-presets').appendChild(b);
   return b;
@@ -1164,13 +989,10 @@ const shapeHost = $('shape-sliders');
 const SHAPE_GROUPS = { cut: 'Голова', eye: 'Лицо', jaw_start: 'Челюсть', chin_len: 'Подбородок' };
 for (const p of SHAPE_PARAMS) {
   if (SHAPE_GROUPS[p.key]) {
-    const h = document.createElement('div');
-    h.className = 'group-h';
-    h.textContent = SHAPE_GROUPS[p.key];
+    const h = document.createElement('div'); h.className = 'group-h'; h.textContent = SHAPE_GROUPS[p.key];
     shapeHost.appendChild(h);
   }
-  const row = document.createElement('div');
-  row.className = 'slider';
+  const row = document.createElement('div'); row.className = 'slider';
   const id = `shape-${p.key}`;
   row.innerHTML = `<label for="${id}">${p.label}</label>
     <input type="range" id="${id}" min="${p.min}" max="${p.max}" step="${p.step}">
@@ -1179,18 +1001,14 @@ for (const p of SHAPE_PARAMS) {
   const input = row.querySelector('input');
   const out = row.querySelector('output');
   const fmt = (v) => p.unit ? `${Math.round(v)}${p.unit}` : v.toFixed(2);
-  const sync = () => {
-    input.value = state.shape[p.key];
-    out.textContent = fmt(state.shape[p.key]);
-  };
+  const sync = () => { input.value = state.shape[p.key]; out.textContent = fmt(state.shape[p.key]); };
   input.addEventListener('input', () => {
     state.shape[p.key] = Number(input.value);
     state.preset = null;
     out.textContent = fmt(Number(input.value));
     renderPresets(); render(); save();
   });
-  sync();
-  shapeSyncers.push(sync);
+  sync(); shapeSyncers.push(sync);
 }
 function syncShapeSliders() { for (const s of shapeSyncers) s(); }
 
@@ -1200,13 +1018,10 @@ const torsoHost = $('torso-sliders');
 const TORSO_GROUPS = { chestW: 'Объём', cut: 'Форма', chestZ: 'Уровни' };
 for (const p of TORSO_PARAMS) {
   if (TORSO_GROUPS[p.key]) {
-    const h = document.createElement('div');
-    h.className = 'group-h';
-    h.textContent = TORSO_GROUPS[p.key];
+    const h = document.createElement('div'); h.className = 'group-h'; h.textContent = TORSO_GROUPS[p.key];
     torsoHost.appendChild(h);
   }
-  const row = document.createElement('div');
-  row.className = 'slider';
+  const row = document.createElement('div'); row.className = 'slider';
   const id = `torso-${p.key}`;
   row.innerHTML = `<label for="${id}">${p.label}</label>
     <input type="range" id="${id}" min="${p.min}" max="${p.max}" step="${p.step}">
@@ -1215,18 +1030,14 @@ for (const p of TORSO_PARAMS) {
   const input = row.querySelector('input');
   const out = row.querySelector('output');
   const fmt = (v) => p.unit ? `${Math.round(v)}${p.unit}` : v.toFixed(2);
-  const sync = () => {
-    input.value = state.torso[p.key];
-    out.textContent = fmt(state.torso[p.key]);
-  };
+  const sync = () => { input.value = state.torso[p.key]; out.textContent = fmt(state.torso[p.key]); };
   input.addEventListener('input', () => {
     state.torso[p.key] = Number(input.value);
     state.torsoPreset = null;
     out.textContent = fmt(Number(input.value));
     renderTorsoPresets(); render(); save();
   });
-  sync();
-  torsoSyncers.push(sync);
+  sync(); torsoSyncers.push(sync);
 }
 function syncTorsoSliders() { for (const s of torsoSyncers) s(); }
 
@@ -1253,7 +1064,6 @@ function bindToggle(id, key) {
 bindToggle('toggle-hidden', 'hidden');
 bindToggle('toggle-labels', 'labels');
 bindToggle('toggle-head', 'head');
-bindToggle('toggle-neck', 'neck');
 bindToggle('toggle-torso', 'torso');
 
 /* ==================================================================
@@ -1279,7 +1089,6 @@ underlayRemove.addEventListener('click', () => {
   $('underlay-hint').textContent = 'Перетащи файл, вставь из буфера или выбери ниже';
   try { localStorage.removeItem(STORE_KEY + ':img'); } catch {}
 });
-
 underlayOpacity.addEventListener('input', () => {
   state.underlay.opacity = Number(underlayOpacity.value);
   $('underlay-opacity-out').textContent = Math.round(state.underlay.opacity * 100) + '%';
@@ -1298,11 +1107,9 @@ $('underlay-scale-out').textContent = Math.round(state.underlay.scale * 100) + '
 
 function applyUnderlayTransform() {
   const s = state.underlay.scale;
-  underlayImg.setAttribute('transform',
-    `translate(${CX} ${CY}) scale(${s}) translate(${-CX} ${-CY})`);
+  underlayImg.setAttribute('transform', `translate(${CX} ${CY}) scale(${s}) translate(${-CX} ${-CY})`);
   underlayImg.style.opacity = state.underlay.opacity;
 }
-
 function loadUnderlay(file) {
   if (!file || !file.type.startsWith('image/')) return;
   const reader = new FileReader();
@@ -1317,7 +1124,6 @@ function loadUnderlay(file) {
   };
   reader.readAsDataURL(file);
 }
-
 try {
   const saved = localStorage.getItem(STORE_KEY + ':img');
   if (saved) {
@@ -1333,8 +1139,7 @@ let dragDepth = 0;
 const hasFiles = (e) => [...(e.dataTransfer?.types ?? [])].includes('Files');
 window.addEventListener('dragenter', (e) => {
   if (!hasFiles(e)) return;
-  dragDepth++;
-  $('drop-cover').hidden = false;
+  dragDepth++; $('drop-cover').hidden = false;
 });
 window.addEventListener('dragleave', () => {
   if (--dragDepth <= 0) { dragDepth = 0; $('drop-cover').hidden = true; }
@@ -1342,9 +1147,7 @@ window.addEventListener('dragleave', () => {
 window.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault(); });
 window.addEventListener('drop', (e) => {
   if (!hasFiles(e)) return;
-  e.preventDefault();
-  dragDepth = 0;
-  $('drop-cover').hidden = true;
+  e.preventDefault(); dragDepth = 0; $('drop-cover').hidden = true;
   const f = e.dataTransfer.files?.[0];
   if (f) loadUnderlay(f);
 });
@@ -1365,38 +1168,31 @@ $('save-png').addEventListener('click', async () => {
   bg.setAttribute('height', VIEW_H);
   bg.setAttribute('fill', '#ffffff');
   clone.insertBefore(bg, clone.firstChild);
-
   const xml = new XMLSerializer().serializeToString(clone);
   const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const img = new Image();
   img.onload = () => {
     const canvas = document.createElement('canvas');
-    canvas.width = 1200;
-    canvas.height = 1440;
+    canvas.width = 1200; canvas.height = 1440;
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     URL.revokeObjectURL(url);
     canvas.toBlob((b) => download(b, 'loomis-head-torso.png'));
   };
   img.src = url;
 });
-
 $('save-svg').addEventListener('click', () => {
   const clone = svg.cloneNode(true);
   clone.setAttribute('xmlns', SVG_NS);
   const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone);
-  const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
-  download(blob, 'loomis-head-torso.svg');
+  download(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }), 'loomis-head-torso.svg');
 });
-
 function download(blob, name) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
+  a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
@@ -1407,28 +1203,9 @@ function download(blob, name) {
 $('about-btn').addEventListener('click', () => {
   alert(
     'Голова + грудная клетка (2D, 360°)\n\n' +
-    'ГОЛОВА:\n' +
-    '① — центральная линия\n' +
-    '② — уровень бровей / глаз\n' +
-    '③ — боковой круг\n' +
-    '④ — линия волос\n' +
-    '⑤ — линия носа\n' +
-    '⑥ — центральная линия лица\n' +
-    '⑦ — линия челюсти Ⓐ→Ⓑ→Ⓒ\n' +
-    '⑧ — линия скулы\n\n' +
-    'ТОРС:\n' +
-    '① — центральный меридиан\n' +
-    '② — уровень ключиц\n' +
-    '③ — уровень сосков\n' +
-    '④ — рёберная дуга\n' +
-    '⑤ — боковой контур\n' +
-    '⑥ — позвоночник\n' +
-    '⑦ — ключицы\n' +
-    '⑧ — грудина\n' +
-    '⑨ — шея\n\n' +
-    'Перетаскивай мышью — вращение (yaw) и наклон (pitch).\n' +
-    '«Крутить» — плавный автоповорот.\n' +
-    'Скрытые линии — пунктир на обратной стороне.'
+    'ГОЛОВА:\n① центральная линия\n② уровень глаз\n③ боковой круг\n④ линия волос\n⑤ линия носа\n⑥ центральная линия лица\n⑦ челюсть Ⓐ→Ⓑ→Ⓒ\n⑧ скула\n\n' +
+    'ТОРС:\n① центральный меридиан\n② уровень ключиц\n③ уровень сосков\n④ рёберная дуга\n⑤ боковой контур\n⑥ позвоночник\n⑦ ключицы\n⑧ грудина\n\n' +
+    'Перетаскивай мышью — вращение (yaw) и наклон (pitch).'
   );
 });
 
