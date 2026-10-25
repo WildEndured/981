@@ -3,47 +3,188 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Шаг 2. Круг черепа</title>
+<title>Шаг 2. Настройка головы</title>
 <style>
+  * { box-sizing: border-box; }
   body {
     margin: 0; min-height: 100vh; background: #1e1e24; color: #e6e6e6;
-    font-family: system-ui, sans-serif;
-    display: flex; flex-direction: column; align-items: center;
-    padding: 20px; box-sizing: border-box;
+    font-family: system-ui, sans-serif; display: flex; padding: 20px; gap: 20px;
+    justify-content: center; align-items: flex-start;
   }
-  .controls { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; font-size: .9rem; }
-  input[type="range"] { width: 200px; accent-color: #e8b04b; }
-  canvas { background: #2a2a33; border-radius: 8px; }
+  .canvas-container {
+    background: #2a2a33; border-radius: 8px; position: relative;
+    display: flex; flex-direction: column; align-items: center; padding-top: 10px;
+  }
+  .controls {
+    background: #fdf4f7; color: #333; border-radius: 16px; padding: 20px;
+    width: 320px; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  
+  /* Стили как на скриншотах */
+  .section-title {
+    background: #e8e0f0; color: #2b1b42; font-weight: 700; font-size: 1.2rem;
+    padding: 6px 14px; border-radius: 12px; display: inline-block; margin-bottom: 12px;
+  }
+  .desc { font-size: 0.85rem; color: #666; margin-bottom: 20px; line-height: 1.4; }
+  .group-title { color: #d13b6b; font-weight: 700; font-size: 1.1rem; margin: 20px 0 12px; }
+  .slider-group { margin-bottom: 16px; }
+  .slider-header { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px; font-weight: 600; }
+  .slider-val { color: #d13b6b; }
+  
+  input[type="range"] {
+    -webkit-appearance: none; width: 100%; background: transparent; height: 20px;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    width: 100%; height: 6px; background: #f7dbe5; border-radius: 3px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%;
+    background: #fff; border: 4px solid #d13b6b; margin-top: -6px; cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+  
+  canvas { background: #2a2a33; border-radius: 0 0 8px 8px; }
+  .top-slider { padding: 10px 20px 0; display: flex; gap: 10px; align-items: center; font-size: 0.9rem; color: #b8b8c0; }
+  input[type="number"] { background: #1a1a20; border: 1px solid #4a4a5a; color: #fff; padding: 2px 6px; border-radius: 4px; width: 50px; }
 </style>
 </head>
 <body>
 
-<div class="controls">
-  <label>Частей (голов): <span id="val">7</span></label>
-  <input id="range" type="range" min="3" max="10" value="7" step="1">
+<div class="canvas-container">
+  <div class="top-slider">
+    <label>Частей (голов): <input id="parts" type="number" min="3" max="10" value="7"></label>
+  </div>
+  <canvas id="canvas" width="400" height="700"></canvas>
 </div>
 
-<canvas id="canvas" width="400" height="700"></canvas>
+<div class="controls">
+  <div class="section-title">Shape</div>
+  <div class="desc">The numbers match the guide numbers on the head. Double-click (or long-press) a slider to reset just that value.</div>
+
+  <!-- HEAD -->
+  <div class="group-title">Head (ball)</div>
+  
+  <div class="slider-group">
+    <div class="slider-header"><span>Head width</span><span class="slider-val" id="v_headWidth">0.73</span></div>
+    <input type="range" id="headWidth" min="0.4" max="1.2" step="0.01" value="0.73">
+  </div>
+  
+  <div class="slider-group">
+    <div class="slider-header"><span>Top of head</span><span class="slider-val" id="v_topHead">1.00</span></div>
+    <input type="range" id="topHead" min="0.5" max="1.5" step="0.01" value="1.00">
+  </div>
+
+  <!-- JAWLINE -->
+  <div class="group-title">Jawline</div>
+  
+  <div class="slider-group">
+    <div class="slider-header"><span>Ⓐ Jawline start</span><span class="slider-val" id="v_jawStart">0°</span></div>
+    <input type="range" id="jawStart" min="-50" max="50" step="1" value="0">
+  </div>
+  
+  <div class="slider-group">
+    <div class="slider-header"><span>Ⓐ→Ⓑ length</span><span class="slider-val" id="v_jawLen">0.40</span></div>
+    <input type="range" id="jawLen" min="0.1" max="1.5" step="0.01" value="0.40">
+  </div>
+  
+  <div class="slider-group">
+    <div class="slider-header"><span>Ⓐ→Ⓑ angle</span><span class="slider-val" id="v_jawAngle">0°</span></div>
+    <input type="range" id="jawAngle" min="-60" max="60" step="1" value="0">
+  </div>
+  
+  <div class="slider-group">
+    <div class="slider-header"><span>Ⓑ Jaw corner width</span><span class="slider-val" id="v_jawWidth">0.62</span></div>
+    <input type="range" id="jawWidth" min="0.1" max="1.2" step="0.01" value="0.62">
+  </div>
+
+  <!-- CHIN -->
+  <div class="group-title">Chin</div>
+  
+  <div class="slider-group">
+    <div class="slider-header"><span>Ⓒ Chin height</span><span class="slider-val" id="v_chinHeight">1.00</span></div>
+    <input type="range" id="chinHeight" min="0.5" max="1.5" step="0.01" value="1.00">
+  </div>
+  
+  <div class="slider-group">
+    <div class="slider-header"><span>Ⓒ Chin forward / back</span><span class="slider-val" id="v_chinFwd">0.85</span></div>
+    <input type="range" id="chinFwd" min="0" max="1.5" step="0.01" value="0.85">
+  </div>
+  
+  <div class="slider-group">
+    <div class="slider-header"><span>Ⓒ Chin width</span><span class="slider-val" id="v_chinWidth">0.22</span></div>
+    <input type="range" id="chinWidth" min="0" max="1" step="0.01" value="0.22">
+  </div>
+  
+  <div class="slider-group">
+    <div class="slider-header"><span>Ⓒ Chin roundness</span><span class="slider-val" id="v_chinRound">0.50</span></div>
+    <input type="range" id="chinRound" min="0" max="1" step="0.01" value="0.50">
+  </div>
+</div>
 
 <script>
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
-const range = document.getElementById('range');
-const val = document.getElementById('val');
+const partsInput = document.getElementById('parts');
 
-function draw(parts) {
+// Объект состояния для всех ползунков
+const state = {
+  headWidth: 0.73,
+  topHead: 1.00,
+  jawStart: 0,
+  jawLen: 0.40,
+  jawAngle: 0,
+  jawWidth: 0.62,
+  chinHeight: 1.00,
+  chinFwd: 0.85,
+  chinWidth: 0.22,
+  chinRound: 0.50
+};
+
+// Привязка ползунков к состоянию
+const sliders = [
+  'headWidth', 'topHead', 'jawStart', 'jawLen', 'jawAngle', 'jawWidth',
+  'chinHeight', 'chinFwd', 'chinWidth', 'chinRound'
+];
+
+sliders.forEach(id => {
+  const el = document.getElementById(id);
+  const valEl = document.getElementById('v_' + id);
+  
+  el.addEventListener('input', (e) => {
+    state[id] = parseFloat(e.target.value);
+    // Обновляем текст (для углов добавляем градусы)
+    const isDegree = id.includes('Angle') || id.includes('Start');
+    valEl.textContent = isDegree ? state[id] + '°' : state[id].toFixed(2);
+    draw();
+  });
+  
+  // Двойной клик для сброса к дефолтному значению
+  el.addEventListener('dblclick', () => {
+    const def = el.defaultValue;
+    el.value = def;
+    state[id] = parseFloat(def);
+    const isDegree = id.includes('Angle') || id.includes('Start');
+    valEl.textContent = isDegree ? state[id] + '°' : state[id].toFixed(2);
+    draw();
+  });
+});
+
+partsInput.addEventListener('input', draw);
+
+function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  const parts = parseInt(partsInput.value) || 7;
   const pad = 20;
   const top = pad;
   const bottom = canvas.height - pad;
   const height = bottom - top;
-  const step = height / parts;          // 1 голова
+  const step = height / parts;
   const left = 20;
   const right = canvas.width - 20;
   const cx = (left + right) / 2;
 
-  // ================= ШАГ 1: сетка =================
+  // ================= СЕТКА =================
   ctx.strokeStyle = '#4a4a5a';
   ctx.lineWidth = 1;
   ctx.font = '11px system-ui';
@@ -60,6 +201,7 @@ function draw(parts) {
     if (i < parts) ctx.fillText(i + 1, right - 16, y + step / 2);
   }
 
+  // Осевая
   ctx.strokeStyle = 'rgba(255,255,255,0.08)';
   ctx.setLineDash([4, 6]);
   ctx.beginPath();
@@ -68,53 +210,149 @@ function draw(parts) {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // ================= ШАГ 2: круг черепа =================
+  // ================= ГОЛОВА =================
   const fifth = step / 5;
-
-  // Круг занимает доли 1, 2 и 3. Значит его высота = 3 доли.
-  // Радиус = половина высоты = 1.5 доли.
-  const r = fifth * 1.5;
   
-  // Центр круга находится ровно посередине между верхом головы и линией 3/5
-  const cy = top + r; 
-
-  // Вспомогательные линии долей внутри головы (пунктир)
+  // Вспомогательные линии долей
   ctx.strokeStyle = 'rgba(232,176,75,0.30)';
-  ctx.lineWidth = 1;
   ctx.setLineDash([3, 4]);
   for (let i = 1; i <= 5; i++) {
     const y = top + fifth * i;
     ctx.beginPath();
-    ctx.moveTo(cx - r - 40, y);
-    ctx.lineTo(cx + r + 40, y);
+    ctx.moveTo(cx - 100, y);
+    ctx.lineTo(cx + 100, y);
     ctx.stroke();
   }
   ctx.setLineDash([]);
 
-  // Круг
+  // --- 1. Череп (Head) ---
+  // Базовая высота головы - 3 доли (от 0/5 до 3/5)
+  const baseHeadH = fifth * 3; 
+  const baseHeadW = baseHeadH; // в идеале круг
+  
+  // Применяем настройки ширины и высоты
+  const headH = baseHeadH * state.topHead;
+  const headW = baseHeadW * state.headWidth;
+  const headR_x = headW / 2;
+  const headR_y = headH / 2;
+  
+  // Центр круга
+  const headCy = top + headR_y;
+
+  // Рисуем эллипс (череп)
   ctx.strokeStyle = '#e8b04b';
-  ctx.lineWidth = 1.8;
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.ellipse(cx, headCy, headR_x, headR_y, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Подписи долей
-  ctx.fillStyle = '#b8b8c0';
-  ctx.font = '10px system-ui';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  for (let i = 1; i <= 5; i++) {
-    ctx.fillText(`${i}/5`, cx + r + 10, top + fifth * i - fifth / 2);
+  // --- 2. Челюсть (Jawline) ---
+  // Точка А (угол челюсти) — на пересечении круга и линии 3/5
+  // Рассчитываем угол старта (A)
+  const angleA_rad = (state.jawStart * Math.PI) / 180;
+  // Базовая точка А — справа, на нижней части круга (примерно на линии 3/5)
+  // Параметрическое уравнение эллипса
+  const Ax = cx + headR_x * Math.cos(angleA_rad);
+  const Ay = headCy + headR_y * Math.sin(angleA_rad);
+
+  // Длина и угол линии А->В
+  const lengthAB = fifth * state.jawLen;
+  const angleAB_rad = (state.jawAngle * Math.PI) / 180;
+  
+  // Точка В (угол челюсти сбоку/снизу)
+  // Направление вниз-вправо
+  const Bx = Ax + lengthAB * Math.sin(angleAB_rad);
+  const By = Ay + lengthAB * Math.cos(angleAB_rad);
+
+  // Ширина челюсти (как далеко она уходит к центру)
+  const cornerW = headW * state.jawWidth;
+  
+  // --- 3. Подбородок (Chin) ---
+  // Базовая точка подбородка снизу по центру
+  const chinBaseY = top + fifth * 5; // на линии 5/5
+  const chinY = chinBaseY - (fifth * (1 - state.chinHeight)); // поднимаем/опускаем
+  
+  // Вынос подбородка вперед/назад (по Y)
+  const chinFwdY = chinY - (fifth * state.chinFwd);
+  
+  // Ширина подбородка
+  const chinW = cornerW * state.chinWidth;
+  
+  // Округлость (0 - острый, 1 - круглый)
+  const roundFactor = state.chinRound;
+
+  // Рисуем контур челюсти и подбородка
+  ctx.strokeStyle = '#d13b6b'; // Красный цвет как на скрине
+  ctx.lineWidth = 2.5;
+  ctx.lineJoin = 'round';
+  
+  ctx.beginPath();
+  // Начинаем от точки А (правый угол челюсти)
+  ctx.moveTo(Ax, Ay);
+  
+  // Линия до точки В (низ челюсти справа)
+  ctx.lineTo(Bx, By);
+  
+  // Линия от В к правому краю подбородка
+  // Рассчитываем точку на челюсти чуть левее В
+  const chinRightX = cx + chinW / 2;
+  const chinRightY = By + (chinBaseY - By) * 0.5; // примерная точка стыка
+  
+  ctx.lineTo(chinRightX, chinRightY);
+  
+  // Дуга/линия подбородка от правого края к левому
+  if (roundFactor > 0.1) {
+    // Округлый подбородок
+    const chinBottomY = chinFwdY;
+    ctx.quadraticCurveTo(
+      cx, chinBottomY + fifth * roundFactor * 0.5,
+      cx - chinW / 2, chinRightY
+    );
+  } else {
+    // Острый подбородок (угол)
+    ctx.lineTo(cx, chinFwdY);
+    ctx.lineTo(cx - chinW / 2, chinRightY);
   }
+  
+  // Линия от левого края подбородка к точке В слева
+  const chinLeftX = cx - chinW / 2;
+  const chinLeftY = By + (chinBaseY - By) * 0.5;
+  ctx.lineTo(chinLeftX, chinLeftY);
+  
+  // Линия от левого В к левой А
+  const Bx_left = cx - (Bx - cx);
+  ctx.lineTo(Bx_left, By);
+  
+  // Линия от левой А к правой А (замыкаем или рисуем симметрично)
+  const Ax_left = cx - (Ax - cx);
+  ctx.lineTo(Ax_left, Ay);
+  
+  ctx.stroke();
+
+  // Точки А, В, С для наглядности
+  ctx.fillStyle = '#d13b6b';
+  const dot = (x, y, label) => {
+    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(label, x, y - 8);
+    ctx.fillStyle = '#d13b6b';
+  };
+  dot(Ax, Ay, 'A');
+  dot(Bx, By, 'B');
+  dot(cx, chinFwdY, 'C');
+
+  // Метка "глаза" (посередине головы)
+  const eyesY = headCy; // центр круга
+  ctx.strokeStyle = '#7fb4e8';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(cx - headR_x - 10, eyesY);
+  ctx.lineTo(cx + headR_x + 10, eyesY);
+  ctx.stroke();
 }
 
-range.addEventListener('input', () => {
-  const n = parseInt(range.value);
-  val.textContent = n;
-  draw(n);
-});
-
-draw(7);
+// Первый запуск
+draw();
 </script>
 </body>
 </html>
