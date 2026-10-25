@@ -3,400 +3,95 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Пропорции фигуры</title>
+<title>Шаг 1. Пропорции</title>
 <style>
-  :root {
-    --bg: #1e1e24;
-    --panel: #2a2a33;
-    --line: #4a4a5a;
-    --accent: #e8b04b;
-    --text: #e6e6e6;
-  }
-  * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg);
-    color: var(--text);
+    min-height: 100vh;
+    background: #1e1e24;
+    color: #e6e6e6;
+    font-family: system-ui, sans-serif;
     display: flex;
     flex-direction: column;
     align-items: center;
-    min-height: 100vh;
     padding: 20px;
+    box-sizing: border-box;
   }
-  h1 { font-size: 1.2rem; font-weight: 500; margin: 0 0 16px; opacity: .85; }
-
   .controls {
-    background: var(--panel);
-    padding: 16px 20px;
-    border-radius: 12px;
     display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
     align-items: center;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 20px rgba(0,0,0,.3);
-  }
-  .controls label { font-size: .9rem; display: flex; align-items: center; gap: 8px; }
-  .controls input[type="range"] { width: 160px; accent-color: var(--accent); }
-  .controls input[type="number"] {
-    width: 60px;
-    background: #1a1a20;
-    border: 1px solid var(--line);
-    color: var(--text);
-    padding: 4px 6px;
-    border-radius: 6px;
+    gap: 12px;
+    margin-bottom: 16px;
     font-size: .9rem;
   }
-  .controls button {
-    background: var(--accent);
-    border: none;
-    color: #1a1a20;
-    font-weight: 600;
-    padding: 8px 14px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: .9rem;
-  }
-  .controls button:hover { filter: brightness(1.1); }
-
-  .stage {
-    background: var(--panel);
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 4px 20px rgba(0,0,0,.3);
-    position: relative;
-  }
-
-  canvas { display: block; }
-
-  .hint {
-    margin-top: 16px;
-    font-size: .8rem;
-    opacity: .6;
-    max-width: 600px;
-    text-align: center;
-    line-height: 1.5;
-  }
+  input[type="range"] { width: 200px; accent-color: #e8b04b; }
+  canvas { background: #2a2a33; border-radius: 8px; }
 </style>
 </head>
 <body>
 
-<h1>Построение пропорций фигуры</h1>
-
 <div class="controls">
-  <label>
-    Частей (голов):
-    <input id="partsRange" type="range" min="3" max="10" value="7" step="1">
-    <input id="partsNum" type="number" min="3" max="10" value="7">
-  </label>
-  <label>
-    <input id="showFigure" type="checkbox" checked>
-    Показывать фигуру
-  </label>
-  <button id="resetBtn">Сбросить</button>
+  <label>Частей (голов): <span id="val">7</span></label>
+  <input id="range" type="range" min="3" max="10" value="7" step="1">
 </div>
 
-<div class="stage">
-  <canvas id="canvas" width="400" height="600"></canvas>
-</div>
-
-<div class="hint">
-  Сетка делит высоту на N равных частей (по количеству «голов»).
-  Классические пропорции: <b>7–8 голов</b> — взрослый человек,
-  <b>5–6</b> — подросток / стилизованная фигура,
-  <b>3–4</b> — ребёнок / мультяшный стиль.
-</div>
+<canvas id="canvas" width="300" height="600"></canvas>
 
 <script>
-(() => {
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const range = document.getElementById('range');
+const val = document.getElementById('val');
 
-  const rangeEl = document.getElementById('partsRange');
-  const numEl   = document.getElementById('partsNum');
-  const figEl   = document.getElementById('showFigure');
-  const resetEl = document.getElementById('resetBtn');
+function draw(parts) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Цвета
-  const C = {
-    bg:      '#2a2a33',
-    line:    '#4a4a5a',
-    accent:  '#e8b04b',
-    figure:  'rgba(232,176,75,0.15)',
-    figureS:'rgba(232,176,75,0.9)',
-    text:    '#b8b8c0'
-  };
+  const pad = 20;
+  const top = pad;
+  const bottom = canvas.height - pad;
+  const height = bottom - top;
+  const step = height / parts;
+  const left = 20;
+  const right = canvas.width - 20;
 
-  const state = {
-    parts: 7,
-    showFigure: true
-  };
+  // Горизонтальные линии — деление на равные части
+  ctx.strokeStyle = '#4a4a5a';
+  ctx.lineWidth = 1;
+  ctx.font = '11px system-ui';
+  ctx.fillStyle = '#b8b8c0';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
 
-  // --- Геометрия ---
-  function getLayout() {
-    const pad = 40;
-    const top = pad;
-    const bottom = canvas.height - pad;
-    const height = bottom - top;
+  for (let i = 0; i <= parts; i++) {
+    const y = top + i * step;
+    ctx.beginPath();
+    ctx.moveTo(left, y);
+    ctx.lineTo(right, y);
+    ctx.stroke();
 
-    // Ширина фигуры зависит от высоты головы:
-    // примерно 1.6 головы в ширину для торса — но для наглядности
-    // рисуем силуэт, масштабируемый по числу частей.
-    const headH = height / state.parts;
-    const headW = headH * 0.7;
-
-    return { pad, top, bottom, height, headH, headW };
-  }
-
-  // --- Отрисовка сетки ---
-  function drawGrid() {
-    const { top, bottom, height, headH } = getLayout();
-    const left = 60;
-    const right = canvas.width - 60;
-
-    ctx.save();
-
-    // Вертикальные границы
-    ctx.strokeStyle = C.line;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([]);
-
-    for (let i = 0; i <= state.parts; i++) {
-      const y = top + i * headH;
-      ctx.beginPath();
-      ctx.moveTo(left, y);
-      ctx.lineTo(right, y);
-      ctx.stroke();
-
-      // Подписи номеров частей
-      ctx.fillStyle = C.text;
-      ctx.font = '11px system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      if (i < state.parts) {
-        ctx.fillText(String(i + 1), right + 8, y + headH / 2);
-      }
+    if (i < parts) {
+      ctx.fillText(i + 1, right - 16, y + step / 2);
     }
-
-    // Основные вертикали (осевая)
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-    ctx.setLineDash([4, 6]);
-    const cx = (left + right) / 2;
-    ctx.beginPath();
-    ctx.moveTo(cx, top);
-    ctx.lineTo(cx, bottom);
-    ctx.stroke();
-
-    ctx.restore();
   }
 
-  // --- Отрисовка фигуры (стилизованный силуэт) ---
-  function drawFigure() {
-    if (!state.showFigure) return;
+  // Осевая вертикаль
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.setLineDash([4, 6]);
+  const cx = canvas.width / 2;
+  ctx.beginPath();
+  ctx.moveTo(cx, top);
+  ctx.lineTo(cx, bottom);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
 
-    const { top, height, headH, headW } = getLayout();
-    const cx = canvas.width / 2;
+range.addEventListener('input', () => {
+  const n = parseInt(range.value);
+  val.textContent = n;
+  draw(n);
+});
 
-    ctx.save();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = C.figureS;
-    ctx.fillStyle = C.figure;
-
-    // 1. Голова (первая часть)
-    const headCy = top + headH / 2;
-    ctx.beginPath();
-    ctx.ellipse(cx, headCy, headW / 2, headH * 0.45, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    // 2. Шея (короткая, ~0.1 головы)
-    const neckW = headW * 0.35;
-    const neckTop = top + headH * 0.9;
-    const neckBottom = top + headH * 1.05;
-
-    // 3. Плечи — примерно на границе 1-й и 2-й части
-    const shoulderY = top + headH * 1.05;
-    const shoulderW = headW * 2.0;
-
-    // 4. Талия — примерно на 3-й части
-    const waistY = top + headH * 3.0;
-    const waistW = headW * 1.3;
-
-    // 5. Бёдра — 4-я часть
-    const hipY = top + headH * 4.0;
-    const hipW = headW * 1.7;
-
-    // 6. Колени — середина между бедром и ступнями
-    const kneeY = top + headH * 5.5;
-
-    // 7. Ступни — низ
-    const footY = top + height;
-
-    // === Торс ===
-    ctx.beginPath();
-    ctx.moveTo(cx - neckW, neckBottom);
-    ctx.lineTo(cx - shoulderW / 2, shoulderY);
-    ctx.lineTo(cx - waistW / 2, waistY);
-    ctx.lineTo(cx - hipW / 2, hipY);
-    ctx.lineTo(cx + hipW / 2, hipY);
-    ctx.lineTo(cx + waistW / 2, waistY);
-    ctx.lineTo(cx + shoulderW / 2, shoulderY);
-    ctx.lineTo(cx + neckW, neckBottom);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    // === Ноги (две) ===
-    const legGap = headW * 0.18;
-    const legTop = hipY;
-    const legBottom = footY;
-
-    // Левая нога
-    ctx.beginPath();
-    ctx.moveTo(cx - hipW / 2 + 2, legTop);
-    ctx.quadraticCurveTo(
-      cx - legGap - headW * 0.25, kneeY,
-      cx - legGap - headW * 0.15, legBottom
-    );
-    ctx.lineTo(cx - legGap + headW * 0.15, legBottom);
-    ctx.quadraticCurveTo(
-      cx - legGap + headW * 0.1, kneeY,
-      cx - hipW * 0.15, legTop
-    );
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    // Правая нога (зеркально)
-    ctx.beginPath();
-    ctx.moveTo(cx + hipW / 2 - 2, legTop);
-    ctx.quadraticCurveTo(
-      cx + legGap + headW * 0.25, kneeY,
-      cx + legGap + headW * 0.15, legBottom
-    );
-    ctx.lineTo(cx + legGap - headW * 0.15, legBottom);
-    ctx.quadraticCurveTo(
-      cx + legGap - headW * 0.1, kneeY,
-      cx + hipW * 0.15, legTop
-    );
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    // === Руки (упрощённо) ===
-    const armTop = shoulderY + headH * 0.05;
-    const armBottom = top + headH * 4.2;
-    const armOut = shoulderW / 2 + headW * 0.25;
-
-    // Левая
-    ctx.beginPath();
-    ctx.moveTo(cx - shoulderW / 2 + 3, armTop);
-    ctx.quadraticCurveTo(
-      cx - armOut, (armTop + armBottom) / 2,
-      cx - armOut + headW * 0.15, armBottom
-    );
-    ctx.lineTo(cx - armOut + headW * 0.35, armBottom);
-    ctx.quadraticCurveTo(
-      cx - armOut + headW * 0.35, (armTop + armBottom) / 2,
-      cx - shoulderW / 2 + headW * 0.35, armTop
-    );
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    // Правая
-    ctx.beginPath();
-    ctx.moveTo(cx + shoulderW / 2 - 3, armTop);
-    ctx.quadraticCurveTo(
-      cx + armOut, (armTop + armBottom) / 2,
-      cx + armOut - headW * 0.15, armBottom
-    );
-    ctx.lineTo(cx + armOut - headW * 0.35, armBottom);
-    ctx.quadraticCurveTo(
-      cx + armOut - headW * 0.35, (armTop + armBottom) / 2,
-      cx + shoulderW / 2 - headW * 0.35, armTop
-    );
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.restore();
-  }
-
-  // --- Отрисовка подписи "1 голова" ---
-  function drawHeadLabel() {
-    const { top, headH, headW } = getLayout();
-    const cx = canvas.width / 2;
-
-    ctx.save();
-    ctx.strokeStyle = C.accent;
-    ctx.fillStyle = C.accent;
-    ctx.lineWidth = 1;
-
-    // Фигурная скобка справа от первой части
-    const x = canvas.width - 60 - 20;
-    ctx.beginPath();
-    ctx.moveTo(x, top + 4);
-    ctx.lineTo(x + 8, top + 4);
-    ctx.lineTo(x + 8, top + headH - 4);
-    ctx.lineTo(x, top + headH - 4);
-    ctx.stroke();
-
-    ctx.font = 'bold 11px system-ui, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('1 голова', x - 4, top + headH / 2);
-
-    ctx.restore();
-  }
-
-  // --- Главная функция отрисовки ---
-  function render() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Фон
-    ctx.fillStyle = C.bg;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    drawGrid();
-    drawFigure();
-    drawHeadLabel();
-
-    // Заголовок с числом частей
-    ctx.save();
-    ctx.fillStyle = C.accent;
-    ctx.font = 'bold 13px system-ui, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillText(`${state.parts} частей`, 60, 10);
-    ctx.restore();
-  }
-
-  // --- Обработчики ---
-  function setParts(val) {
-    const n = Math.max(3, Math.min(10, parseInt(val) || 7));
-    state.parts = n;
-    rangeEl.value = n;
-    numEl.value = n;
-    render();
-  }
-
-  rangeEl.addEventListener('input', e => setParts(e.target.value));
-  numEl.addEventListener('input', e => setParts(e.target.value));
-  figEl.addEventListener('change', e => {
-    state.showFigure = e.target.checked;
-    render();
-  });
-  resetEl.addEventListener('click', () => {
-    state.showFigure = true;
-    figEl.checked = true;
-    setParts(7);
-  });
-
-  // Старт
-  render();
-})();
+draw(7);
 </script>
 </body>
 </html>
