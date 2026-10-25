@@ -14,17 +14,17 @@
   .controls { 
     display: flex; 
     flex-direction: column; 
-    gap: 10px; 
+    gap: 8px; 
     margin-bottom: 16px; 
-    font-size: .9rem;
+    font-size: .85rem;
     background: #2a2a33;
     padding: 12px 16px;
     border-radius: 8px;
     width: 100%;
-    max-width: 400px;
+    max-width: 420px;
   }
   .control-row { display: flex; align-items: center; justify-content: space-between; }
-  input[type="range"] { width: 180px; accent-color: #e8b04b; }
+  input[type="range"] { width: 160px; accent-color: #e8b04b; }
   span.val { display: inline-block; width: 30px; text-align: right; }
   canvas { background: #2a2a33; border-radius: 8px; }
 </style>
@@ -39,6 +39,10 @@
   <div class="control-row">
     <label>Размер круга:</label>
     <div><input id="rangeRadius" type="range" min="1.0" max="2.0" value="1.5" step="0.1"> <span class="val" id="valRadius">1.5</span></div>
+  </div>
+  <div class="control-row">
+    <label>Крепление челюсти:</label>
+    <div><input id="rangeAttach" type="range" min="1.0" max="3.0" value="2.0" step="0.1"> <span class="val" id="valAttach">2.0</span></div>
   </div>
   <div class="control-row">
     <label>Ширина подбородка:</label>
@@ -60,10 +64,13 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
+// Получаем элементы управления
 const rangeParts = document.getElementById('rangeParts');
 const valParts = document.getElementById('valParts');
 const rangeRadius = document.getElementById('rangeRadius');
 const valRadius = document.getElementById('valRadius');
+const rangeAttach = document.getElementById('rangeAttach');
+const valAttach = document.getElementById('valAttach');
 const rangeChinW = document.getElementById('rangeChinW');
 const valChinW = document.getElementById('valChinW');
 const rangeChinH = document.getElementById('rangeChinH');
@@ -74,9 +81,10 @@ const valRound = document.getElementById('valRound');
 function draw() {
   const parts = parseInt(rangeParts.value);
   const radiusMultiplier = parseFloat(rangeRadius.value);
+  const attachPos = parseFloat(rangeAttach.value);     // 1.0 - 3.0 (по умолчанию 2.0)
   const chinWidthMul = parseFloat(rangeChinW.value);
-  const chinHeightPos = parseFloat(rangeChinH.value); // от 3.0 до 5.0 долей
-  const roundness = parseFloat(rangeRound.value);     // 0 - острый, 1 - круглый
+  const chinHeightPos = parseFloat(rangeChinH.value);  // 3.0 - 5.0
+  const roundness = parseFloat(rangeRound.value);      // 0 - 1
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -117,18 +125,19 @@ function draw() {
   // ================= ШАГ 2: голова =================
   const fifth = step / 5;
   
-  const y0 = top;                   // 0/5
-  const y2 = top + fifth * 2;       // 2/5 (верхний угол челюсти)
-  const y3 = top + fifth * 3;       // 3/5 (низ круга, начало скоса)
-  const yChin = top + fifth * chinHeightPos; // позиция подбородка (динамическая)
+  const y0 = top; 
+  const yAttach = top + fifth * attachPos;    // Уровень крепления (динамический)
+  const y3 = top + fifth * 3;                 // 3/5 (уровень перехода в скос)
+  const yChin = top + fifth * chinHeightPos;  // Уровень подбородка (динамический)
 
   // Круг черепа
   const r = fifth * radiusMultiplier;
   const cy = y0 + r;                
 
-  // Ширина на уровне 2/5
-  const y2Offset = Math.abs(y2 - cy);
-  const jawWidthTop = y2Offset < r ? 2 * Math.sqrt(r*r - y2Offset*y2Offset) : r * 2;
+  // Ширина на уровне крепления (высчитываем по формуле окружности)
+  const yAttachOffset = Math.abs(yAttach - cy);
+  // Если точка крепления выходит за пределы круга, берем максимальную ширину (диаметр)
+  const jawWidthTop = yAttachOffset < r ? 2 * Math.sqrt(r*r - yAttachOffset*yAttachOffset) : r * 2;
   
   // Ширина подбородка
   const jawWidthBot = jawWidthTop * chinWidthMul;      
@@ -162,13 +171,11 @@ function draw() {
   const halfBot = jawWidthBot / 2;
 
   // Левая сторона
-  ctx.moveTo(cx - halfTop, y2);
+  ctx.moveTo(cx - halfTop, yAttach);
   ctx.lineTo(cx - halfTop, y3);
   
   // Скос к подбородку с учетом округлости
-  // Если roundness > 0, мы используем квадратичную кривую вместо прямой линии
   if (roundness > 0) {
-    // Контрольная точка для вогнутости (чтобы не было пузыря)
     const cpX = cx - halfBot - (halfTop - halfBot) * 0.5;
     const cpY = y3 + (yChin - y3) * 0.5;
     ctx.quadraticCurveTo(cpX, cpY, cx - halfBot, yChin);
@@ -176,10 +183,9 @@ function draw() {
     ctx.lineTo(cx - halfBot, yChin);
   }
 
-  // Линия подбородка (с учетом округлости)
+  // Линия подбородка с учетом округлости
   if (roundness > 0) {
-    // Квадратичная кривая вниз (U-образная форма)
-    const dip = (yChin - y3) * 0.4 * roundness; // насколько глубоко прогибается
+    const dip = (yChin - y3) * 0.4 * roundness;
     ctx.quadraticCurveTo(cx, yChin + dip, cx + halfBot, yChin);
   } else {
     ctx.lineTo(cx + halfBot, yChin);
@@ -194,7 +200,7 @@ function draw() {
     ctx.lineTo(cx + halfTop, y3);
   }
   
-  ctx.lineTo(cx + halfTop, y2);
+  ctx.lineTo(cx + halfTop, yAttach);
   
   ctx.stroke();
 
@@ -208,11 +214,12 @@ function draw() {
   }
 }
 
-// Обработчики событий
+// Обработчики
 function updateVal(el, target) { target.textContent = el.value; }
 
 rangeParts.addEventListener('input', () => { updateVal(rangeParts, valParts); draw(); });
 rangeRadius.addEventListener('input', () => { updateVal(rangeRadius, valRadius); draw(); });
+rangeAttach.addEventListener('input', () => { updateVal(rangeAttach, valAttach); draw(); });
 rangeChinW.addEventListener('input', () => { updateVal(rangeChinW, valChinW); draw(); });
 rangeChinH.addEventListener('input', () => { updateVal(rangeChinH, valChinH); draw(); });
 rangeRound.addEventListener('input', () => { updateVal(rangeRound, valRound); draw(); });
