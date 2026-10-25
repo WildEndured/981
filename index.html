@@ -42,7 +42,7 @@
   </div>
   <div class="control-row">
     <label>Ширина подбородка:</label>
-    <div><input id="rangeChin" type="range" min="0.2" max="1.0" value="0.55" step="0.05"> <span class="val" id="valChin">0.55</span></div>
+    <div><input id="rangeChin" type="range" min="0.05" max="1.0" value="0.5" step="0.05"> <span class="val" id="valChin">0.5</span></div>
   </div>
 </div>
 
@@ -104,16 +104,20 @@ function draw() {
   const fifth = step / 5;
   
   const y0 = top;                   // 0/5
-  const y4 = top + fifth * 4;       // 4/5 (линия подбородка)
+  const y2 = top + fifth * 2;       // 2/5 (верхний угол челюсти)
+  const y3 = top + fifth * 3;       // 3/5 (низ круга, начало скоса)
+  const y4 = top + fifth * 4;       // 4/5 (подбородок)
 
   // Круг черепа
-  // radiusMultiplier по умолчанию 1.5 (это 3/5 высоты головы)
   const r = fifth * radiusMultiplier;
   const cy = y0 + r;                
 
-  // Ширина челюсти
-  const jawWidthTop = r * 2;        
-  // Ширина подбородка задается ползунком (от 0.2 до 1.0 от ширины на уровне круга)
+  // Ширина на уровне 2/5 (берем ширину круга в этом месте, чтобы челюсть плавно выходила)
+  // Формула ширины круга на высоте y: 2 * sqrt(r^2 - (y - cy)^2)
+  const y2Offset = Math.abs(y2 - cy);
+  const jawWidthTop = y2Offset < r ? 2 * Math.sqrt(r*r - y2Offset*y2Offset) : r * 2;
+  
+  // Ширина подбородка (на уровне 4/5)
   const jawWidthBot = jawWidthTop * chinMultiplier;      
 
   // Вспомогательные пунктирные линии
@@ -136,18 +140,23 @@ function draw() {
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.stroke();
 
-  // 2. Челюсть
+  // 2. Челюсть (двумя линиями)
   ctx.strokeStyle = '#e8b04b'; 
   ctx.lineWidth = 1.8;
   ctx.beginPath();
-  // Начинаем от экватора круга (на уровне центра cy)
-  ctx.moveTo(cx - jawWidthTop / 2, cy);
-  // Идем вниз к подбородку (4/5)
-  ctx.lineTo(cx - jawWidthBot / 2, y4);
+  
+  // Левая сторона
+  ctx.moveTo(cx - jawWidthTop / 2, y2);    // Начало на уровне 2/5
+  ctx.lineTo(cx - jawWidthTop / 2, y3);    // Прямой спуск вниз до 3/5 (двумя линиями)
+  ctx.lineTo(cx - jawWidthBot / 2, y4);    // Скос к подбородку (4/5)
+  
   // Линия подбородка
   ctx.lineTo(cx + jawWidthBot / 2, y4);
-  // Идем наверх к экватору круга
-  ctx.lineTo(cx + jawWidthTop / 2, cy);
+  
+  // Правая сторона (зеркально)
+  ctx.lineTo(cx + jawWidthTop / 2, y3);    // Скос наверх от подбородка к 3/5
+  ctx.lineTo(cx + jawWidthTop / 2, y2);    // Прямой подъем наверх к 2/5
+  
   ctx.stroke();
 
   // Подписи долей
