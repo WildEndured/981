@@ -3,179 +3,92 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Шаг 2. Голова (Pro)</title>
+<title>Шаг 2. Голова (Связанный контур)</title>
 <style>
   :root {
     --bg: #141419;
     --panel: #1e1e26;
     --panel-2: #262630;
     --accent: #e8b04b;
-    --accent-dim: rgba(232, 176, 75, 0.2);
     --text: #e8e8f0;
     --muted: #8a8a99;
     --border: #33333f;
     --danger: #e85b5b;
   }
-
   * { box-sizing: border-box; }
-
   body {
-    margin: 0;
-    min-height: 100vh;
+    margin: 0; min-height: 100vh;
     background: radial-gradient(circle at top, #1c1c26 0%, var(--bg) 70%);
-    color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 24px 16px;
-    gap: 20px;
+    color: var(--text); font-family: system-ui, -apple-system, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 24px 16px; gap: 20px;
   }
-
   header { text-align: center; }
-  header h1 { font-size: 1.15rem; font-weight: 600; margin: 0 0 4px; letter-spacing: .3px; }
+  header h1 { font-size: 1.15rem; font-weight: 600; margin: 0 0 4px; }
   header p { margin: 0; font-size: .8rem; color: var(--muted); }
-
   .app {
-    display: flex;
-    gap: 24px;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    justify-content: center;
-    width: 100%;
-    max-width: 950px;
+    display: flex; gap: 24px; align-items: flex-start;
+    flex-wrap: wrap; justify-content: center;
+    width: 100%; max-width: 950px;
   }
-
   .controls {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 18px 20px;
-    width: 100%;
-    max-width: 340px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 16px; padding: 18px 20px;
+    width: 100%; max-width: 340px;
+    display: flex; flex-direction: column; gap: 16px;
     box-shadow: 0 10px 30px rgba(0,0,0,.35);
   }
-
   .controls h2 {
-    font-size: .75rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--muted);
-    margin: 0 0 4px;
-    font-weight: 600;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    font-size: .75rem; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--muted);
+    margin: 0 0 4px; font-weight: 600;
   }
-
   .control { display: flex; flex-direction: column; gap: 6px; }
   .control-head { display: flex; justify-content: space-between; align-items: center; font-size: .85rem; }
-  .control-head label { color: var(--text); cursor: pointer; }
-  
   .badge {
-    background: var(--panel-2);
-    border: 1px solid var(--border);
-    color: var(--accent);
-    font-variant-numeric: tabular-nums;
-    font-size: .75rem;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 999px;
-    min-width: 46px;
-    text-align: center;
+    background: var(--panel-2); border: 1px solid var(--border);
+    color: var(--accent); font-variant-numeric: tabular-nums;
+    font-size: .75rem; font-weight: 600;
+    padding: 2px 8px; border-radius: 999px;
+    min-width: 46px; text-align: center;
   }
-
-  /* Стилизация ползунков */
   input[type="range"] {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    height: 6px;
-    border-radius: 3px;
-    background: #33333f;
-    outline: none;
-    cursor: pointer;
-    position: relative;
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 6px; border-radius: 3px;
+    background: #33333f; outline: none; cursor: pointer; position: relative;
   }
-  /* Заливка прогресса */
   input[type="range"]::-webkit-slider-runnable-track {
     background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--fill, 0%), #33333f var(--fill, 0%), #33333f 100%);
-    height: 6px;
-    border-radius: 3px;
+    height: 6px; border-radius: 3px;
   }
-  input[type="range"]::-moz-range-track {
-    background: #33333f;
-    height: 6px;
-    border-radius: 3px;
-  }
-  input[type="range"]::-moz-range-progress {
-    background: var(--accent);
-    height: 6px;
-    border-radius: 3px;
-  }
-
   input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: #fff;
-    border: 3px solid var(--accent);
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; border: 3px solid var(--accent);
     box-shadow: 0 2px 6px rgba(0,0,0,.4);
-    cursor: pointer;
-    transition: transform .15s;
-    margin-top: -5px;
+    cursor: pointer; transition: transform .15s; margin-top: -5px;
   }
   input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
-  input[type="range"]::-moz-range-thumb {
-    width: 12px; height: 12px; border-radius: 50%;
-    background: #fff; border: 3px solid var(--accent);
-    cursor: pointer;
-  }
-
   .actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 12px;
-    border-top: 1px solid var(--border);
-    margin-top: 4px;
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 12px; border-top: 1px solid var(--border); margin-top: 4px;
   }
-
   .btn-reset {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    padding: 6px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: .75rem;
-    transition: all .2s;
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted); padding: 6px 12px; border-radius: 6px;
+    cursor: pointer; font-size: .75rem; transition: all .2s;
   }
   .btn-reset:hover { border-color: var(--danger); color: var(--danger); }
-
   .checkbox-wrap {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: .75rem;
-    color: var(--muted);
-    cursor: pointer;
-    user-select: none;
+    display: flex; align-items: center; gap: 6px;
+    font-size: .75rem; color: var(--muted);
+    cursor: pointer; user-select: none;
   }
   .checkbox-wrap input { accent-color: var(--accent); }
-
   canvas {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.35);
-    max-width: 100%;
-    height: auto;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    max-width: 100%; height: auto;
   }
 </style>
 </head>
@@ -183,7 +96,7 @@
 
 <header>
   <h1>Построение головы</h1>
-  <p>Настрой пропорции черепа, челюсти и подбородка</p>
+  <p>Связанный контур черепа и челюсти</p>
 </header>
 
 <div class="app">
@@ -200,7 +113,7 @@
 
     <div class="control">
       <div class="control-head">
-        <label for="rangeRadius">Размер круга головы</label>
+        <label for="rangeRadius">Размер круга</label>
         <span class="badge" id="valRadius">1.5</span>
       </div>
       <input id="rangeRadius" type="range" min="1.0" max="2.0" value="1.5" step="0.1">
@@ -241,7 +154,7 @@
     <div class="actions">
       <label class="checkbox-wrap">
         <input type="checkbox" id="showPoints" checked>
-        Опорные точки
+        Точки
       </label>
       <button class="btn-reset" id="btnReset">Сбросить</button>
     </div>
@@ -266,13 +179,9 @@ const els = {
 const showPointsEl = document.getElementById('showPoints');
 const btnReset = document.getElementById('btnReset');
 
-// Функция обновления заливки ползунка
 function updateFill(el) {
-  const min = parseFloat(el.min);
-  const max = parseFloat(el.max);
-  const val = parseFloat(el.value);
-  const pct = ((val - min) / (max - min)) * 100;
-  el.style.setProperty('--fill', pct + '%');
+  const min = parseFloat(el.min), max = parseFloat(el.max), val = parseFloat(el.value);
+  el.style.setProperty('--fill', ((val - min) / (max - min)) * 100 + '%');
 }
 
 function updateValDisplay(el, valEl) {
@@ -281,28 +190,20 @@ function updateValDisplay(el, valEl) {
     : parseFloat(el.value).toFixed(1).replace('.0', '');
 }
 
-// Обработчики
 Object.values(els).forEach(({ r, v }) => {
   r.addEventListener('input', () => {
-    // Умные ограничители
-    if (r.id === 'rangeAttach') {
-      const chinH = parseFloat(els.chinH.r.value);
-      // Крепление не может быть ниже подбородка
-      if (parseFloat(r.value) > chinH - 0.5) r.value = chinH - 0.5;
+    // Логические ограничители
+    if (r.id === 'rangeAttach' && parseFloat(r.value) > parseFloat(els.chinH.r.value) - 0.5) {
+      r.value = parseFloat(els.chinH.r.value) - 0.5;
     }
-    if (r.id === 'rangeChinH') {
-      const attach = parseFloat(els.attach.r.value);
-      // Подбородок не может быть выше крепления
-      if (parseFloat(r.value) < attach + 0.5) r.value = attach + 0.5;
+    if (r.id === 'rangeChinH' && parseFloat(r.value) < parseFloat(els.attach.r.value) + 0.5) {
+      r.value = parseFloat(els.attach.r.value) + 0.5;
     }
-
+    
     updateValDisplay(r, v);
     updateFill(r);
-    
-    // Синхронизируем заливку зависимого ползунка, если его значение изменилось
     if (r.id === 'rangeAttach') updateFill(els.chinH.r);
     if (r.id === 'rangeChinH') updateFill(els.attach.r);
-
     draw();
   });
   updateValDisplay(r, v);
@@ -310,13 +211,8 @@ Object.values(els).forEach(({ r, v }) => {
 });
 
 btnReset.addEventListener('click', () => {
-  Object.values(els).forEach(({ r, def }) => {
-    r.value = def;
-    updateFill(r);
-  });
-  Object.keys(els).forEach(k => {
-    updateValDisplay(els[k].r, els[k].v);
-  });
+  Object.values(els).forEach(({ r, def }) => { r.value = def; updateFill(r); });
+  Object.keys(els).forEach(k => updateValDisplay(els[k].r, els[k].v));
   draw();
 });
 
@@ -325,11 +221,8 @@ showPointsEl.addEventListener('change', draw);
 function drawPoint(x, y, color = '#e85b5b') {
   ctx.beginPath();
   ctx.arc(x, y, 4, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
+  ctx.fillStyle = color; ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
 }
 
 function draw() {
@@ -343,137 +236,121 @@ function draw() {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const pad = 20;
-  const top = pad;
-  const bottom = canvas.height - pad;
-  const height = bottom - top;
-  const step = height / parts;
-  const left = 20;
-  const right = canvas.width - 20;
-  const cx = (left + right) / 2;
+  const pad = 20, top = pad, bottom = canvas.height - pad;
+  const height = bottom - top, step = height / parts;
+  const left = 20, right = canvas.width - 20, cx = (left + right) / 2;
 
-  // ================= Сетка =================
-  ctx.strokeStyle = '#3a3a46';
-  ctx.lineWidth = 1;
-  ctx.font = '11px system-ui';
-  ctx.fillStyle = '#8a8a99';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-
+  // Сетка
+  ctx.strokeStyle = '#3a3a46'; ctx.lineWidth = 1;
+  ctx.font = '11px system-ui'; ctx.fillStyle = '#8a8a99';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   for (let i = 0; i <= parts; i++) {
     const y = top + i * step;
-    ctx.beginPath();
-    ctx.moveTo(left, y);
-    ctx.lineTo(right, y);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(right, y); ctx.stroke();
     if (i < parts) ctx.fillText(i + 1, right - 16, y + step / 2);
   }
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.setLineDash([4, 6]);
+  ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, bottom); ctx.stroke(); ctx.setLineDash([]);
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-  ctx.setLineDash([4, 6]);
-  ctx.beginPath();
-  ctx.moveTo(cx, top);
-  ctx.lineTo(cx, bottom);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // ================= Голова =================
+  // Геометрия
   const fifth = step / 5;
   const y0 = top;
-  const yAttach = top + fifth * attachPos;
-  const y3 = top + fifth * 3;
-  const yChin = top + fifth * chinHeightPos;
-
   const r = fifth * radiusMultiplier;
   const cy = y0 + r;
+  
+  // Подбородок
+  const yChin = top + fifth * chinHeightPos;
 
-  const yAttachOffset = Math.abs(yAttach - cy);
-  const jawWidthTop = yAttachOffset < r ? 2 * Math.sqrt(r*r - yAttachOffset*yAttachOffset) : r * 2;
-  const jawWidthBot = jawWidthTop * chinWidthMul;
+  // Ищем точку крепления на окружности (по вертикали)
+  const yAttach = top + fifth * attachPos;
+  const dy = yAttach - cy;
+  // Если точка крепления ниже/выше круга, принудительно ставим на экватор
+  const attachYClamped = Math.max(cy - r * 0.95, Math.min(cy + r * 0.95, yAttach)); 
+  
+  // Координаты X для крепления (на самом круге)
+  const attachXOffset = Math.sqrt(Math.max(0, r*r - (attachYClamped - cy)*(attachYClamped - cy)));
+  const halfTop = attachXOffset;
+  
+  // Ширина подбородка (относительно ширины крепления)
+  const halfBot = halfTop * chinWidthMul;
 
-  // Вспомогательные линии
-  ctx.strokeStyle = 'rgba(232,176,75,0.22)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([3, 4]);
+  // Вспомогательные линии (доли)
+  ctx.strokeStyle = 'rgba(232,176,75,0.22)'; ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
   for (let i = 1; i <= 5; i++) {
     const y = top + fifth * i;
-    ctx.beginPath();
-    ctx.moveTo(cx - r - 40, y);
-    ctx.lineTo(cx + r + 40, y);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - r - 40, y); ctx.lineTo(cx + r + 40, y); ctx.stroke();
   }
   ctx.setLineDash([]);
 
   // Череп
-  ctx.strokeStyle = '#e8b04b';
-  ctx.lineWidth = 1.8;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.stroke();
+  ctx.strokeStyle = '#e8b04b'; ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
 
   // Челюсть
   ctx.beginPath();
-  const halfTop = jawWidthTop / 2;
-  const halfBot = jawWidthBot / 2;
-  
-  const ptTopL = { x: cx - halfTop, y: yAttach };
-  const ptTopR = { x: cx + halfTop, y: yAttach };
-  const ptMidL = { x: cx - halfTop, y: y3 };
-  const ptMidR = { x: cx + halfTop, y: y3 };
+  const ptTopL = { x: cx - halfTop, y: attachYClamped };
+  const ptTopR = { x: cx + halfTop, y: attachYClamped };
   const ptBotL = { x: cx - halfBot, y: yChin };
   const ptBotR = { x: cx + halfBot, y: yChin };
 
   ctx.moveTo(ptTopL.x, ptTopL.y);
-  ctx.lineTo(ptMidL.x, ptMidL.y);
+  
+  // Линия вниз до уровня 3/5 (чтобы был "излом" скулы)
+  const y3 = top + fifth * 3;
+  // Если подбородок ниже 3/5, делаем излом. Если выше — ведем сразу к подбородку.
+  const yBreak = Math.min(y3, yChin); 
+  
+  ctx.lineTo(cx - halfTop, yBreak);
 
+  // Скос к подбородку
   if (roundness > 0) {
-    // Bezier для более естественного изгиба скул
-    const cp1x = cx - halfBot - (halfTop - halfBot) * 0.7;
-    const cp1y = y3 + (yChin - y3) * 0.2;
+    const cp1x = cx - halfBot - (halfTop - halfBot) * 0.4;
+    const cp1y = yBreak + (yChin - yBreak) * 0.3;
     const cp2x = cx - halfBot;
-    const cp2y = y3 + (yChin - y3) * 0.8;
+    const cp2y = yBreak + (yChin - yBreak) * 0.8;
     ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ptBotL.x, ptBotL.y);
   } else {
     ctx.lineTo(ptBotL.x, ptBotL.y);
   }
 
+  // Линия подбородка
   if (roundness > 0) {
-    const dip = (yChin - y3) * 0.4 * roundness;
+    const dip = (yChin - yBreak) * 0.4 * roundness;
     ctx.quadraticCurveTo(cx, yChin + dip, ptBotR.x, ptBotR.y);
   } else {
     ctx.lineTo(ptBotR.x, ptBotR.y);
   }
 
+  // Правая сторона (зеркально)
   if (roundness > 0) {
     const cp1x = cx + halfBot;
-    const cp1y = y3 + (yChin - y3) * 0.8;
-    const cp2x = cx + halfBot + (halfTop - halfBot) * 0.7;
-    const cp2y = y3 + (yChin - y3) * 0.2;
-    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ptMidR.x, ptMidR.y);
+    const cp1y = yBreak + (yChin - yBreak) * 0.8;
+    const cp2x = cx + halfBot + (halfTop - halfBot) * 0.4;
+    const cp2y = yBreak + (yChin - yBreak) * 0.3;
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ptTopR.x, yBreak);
   } else {
-    ctx.lineTo(ptMidR.x, ptMidR.y);
+    ctx.lineTo(ptTopR.x, yBreak);
   }
 
   ctx.lineTo(ptTopR.x, ptTopR.y);
   ctx.stroke();
 
-  // Отрисовка опорных точек
+  // Точки
   if (showPoints) {
     drawPoint(ptTopL.x, ptTopL.y);
     drawPoint(ptTopR.x, ptTopR.y);
-    drawPoint(ptMidL.x, ptMidL.y);
-    drawPoint(ptMidR.x, ptMidR.y);
-    drawPoint(ptBotL.x, ptBotL.y, '#7fb4e8'); // Подбородок синим
+    if (yBreak !== yChin) {
+      drawPoint(cx - halfTop, yBreak);
+      drawPoint(cx + halfTop, yBreak);
+    }
+    drawPoint(ptBotL.x, ptBotL.y, '#7fb4e8');
     drawPoint(ptBotR.x, ptBotR.y, '#7fb4e8');
-    // Точка по центру подбородка
     drawPoint(cx, yChin, '#7fb4e8');
   }
 
-  // Подписи долей
-  ctx.fillStyle = '#8a8a99';
-  ctx.font = '10px system-ui';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
+  // Подписи
+  ctx.fillStyle = '#8a8a99'; ctx.font = '10px system-ui';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   for (let i = 1; i <= 5; i++) {
     ctx.fillText(`${i}/5`, cx + r + 10, top + fifth * i - fifth / 2);
   }
