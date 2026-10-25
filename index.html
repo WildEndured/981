@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Лумис — голова + грудная клетка (2D, 360°)</title>
+<title>Торс и таз — яйцо + скруглённый квадрат</title>
 <style>
   :root {
     --guide-red: #f03e6e;
     --guide-blue: #3b7cff;
+    --guide-gray: #cdc7d6;
     --bg: #faf8fc;
     --panel: #ffffff;
     --text: #2a2430;
@@ -15,7 +16,9 @@
     --line: #e5e1eb;
     --accent: #7a4dff;
   }
+
   * { box-sizing: border-box; }
+
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -27,6 +30,7 @@
     height: 100vh;
     overflow: hidden;
   }
+
   header {
     grid-column: 1 / -1;
     display: flex;
@@ -37,63 +41,129 @@
     background: var(--panel);
   }
   header h1 { font-size: 15px; font-weight: 600; margin: 0; }
-  header .view-name { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; margin-left: auto; }
-  header .btn { font-size: 13px; padding: 6px 10px; }
+  header .view-name {
+    font-size: 12px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    margin-left: auto;
+  }
+
   #stage {
     position: relative;
     overflow: hidden;
     background: radial-gradient(circle at 50% 45%, #ffffff 0%, var(--bg) 70%);
-    display: flex; align-items: center; justify-content: center;
-    touch-action: none; cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+    cursor: grab;
   }
   #stage:active { cursor: grabbing; }
   #stage svg { width: 100%; height: 100%; display: block; user-select: none; }
+
   #stage .label {
-    font-size: 13px; font-weight: 600;
-    paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round;
-    pointer-events: none; user-select: none;
+    font-size: 13px;
+    font-weight: 600;
+    paint-order: stroke;
+    stroke: #fff;
+    stroke-width: 3px;
+    stroke-linejoin: round;
+    pointer-events: none;
+    user-select: none;
   }
-  .label--red { fill: var(--guide-red); }
+  .label--red  { fill: var(--guide-red); }
   .label--blue { fill: var(--guide-blue); }
-  .label--ink { fill: var(--text); }
+  .label--ink  { fill: var(--text); }
+
   #drop-cover {
-    position: absolute; inset: 0;
+    position: absolute;
+    inset: 0;
     background: rgba(122, 77, 255, 0.15);
     border: 2px dashed var(--accent);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px; font-weight: 600; color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
     pointer-events: none;
   }
   #drop-cover[hidden] { display: none; }
-  aside { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding: 12px 0; }
+
+  aside {
+    border-left: 1px solid var(--line);
+    background: var(--panel);
+    overflow-y: auto;
+    padding: 12px 0;
+  }
   section { padding: 0 16px 12px; }
   section h2 {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--muted); font-weight: 600; margin: 14px 0 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 14px 0 8px;
   }
+
   .btn {
-    font: inherit; font-size: 12px; padding: 7px 10px;
-    border: 1px solid var(--line); border-radius: 8px;
-    background: #fff; color: var(--text); cursor: pointer; transition: all 0.12s;
+    font: inherit;
+    font-size: 12px;
+    padding: 7px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.12s;
   }
   .btn:hover { border-color: var(--accent); color: var(--accent); }
-  .btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
   .row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+
   .slider {
-    display: grid; grid-template-columns: 1fr 52px;
-    grid-template-rows: auto auto; gap: 2px 8px;
-    margin-bottom: 10px; align-items: center;
+    display: grid;
+    grid-template-columns: 1fr 52px;
+    gap: 2px 8px;
+    margin-bottom: 10px;
+    align-items: center;
   }
   .slider label { grid-column: 1 / -1; font-size: 12px; color: var(--text); }
   .slider input[type="range"] { width: 100%; height: 20px; accent-color: var(--accent); }
-  .slider output { text-align: right; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .group-h {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--muted); font-weight: 600; margin: 12px 0 6px;
+  .slider output {
+    text-align: right;
+    font-size: 11px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
   }
-  .hint { font-size: 12px; color: var(--muted); line-height: 1.4; margin-bottom: 8px; }
+
+  .group-h {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 12px 0 6px;
+  }
+
+  .hint {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+    margin-bottom: 8px;
+  }
+
   @media (max-width: 800px) {
-    body { grid-template-columns: 1fr; grid-template-rows: 48px 1fr auto; height: 100dvh; }
+    body {
+      grid-template-columns: 1fr;
+      grid-template-rows: 48px 1fr auto;
+      height: 100dvh;
+    }
     aside { border-left: none; border-top: 1px solid var(--line); max-height: 45vh; }
   }
 </style>
@@ -101,13 +171,12 @@
 <body>
 
 <header>
-  <h1>Лумис — голова + торс</h1>
+  <h1>Торс (яйцо) + Таз (скруглённый квадрат)</h1>
   <span class="view-name" id="view-name">Анфас · 0°</span>
-  <button class="btn" id="about-btn" type="button">О методе</button>
 </header>
 
 <main id="stage">
-  <svg id="canvas" viewBox="0 0 600 720" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
+  <svg id="canvas" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
   <div id="drop-cover" hidden>Отпустите, чтобы вставить</div>
 </main>
 
@@ -115,12 +184,12 @@
   <section>
     <h2>Поворот</h2>
     <div class="slider">
-      <label>Yaw (вокруг вертикали)</label>
+      <label>Yaw</label>
       <input type="range" id="yaw" min="-180" max="180" step="1" value="0">
       <output id="yaw-out">0°</output>
     </div>
     <div class="slider">
-      <label>Pitch (вверх-вниз)</label>
+      <label>Pitch</label>
       <input type="range" id="pitch" min="-60" max="60" step="1" value="0">
       <output id="pitch-out">0°</output>
     </div>
@@ -131,41 +200,36 @@
       <button class="btn" data-angle="back" type="button">Спина</button>
     </div>
     <div class="row">
-      <button class="btn" id="spin" type="button" aria-pressed="false">↻ Крутить</button>
       <button class="btn" id="reset-view" type="button">Сброс</button>
     </div>
   </section>
 
   <section>
-    <h2>Пресеты головы</h2>
-    <div class="row" id="presets"></div>
+    <h2>Пропорции</h2>
+    <div class="slider">
+      <label>Ведущий размер W</label>
+      <input type="range" id="W" min="0.8" max="1.6" step="0.01" value="1.15">
+      <output id="W-out">1.15</output>
+    </div>
+    <p class="hint">Высота грудной клетки = W. Ширина таза = высота таза = W. Всё остальное — доли W.</p>
   </section>
 
   <section>
-    <h2>Форма головы</h2>
-    <div id="shape-sliders"></div>
+    <h2>Грудная клетка (яйцо)</h2>
+    <div id="egg-sliders"></div>
   </section>
 
   <section>
-    <h2>Пресеты торса</h2>
-    <div class="row" id="torso-presets"></div>
-  </section>
-
-  <section>
-    <h2>Грудная клетка</h2>
-    <div id="torso-sliders"></div>
+    <h2>Таз (скруглённый квадрат)</h2>
+    <div id="pelvis-sliders"></div>
   </section>
 
   <section>
     <h2>Отображение</h2>
-    <div class="row">
-      <button class="btn" id="toggle-head" aria-pressed="true" type="button">Голова</button>
-      <button class="btn" id="toggle-torso" aria-pressed="true" type="button">Торс</button>
-    </div>
     <div class="slider">
       <label>Толщина линии</label>
-      <input type="range" id="line" min="0.004" max="0.04" step="0.001" value="0.012">
-      <output id="line-out">0.012</output>
+      <input type="range" id="line" min="0.002" max="0.02" step="0.001" value="0.006">
+      <output id="line-out">0.006</output>
     </div>
     <div class="row">
       <button class="btn" id="toggle-hidden" aria-pressed="true" type="button">Скрытые линии</button>
@@ -204,559 +268,254 @@
 
 <script type="module">
 /* ==================================================================
- * Общая математика
+ * math
  * ================================================================== */
-
-const RED = 'red', BLUE = 'blue';
-const CORNER = 0.05;
-const LOOP_SEGMENTS = 96;
-
 const rad = (d) => (d * Math.PI) / 180;
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const len = (a) => Math.hypot(a[0], a[1], a[2]);
 const norm = (a) => { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
-const mirror = (a) => [-a[0], a[1], a[2]];
 const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-const smoothstep = (t) => t * t * (3 - 2 * t);
 
-function rounded(items, radius) {
-  const pts0 = [];
-  for (const it of items) {
-    if (!pts0.length || len(sub(it.p, pts0[pts0.length - 1].p)) > 1e-6) pts0.push(it);
-  }
-  if (pts0.length < 3) return { pts: pts0.map((it) => it.p), corners: [] };
-  const out = [pts0[0].p];
-  const corners = [];
-  for (let i = 1; i < pts0.length - 1; i++) {
-    const P = pts0[i - 1].p, V = pts0[i].p, N = pts0[i + 1].p;
-    const kk = pts0[i].k ?? 0;
-    const d1 = sub(V, P), d2 = sub(N, V);
-    const L1 = len(d1), L2 = len(d2);
-    const u1 = norm(d1), u2 = norm(d2);
-    const cos = Math.max(-1, Math.min(1, u1[0] * u2[0] + u1[1] * u2[1] + u1[2] * u2[2]));
-    const turn = Math.acos(cos);
-    if (turn < 1e-3) { out.push(V); corners.push({ v: V, p: V }); continue; }
-    const base = radius * Math.tan(Math.min(turn, Math.PI * 0.95) / 2);
-    const t1 = Math.min(Math.max(base, kk * 0.5 * L1), L1 * 0.5);
-    const t2 = Math.min(Math.max(base, kk * 0.5 * L2), L2 * 0.5);
-    const T1 = [V[0] - u1[0] * t1, V[1] - u1[1] * t1, V[2] - u1[2] * t1];
-    const T2 = [V[0] + u2[0] * t2, V[1] + u2[1] * t2, V[2] + u2[2] * t2];
-    const STEPS = 2 * (3 + Math.round(kk * 9));
-    for (let j = 0; j <= STEPS; j++) {
-      const s = j / STEPS, a = (1 - s) * (1 - s), b = 2 * s * (1 - s), c = s * s;
-      out.push([a * T1[0] + b * V[0] + c * T2[0], a * T1[1] + b * V[1] + c * T2[1], a * T1[2] + b * V[2] + c * T2[2]]);
-    }
-    corners.push({ v: V, p: [0.25 * T1[0] + 0.5 * V[0] + 0.25 * T2[0], 0.25 * T1[1] + 0.5 * V[1] + 0.25 * T2[1], 0.25 * T1[2] + 0.5 * V[2] + 0.25 * T2[2]] });
-  }
-  out.push(pts0[pts0.length - 1].p);
-  return { pts: out, corners };
-}
+const SEG = 80;           // сегментов на кольцо
+const CX = 300, CY = 300; // центр сцены
+const SCALE = 180;        // пикселей на единицу W
 
 /* ==================================================================
- * Голова
+ * параметры
  * ================================================================== */
-
-const SHAPE_PARAMS = [
-  { key: 'cut',        label: 'Ширина головы',           min: 0.4,  max: 0.95, step: 0.01, def: 0.73 },
-  { key: 'top',        label: 'Высота макушки',          min: 0.8,  max: 1.4,  step: 0.01, def: 1 },
-  { key: 'back',       label: 'Выступ затылка',          min: 0.8,  max: 1.4,  step: 0.01, def: 1 },
-  { key: 'r0',         label: '③ Размер круга',          min: 0.3,  max: 0.95, step: 0.01, def: 0.68 },
-  { key: 'eye',        label: '② Уровень глаз',          min: -0.9, max: 0.9,  step: 0.01, def: 0 },
-  { key: 'forehead',   label: '④ Линия волос',           min: 0.3,  max: 1.4,  step: 0.01, def: 1 },
-  { key: 'jaw_start',  label: 'Ⓐ Начало челюсти',        min: -60,  max: 60,   step: 1,    def: 0,  unit: '°' },
-  { key: 'jaw_len',    label: '⑦ Длина челюсти',         min: 0,    max: 1.2,  step: 0.01, def: 0.4 },
-  { key: 'jaw_tilt',   label: '⑦ Наклон челюсти',        min: -40,  max: 70,   step: 1,    def: 10, unit: '°' },
-  { key: 'jaw_x',      label: 'Ⓑ Ширина скулы',          min: 0.2,  max: 0.95, step: 0.01, def: 0.62 },
-  { key: 'chin_len',   label: 'Ⓒ Высота подбородка',     min: 0.5,  max: 1.5,  step: 0.01, def: 1 },
-  { key: 'chin_front', label: 'Ⓒ Выступ подбородка',     min: 0.4,  max: 1.4,  step: 0.01, def: 0.85 },
-  { key: 'chin_w',     label: 'Ⓒ Ширина подбородка',     min: 0.03, max: 0.6,  step: 0.01, def: 0.22 },
-  { key: 'chin_round', label: 'Ⓒ Скругление подбородка', min: 0,    max: 1,    step: 0.01, def: 0.5 },
+const EGG_PARAMS = [
+  { key: 'egg_top',    label: 'Сужение верха',        min: 0.3, max: 0.9,  step: 0.01, def: 0.55 },
+  { key: 'egg_bottom', label: 'Ширина низа',          min: 0.7, max: 1.1,  step: 0.01, def: 0.95 },
+  { key: 'egg_depth',  label: 'Глубина',              min: 0.5, max: 1.0,  step: 0.01, def: 0.72 },
+  { key: 'egg_round',  label: 'Скругление полюсов',   min: 0.3, max: 1.0,  step: 0.01, def: 0.6  },
+  { key: 'egg_bulge',  label: 'Выпуклость книзу',     min: 0,   max: 0.4,  step: 0.01, def: 0.12 },
 ];
 
-function defaultShape() {
-  const s = {};
-  for (const p of SHAPE_PARAMS) s[p.key] = p.def;
-  return s;
-}
-function clampShape(input) {
-  const s = {};
-  for (const p of SHAPE_PARAMS) {
-    const v = Number(input?.[p.key]);
-    s[p.key] = Number.isFinite(v) ? Math.min(p.max, Math.max(p.min, v)) : p.def;
-  }
-  return s;
-}
+const PELVIS_PARAMS = [
+  { key: 'p_w',     label: 'Ширина (×W)',            min: 0.8, max: 1.4, step: 0.01, def: 1.0 },
+  { key: 'p_h',     label: 'Высота (×W)',            min: 0.8, max: 1.4, step: 0.01, def: 1.0 },
+  { key: 'p_d',     label: 'Глубина (×W)',           min: 0.5, max: 1.0, step: 0.01, def: 0.78 },
+  { key: 'p_r',     label: 'Скругление углов',       min: 0.05, max: 0.35, step: 0.01, def: 0.18 },
+  { key: 'p_taper', label: 'Сужение книзу',          min: 0.7, max: 1.0, step: 0.01, def: 0.92 },
+  { key: 'p_glute', label: 'Выступ ягодиц',          min: 0.6, max: 1.4, step: 0.01, def: 1.05 },
+  { key: 'p_tilt',  label: 'Наклон таза',            min: -20, max: 20, step: 1, def: 6, unit: '°' },
+];
 
-function makeBall({ cut, r0, top = 1, back = 1 }) {
-  const width = cut / Math.sqrt(1 - r0 * r0);
-  const sy = (y) => (y > 0 ? back : 1);
-  const sz = (z) => (z > 0 ? top : 1);
-  return {
-    width, cut, r0, top, back, sy, sz,
-    stretch: (x, y, z) => [x, y * sy(y), z * sz(z)],
-    normal: (x, y, z) => norm([x / (width * width), y / (sy(y) ** 2), z / (sz(z) ** 2)]),
+const state = {
+  W: 1.15,
+  egg: Object.fromEntries(EGG_PARAMS.map(p => [p.key, p.def])),
+  pelvis: Object.fromEntries(PELVIS_PARAMS.map(p => [p.key, p.def])),
+  line: 0.006,
+  view: { yaw: 0, pitch: 0 },
+  display: { hidden: true, labels: true },
+  underlay: { opacity: 0.4, scale: 1 },
+};
+
+/* ==================================================================
+ * грудная клетка — яйцо
+ * ================================================================== */
+function makeEgg(W, p) {
+  const h = W;                              // высота
+  const wBottom = W * p.egg_bottom;         // ширина низа
+  const wTop = W * p.egg_top;               // ширина верха
+  const depth = W * p.egg_depth;
+  const k = p.egg_round;                    // 0.3..1 — скругление полюсов
+  const bulge = p.egg_bulge;
+
+  // t ∈ [-1, 1]: -1 низ, +1 верх
+  const profile = (t) => Math.pow(Math.max(0, 1 - t * t), k);
+  const widthAt = (t) => {
+    const lin = wBottom + (wTop - wBottom) * (t + 1) / 2;
+    const b = 1 + bulge * Math.sin(Math.PI * (t + 1) / 2) * (1 - (t + 1) / 2);
+    return (lin / 2) * b * profile(t);
   };
-}
+  const depthAt = (t) => (depth / 2) * profile(t);
 
-function buildHead(input, lift = 0) {
-  const s = clampShape(input);
-  const ball = makeBall(s);
-  const { width, cut, r0, stretch, normal } = ball;
-
-  const zEye = s.eye * r0;
-  const zHair = Math.min(s.forehead * r0, 0.98 * s.top);
-  const zNose = -r0;
-  const zChin = -r0 - r0 * s.chin_len;
-  const xPlane = cut + lift;
-
-  const surf = (p) => {
-    const n = normal(...p);
-    return [p[0] + n[0] * lift, p[1] + n[1] * lift, p[2] + n[2] * lift];
-  };
-  const rim = (t, x = xPlane) => {
-    const [, y, z] = stretch(0, r0 * Math.cos(t), r0 * Math.sin(t));
+  // точка на поверхности: phi ∈ [0, 2π), t ∈ [-1, 1]
+  const point = (phi, t) => {
+    const x = widthAt(t) * Math.cos(phi);
+    const y = depthAt(t) * Math.sin(phi);
+    const z = (h / 2) * t;
     return [x, y, z];
   };
 
+  // нормаль численно
+  const normal = (pnt) => {
+    const eps = 1e-4;
+    const t = clamp(pnt[2] / (h / 2), -1 + eps, 1 - eps);
+    const phi = Math.atan2(pnt[1] / Math.max(1e-6, depthAt(t)), pnt[0] / Math.max(1e-6, widthAt(t)));
+    const p1 = point(phi + eps, t);
+    const p0 = point(phi - eps, t);
+    const q1 = point(phi, clamp(t + eps, -1, 1));
+    const q0 = point(phi, clamp(t - eps, -1, 1));
+    const du = sub(p1, p0);
+    const dv = sub(q1, q0);
+    const n = [
+      du[1] * dv[2] - du[2] * dv[1],
+      du[2] * dv[0] - du[0] * dv[2],
+      du[0] * dv[1] - du[1] * dv[0],
+    ];
+    return norm(n);
+  };
+
+  return { h, wBottom, wTop, depth, widthAt, depthAt, point, normal };
+}
+
+/* ==================================================================
+ * таз — стопка скруглённых квадратов
+ * ================================================================== */
+function makePelvis(W, p) {
+  const w = W * p.p_w;
+  const h = W * p.p_h;
+  const d = W * p.p_d;
+  const r = W * p.p_r;
+  const taper = p.p_taper;
+  const glute = p.p_glute;
+  const tilt = rad(p.p_tilt);
+
+  // t ∈ [-1, 1]: -1 низ, +1 верх
+  const scaleAt = (t) => {
+    // taper: низ уже, верх шире (или наоборот)
+    const s = 1 - (1 - taper) * (1 - t) / 2;
+    return s;
+  };
+  const widthAt = (t) => (w / 2) * scaleAt(t);
+  const depthAt = (t) => (d / 2) * scaleAt(t) * (t < 0 ? glute : 1);
+
+  // скруглённый квадрат в плоскости XY на высоте z
+  const roundedSquare = (t, phi) => {
+    // phi ∈ [0, 2π) — параметр по контуру
+    const a = widthAt(t);
+    const b = depthAt(t);
+    const rr = Math.min(r * scaleAt(t), Math.min(a, b) * 0.95);
+    const ax = a - rr;
+    const by = b - rr;
+
+    // 4 угла + дуги
+    const seg = Math.PI / 2;
+    const idx = Math.floor(phi / seg) % 4;
+    const local = (phi - idx * seg) / seg;
+    const ang = idx * seg + local * seg;
+
+    // центр скругления угла
+    const cx = (idx === 0 || idx === 3) ? ax : -ax;
+    const cy = (idx === 0 || idx === 1) ? by : -by;
+
+    return [
+      cx + rr * Math.cos(ang),
+      cy + rr * Math.sin(ang),
+      (h / 2) * t,
+    ];
+  };
+
+  // наклон таза вокруг X
+  const tiltX = (pt) => {
+    const c = Math.cos(tilt), s = Math.sin(tilt);
+    return [pt[0], pt[1] * c - pt[2] * s, pt[1] * s + pt[2] * c];
+  };
+
+  const point = (phi, t) => tiltX(roundedSquare(t, phi));
+
+  // нормаль численно
+  const normal = (pnt) => {
+    const eps = 1e-4;
+    const t = clamp(pnt[2] / (h / 2), -1 + eps, 1 - eps);
+    const phi = Math.atan2(pnt[1], pnt[0]);
+    const p1 = point(phi + eps, t);
+    const p0 = point(phi - eps, t);
+    const q1 = point(phi, clamp(t + eps, -1, 1));
+    const q0 = point(phi, clamp(t - eps, -1, 1));
+    const du = sub(p1, p0);
+    const dv = sub(q1, q0);
+    return norm([
+      du[1] * dv[2] - du[2] * dv[1],
+      du[2] * dv[0] - du[0] * dv[2],
+      du[0] * dv[1] - du[1] * dv[0],
+    ]);
+  };
+
+  return { w, h, d, r, widthAt, depthAt, point, normal, tilt };
+}
+
+/* ==================================================================
+ * сборка линий
+ * ================================================================== */
+function buildFigure() {
+  const W = state.W;
+  const egg = makeEgg(W, state.egg);
+  const pelvis = makePelvis(W, state.pelvis);
+
+  // вертикальные смещения: таз ниже, торс выше
+  const gap = W * 0.08;                       // зазор на талию
+  const pelvisTop = 0;                        // верх таза в z=0
+  const pelvisBottom = -pelvis.h;
+  const eggBottom = pelvisTop + gap;          // низ грудной клетки
+  const eggTop = eggBottom + egg.h;
+
+  const eggAt = (phi, t) => {
+    const p = egg.point(phi, t);
+    return [p[0], p[1], p[2] + (eggTop + eggBottom) / 2];
+  };
+  const eggN = (phi, t) => egg.normal(egg.point(phi, t));
+
+  const pelvisAt = (phi, t) => {
+    const p = pelvis.point(phi, t);
+    return [p[0], p[1], p[2] + pelvisTop];
+  };
+  const pelvisN = (phi, t) => pelvis.normal(pelvis.point(phi, t));
+
   const lines = [];
   const labels = {};
   const add = (id, color, pts, closed = false) => lines.push({ id, color, closed, pts });
 
-  const ring = (z) => {
-    const zu = z / ball.sz(z);
-    const rho = Math.sqrt(Math.max(0, 1 - zu * zu));
-    const half = width * rho;
-    const at = (t) => surf(stretch(half * Math.cos(t), rho * Math.sin(t), zu));
-    if (half <= cut * (1 + 1e-6)) {
-      const pts = [];
-      for (let i = 0; i < LOOP_SEGMENTS; i++) pts.push(at((i / LOOP_SEGMENTS) * Math.PI * 2));
-      return [{ pts, closed: true }];
-    }
-    const t0 = Math.acos(cut / half);
-    const arc = (a, b) => {
-      const n = Math.max(8, Math.round((LOOP_SEGMENTS * (b - a)) / (Math.PI * 2)));
-      const pts = [];
-      for (let i = 0; i <= n; i++) pts.push(at(a + ((b - a) * i) / n));
-      return { pts, closed: false };
-    };
-    return [arc(-Math.PI + t0, -t0), arc(t0, Math.PI - t0)];
-  };
-
-  const ringLabels = (parts) => {
-    const out = [];
-    for (const part of parts) {
-      const fr = part.closed ? [0.125, 0.375, 0.625, 0.875] : [0.28, 0.72];
-      const last = part.pts.length - 1;
-      for (const f of fr) {
-        const i = Math.round(f * last);
-        const p = part.pts[i];
-        out.push({ p, n: normal(...p), t: sub(part.pts[Math.min(last, i + 1)], part.pts[Math.max(0, i - 1)]) });
-      }
-    }
-    return out;
-  };
-
-  // ① центральная линия
-  {
+  // --- грудная клетка: горизонтальные кольца ---
+  const eggRings = [-0.75, -0.35, 0.0, 0.35, 0.75];
+  for (const t of eggRings) {
     const pts = [];
-    for (let i = 0; i < LOOP_SEGMENTS; i++) {
-      const t = (i / LOOP_SEGMENTS) * Math.PI * 2;
-      pts.push(surf(stretch(0, Math.cos(t), Math.sin(t))));
+    for (let i = 0; i < SEG; i++) pts.push(eggAt((i / SEG) * Math.PI * 2, t));
+    add('egg', 'red', pts, true);
+  }
+  // вертикальные меридианы
+  for (const phi of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) {
+    const pts = [];
+    for (let i = 0; i <= SEG / 2; i++) {
+      const t = -1 + (i / (SEG / 2)) * 2;
+      if (Math.abs(t) < 1e-3) continue;
+      pts.push(eggAt(phi, clamp(t, -0.999, 0.999)));
     }
-    add('1', RED, pts, true);
-    labels['1'] = [22.5, 67.5, 112.5, 157.5].map((d) => {
-      const t = rad(d);
-      const p = surf(stretch(0, Math.cos(t), Math.sin(t)));
-      return { p, n: normal(...p), t: stretch(0, -Math.sin(t), Math.cos(t)) };
-    });
+    add('egg', 'red', pts);
   }
 
-  for (const [id, color, z] of [['2', RED, zEye], ['4', BLUE, zHair], ['5', BLUE, zNose]]) {
-    const parts = ring(z);
-    for (const part of parts) add(id, color, part.pts, part.closed);
-    labels[id] = ringLabels(parts);
+  // --- таз: горизонтальные кольца ---
+  const pelvisRings = [-0.75, -0.35, 0.0, 0.35, 0.75];
+  for (const t of pelvisRings) {
+    const pts = [];
+    for (let i = 0; i < SEG; i++) pts.push(pelvisAt((i / SEG) * Math.PI * 2, t));
+    add('pelvis', 'blue', pts, true);
+  }
+  // вертикальные рёбра по 4 углам
+  for (const phi of [Math.PI / 4, 3 * Math.PI / 4, 5 * Math.PI / 4, 7 * Math.PI / 4]) {
+    const pts = [];
+    for (let i = 0; i <= SEG / 2; i++) {
+      const t = -1 + (i / (SEG / 2)) * 2;
+      if (Math.abs(t) < 1e-3) continue;
+      pts.push(pelvisAt(phi, clamp(t, -0.999, 0.999)));
+    }
+    add('pelvis', 'blue', pts);
   }
 
-  labels['3'] = [];
-  for (const sx of [1, -1]) {
-    const x = sx * xPlane;
-    const circle = [];
-    for (let i = 0; i < LOOP_SEGMENTS; i++) circle.push(rim((i / LOOP_SEGMENTS) * Math.PI * 2, x));
-    add('3', RED, circle, true);
-    add('3', RED, [rim(Math.PI / 2, x), rim(-Math.PI / 2, x)]);
-    add('3', RED, [rim(Math.PI, x), rim(0, x)]);
-    labels['3'].push({ p: rim(Math.PI / 4, x), n: [sx, 0, 0], t: [0, -1, 1] });
-  }
+  // --- подписи ---
+  labels['egg'] = [{ p: eggAt(Math.PI / 2, 0.2), n: eggN(Math.PI / 2, 0.2) }];
+  labels['pelvis'] = [{ p: pelvisAt(Math.PI / 4, 0.2), n: pelvisN(Math.PI / 4, 0.2) }];
+  labels['waist'] = [{ p: [0, 0, eggBottom], n: [0, -1, 0] }];
 
-  const A = rim(rad(-90 - s.jaw_start));
-  const tilt = rad(s.jaw_tilt);
-  const B = [s.jaw_x, A[1] - s.jaw_len * Math.sin(tilt), A[2] - s.jaw_len * Math.cos(tilt)];
-  const Cf = [s.chin_w, -s.chin_front, zChin];
-
-  const k = s.chin_round;
-  const jaw = rounded([
-    { p: A }, { p: B, k: 0 }, { p: Cf, k },
-    { p: mirror(Cf), k }, { p: mirror(B), k: 0 }, { p: mirror(A) },
-  ], CORNER);
-  add('7', BLUE, jaw.pts);
-  const cornerOf = (v) => jaw.corners.find((c) => c.v === v)?.p ?? v;
-  const CfR = cornerOf(Cf);
-  const CfL = mirror(CfR);
-
-  const zEyeU = zEye / ball.sz(zEye);
-  const eyeEdge = [xPlane, -Math.sqrt(Math.max(0, r0 * r0 - zEyeU * zEyeU)), zEye];
-  add('8', BLUE, [CfR, eyeEdge]);
-  add('8', BLUE, [CfL, mirror(eyeEdge)]);
-
-  const front = surf(stretch(0, -Math.sqrt(Math.max(0, 1 - zEyeU * zEyeU)), zEyeU));
-  const chinMid = [0, -s.chin_front, zChin];
-  add('6', RED, [front, chinMid]);
-
-  const out = (p) => norm(p);
-  const BR = cornerOf(B);
-  const jawMid = lerp(BR, CfR, 0.5);
-  const jawDir = sub(CfR, BR);
-  const cheek = lerp(CfR, eyeEdge, 0.5);
-  const cheekDir = sub(eyeEdge, CfR);
-  labels['6'] = [{ p: lerp(front, chinMid, 0.8), n: [0, -1, 0], t: sub(chinMid, front) }];
-  labels['7'] = [{ p: jawMid, n: out(jawMid), t: jawDir }, { p: mirror(jawMid), n: out(mirror(jawMid)), t: mirror(jawDir) }];
-  labels['8'] = [{ p: cheek, n: out(cheek), t: cheekDir }, { p: mirror(cheek), n: out(mirror(cheek)), t: mirror(cheekDir) }];
-  labels['A'] = [{ p: A, n: norm([1, 0, -0.4]) }, { p: mirror(A), n: norm([-1, 0, -0.4]) }];
-  labels['B'] = [{ p: BR, n: out(BR) }, { p: mirror(BR), n: out(mirror(BR)) }];
-  labels['C'] = [{ p: chinMid, n: norm([0, -1, -1]) }];
-
-  return { lines, labels, bottom: zChin };
+  return { lines, labels };
 }
 
 /* ==================================================================
- * Грудная клетка
+ * камера
  * ================================================================== */
-
-const TORSO_PARAMS = [
-  { key: 'chestW',    label: 'Ширина груди',           min: 0.6,  max: 1.5,  step: 0.01, def: 1.0 },
-  { key: 'waistW',    label: 'Ширина талии',           min: 0.4,  max: 1.2,  step: 0.01, def: 0.75 },
-  { key: 'shoulderW', label: 'Ширина плеч',            min: 0.7,  max: 1.6,  step: 0.01, def: 1.0 },
-  { key: 'depth',     label: 'Глубина (спина/грудь)',  min: 0.6,  max: 1.4,  step: 0.01, def: 1.0 },
-  { key: 'cut',       label: 'Плоскость груди',        min: 0.2,  max: 0.9,  step: 0.01, def: 0.68 },
-  { key: 'lean',      label: 'Наклон корпуса',         min: -20,  max: 20,   step: 1,    def: 0, unit: '°' },
-  { key: 'chestZ',    label: 'Уровень сосков',         min: -0.4, max: 0.7,  step: 0.01, def: 0.2 },
-  { key: 'ribsZ',     label: 'Уровень рёбер',          min: -0.95,max: -0.1, step: 0.01, def: -0.55 },
-  { key: 'shoulderZ', label: 'Уровень ключиц',         min: 0.5,  max: 0.95, step: 0.01, def: 0.75 },
-];
-
-function defaultTorso() {
-  const s = {};
-  for (const p of TORSO_PARAMS) s[p.key] = p.def;
-  return s;
-}
-function clampTorso(input) {
-  const s = {};
-  for (const p of TORSO_PARAMS) {
-    const v = Number(input?.[p.key]);
-    s[p.key] = Number.isFinite(v) ? Math.min(p.max, Math.max(p.min, v)) : p.def;
-  }
-  return s;
-}
-
-/* Полуширина по высоте z ∈ [-1, 1] */
-function halfWidthAt(z, s) {
-  if (z >= 0) {
-    const t = smoothstep(Math.min(1, Math.max(0, z)));
-    return lerp(s.chestW, s.shoulderW, t) * Math.sqrt(Math.max(0, 1 - 0.15 * z * z));
-  }
-  const t = smoothstep(Math.min(1, Math.max(0, (z + 1) / 1)));
-  return lerp(s.waistW, s.chestW, t) * Math.sqrt(Math.max(0, 1 - 0.35 * z * z));
-}
-
-/* Точка на поверхности грудной клетки по параметрам (x, y, z), где
- * x ∈ [-1, 1] — нормированная доля полуширины,
- * y ∈ [-1, 1] — нормированная доля глубины (отрицательное — перед),
- * z ∈ [-1, 1] — высота.
- * Возвращает [X, Y, Z] в мировых единицах.
- */
-function torsoPoint(x, y, z, s, lift = 0) {
-  const w = halfWidthAt(z, s);
-  const depth = y > 0 ? s.depth : 1;
-  const cut = s.cut;
-
-  let Y = y * depth;
-  if (Y < 0) Y = Math.max(Y, -cut);
-
-  let X = x * w;
-
-  // наклон корпуса
-  const lean = rad(s.lean);
-  const cL = Math.cos(lean), sL = Math.sin(lean);
-  const Y2 = Y * cL - z * sL;
-  const Z2 = Y * sL + z * cL;
-
-  // нормаль численно, для lift
-  if (lift !== 0) {
-    const e = 1e-3;
-    const p0 = [x * w, Y, z];
-    const wx = halfWidthAt(z, s);
-    const px = [(x + e) * wx, Y, z];
-    const pz = [x * halfWidthAt(z + e, s), Y, z + e];
-    // грубое приближение нормали в плоскости XZ + учёт Y
-    const nX = px[0] - p0[0];
-    const nZ = pz[2] - p0[2];
-    const nY = Y < 0 ? -1 : 1;
-    const nl = Math.hypot(nX, nY, nZ) || 1;
-    X += (nX / nl) * lift;
-  }
-
-  return [X, Y2, Z2];
-}
-
-/* Нормаль к поверхности грудной клетки в точке (x, y, z) в локальных осях (до наклона) */
-function torsoNormal(x, y, z, s) {
-  const e = 1e-3;
-  const p0 = torsoPoint(x, y, z, s, 0);
-  const px = torsoPoint(x + e, y, z, s, 0);
-  const py = torsoPoint(x, y + e, z, s, 0);
-  const pz = torsoPoint(x, y, z + e, s, 0);
-  const du = sub(px, p0), dv = sub(py, p0), dw = sub(pz, p0);
-  const n1 = [dv[1] * dw[2] - dv[2] * dw[1], dv[2] * dw[0] - dv[0] * dw[2], dv[0] * dw[1] - dv[1] * dw[0]];
-  const n2 = [dw[1] * du[2] - dw[2] * du[1], dw[2] * du[0] - dw[0] * du[2], dw[0] * du[1] - dw[1] * du[0]];
-  return norm([n1[0] + n2[0], n1[1] + n2[1], n1[2] + n2[2]]);
-}
-
-function buildTorso(input, lift = 0) {
-  const s = clampTorso(input);
-  const lines = [];
-  const labels = {};
-  const add = (id, color, pts, closed = false) => lines.push({ id, color, closed, pts });
-
-  // ① центральный меридиан (грудь → спина → низ)
-  {
-    const pts = [];
-    for (let i = 0; i < LOOP_SEGMENTS; i++) {
-      const t = (i / LOOP_SEGMENTS) * Math.PI * 2;
-      const x = 0;
-      const y = Math.cos(t);
-      const z = Math.sin(t);
-      pts.push(torsoPoint(x, y, z, s, lift));
-    }
-    add('1', RED, pts, true);
-    labels['1'] = [
-      { p: torsoPoint(0, -1, 0, s, lift), n: [0, -1, 0], t: [0, 0, 1] },
-      { p: torsoPoint(0, 1, 0, s, lift), n: [0, 1, 0], t: [0, 0, 1] },
-    ];
-  }
-
-  // helper: кольцо на высоте z
-  const ringAt = (z) => {
-    const pts = [];
-    const N = 72;
-    for (let i = 0; i <= N; i++) {
-      const t = (i / N) * Math.PI * 2;
-      pts.push(torsoPoint(Math.cos(t), Math.sin(t), z, s, lift));
-    }
-    return pts;
-  };
-
-  // ② уровень ключиц
-  {
-    const pts = ringAt(s.shoulderZ);
-    add('2', RED, pts);
-    labels['2'] = [
-      { p: torsoPoint(1, 0, s.shoulderZ, s, lift), n: [1, 0, 0], t: [0, 0, 1] },
-      { p: torsoPoint(-1, 0, s.shoulderZ, s, lift), n: [-1, 0, 0], t: [0, 0, 1] },
-    ];
-  }
-
-  // ③ уровень сосков
-  {
-    const pts = ringAt(s.chestZ);
-    add('3', BLUE, pts);
-    labels['3'] = [
-      { p: torsoPoint(1, 0, s.chestZ, s, lift), n: [1, 0, 0], t: [0, 0, 1] },
-      { p: torsoPoint(-1, 0, s.chestZ, s, lift), n: [-1, 0, 0], t: [0, 0, 1] },
-    ];
-  }
-
-  // ④ рёберная дуга — передняя половина
-  {
-    const z = s.ribsZ;
-    const pts = [];
-    const N = 40;
-    for (let i = 0; i <= N; i++) {
-      const t = -Math.PI / 2 - rad(80) + (rad(160) * i) / N;
-      pts.push(torsoPoint(Math.cos(t), Math.sin(t), z, s, lift));
-    }
-    add('4', RED, pts);
-    labels['4'] = [{ p: pts[Math.floor(N / 2)], n: [0, -1, 0], t: [0, 0, 1] }];
-  }
-
-  // ⑤ боковой контур
-  for (const sx of [1, -1]) {
-    const pts = [];
-    const N = 32;
-    for (let i = 0; i <= N; i++) {
-      const z = -1 + (2 * i) / N;
-      pts.push(torsoPoint(sx, 0, z, s, lift));
-    }
-    add('5', BLUE, pts);
-    const mid = pts[Math.floor(N / 2)];
-    labels['5'] = labels['5'] || [];
-    labels['5'].push({ p: mid, n: [sx, 0, 0], t: [0, 0, 1] });
-  }
-
-  // ⑥ позвоночник (сзади)
-  {
-    const pts = [];
-    const N = 32;
-    for (let i = 0; i <= N; i++) {
-      const z = -1 + (2 * i) / N;
-      pts.push(torsoPoint(0, 1, z, s, lift));
-    }
-    add('6', BLUE, pts);
-    labels['6'] = [{ p: pts[Math.floor(N / 2)], n: [0, 1, 0], t: [0, 0, 1] }];
-  }
-
-  // ⑦ ключицы: яремная ямка → плечо
-  {
-    const zS = s.shoulderZ;
-    const jugular = torsoPoint(0, -1, zS, s, lift);
-    const shR = torsoPoint(1, 0, zS, s, lift);
-    const shL = mirror(shR);
-    const clavR = rounded([
-      { p: shR },
-      { p: lerp(jugular, shR, 0.5), k: 0.3 },
-      { p: jugular },
-    ], CORNER);
-    add('7', RED, clavR.pts);
-    add('7', RED, clavR.pts.map(mirror).reverse());
-    labels['7'] = [{ p: lerp(jugular, shR, 0.55), n: [0, -1, 0], t: sub(shR, jugular) }];
-  }
-
-  // ⑧ грудина
-  {
-    const pts = [];
-    const N = 24;
-    for (let i = 0; i <= N; i++) {
-      const z = lerp(s.shoulderZ, s.ribsZ, i / N);
-      pts.push(torsoPoint(0, -1, z, s, lift));
-    }
-    add('8', RED, pts);
-    labels['8'] = [{ p: pts[Math.floor(N / 2)], n: [0, -1, 0], t: [0, 0, 1] }];
-  }
-
-  return { lines, labels, top: s.shoulderZ, bottom: -1 };
-}
-
-/* ==================================================================
- * Пресеты
- * ================================================================== */
-
-const PRESETS = [
-  { id: 'standard', label: 'Стандарт',  values: { r0: 0.68, eye: 0.0,   jaw_len: 0.40, jaw_x: 0.62, chin_len: 1.0,  chin_w: 0.22 } },
-  { id: 'youth',    label: 'Юноша',     values: { r0: 0.70, eye: -0.1,  jaw_len: 0.45, jaw_x: 0.60, chin_len: 1.05, chin_w: 0.18 } },
-  { id: 'girl',     label: 'Девушка',   values: { r0: 0.64, eye: -0.35, jaw_len: 0.30, jaw_x: 0.55, chin_len: 0.85, chin_w: 0.16 } },
-  { id: 'child',    label: 'Ребёнок',   values: { r0: 0.58, eye: -0.6,  jaw_len: 0.20, jaw_x: 0.60, chin_len: 0.65, chin_w: 0.25 } },
-];
-function presetShape(id) {
-  const p = PRESETS.find((x) => x.id === id) ?? PRESETS[0];
-  return { ...defaultShape(), ...p.values };
-}
-
-const TORSO_PRESETS = [
-  { id: 'standard', label: 'Стандарт', values: { chestW: 1.0,  waistW: 0.75, shoulderW: 1.0,  depth: 1.0, cut: 0.68 } },
-  { id: 'athletic', label: 'Атлет',    values: { chestW: 1.2,  waistW: 0.7,  shoulderW: 1.3,  depth: 1.1, cut: 0.75 } },
-  { id: 'female',   label: 'Женский',  values: { chestW: 0.95, waistW: 0.62, shoulderW: 0.88, depth: 0.9, cut: 0.7 } },
-  { id: 'child',    label: 'Ребёнок',  values: { chestW: 0.85, waistW: 0.8,  shoulderW: 0.8,  depth: 0.9, cut: 0.65 } },
-];
-function presetTorso(id) {
-  const p = TORSO_PRESETS.find((x) => x.id === id) ?? TORSO_PRESETS[0];
-  return { ...defaultTorso(), ...p.values };
-}
-
-/* ==================================================================
- * Состояние
- * ================================================================== */
-
-const STORE_KEY = 'loomis-2d:v3';
-const state = loadState();
-function wrapYaw(y) { return ((((y + 180) % 360) + 360) % 360) - 180; }
-
-function loadState() {
-  const def = {
-    shape: defaultShape(),
-    torso: defaultTorso(),
-    preset: 'standard',
-    torsoPreset: 'standard',
-    line: 0.012,
-    view: { yaw: 0, pitch: 0 },
-    display: { hidden: true, labels: true, head: true, torso: true },
-    underlay: { opacity: 0.4, scale: 1 },
-  };
-  try {
-    const raw = JSON.parse(localStorage.getItem(STORE_KEY));
-    if (!raw) return def;
-    return {
-      ...def,
-      shape: clampShape(raw.shape),
-      torso: clampTorso(raw.torso),
-      preset: PRESETS.some((p) => p.id === raw.preset) ? raw.preset : null,
-      torsoPreset: TORSO_PRESETS.some((p) => p.id === raw.torsoPreset) ? raw.torsoPreset : null,
-      line: Number.isFinite(raw.line) ? Math.min(0.04, Math.max(0.004, raw.line)) : def.line,
-      view: {
-        yaw: Number.isFinite(raw.view?.yaw) ? wrapYaw(raw.view.yaw) : 0,
-        pitch: Number.isFinite(raw.view?.pitch) ? Math.min(60, Math.max(-60, raw.view.pitch)) : 0,
-      },
-      display: {
-        hidden: raw.display?.hidden !== false,
-        labels: raw.display?.labels !== false,
-        head: raw.display?.head !== false,
-        torso: raw.display?.torso !== false,
-      },
-      underlay: { opacity: 0.4, scale: 1 },
-    };
-  } catch { return def; }
-}
-
-let saveTimer = 0;
-function save() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {}
-  }, 300);
-}
-
-/* ==================================================================
- * SVG + рендер
- * ================================================================== */
-
-const SVG_NS = 'http://www.w3.org/2000/svg';
-const svg = document.getElementById('canvas');
-const stage = document.getElementById('stage');
-const VIEW_W = 600, VIEW_H = 720;
-const CX = VIEW_W / 2, CY = VIEW_H / 2;
-const SCALE = 170;
-const HEAD_Z = 1.9;
-const TORSO_Z = 0;
-
-const gUnderlay = document.createElementNS(SVG_NS, 'g');
-const gHidden = document.createElementNS(SVG_NS, 'g');
-const gVisible = document.createElementNS(SVG_NS, 'g');
-const gLabels = document.createElementNS(SVG_NS, 'g');
-svg.appendChild(gUnderlay);
-svg.appendChild(gHidden);
-svg.appendChild(gVisible);
-svg.appendChild(gLabels);
-
-const underlayImg = document.createElementNS(SVG_NS, 'image');
-underlayImg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-underlayImg.setAttribute('x', CX - SCALE * 1.6);
-underlayImg.setAttribute('y', CY - SCALE * 1.9);
-underlayImg.setAttribute('width', SCALE * 3.2);
-underlayImg.setAttribute('height', SCALE * 3.8);
-underlayImg.style.display = 'none';
-gUnderlay.appendChild(underlayImg);
-
-const LABEL_TEXT = { 1: '①', 2: '②', 3: '③', 4: '④', 5: '⑤', 6: '⑥', 7: '⑦', 8: '⑧', A: 'Ⓐ', B: 'Ⓑ', C: 'Ⓒ' };
-const LABEL_COLOR = { 1: 'red', 2: 'red', 3: 'red', 4: 'red', 6: 'red', 7: 'red', 8: 'red', 5: 'blue', A: 'ink', B: 'ink', C: 'ink' };
-
 function rotate(p) {
   const yaw = rad(state.view.yaw), pitch = rad(state.view.pitch);
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
@@ -769,104 +528,98 @@ function rotate(p) {
   const z2 = y1 * sp + z1 * cp;
   return [x2, y2, z2];
 }
+
 function project(p) {
   const r = rotate(p);
-  return { x: CX + r[0] * SCALE, y: CY - r[2] * SCALE };
+  return { x: CX + r[0] * SCALE, y: CY - r[2] * SCALE, depth: r[1] };
 }
-function isVisiblePoint(p, n) {
-  const rn = rotate(n);
-  return rn[1] < 0;
+
+function visible(p, n) {
+  return rotate(n)[1] < 0;
 }
-function lineToPath(pts) {
-  if (!pts.length) return '';
-  let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
-  for (let i = 1; i < pts.length; i++) d += `L${pts[i].x.toFixed(1)},${pts[i].y.toFixed(1)}`;
-  return d;
-}
-function splitByVisibility(pts, projected) {
-  const result = [];
-  if (!pts.length) return result;
-  let cur = { visible: null, pts2d: [] };
-  for (let i = 0; i < pts.length; i++) {
-    const p = pts[i];
-    const n = norm(p);
-    const vis = isVisiblePoint(p, n);
-    if (cur.visible === null) { cur.visible = vis; cur.pts2d.push(projected[i]); }
-    else if (cur.visible === vis) { cur.pts2d.push(projected[i]); }
-    else { cur.pts2d.push(projected[i]); result.push(cur); cur = { visible: vis, pts2d: [projected[i]] }; }
-  }
-  if (cur.pts2d.length) result.push(cur);
-  return result;
-}
+
+/* ==================================================================
+ * SVG-рендер
+ * ================================================================== */
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('canvas');
+const gHidden = document.createElementNS(SVG_NS, 'g');
+const gVisible = document.createElementNS(SVG_NS, 'g');
+const gLabels = document.createElementNS(SVG_NS, 'g');
+svg.appendChild(gHidden);
+svg.appendChild(gVisible);
+svg.appendChild(gLabels);
+
+const LABEL_TEXT = { egg: 'грудь', pelvis: 'таз', waist: 'талия' };
+const LABEL_COLOR = { egg: 'red', pelvis: 'blue', waist: 'ink' };
 
 function render() {
-  gVisible.innerHTML = '';
+  const fig = buildFigure();
   gHidden.innerHTML = '';
+  gVisible.innerHTML = '';
   gLabels.innerHTML = '';
 
-  const parts = [];
-  if (state.display.head) {
-    const head = buildHead(state.shape, state.line);
-    parts.push({ lines: head.lines, labels: head.labels, offsetZ: HEAD_Z });
-  }
-  if (state.display.torso) {
-    const torso = buildTorso(state.torso, state.line);
-    parts.push({ lines: torso.lines, labels: torso.labels, offsetZ: TORSO_Z });
-  }
+  const sw = state.line * SCALE;
 
-  const strokeW = state.line * SCALE;
+  for (const l of fig.lines) {
+    const projected = l.pts.map(project);
+    const parts = [];
+    let cur = { vis: null, pts: [] };
 
-  for (const part of parts) {
-    for (const l of part.lines) {
-      const shifted = l.pts.map((p) => [p[0], p[1], p[2] + part.offsetZ]);
-      const projected = shifted.map((p) => project(p));
-      const segs = splitByVisibility(shifted, projected);
-      for (const seg of segs) {
-        if (seg.pts2d.length < 2) continue;
-        const path = document.createElementNS(SVG_NS, 'path');
-        path.setAttribute('d', lineToPath(seg.pts2d));
-        path.setAttribute('fill', 'none');
-        path.setAttribute('stroke', l.color === RED ? 'var(--guide-red)' : 'var(--guide-blue)');
-        path.setAttribute('stroke-width', strokeW.toFixed(2));
-        path.setAttribute('stroke-linecap', 'round');
-        path.setAttribute('stroke-linejoin', 'round');
-        if (!seg.visible) {
-          if (!state.display.hidden) continue;
-          path.setAttribute('stroke-opacity', '0.22');
-          path.setAttribute('stroke-dasharray', `${(strokeW * 1.5).toFixed(1)} ${(strokeW * 2.5).toFixed(1)}`);
-          gHidden.appendChild(path);
-        } else {
-          gVisible.appendChild(path);
-        }
+    for (let i = 0; i < l.pts.length; i++) {
+      const p = l.pts[i];
+      // нормаль: для яйца и таза берём из ближайшего центра
+      const n = norm([p[0], p[1], 0]); // упрощённо: горизонтальная нормаль
+      const v = visible(p, n);
+      if (cur.vis === null) {
+        cur.vis = v;
+        cur.pts.push(projected[i]);
+      } else if (cur.vis === v) {
+        cur.pts.push(projected[i]);
+      } else {
+        cur.pts.push(projected[i]);
+        parts.push(cur);
+        cur = { vis: v, pts: [projected[i]] };
       }
     }
-    if (state.display.labels) {
-      for (const [id, cands] of Object.entries(part.labels)) {
-        let best = null;
-        for (const c of cands) {
-          if (!isVisiblePoint(c.p, c.n)) continue;
-          const shifted = [c.p[0], c.p[1], c.p[2] + part.offsetZ];
-          const proj = project(shifted);
-          if (!best) best = { proj, c, shifted };
-        }
-        if (!best) continue;
+    if (cur.pts.length) parts.push(cur);
+
+    for (const part of parts) {
+      if (part.pts.length < 2) continue;
+      const path = document.createElementNS(SVG_NS, 'path');
+      let d = `M${part.pts[0].x.toFixed(1)},${part.pts[0].y.toFixed(1)}`;
+      for (let i = 1; i < part.pts.length; i++) d += `L${part.pts[i].x.toFixed(1)},${part.pts[i].y.toFixed(1)}`;
+      path.setAttribute('d', d);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', l.color === 'red' ? 'var(--guide-red)' : 'var(--guide-blue)');
+      path.setAttribute('stroke-width', sw.toFixed(2));
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('stroke-linejoin', 'round');
+
+      if (!part.vis) {
+        if (!state.display.hidden) continue;
+        path.setAttribute('stroke-opacity', '0.22');
+        path.setAttribute('stroke-dasharray', `${(sw * 1.5).toFixed(1)} ${(sw * 2.5).toFixed(1)}`);
+        gHidden.appendChild(path);
+      } else {
+        gVisible.appendChild(path);
+      }
+    }
+  }
+
+  if (state.display.labels) {
+    for (const [id, cands] of Object.entries(fig.labels)) {
+      for (const c of cands) {
+        if (!visible(c.p, c.n)) continue;
+        const pr = project(c.p);
         const t = document.createElementNS(SVG_NS, 'text');
-        const nProj = project([
-          best.shifted[0] + best.c.n[0] * 0.15,
-          best.shifted[1] + best.c.n[1] * 0.15,
-          best.shifted[2] + best.c.n[2] * 0.15,
-        ]);
-        let dx = nProj.x - best.proj.x;
-        let dy = nProj.y - best.proj.y;
-        const dl = Math.hypot(dx, dy) || 1;
-        dx /= dl; dy /= dl;
-        t.setAttribute('x', (best.proj.x + dx * 14).toFixed(1));
-        t.setAttribute('y', (best.proj.y + dy * 14).toFixed(1));
+        t.setAttribute('x', (pr.x + 12).toFixed(1));
+        t.setAttribute('y', (pr.y - 12).toFixed(1));
         t.setAttribute('text-anchor', 'middle');
-        t.setAttribute('dominant-baseline', 'central');
-        t.setAttribute('class', `label label--${LABEL_COLOR[id] ?? 'ink'}`);
-        t.textContent = LABEL_TEXT[id] ?? id;
+        t.setAttribute('class', `label label--${LABEL_COLOR[id]}`);
+        t.textContent = LABEL_TEXT[id];
         gLabels.appendChild(t);
+        break;
       }
     }
   }
@@ -875,374 +628,255 @@ function render() {
 /* ==================================================================
  * UI
  * ================================================================== */
-
 const $ = (id) => document.getElementById(id);
 
-function viewName() {
-  const y = state.view.yaw;
-  const ay = Math.abs(y);
-  if (ay <= 22) return 'Анфас';
-  if (ay <= 68) return y > 0 ? '3/4 влево' : '3/4 вправо';
-  if (ay <= 112) return y > 0 ? 'Профиль влево' : 'Профиль вправо';
-  if (ay <= 158) return 'Задний 3/4';
-  return 'Спина';
-}
-function updateViewName() {
-  const p = state.view.pitch;
-  const sign = p > 0 ? ` · ↑${Math.round(p)}°` : p < 0 ? ` · ↓${Math.round(-p)}°` : '';
-  $('view-name').textContent = `${viewName()} · ${Math.round(state.view.yaw)}°${sign}`;
+function buildSlider(host, param, get, set, unit = '') {
+  const row = document.createElement('div');
+  row.className = 'slider';
+  const id = `s-${param.key}`;
+  row.innerHTML = `<label for="${id}">${param.label}</label>
+    <input type="range" id="${id}" min="${param.min}" max="${param.max}" step="${param.step}">
+    <output for="${id}"></output>`;
+  host.appendChild(row);
+  const input = row.querySelector('input');
+  const out = row.querySelector('output');
+  const fmt = (v) => param.unit ? `${Math.round(v)}${param.unit}` : v.toFixed(2);
+  const sync = () => {
+    input.value = get();
+    out.textContent = fmt(get());
+  };
+  input.addEventListener('input', () => {
+    set(Number(input.value));
+    out.textContent = fmt(Number(input.value));
+    render();
+  });
+  sync();
+  return sync;
 }
 
+// W
+const wSync = (() => {
+  const input = $('W'), out = $('W-out');
+  const sync = () => { input.value = state.W; out.textContent = state.W.toFixed(2); };
+  input.addEventListener('input', () => {
+    state.W = Number(input.value);
+    out.textContent = state.W.toFixed(2);
+    render();
+  });
+  sync();
+  return sync;
+})();
+
+// egg / pelvis
+const eggSyncs = EGG_PARAMS.map(p =>
+  buildSlider($('egg-sliders'), p, () => state.egg[p.key], v => state.egg[p.key] = v));
+const pelvisSyncs = PELVIS_PARAMS.map(p =>
+  buildSlider($('pelvis-sliders'), p, () => state.pelvis[p.key], v => state.pelvis[p.key] = v));
+
+// линия
+{
+  const input = $('line'), out = $('line-out');
+  input.value = state.line;
+  out.textContent = state.line.toFixed(3);
+  input.addEventListener('input', () => {
+    state.line = Number(input.value);
+    out.textContent = state.line.toFixed(3);
+    render();
+  });
+}
+
+// view
 const yawInput = $('yaw'), pitchInput = $('pitch');
 yawInput.addEventListener('input', () => {
-  stopSpin();
-  state.view.yaw = wrapYaw(Number(yawInput.value));
+  state.view.yaw = Number(yawInput.value);
   $('yaw-out').textContent = Math.round(state.view.yaw) + '°';
-  render(); updateViewName(); save();
+  render(); updateViewName();
 });
 pitchInput.addEventListener('input', () => {
   state.view.pitch = Number(pitchInput.value);
   $('pitch-out').textContent = Math.round(state.view.pitch) + '°';
-  render(); updateViewName(); save();
+  render(); updateViewName();
 });
 
-document.querySelectorAll('[data-angle]').forEach((b) => {
+document.querySelectorAll('[data-angle]').forEach(b => {
   b.addEventListener('click', () => {
-    stopSpin();
-    const angles = { front: [0, 0], three: [45, 0], side: [90, 0], back: [180, 0] };
-    const [yaw, pitch] = angles[b.dataset.angle] || [0, 0];
-    state.view.yaw = yaw; state.view.pitch = pitch;
-    yawInput.value = yaw; pitchInput.value = pitch;
-    $('yaw-out').textContent = yaw + '°';
-    $('pitch-out').textContent = pitch + '°';
-    render(); updateViewName(); save();
+    const map = { front: [0, 0], three: [45, 0], side: [90, 0], back: [180, 0] };
+    const [y, p] = map[b.dataset.angle] || [0, 0];
+    state.view.yaw = y; state.view.pitch = p;
+    yawInput.value = y; pitchInput.value = p;
+    $('yaw-out').textContent = y + '°';
+    $('pitch-out').textContent = p + '°';
+    render(); updateViewName();
   });
 });
 
 $('reset-view').addEventListener('click', () => {
-  stopSpin();
   state.view.yaw = 0; state.view.pitch = 0;
   yawInput.value = 0; pitchInput.value = 0;
   $('yaw-out').textContent = '0°';
   $('pitch-out').textContent = '0°';
-  render(); updateViewName(); save();
-});
-
-let spinRAF = 0;
-const spinBtn = $('spin');
-function stopSpin() {
-  if (spinRAF) { cancelAnimationFrame(spinRAF); spinRAF = 0; }
-  spinBtn.setAttribute('aria-pressed', 'false');
-}
-spinBtn.addEventListener('click', () => {
-  const on = spinBtn.getAttribute('aria-pressed') !== 'true';
-  spinBtn.setAttribute('aria-pressed', String(on));
-  if (on) {
-    let last = performance.now();
-    const tick = (now) => {
-      const dt = Math.min(64, now - last); last = now;
-      state.view.yaw = wrapYaw(state.view.yaw + dt * 0.04);
-      yawInput.value = state.view.yaw;
-      $('yaw-out').textContent = Math.round(state.view.yaw) + '°';
-      render(); updateViewName();
-      spinRAF = requestAnimationFrame(tick);
-    };
-    spinRAF = requestAnimationFrame(tick);
-  } else { stopSpin(); save(); }
-});
-
-// пресеты головы
-const presetButtons = PRESETS.map((p) => {
-  const b = document.createElement('button');
-  b.type = 'button'; b.className = 'btn'; b.textContent = p.label;
-  b.addEventListener('click', () => {
-    state.preset = p.id;
-    state.shape = presetShape(p.id);
-    syncShapeSliders(); renderPresets(); render(); save();
-  });
-  $('presets').appendChild(b);
-  return b;
-});
-function renderPresets() {
-  PRESETS.forEach((p, i) => presetButtons[i].setAttribute('aria-pressed', String(state.preset === p.id)));
-}
-
-// пресеты торса
-const torsoPresetButtons = TORSO_PRESETS.map((p) => {
-  const b = document.createElement('button');
-  b.type = 'button'; b.className = 'btn'; b.textContent = p.label;
-  b.addEventListener('click', () => {
-    state.torsoPreset = p.id;
-    state.torso = presetTorso(p.id);
-    syncTorsoSliders(); renderTorsoPresets(); render(); save();
-  });
-  $('torso-presets').appendChild(b);
-  return b;
-});
-function renderTorsoPresets() {
-  TORSO_PRESETS.forEach((p, i) => torsoPresetButtons[i].setAttribute('aria-pressed', String(state.torsoPreset === p.id)));
-}
-
-// слайдеры головы
-const shapeSyncers = [];
-const shapeHost = $('shape-sliders');
-const SHAPE_GROUPS = { cut: 'Голова', eye: 'Лицо', jaw_start: 'Челюсть', chin_len: 'Подбородок' };
-for (const p of SHAPE_PARAMS) {
-  if (SHAPE_GROUPS[p.key]) {
-    const h = document.createElement('div'); h.className = 'group-h'; h.textContent = SHAPE_GROUPS[p.key];
-    shapeHost.appendChild(h);
-  }
-  const row = document.createElement('div'); row.className = 'slider';
-  const id = `shape-${p.key}`;
-  row.innerHTML = `<label for="${id}">${p.label}</label>
-    <input type="range" id="${id}" min="${p.min}" max="${p.max}" step="${p.step}">
-    <output for="${id}"></output>`;
-  shapeHost.appendChild(row);
-  const input = row.querySelector('input');
-  const out = row.querySelector('output');
-  const fmt = (v) => p.unit ? `${Math.round(v)}${p.unit}` : v.toFixed(2);
-  const sync = () => { input.value = state.shape[p.key]; out.textContent = fmt(state.shape[p.key]); };
-  input.addEventListener('input', () => {
-    state.shape[p.key] = Number(input.value);
-    state.preset = null;
-    out.textContent = fmt(Number(input.value));
-    renderPresets(); render(); save();
-  });
-  sync(); shapeSyncers.push(sync);
-}
-function syncShapeSliders() { for (const s of shapeSyncers) s(); }
-
-// слайдеры торса
-const torsoSyncers = [];
-const torsoHost = $('torso-sliders');
-const TORSO_GROUPS = { chestW: 'Объём', cut: 'Форма', chestZ: 'Уровни' };
-for (const p of TORSO_PARAMS) {
-  if (TORSO_GROUPS[p.key]) {
-    const h = document.createElement('div'); h.className = 'group-h'; h.textContent = TORSO_GROUPS[p.key];
-    torsoHost.appendChild(h);
-  }
-  const row = document.createElement('div'); row.className = 'slider';
-  const id = `torso-${p.key}`;
-  row.innerHTML = `<label for="${id}">${p.label}</label>
-    <input type="range" id="${id}" min="${p.min}" max="${p.max}" step="${p.step}">
-    <output for="${id}"></output>`;
-  torsoHost.appendChild(row);
-  const input = row.querySelector('input');
-  const out = row.querySelector('output');
-  const fmt = (v) => p.unit ? `${Math.round(v)}${p.unit}` : v.toFixed(2);
-  const sync = () => { input.value = state.torso[p.key]; out.textContent = fmt(state.torso[p.key]); };
-  input.addEventListener('input', () => {
-    state.torso[p.key] = Number(input.value);
-    state.torsoPreset = null;
-    out.textContent = fmt(Number(input.value));
-    renderTorsoPresets(); render(); save();
-  });
-  sync(); torsoSyncers.push(sync);
-}
-function syncTorsoSliders() { for (const s of torsoSyncers) s(); }
-
-// толщина линии
-const lineInput = $('line'), lineOut = $('line-out');
-lineInput.value = state.line;
-lineOut.textContent = state.line.toFixed(3);
-lineInput.addEventListener('input', () => {
-  state.line = Number(lineInput.value);
-  lineOut.textContent = state.line.toFixed(3);
-  render(); save();
+  render(); updateViewName();
 });
 
 // переключатели
-function bindToggle(id, key) {
-  const btn = $(id);
-  btn.setAttribute('aria-pressed', String(state.display[key]));
-  btn.addEventListener('click', () => {
-    state.display[key] = !state.display[key];
-    btn.setAttribute('aria-pressed', String(state.display[key]));
-    render(); save();
-  });
-}
-bindToggle('toggle-hidden', 'hidden');
-bindToggle('toggle-labels', 'labels');
-bindToggle('toggle-head', 'head');
-bindToggle('toggle-torso', 'torso');
-
-/* ==================================================================
- * Подложка
- * ================================================================== */
-
-const underlayPick = $('underlay-pick');
-const underlayInput = $('underlay-input');
-const underlayRemove = $('underlay-remove');
-const underlayOpacity = $('underlay-opacity');
-const underlayScale = $('underlay-scale');
-
-underlayPick.addEventListener('click', () => underlayInput.click());
-underlayInput.addEventListener('change', (e) => {
-  const f = e.target.files?.[0];
-  if (f) loadUnderlay(f);
-  e.target.value = '';
+const tH = $('toggle-hidden'), tL = $('toggle-labels');
+tH.setAttribute('aria-pressed', String(state.display.hidden));
+tL.setAttribute('aria-pressed', String(state.display.labels));
+tH.addEventListener('click', () => {
+  state.display.hidden = !state.display.hidden;
+  tH.setAttribute('aria-pressed', String(state.display.hidden));
+  render();
 });
-underlayRemove.addEventListener('click', () => {
-  underlayImg.removeAttribute('href');
-  underlayImg.style.display = 'none';
-  underlayRemove.hidden = true;
-  $('underlay-hint').textContent = 'Перетащи файл, вставь из буфера или выбери ниже';
-  try { localStorage.removeItem(STORE_KEY + ':img'); } catch {}
-});
-underlayOpacity.addEventListener('input', () => {
-  state.underlay.opacity = Number(underlayOpacity.value);
-  $('underlay-opacity-out').textContent = Math.round(state.underlay.opacity * 100) + '%';
-  underlayImg.style.opacity = state.underlay.opacity;
-  save();
-});
-underlayScale.addEventListener('input', () => {
-  state.underlay.scale = Number(underlayScale.value);
-  $('underlay-scale-out').textContent = Math.round(state.underlay.scale * 100) + '%';
-  applyUnderlayTransform(); save();
-});
-underlayOpacity.value = state.underlay.opacity;
-underlayScale.value = state.underlay.scale;
-$('underlay-opacity-out').textContent = Math.round(state.underlay.opacity * 100) + '%';
-$('underlay-scale-out').textContent = Math.round(state.underlay.scale * 100) + '%';
-
-function applyUnderlayTransform() {
-  const s = state.underlay.scale;
-  underlayImg.setAttribute('transform', `translate(${CX} ${CY}) scale(${s}) translate(${-CX} ${-CY})`);
-  underlayImg.style.opacity = state.underlay.opacity;
-}
-function loadUnderlay(file) {
-  if (!file || !file.type.startsWith('image/')) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    const dataUrl = reader.result;
-    underlayImg.setAttribute('href', dataUrl);
-    underlayImg.style.display = '';
-    underlayRemove.hidden = false;
-    $('underlay-hint').textContent = file.name;
-    applyUnderlayTransform();
-    try { localStorage.setItem(STORE_KEY + ':img', dataUrl); } catch {}
-  };
-  reader.readAsDataURL(file);
-}
-try {
-  const saved = localStorage.getItem(STORE_KEY + ':img');
-  if (saved) {
-    underlayImg.setAttribute('href', saved);
-    underlayImg.style.display = '';
-    underlayRemove.hidden = false;
-    $('underlay-hint').textContent = 'Сохранённая подложка';
-    applyUnderlayTransform();
-  }
-} catch {}
-
-let dragDepth = 0;
-const hasFiles = (e) => [...(e.dataTransfer?.types ?? [])].includes('Files');
-window.addEventListener('dragenter', (e) => {
-  if (!hasFiles(e)) return;
-  dragDepth++; $('drop-cover').hidden = false;
-});
-window.addEventListener('dragleave', () => {
-  if (--dragDepth <= 0) { dragDepth = 0; $('drop-cover').hidden = true; }
-});
-window.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault(); });
-window.addEventListener('drop', (e) => {
-  if (!hasFiles(e)) return;
-  e.preventDefault(); dragDepth = 0; $('drop-cover').hidden = true;
-  const f = e.dataTransfer.files?.[0];
-  if (f) loadUnderlay(f);
-});
-document.addEventListener('paste', (e) => {
-  const item = [...(e.clipboardData?.items ?? [])].find((i) => i.type.startsWith('image/'));
-  if (item) { e.preventDefault(); loadUnderlay(item.getAsFile()); }
+tL.addEventListener('click', () => {
+  state.display.labels = !state.display.labels;
+  tL.setAttribute('aria-pressed', String(state.display.labels));
+  render();
 });
 
-/* ==================================================================
- * Экспорт
- * ================================================================== */
-
-$('save-png').addEventListener('click', async () => {
-  const clone = svg.cloneNode(true);
-  clone.setAttribute('xmlns', SVG_NS);
-  const bg = document.createElementNS(SVG_NS, 'rect');
-  bg.setAttribute('width', VIEW_W);
-  bg.setAttribute('height', VIEW_H);
-  bg.setAttribute('fill', '#ffffff');
-  clone.insertBefore(bg, clone.firstChild);
-  const xml = new XMLSerializer().serializeToString(clone);
-  const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const img = new Image();
-  img.onload = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1200; canvas.height = 1440;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    URL.revokeObjectURL(url);
-    canvas.toBlob((b) => download(b, 'loomis-head-torso.png'));
-  };
-  img.src = url;
-});
-$('save-svg').addEventListener('click', () => {
-  const clone = svg.cloneNode(true);
-  clone.setAttribute('xmlns', SVG_NS);
-  const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone);
-  download(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }), 'loomis-head-torso.svg');
-});
-function download(blob, name) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name; a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+function updateViewName() {
+  const y = state.view.yaw;
+  const ay = Math.abs(y);
+  let name = 'Анфас';
+  if (ay > 22 && ay <= 68) name = y > 0 ? '3/4 влево' : '3/4 вправо';
+  else if (ay > 68 && ay <= 112) name = y > 0 ? 'Профиль влево' : 'Профиль вправо';
+  else if (ay > 112 && ay <= 158) name = 'Задний 3/4';
+  else if (ay > 158) name = 'Спина';
+  $('view-name').textContent = `${name} · ${Math.round(y)}°`;
 }
 
 /* ==================================================================
- * О методе
+ * мышь
  * ================================================================== */
-
-$('about-btn').addEventListener('click', () => {
-  alert(
-    'Голова + грудная клетка (2D, 360°)\n\n' +
-    'ГОЛОВА:\n① центральная линия\n② уровень глаз\n③ боковой круг\n④ линия волос\n⑤ линия носа\n⑥ центральная линия лица\n⑦ челюсть Ⓐ→Ⓑ→Ⓒ\n⑧ скула\n\n' +
-    'ТОРС:\n① центральный меридиан\n② уровень ключиц\n③ уровень сосков\n④ рёберная дуга\n⑤ боковой контур\n⑥ позвоночник\n⑦ ключицы\n⑧ грудина\n\n' +
-    'Перетаскивай мышью — вращение (yaw) и наклон (pitch).'
-  );
-});
-
-/* ==================================================================
- * Перетаскивание мышью
- * ================================================================== */
-
-let dragStart = null;
-stage.addEventListener('pointerdown', (e) => {
-  if (e.target.closest('aside')) return;
-  stopSpin();
-  dragStart = { x: e.clientX, y: e.clientY, yaw: state.view.yaw, pitch: state.view.pitch };
+let drag = null;
+const stage = document.getElementById('stage');
+stage.addEventListener('pointerdown', e => {
+  drag = { x: e.clientX, y: e.clientY, yaw: state.view.yaw, pitch: state.view.pitch };
   stage.setPointerCapture(e.pointerId);
 });
-stage.addEventListener('pointermove', (e) => {
-  if (!dragStart) return;
-  const dx = e.clientX - dragStart.x;
-  const dy = e.clientY - dragStart.y;
-  state.view.yaw = wrapYaw(dragStart.yaw + dx * 0.5);
-  state.view.pitch = Math.max(-60, Math.min(60, dragStart.pitch - dy * 0.3));
+stage.addEventListener('pointermove', e => {
+  if (!drag) return;
+  state.view.yaw = clamp(drag.yaw + (e.clientX - drag.x) * 0.5, -180, 180);
+  state.view.pitch = clamp(drag.pitch - (e.clientY - drag.y) * 0.3, -60, 60);
   yawInput.value = state.view.yaw;
   pitchInput.value = state.view.pitch;
   $('yaw-out').textContent = Math.round(state.view.yaw) + '°';
   $('pitch-out').textContent = Math.round(state.view.pitch) + '°';
   render(); updateViewName();
 });
-stage.addEventListener('pointerup', () => { dragStart = null; save(); });
-stage.addEventListener('pointercancel', () => { dragStart = null; save(); });
+stage.addEventListener('pointerup', () => drag = null);
+stage.addEventListener('pointercancel', () => drag = null);
 
 /* ==================================================================
- * Запуск
+ * подложка
  * ================================================================== */
+const underlayImg = document.createElementNS(SVG_NS, 'image');
+underlayImg.setAttribute('x', CX - SCALE);
+underlayImg.setAttribute('y', CY - SCALE);
+underlayImg.setAttribute('width', SCALE * 2);
+underlayImg.setAttribute('height', SCALE * 2);
+underlayImg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+underlayImg.style.display = 'none';
+svg.insertBefore(underlayImg, svg.firstChild);
 
-syncShapeSliders();
-renderPresets();
-syncTorsoSliders();
-renderTorsoPresets();
+$('underlay-pick').addEventListener('click', () => $('underlay-input').click());
+$('underlay-input').addEventListener('change', e => {
+  const f = e.target.files?.[0];
+  if (f) loadUnderlay(f);
+  e.target.value = '';
+});
+$('underlay-remove').addEventListener('click', () => {
+  underlayImg.removeAttribute('href');
+  underlayImg.style.display = 'none';
+  $('underlay-remove').hidden = true;
+  $('underlay-hint').textContent = 'Перетащи файл, вставь из буфера или выбери ниже';
+});
+$('underlay-opacity').addEventListener('input', e => {
+  state.underlay.opacity = Number(e.target.value);
+  $('underlay-opacity-out').textContent = Math.round(state.underlay.opacity * 100) + '%';
+  underlayImg.style.opacity = state.underlay.opacity;
+});
+$('underlay-scale').addEventListener('input', e => {
+  state.underlay.scale = Number(e.target.value);
+  $('underlay-scale-out').textContent = Math.round(state.underlay.scale * 100) + '%';
+  applyUnderlayTransform();
+});
+function applyUnderlayTransform() {
+  const s = state.underlay.scale;
+  underlayImg.setAttribute('transform',
+    `translate(${CX} ${CY}) scale(${s}) translate(${-CX} ${-CY})`);
+  underlayImg.style.opacity = state.underlay.opacity;
+}
+function loadUnderlay(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const r = new FileReader();
+  r.onload = () => {
+    underlayImg.setAttribute('href', r.result);
+    underlayImg.style.display = '';
+    $('underlay-remove').hidden = false;
+    $('underlay-hint').textContent = file.name;
+    applyUnderlayTransform();
+  };
+  r.readAsDataURL(file);
+}
+let dragDepth = 0;
+const hasFiles = e => [...(e.dataTransfer?.types ?? [])].includes('Files');
+window.addEventListener('dragenter', e => { if (hasFiles(e)) { dragDepth++; $('drop-cover').hidden = false; } });
+window.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; $('drop-cover').hidden = true; } });
+window.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+window.addEventListener('drop', e => {
+  if (!hasFiles(e)) return;
+  e.preventDefault(); dragDepth = 0; $('drop-cover').hidden = true;
+  const f = e.dataTransfer.files?.[0];
+  if (f) loadUnderlay(f);
+});
+document.addEventListener('paste', e => {
+  const item = [...(e.clipboardData?.items ?? [])].find(i => i.type.startsWith('image/'));
+  if (item) { e.preventDefault(); loadUnderlay(item.getAsFile()); }
+});
+
+/* ==================================================================
+ * экспорт
+ * ================================================================== */
+$('save-png').addEventListener('click', async () => {
+  const clone = svg.cloneNode(true);
+  clone.setAttribute('xmlns', SVG_NS);
+  const bg = document.createElementNS(SVG_NS, 'rect');
+  bg.setAttribute('width', 600); bg.setAttribute('height', 600); bg.setAttribute('fill', '#fff');
+  clone.insertBefore(bg, clone.firstChild);
+  const xml = new XMLSerializer().serializeToString(clone);
+  const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = 1200; c.height = 1200;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url);
+    c.toBlob(b => download(b, 'torso-pelvis.png'));
+  };
+  img.src = url;
+});
+
+$('save-svg').addEventListener('click', () => {
+  const clone = svg.cloneNode(true);
+  clone.setAttribute('xmlns', SVG_NS);
+  const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone);
+  download(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }), 'torso-pelvis.svg');
+});
+
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ==================================================================
+ * старт
+ * ================================================================== */
 render();
 updateViewName();
 </script>
