@@ -3,12 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Голова: 3D-математика на 2D (Оси исправлены)</title>
+<title>Голова (Исправленная проекция осей)</title>
 <style>
   :root {
     --bg: #141419;
     --panel: #1e1e26;
-    --panel-2: #262630;
     --accent: #e8b04b;
     --text: #e8e8f0;
     --muted: #8a8a99;
@@ -36,43 +35,42 @@
   .controls {
     background: var(--panel); border: 1px solid var(--border);
     border-radius: 16px; padding: 18px 20px;
-    width: 100%; max-width: 360px;
-    display: flex; flex-direction: column; gap: 14px;
+    width: 100%; max-width: 340px;
+    display: flex; flex-direction: column; gap: 12px;
     box-shadow: 0 10px 30px rgba(0,0,0,.35);
     max-height: 85vh; overflow-y: auto;
   }
   .controls h2 {
-    font-size: .75rem; text-transform: uppercase;
+    font-size: .7rem; text-transform: uppercase;
     letter-spacing: 1px; color: var(--muted);
     margin: 8px 0 4px; font-weight: 600;
     border-bottom: 1px solid var(--border); padding-bottom: 4px;
   }
-  .control { display: flex; flex-direction: column; gap: 6px; }
-  .control-head { display: flex; justify-content: space-between; align-items: center; font-size: .85rem; }
+  .control { display: flex; flex-direction: column; gap: 4px; }
+  .control-head { display: flex; justify-content: space-between; align-items: center; font-size: .8rem; }
   .badge {
     background: var(--panel-2); border: 1px solid var(--border);
     color: var(--accent); font-variant-numeric: tabular-nums;
-    font-size: .75rem; font-weight: 600;
-    padding: 2px 8px; border-radius: 999px;
-    min-width: 46px; text-align: center;
+    font-size: .7rem; font-weight: 600;
+    padding: 1px 6px; border-radius: 999px;
+    min-width: 40px; text-align: center;
   }
   input[type="range"] {
     -webkit-appearance: none; appearance: none;
-    width: 100%; height: 6px; border-radius: 3px;
+    width: 100%; height: 4px; border-radius: 2px;
     background: #33333f; outline: none; cursor: pointer; position: relative;
   }
   input[type="range"]::-webkit-slider-runnable-track {
     background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--fill, 0%), #33333f var(--fill, 0%), #33333f 100%);
-    height: 6px; border-radius: 3px;
+    height: 4px; border-radius: 2px;
   }
   input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none; appearance: none;
-    width: 16px; height: 16px; border-radius: 50%;
-    background: #fff; border: 3px solid var(--accent);
-    box-shadow: 0 2px 6px rgba(0,0,0,.4);
-    cursor: pointer; transition: transform .15s; margin-top: -5px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #fff; border: 2px solid var(--accent);
+    box-shadow: 0 1px 3px rgba(0,0,0,.4);
+    cursor: pointer; margin-top: -5px;
   }
-  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
   .actions {
     display: flex; justify-content: space-between; align-items: center;
     padding-top: 12px; border-top: 1px solid var(--border); margin-top: 8px;
@@ -103,7 +101,6 @@
     position: absolute; top: 0; left: 0;
     font-family: monospace; font-weight: bold; font-size: 14px;
     text-shadow: 0 1px 3px #000;
-    transition: transform 0.1s ease-out;
   }
   .label-red { color: var(--red); }
   .label-blue { color: var(--blue); }
@@ -113,8 +110,8 @@
 <body>
 
 <header>
-  <h1>Голова: Логика three.js в 2D</h1>
-  <p>Сфера, челюсть и шея в единой проекции</p>
+  <h1>Голова: 3D-математика на 2D</h1>
+  <p>Исправленная проекция (Z — высота)</p>
 </header>
 
 <div class="app">
@@ -125,7 +122,7 @@
       <input id="rangeParts" type="range" min="3" max="10" value="7" step="1">
     </div>
     
-    <h2>Форма черепа (сфера)</h2>
+    <h2>Форма черепа</h2>
     <div class="control">
       <div class="control-head"><label>Ширина головы</label><span class="badge" id="valCut">0.73</span></div>
       <input id="rangeCut" type="range" min="0.4" max="0.95" value="0.73" step="0.01">
@@ -147,7 +144,7 @@
 
     <h2>Челюсть</h2>
     <div class="control">
-      <div class="control-head"><label>Ширина челюсти (эла)</label><span class="badge" id="valJawX">0.62</span></div>
+      <div class="control-head"><label>Ширина эла</label><span class="badge" id="valJawX">0.62</span></div>
       <input id="rangeJawX" type="range" min="0.2" max="0.95" value="0.62" step="0.01">
     </div>
     <div class="control">
@@ -198,7 +195,7 @@
     </div>
 
     <div class="actions">
-      <button class="btn-reset" id="btnReset">Сбросить всё</button>
+      <button class="btn-reset" id="btnReset">Сбросить</button>
     </div>
   </div>
 
@@ -213,7 +210,7 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const labelLayer = document.getElementById('labelLayer');
 
-// --- МАТЕМАТИКА (ИЗ LOOMIS.JS) ---
+// --- МАТЕМАТИКА ИЗ LOOMIS.JS ---
 const rad = (d) => (d * Math.PI) / 180;
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const len = (a) => Math.hypot(a[0], a[1], a[2]);
@@ -364,22 +361,23 @@ let params = {
 };
 
 function project(x, y, z, scale, cx, cy) {
-  // ИСПРАВЛЕНИЕ: В loomis X - влево/вправо, Y - глубина, Z - вверх/вниз.
-  // Сначала вращение вокруг Y (поворот головы)
+  // В loomis: X - влево/вправо, Y - глубина (перед/зад), Z - вверх/вниз
+  // Вращение вокруг вертикальной оси (Y)
   const radY = rad(params.rotY);
   const cosY = Math.cos(radY), sinY = Math.sin(radY);
   let x1 = x * cosY - y * sinY;
   let y1 = x * sinY + y * cosY;
   let z1 = z;
 
-  // Затем вращение вокруг X (наклон)
+  // Наклон вокруг горизонтальной оси (X)
   const radX = rad(params.rotX);
   const cosX = Math.cos(radX), sinX = Math.sin(radX);
   let x2 = x1;
   let y2 = y1 * cosX - z1 * sinX;
   let z2 = y1 * sinX + z1 * cosX;
   
-  // Возвращаем: X - экран X, Z - экран Y (инвертированный), Y - глубина для сортировки
+  // Возвращаем 2D координаты: X экран = X3D, Y экран = -Z3D (т.к. в Canvas Y растет вниз).
+  // Глубина для сортировки = Y3D
   return {
     x: cx + x2 * scale,
     y: cy - z2 * scale,
@@ -390,7 +388,6 @@ function project(x, y, z, scale, cx, cy) {
 // Проверка, скрыта ли точка
 function occluded(o3, target3, solid) {
   const { width, cut, r0, top, back } = solid;
-  // o3 и target3 приходят как [x, y, z] (где y - глубина, z - высота)
   const o = [o3[0], o3[2], o3[1]]; 
   const q = [target3[0], target3[2], target3[1]];
   let d = [q[0] - o[0], q[1] - o[1], q[2] - o[2]];
