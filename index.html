@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Голова Лумиса — 2D (360°)</title>
+<title>Голова Лумиса — 2D (расширенная)</title>
 <style>
   :root {
     --guide-red: #f03e6e;
@@ -25,7 +25,7 @@
     color: var(--text);
     background: var(--bg);
     display: grid;
-    grid-template-columns: 1fr 340px;
+    grid-template-columns: 1fr 360px;
     grid-template-rows: 48px 1fr;
     height: 100vh;
     overflow: hidden;
@@ -40,11 +40,7 @@
     border-bottom: 1px solid var(--line);
     background: var(--panel);
   }
-  header h1 {
-    font-size: 15px;
-    font-weight: 600;
-    margin: 0;
-  }
+  header h1 { font-size: 15px; font-weight: 600; margin: 0; }
   header .view-name {
     font-size: 12px;
     color: var(--muted);
@@ -64,13 +60,7 @@
     cursor: grab;
   }
   #stage:active { cursor: grabbing; }
-
-  #stage svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-    user-select: none;
-  }
+  #stage svg { width: 100%; height: 100%; display: block; user-select: none; }
 
   #stage .label {
     font-size: 13px;
@@ -136,12 +126,7 @@
     color: #fff;
   }
 
-  .row {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    margin-bottom: 8px;
-  }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 
   .slider {
     display: grid;
@@ -151,16 +136,8 @@
     margin-bottom: 10px;
     align-items: center;
   }
-  .slider label {
-    grid-column: 1 / -1;
-    font-size: 12px;
-    color: var(--text);
-  }
-  .slider input[type="range"] {
-    width: 100%;
-    height: 20px;
-    accent-color: var(--accent);
-  }
+  .slider label { grid-column: 1 / -1; font-size: 12px; color: var(--text); }
+  .slider input[type="range"] { width: 100%; height: 20px; accent-color: var(--accent); }
   .slider output {
     text-align: right;
     font-size: 11px;
@@ -175,7 +152,10 @@
     color: var(--muted);
     font-weight: 600;
     margin: 12px 0 6px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
   }
+  .group-h:first-child { border-top: none; margin-top: 0; padding-top: 0; }
 
   .hint {
     font-size: 12px;
@@ -190,11 +170,7 @@
       grid-template-rows: 48px 1fr auto;
       height: 100dvh;
     }
-    aside {
-      border-left: none;
-      border-top: 1px solid var(--line);
-      max-height: 45vh;
-    }
+    aside { border-left: none; border-top: 1px solid var(--line); max-height: 45vh; }
   }
 </style>
 </head>
@@ -256,6 +232,8 @@
     <div class="row">
       <button class="btn" id="toggle-hidden" aria-pressed="true" type="button">Скрытые линии</button>
       <button class="btn" id="toggle-labels" aria-pressed="true" type="button">Подписи</button>
+      <button class="btn" id="toggle-neck" aria-pressed="false" type="button">⑨ Шея</button>
+      <button class="btn" id="toggle-brow" aria-pressed="false" type="button">⑩ Брови</button>
     </div>
   </section>
 
@@ -284,30 +262,54 @@
     <div class="row">
       <button class="btn" id="save-png" type="button">PNG</button>
       <button class="btn" id="save-svg" type="button">SVG</button>
+      <button class="btn" id="reset-shape" type="button">Сброс формы</button>
     </div>
   </section>
 </aside>
 
 <script type="module">
 /* ==================================================================
- * loomis.js — математика формы (без зависимости от рендера)
+ * loomis.js — расширенная математика формы
  * ================================================================== */
 
 const SHAPE_PARAMS = [
-  { key: 'cut',        label: 'Ширина головы',          min: 0.4,  max: 0.95, step: 0.01, def: 0.73 },
-  { key: 'top',        label: 'Высота макушки',         min: 0.8,  max: 1.4,  step: 0.01, def: 1 },
-  { key: 'back',       label: 'Выступ затылка',         min: 0.8,  max: 1.4,  step: 0.01, def: 1 },
-  { key: 'r0',         label: '③ Размер круга',         min: 0.3,  max: 0.95, step: 0.01, def: 0.68 },
-  { key: 'eye',        label: '② Уровень глаз',         min: -0.9, max: 0.9,  step: 0.01, def: 0 },
-  { key: 'forehead',   label: '④ Линия волос',          min: 0.3,  max: 1.4,  step: 0.01, def: 1 },
-  { key: 'jaw_start',  label: 'Ⓐ Начало челюсти',       min: -60,  max: 60,   step: 1,    def: 0,  unit: '°' },
-  { key: 'jaw_len',    label: '⑦ Длина челюсти',        min: 0,    max: 1.2,  step: 0.01, def: 0.4 },
-  { key: 'jaw_tilt',   label: '⑦ Наклон челюсти',       min: -40,  max: 70,   step: 1,    def: 10, unit: '°' },
-  { key: 'jaw_x',      label: 'Ⓑ Ширина скулы',         min: 0.2,  max: 0.95, step: 0.01, def: 0.62 },
-  { key: 'chin_len',   label: 'Ⓒ Высота подбородка',    min: 0.5,  max: 1.5,  step: 0.01, def: 1 },
-  { key: 'chin_front', label: 'Ⓒ Выступ подбородка',    min: 0.4,  max: 1.4,  step: 0.01, def: 0.85 },
-  { key: 'chin_w',     label: 'Ⓒ Ширина подбородка',    min: 0.03, max: 0.6,  step: 0.01, def: 0.22 },
-  { key: 'chin_round', label: 'Ⓒ Скругление подбородка', min: 0,   max: 1,    step: 0.01, def: 0.5 },
+  // Череп
+  { key: 'cut',        group: 'skull', label: 'Ширина головы',        min: 0.4,  max: 0.95, step: 0.01, def: 0.73 },
+  { key: 'top',        group: 'skull', label: 'Высота макушки',       min: 0.8,  max: 1.4,  step: 0.01, def: 1 },
+  { key: 'back',       group: 'skull', label: 'Выступ затылка',       min: 0.8,  max: 1.4,  step: 0.01, def: 1 },
+  { key: 'r0',         group: 'skull', label: '③ Размер круга',       min: 0.3,  max: 0.95, step: 0.01, def: 0.68 },
+
+  // Лицо
+  { key: 'eye',        group: 'face',  label: '② Уровень глаз',       min: -0.9, max: 0.9,  step: 0.01, def: 0 },
+  { key: 'eye_x',      group: 'face',  label: '② Расстановка глаз',   min: 0.15, max: 0.75, step: 0.01, def: 0.6 },
+  { key: 'eye_width',  group: 'face',  label: '② Ширина глаза',       min: 0.05, max: 0.35, step: 0.01, def: 0.15 },
+  { key: 'forehead',   group: 'face',  label: '④ Линия волос',        min: 0.3,  max: 1.4,  step: 0.01, def: 1 },
+  { key: 'forehead_w', group: 'face',  label: '④ Ширина линии волос', min: 0.2,  max: 1,    step: 0.01, def: 0.85 },
+  { key: 'face_width', group: 'face',  label: '⑥ Ширина лица',        min: 0.3,  max: 1,    step: 0.01, def: 1 },
+  { key: 'nose_z',     group: 'face',  label: '⑤ Высота носа',        min: -1,   max: 0.4,  step: 0.01, def: -1 },
+  { key: 'nose_w',     group: 'face',  label: '⑤ Ширина линии носа',  min: 0.1,  max: 1,    step: 0.01, def: 1 },
+  { key: 'brow_z',     group: 'face',  label: '⑩ Высота бровей',      min: -0.5, max: 0.8,  step: 0.01, def: 0.2 },
+  { key: 'brow_w',     group: 'face',  label: '⑩ Ширина бровей',      min: 0.1,  max: 1,    step: 0.01, def: 0.6 },
+
+  // Челюсть
+  { key: 'jaw_start',  group: 'jaw',   label: 'Ⓐ Начало челюсти',     min: -60,  max: 60,   step: 1,    def: 0,  unit: '°' },
+  { key: 'jaw_len',    group: 'jaw',   label: '⑦ Длина челюсти',      min: 0,    max: 1.2,  step: 0.01, def: 0.4 },
+  { key: 'jaw_tilt',   group: 'jaw',   label: '⑦ Наклон челюсти',     min: -40,  max: 70,   step: 1,    def: 10, unit: '°' },
+  { key: 'jaw_x',      group: 'jaw',   label: 'Ⓑ Ширина скулы',       min: 0.2,  max: 0.95, step: 0.01, def: 0.62 },
+  { key: 'jaw_curve',  group: 'jaw',   label: '⑦ Выпуклость челюсти', min: -0.3, max: 0.3,  step: 0.01, def: 0 },
+  { key: 'cheek_z',    group: 'jaw',   label: '⑧ Высота скулы',       min: -0.6, max: 0.6,  step: 0.01, def: 0 },
+  { key: 'cheek_x',    group: 'jaw',   label: '⑧ Ширина скулы',       min: 0.1,  max: 0.9,  step: 0.01, def: 0.5 },
+
+  // Подбородок
+  { key: 'chin_len',   group: 'chin',  label: 'Ⓒ Высота подбородка',  min: 0.5,  max: 1.5,  step: 0.01, def: 1 },
+  { key: 'chin_front', group: 'chin',  label: 'Ⓒ Выступ подбородка',  min: 0.4,  max: 1.4,  step: 0.01, def: 0.85 },
+  { key: 'chin_w',     group: 'chin',  label: 'Ⓒ Ширина подбородка',  min: 0.03, max: 0.6,  step: 0.01, def: 0.22 },
+  { key: 'chin_round', group: 'chin',  label: 'Ⓒ Скругление',         min: 0,    max: 1,    step: 0.01, def: 0.5 },
+  { key: 'chin_tilt',  group: 'chin',  label: 'Ⓒ Наклон подбородка',  min: -30,  max: 30,   step: 1,    def: 0,  unit: '°' },
+
+  // Шея
+  { key: 'neck_w',     group: 'neck',  label: '⑨ Ширина шеи',         min: 0.1,  max: 0.6,  step: 0.01, def: 0.3 },
+  { key: 'neck_len',   group: 'neck',  label: '⑨ Длина шеи',          min: 0.1,  max: 1.5,  step: 0.01, def: 0.6 },
 ];
 
 const LINE_PARAM = { min: 0.004, max: 0.04, step: 0.001, def: 0.012 };
@@ -317,7 +319,6 @@ const MAX_Z = 0.98;
 const LOOP_SEGMENTS = 96;
 
 const rad = (d) => (d * Math.PI) / 180;
-const deg = (r) => (r * 180) / Math.PI;
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const len = (a) => Math.hypot(a[0], a[1], a[2]);
 const norm = (a) => { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
@@ -384,14 +385,14 @@ function rounded(items, radius) {
   return { pts: out, corners };
 }
 
-function buildHead(input, lift = 0) {
+function buildHead(input, lift = 0, opts = {}) {
   const s = clampShape(input);
   const ball = makeBall(s);
   const { width, cut, r0, stretch, normal } = ball;
 
   const zEye = s.eye * r0;
   const zHair = Math.min(s.forehead * r0, MAX_Z * s.top);
-  const zNose = -r0;
+  const zNose = s.nose_z * r0;
   const zChin = -r0 - r0 * s.chin_len;
   const xPlane = cut + lift;
 
@@ -408,17 +409,19 @@ function buildHead(input, lift = 0) {
   const labels = {};
   const add = (id, color, pts, closed = false) => lines.push({ id, color, closed, pts });
 
-  const ring = (z) => {
+  // ring with optional "half-width" — используем для частичных линий (④⑤ брови)
+  const ring = (z, wFactor = 1) => {
     const zu = z / ball.sz(z);
     const rho = Math.sqrt(Math.max(0, 1 - zu * zu));
-    const half = width * rho;
+    const half = width * rho * wFactor;
     const at = (t) => surf(stretch(half * Math.cos(t), rho * Math.sin(t), zu));
-    if (half <= cut * (1 + 1e-6)) {
+    const limit = Math.min(cut, half);
+    if (half <= limit * (1 + 1e-6) || wFactor >= 0.999) {
       const pts = [];
       for (let i = 0; i < LOOP_SEGMENTS; i++) pts.push(at((i / LOOP_SEGMENTS) * Math.PI * 2));
       return [{ pts, closed: true }];
     }
-    const t0 = Math.acos(cut / half);
+    const t0 = Math.acos(limit / half);
     const arc = (a, b) => {
       const n = Math.max(8, Math.round((LOOP_SEGMENTS * (b - a)) / (Math.PI * 2)));
       const pts = [];
@@ -457,14 +460,36 @@ function buildHead(input, lift = 0) {
     });
   }
 
-  // ② ④ ⑤
-  for (const [id, color, z] of [['2', RED, zEye], ['4', BLUE, zHair], ['5', BLUE, zNose]]) {
-    const parts = ring(z);
-    for (const part of parts) add(id, color, part.pts, part.closed);
-    labels[id] = ringLabels(parts);
+  // ② глаза (по уровню)
+  {
+    const parts = ring(zEye);
+    for (const part of parts) add('2', RED, part.pts, part.closed);
+    labels['2'] = ringLabels(parts);
   }
 
-  // ③ боковые круги и кресты
+  // ④ волосы — ширина управляется forehead_w
+  {
+    const parts = ring(zHair, s.forehead_w);
+    for (const part of parts) add('4', BLUE, part.pts, part.closed);
+    labels['4'] = ringLabels(parts);
+  }
+
+  // ⑤ нос — ширина управляется nose_w
+  {
+    const parts = ring(zNose, s.nose_w);
+    for (const part of parts) add('5', BLUE, part.pts, part.closed);
+    labels['5'] = ringLabels(parts);
+  }
+
+  // ⑩ брови (опционально)
+  if (opts.brow) {
+    const zBrow = s.brow_z * r0;
+    const parts = ring(zBrow, s.brow_w);
+    for (const part of parts) add('10', BLUE, part.pts, part.closed);
+    labels['10'] = ringLabels(parts);
+  }
+
+  // ③ боковые круги
   labels['3'] = [];
   for (const sx of [1, -1]) {
     const x = sx * xPlane;
@@ -479,8 +504,13 @@ function buildHead(input, lift = 0) {
   // контрольные точки челюсти
   const A = rim(rad(-90 - s.jaw_start));
   const tilt = rad(s.jaw_tilt);
-  const B = [s.jaw_x, A[1] - s.jaw_len * Math.sin(tilt), A[2] - s.jaw_len * Math.cos(tilt)];
-  const Cf = [s.chin_w, -s.chin_front, zChin];
+  const Bbase = [s.jaw_x, A[1] - s.jaw_len * Math.sin(tilt), A[2] - s.jaw_len * Math.cos(tilt)];
+  // jaw_curve выгибает B вбок (в плоскости XY)
+  const B = [Bbase[0] + s.jaw_curve, Bbase[1], Bbase[2]];
+
+  // chin_tilt наклоняет Cf по Y
+  const chinTilt = rad(s.chin_tilt);
+  const Cf = [s.chin_w, -s.chin_front + Math.tan(chinTilt) * r0 * 0.3, zChin];
 
   // ⑦ челюсть
   const k = s.chin_round;
@@ -493,24 +523,46 @@ function buildHead(input, lift = 0) {
   const CfR = cornerOf(Cf);
   const CfL = mirror(CfR);
 
-  // ⑧ скула
-  const zEyeU = zEye / ball.sz(zEye);
-  const eyeEdge = [xPlane, -Math.sqrt(Math.max(0, r0 * r0 - zEyeU * zEyeU)), zEye];
-  add('8', BLUE, [CfR, eyeEdge]);
-  add('8', BLUE, [CfL, mirror(eyeEdge)]);
+  // ⑧ скула — высота и ширина из параметров
+  const zCheekU = s.cheek_z / ball.sz(s.cheek_z || 1);
+  const zCheekAbs = s.cheek_z * r0 + zEye;
+  const cheekX = Math.min(s.cheek_x, cut + lift);
+  const cheekPoint = [cheekX, -Math.sqrt(Math.max(0, r0 * r0 - zCheekAbs * zCheekAbs)) * 0.6, zCheekAbs];
+  add('8', BLUE, [CfR, cheekPoint]);
+  add('8', BLUE, [CfL, mirror(cheekPoint)]);
 
-  // ⑥ центральная линия лица
+  // ⑥ центральная линия лица (с учётом face_width — сдвиг по X на «толщину щёк»)
+  const zEyeU = zEye / ball.sz(zEye);
   const front = surf(stretch(0, -Math.sqrt(Math.max(0, 1 - zEyeU * zEyeU)), zEyeU));
-  const chinMid = [0, -s.chin_front, zChin];
+  const chinMid = [0, Cf[1], zChin];
   add('6', RED, [front, chinMid]);
+
+  // ⑨ шея (опционально)
+  if (opts.neck) {
+    const neckZ = zChin - s.neck_len * r0;
+    const neckY = 0.15 * r0;   // чуть назад
+    const w = s.neck_w * r0;
+    // правая половина шеи — от CfR вниз
+    const neckTopR = [w, Cf[1] - 0.1, zChin + 0.05];
+    const neckBotR = [w * 1.1, neckY, neckZ];
+    const neckTopL = mirror(neckTopR);
+    const neckBotL = mirror(neckBotR);
+    add('9', BLUE, [neckTopR, neckBotR]);
+    add('9', BLUE, [neckTopL, neckBotL]);
+    add('9', BLUE, [neckBotR, neckBotL]);
+    labels['9'] = [
+      { p: lerp(neckTopR, neckBotR, 0.6), n: [1, -0.2, 0] },
+      { p: lerp(neckTopL, neckBotL, 0.6), n: [-1, -0.2, 0] },
+    ];
+  }
 
   // метки
   const out = (p) => norm(p);
   const BR = cornerOf(B);
   const jawMid = lerp(BR, CfR, 0.5);
   const jawDir = sub(CfR, BR);
-  const cheek = lerp(CfR, eyeEdge, 0.5);
-  const cheekDir = sub(eyeEdge, CfR);
+  const cheek = lerp(CfR, cheekPoint, 0.5);
+  const cheekDir = sub(cheekPoint, CfR);
   labels['6'] = [{ p: lerp(front, chinMid, 0.8), n: [0, -1, 0], t: sub(chinMid, front) }];
   labels['7'] = [{ p: jawMid, n: out(jawMid), t: jawDir }, { p: mirror(jawMid), n: out(mirror(jawMid)), t: mirror(jawDir) }];
   labels['8'] = [{ p: cheek, n: out(cheek), t: cheekDir }, { p: mirror(cheek), n: out(mirror(cheek)), t: mirror(cheekDir) }];
@@ -522,7 +574,7 @@ function buildHead(input, lift = 0) {
 }
 
 /* ==================================================================
- * Пресеты формы
+ * Пресеты
  * ================================================================== */
 
 const PRESETS = [
@@ -531,19 +583,17 @@ const PRESETS = [
   { id: 'long',     label: 'Вытянутое', values: { cut: 0.65, top: 1.15, back: 1.05, r0: 0.62, jaw_x: 0.55, chin_len: 1.2, chin_front: 0.9 } },
   { id: 'square',   label: 'Квадратное', values: { cut: 0.85, top: 1.05, back: 1.05, r0: 0.7, jaw_x: 0.8, jaw_tilt: 30, chin_w: 0.35, chin_round: 0.1 } },
   { id: 'child',    label: 'Детское',  values: { cut: 0.8, top: 1.05, back: 0.95, r0: 0.78, eye: -0.3, jaw_x: 0.7, chin_len: 0.7, chin_w: 0.3, chin_round: 0.9 } },
+  { id: 'hero',     label: 'Герой',    values: { cut: 0.82, top: 1.08, back: 1.02, r0: 0.7, jaw_x: 0.78, jaw_tilt: 25, jaw_curve: 0.05, chin_w: 0.28, chin_front: 0.95, chin_round: 0.3, brow_w: 0.75 } },
 ];
 
 /* ==================================================================
  * Состояние
  * ================================================================== */
 
-const STORE_KEY = 'loomis-2d:v1';
+const STORE_KEY = 'loomis-2d:v2';
 const state = loadState();
 
-function wrapYaw(y) {
-  // приводит к диапазону [-180, 180)
-  return ((((y + 180) % 360) + 360) % 360) - 180;
-}
+function wrapYaw(y) { return ((((y + 180) % 360) + 360) % 360) - 180; }
 
 function loadState() {
   const def = {
@@ -551,7 +601,7 @@ function loadState() {
     preset: 'standard',
     line: LINE_PARAM.def,
     view: { yaw: 0, pitch: 0 },
-    display: { hidden: true, labels: true },
+    display: { hidden: true, labels: true, neck: false, brow: false },
     underlay: { opacity: 0.4, scale: 1 },
   };
   try {
@@ -566,7 +616,12 @@ function loadState() {
         yaw: Number.isFinite(raw.view?.yaw) ? wrapYaw(raw.view.yaw) : 0,
         pitch: Number.isFinite(raw.view?.pitch) ? Math.min(60, Math.max(-60, raw.view.pitch)) : 0,
       },
-      display: { hidden: raw.display?.hidden !== false, labels: raw.display?.labels !== false },
+      display: {
+        hidden: raw.display?.hidden !== false,
+        labels: raw.display?.labels !== false,
+        neck: raw.display?.neck === true,
+        brow: raw.display?.brow === true,
+      },
       underlay: { opacity: 0.4, scale: 1 },
     };
   } catch { return def; }
@@ -581,7 +636,7 @@ function save() {
 }
 
 /* ==================================================================
- * Рендер SVG
+ * Рендер
  * ================================================================== */
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -609,11 +664,9 @@ underlayImg.setAttribute('height', SCALE * 2);
 underlayImg.style.display = 'none';
 gUnderlay.appendChild(underlayImg);
 
-const LABEL_TEXT = { 1: '①', 2: '②', 3: '③', 4: '④', 5: '⑤', 6: '⑥', 7: '⑦', 8: '⑧', A: 'Ⓐ', B: 'Ⓑ', C: 'Ⓒ' };
-const LABEL_COLOR = { 1: 'red', 2: 'red', 3: 'red', 6: 'red', 4: 'blue', 5: 'blue', 7: 'blue', 8: 'blue', A: 'ink', B: 'ink', C: 'ink' };
+const LABEL_TEXT = { 1: '①', 2: '②', 3: '③', 4: '④', 5: '⑤', 6: '⑥', 7: '⑦', 8: '⑧', 9: '⑨', 10: '⑩', A: 'Ⓐ', B: 'Ⓑ', C: 'Ⓒ' };
+const LABEL_COLOR = { 1: 'red', 2: 'red', 3: 'red', 6: 'red', 4: 'blue', 5: 'blue', 7: 'blue', 8: 'blue', 9: 'blue', 10: 'blue', A: 'ink', B: 'ink', C: 'ink' };
 
-// Вращение точки: yaw вокруг Z, затем pitch вокруг X.
-// Лицо = -Y по спецификации (three.js версия переводит в +Z).
 function rotate(p) {
   const yaw = rad(state.view.yaw), pitch = rad(state.view.pitch);
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
@@ -632,8 +685,6 @@ function project(p) {
   return { x: CX + r[0] * SCALE, y: CY - r[2] * SCALE, depth: r[1] };
 }
 
-// видимость точки: нормаль в этой позе смотрит на камеру?
-// Камера смотрит вдоль +Y (спереди -Y), значит "к камере" — нормаль с отрицательным Y после поворота.
 function isVisiblePoint(p, n) {
   const rn = rotate(n);
   return rn[1] < 0;
@@ -647,7 +698,6 @@ function lineToPath(pts, closed) {
   return d;
 }
 
-// разбить линию на видимые/невидимые сегменты
 function splitByVisibility(pts, projected) {
   const result = [];
   if (!pts.length) return result;
@@ -672,7 +722,7 @@ function splitByVisibility(pts, projected) {
 }
 
 function render() {
-  const head = buildHead(state.shape, state.line);
+  const head = buildHead(state.shape, state.line, { neck: state.display.neck, brow: state.display.brow });
   gVisible.innerHTML = '';
   gHidden.innerHTML = '';
   gLabels.innerHTML = '';
@@ -703,7 +753,6 @@ function render() {
     }
   }
 
-  // метки
   if (state.display.labels) {
     for (const [id, cands] of Object.entries(head.labels)) {
       let best = null;
@@ -745,10 +794,10 @@ const $ = (id) => document.getElementById(id);
 function viewName() {
   const y = state.view.yaw;
   const ay = Math.abs(y);
-  if (ay <= 22) return y >= 0 ? 'Анфас' : 'Анфас';
+  if (ay <= 22) return 'Анфас';
   if (ay <= 68) return y > 0 ? '3/4 влево' : '3/4 вправо';
   if (ay <= 112) return y > 0 ? 'Профиль влево' : 'Профиль вправо';
-  if (ay <= 158) return y > 0 ? 'Задний 3/4' : 'Задний 3/4';
+  if (ay <= 158) return 'Задний 3/4';
   return 'Спина';
 }
 
@@ -763,19 +812,14 @@ yawInput.addEventListener('input', () => {
   stopSpin();
   state.view.yaw = wrapYaw(Number(yawInput.value));
   $('yaw-out').textContent = Math.round(state.view.yaw) + '°';
-  render();
-  updateViewName();
-  save();
+  render(); updateViewName(); save();
 });
 pitchInput.addEventListener('input', () => {
   state.view.pitch = Number(pitchInput.value);
   $('pitch-out').textContent = Math.round(state.view.pitch) + '°';
-  render();
-  updateViewName();
-  save();
+  render(); updateViewName(); save();
 });
 
-// кнопки углов
 document.querySelectorAll('[data-angle]').forEach((b) => {
   b.addEventListener('click', () => {
     stopSpin();
@@ -787,9 +831,7 @@ document.querySelectorAll('[data-angle]').forEach((b) => {
     pitchInput.value = pitch;
     $('yaw-out').textContent = yaw + '°';
     $('pitch-out').textContent = pitch + '°';
-    render();
-    updateViewName();
-    save();
+    render(); updateViewName(); save();
   });
 });
 
@@ -801,12 +843,9 @@ $('reset-view').addEventListener('click', () => {
   pitchInput.value = 0;
   $('yaw-out').textContent = '0°';
   $('pitch-out').textContent = '0°';
-  render();
-  updateViewName();
-  save();
+  render(); updateViewName(); save();
 });
 
-// автоповорот
 let spinRAF = 0;
 const spinBtn = $('spin');
 function stopSpin() {
@@ -821,17 +860,15 @@ spinBtn.addEventListener('click', () => {
     const tick = (now) => {
       const dt = Math.min(64, now - last);
       last = now;
-      state.view.yaw = wrapYaw(state.view.yaw + dt * 0.04);   // ~40°/сек
+      state.view.yaw = wrapYaw(state.view.yaw + dt * 0.04);
       yawInput.value = state.view.yaw;
       $('yaw-out').textContent = Math.round(state.view.yaw) + '°';
-      render();
-      updateViewName();
+      render(); updateViewName();
       spinRAF = requestAnimationFrame(tick);
     };
     spinRAF = requestAnimationFrame(tick);
   } else {
-    stopSpin();
-    save();
+    stopSpin(); save();
   }
 });
 
@@ -845,58 +882,55 @@ const presetButtons = PRESETS.map((p) => {
     state.preset = p.id;
     state.shape = { ...defaultShape(), ...p.values };
     syncShapeSliders();
-    renderPresets();
-    render();
-    save();
+    renderPresets(); render(); save();
   });
   $('presets').appendChild(b);
   return b;
 });
-
 function renderPresets() {
   PRESETS.forEach((p, i) => presetButtons[i].setAttribute('aria-pressed', String(state.preset === p.id)));
 }
 
-// слайдеры формы
+// слайдеры формы с группами
 const shapeSyncers = [];
 const shapeHost = $('shape-sliders');
-const SHAPE_GROUPS = { cut: 'Голова', eye: 'Лицо', jaw_start: 'Челюсть', chin_len: 'Подбородок' };
-for (const p of SHAPE_PARAMS) {
-  if (SHAPE_GROUPS[p.key]) {
-    const h = document.createElement('div');
-    h.className = 'group-h';
-    h.textContent = SHAPE_GROUPS[p.key];
-    shapeHost.appendChild(h);
+const GROUPS = [
+  { id: 'skull', label: 'Череп' },
+  { id: 'face',  label: 'Лицо' },
+  { id: 'jaw',   label: 'Челюсть' },
+  { id: 'chin',  label: 'Подбородок' },
+  { id: 'neck',  label: 'Шея' },
+];
+
+for (const g of GROUPS) {
+  const h = document.createElement('div');
+  h.className = 'group-h';
+  h.textContent = g.label;
+  shapeHost.appendChild(h);
+  for (const p of SHAPE_PARAMS.filter((x) => x.group === g.id)) {
+    const row = document.createElement('div');
+    row.className = 'slider';
+    const id = `shape-${p.key}`;
+    row.innerHTML = `<label for="${id}">${p.label}</label>
+      <input type="range" id="${id}" min="${p.min}" max="${p.max}" step="${p.step}">
+      <output for="${id}"></output>`;
+    shapeHost.appendChild(row);
+    const input = row.querySelector('input');
+    const out = row.querySelector('output');
+    const fmt = (v) => p.unit ? `${Math.round(v)}${p.unit}` : v.toFixed(2);
+    const sync = () => { input.value = state.shape[p.key]; out.textContent = fmt(state.shape[p.key]); };
+    input.addEventListener('input', () => {
+      state.shape[p.key] = Number(input.value);
+      state.preset = null;
+      out.textContent = fmt(Number(input.value));
+      renderPresets(); render(); save();
+    });
+    sync();
+    shapeSyncers.push(sync);
   }
-  const row = document.createElement('div');
-  row.className = 'slider';
-  const id = `shape-${p.key}`;
-  row.innerHTML = `<label for="${id}">${p.label}</label>
-    <input type="range" id="${id}" min="${p.min}" max="${p.max}" step="${p.step}">
-    <output for="${id}"></output>`;
-  shapeHost.appendChild(row);
-  const input = row.querySelector('input');
-  const out = row.querySelector('output');
-  const fmt = (v) => p.unit ? `${Math.round(v)}${p.unit}` : v.toFixed(2);
-  const sync = () => {
-    input.value = state.shape[p.key];
-    out.textContent = fmt(state.shape[p.key]);
-  };
-  input.addEventListener('input', () => {
-    state.shape[p.key] = Number(input.value);
-    state.preset = null;
-    out.textContent = fmt(Number(input.value));
-    renderPresets();
-    render();
-    save();
-  });
-  sync();
-  shapeSyncers.push(sync);
 }
 
-function syncShapeSliders() {
-  for (const s of shapeSyncers) s();
-}
+function syncShapeSliders() { for (const s of shapeSyncers) s(); }
 
 // толщина линии
 const lineInput = $('line'), lineOut = $('line-out');
@@ -905,27 +939,23 @@ lineOut.textContent = state.line.toFixed(3);
 lineInput.addEventListener('input', () => {
   state.line = Number(lineInput.value);
   lineOut.textContent = state.line.toFixed(3);
-  render();
-  save();
+  render(); save();
 });
 
 // переключатели
-const toggleHidden = $('toggle-hidden');
-const toggleLabels = $('toggle-labels');
-toggleHidden.setAttribute('aria-pressed', String(state.display.hidden));
-toggleLabels.setAttribute('aria-pressed', String(state.display.labels));
-toggleHidden.addEventListener('click', () => {
-  state.display.hidden = !state.display.hidden;
-  toggleHidden.setAttribute('aria-pressed', String(state.display.hidden));
-  render();
-  save();
-});
-toggleLabels.addEventListener('click', () => {
-  state.display.labels = !state.display.labels;
-  toggleLabels.setAttribute('aria-pressed', String(state.display.labels));
-  render();
-  save();
-});
+function bindToggle(id, key) {
+  const el = $(id);
+  el.setAttribute('aria-pressed', String(state.display[key]));
+  el.addEventListener('click', () => {
+    state.display[key] = !state.display[key];
+    el.setAttribute('aria-pressed', String(state.display[key]));
+    render(); save();
+  });
+}
+bindToggle('toggle-hidden', 'hidden');
+bindToggle('toggle-labels', 'labels');
+bindToggle('toggle-neck', 'neck');
+bindToggle('toggle-brow', 'brow');
 
 /* ==================================================================
  * Подложка
@@ -960,8 +990,7 @@ underlayOpacity.addEventListener('input', () => {
 underlayScale.addEventListener('input', () => {
   state.underlay.scale = Number(underlayScale.value);
   $('underlay-scale-out').textContent = Math.round(state.underlay.scale * 100) + '%';
-  applyUnderlayTransform();
-  save();
+  applyUnderlayTransform(); save();
 });
 underlayOpacity.value = state.underlay.opacity;
 underlayScale.value = state.underlay.scale;
@@ -1020,17 +1049,13 @@ window.addEventListener('drop', (e) => {
   const f = e.dataTransfer.files?.[0];
   if (f) loadUnderlay(f);
 });
-
 document.addEventListener('paste', (e) => {
   const item = [...(e.clipboardData?.items ?? [])].find((i) => i.type.startsWith('image/'));
-  if (item) {
-    e.preventDefault();
-    loadUnderlay(item.getAsFile());
-  }
+  if (item) { e.preventDefault(); loadUnderlay(item.getAsFile()); }
 });
 
 /* ==================================================================
- * Экспорт
+ * Экспорт / сброс
  * ================================================================== */
 
 $('save-png').addEventListener('click', async () => {
@@ -1076,29 +1101,33 @@ function download(blob, name) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
+$('reset-shape').addEventListener('click', () => {
+  state.shape = defaultShape();
+  state.preset = 'standard';
+  syncShapeSliders();
+  renderPresets();
+  render();
+  save();
+});
+
 /* ==================================================================
  * О методе
  * ================================================================== */
 
 $('about-btn').addEventListener('click', () => {
   alert(
-    'Голова Лумиса (2D, 360°)\n\n' +
-    '① — центральная линия\n' +
-    '② — уровень бровей / глаз\n' +
-    '③ — боковой круг (висок → затылок)\n' +
-    '④ — линия волос\n' +
-    '⑤ — линия носа\n' +
-    '⑥ — центральная линия лица\n' +
-    '⑦ — линия челюсти Ⓐ→Ⓑ→Ⓒ\n' +
-    '⑧ — линия скулы\n\n' +
-    'Перетаскивай мышью — вращение по кругу (yaw) и наклон (pitch).\n' +
-    'Кнопка «Крутить» — плавный автоповорот.\n' +
-    'Скрытые линии — приглушённый пунктир на обратной стороне.'
+    'Голова Лумиса (2D, расширенная)\n\n' +
+    'Череп: cut, top, back, r0\n' +
+    'Лицо: eye, eye_x, eye_width, forehead, forehead_w, face_width, nose_z, nose_w, brow_z, brow_w\n' +
+    'Челюсть: jaw_start, jaw_len, jaw_tilt, jaw_x, jaw_curve, cheek_z, cheek_x\n' +
+    'Подбородок: chin_len, chin_front, chin_w, chin_round, chin_tilt\n' +
+    'Шея (⑨): neck_w, neck_len\n\n' +
+    '⑨ Шея и ⑩ Брови включаются кнопками в разделе «Отображение».'
   );
 });
 
 /* ==================================================================
- * Перетаскивание мышью (yaw — бесконечное вращение с wrap-around)
+ * Перетаскивание
  * ================================================================== */
 
 let dragStart = null;
@@ -1118,8 +1147,7 @@ stage.addEventListener('pointermove', (e) => {
   pitchInput.value = state.view.pitch;
   $('yaw-out').textContent = Math.round(state.view.yaw) + '°';
   $('pitch-out').textContent = Math.round(state.view.pitch) + '°';
-  render();
-  updateViewName();
+  render(); updateViewName();
 });
 stage.addEventListener('pointerup', () => { dragStart = null; save(); });
 stage.addEventListener('pointercancel', () => { dragStart = null; save(); });
