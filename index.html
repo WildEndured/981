@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Шаг 2. Голова и шея</title>
+<title>Шаг 2. Круг черепа</title>
 <style>
   body {
     margin: 0; min-height: 100vh; background: #1e1e24; color: #e6e6e6;
@@ -23,7 +23,7 @@
   <input id="range" type="range" min="3" max="10" value="7" step="1">
 </div>
 
-<canvas id="canvas" width="360" height="600"></canvas>
+<canvas id="canvas" width="400" height="700"></canvas>
 
 <script>
 const canvas = document.getElementById('canvas');
@@ -68,101 +68,44 @@ function draw(parts) {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // ================= ШАГ 2: голова и шея =================
-  const headTop = top;
-  const headBot = top + step;           // низ первой части
-  const fifth = step / 5;               // 1/5 головы
+  // ================= ШАГ 2: круг черепа =================
+  // Голова = первая часть сетки, делится на 5 долей
+  const fifth = step / 5;
 
-  // Границы долей (1..5) внутри головы:
-  // доля 1: headTop .. headTop+fifth
-  // доля 2: ... 2*fifth
-  // доля 3: ... 3*fifth   <-- низ черепа
-  // доля 4: ... 4*fifth   <-- линия подбородка
-  // доля 5: ... 5*fifth   <-- шея
-  const y1 = headTop + fifth;
-  const y2 = headTop + fifth * 2;
-  const y3 = headTop + fifth * 3;       // низ черепа
-  const y4 = headTop + fifth * 4;       // линия подбородка
-  const y5 = headTop + fifth * 5;       // низ головы = начало 2-й части сетки
+  // Радиус = 3 доли
+  const r = fifth * 3;
 
-  // --- Вспомогательные линии долей (тонкий пунктир) ---
+  // Центр круга — на верхней границе головы, по оси
+  const cy = top;
+
+  // Вспомогательные линии долей внутри головы (пунктир)
   ctx.strokeStyle = 'rgba(232,176,75,0.30)';
   ctx.lineWidth = 1;
   ctx.setLineDash([3, 4]);
-  [y1, y2, y3, y4].forEach(y => {
+  for (let i = 1; i <= 5; i++) {
+    const y = top + fifth * i;
     ctx.beginPath();
-    ctx.moveTo(cx - 80, y);
-    ctx.lineTo(cx + 80, y);
+    ctx.moveTo(cx - r - 20, y);
+    ctx.lineTo(cx + r + 20, y);
     ctx.stroke();
-  });
+  }
   ctx.setLineDash([]);
 
-  // --- Череп: круг, занимающий доли 1–3 ---
-  // Диаметр = 3 доли, значит радиус = 1.5 доли,
-  // центр круга = headTop + 1.5 доли = ровно на границе y1.5
-  const skullR = fifth * 1.5;
-  const skullCy = headTop + skullR;
-
+  // Круг
   ctx.strokeStyle = '#e8b04b';
   ctx.lineWidth = 1.8;
   ctx.beginPath();
-  ctx.arc(cx, skullCy, skullR, 0, Math.PI * 2);
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.stroke();
 
-  // --- Линия подбородка: граница 4-й доли (y4) ---
-  ctx.strokeStyle = '#e8b04b';
-  ctx.lineWidth = 1.8;
-  ctx.beginPath();
-  ctx.moveTo(cx - skullR, y4);
-  ctx.lineTo(cx + skullR, y4);
-  ctx.stroke();
-
-  // Соединяем низ круга (y3) с линией подбородка (y4) — сужение челюсти
-  ctx.beginPath();
-  ctx.moveTo(cx - skullR, y3);
-  ctx.lineTo(cx - skullR * 0.75, y4);
-  ctx.moveTo(cx + skullR, y3);
-  ctx.lineTo(cx + skullR * 0.75, y4);
-  ctx.stroke();
-
-  // --- Линия глаз: центр головы ---
-  const eyesY = headTop + step / 2;
-  ctx.strokeStyle = '#7fb4e8';
-  ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  ctx.moveTo(cx - skullR - 10, eyesY);
-  ctx.lineTo(cx + skullR + 10, eyesY);
-  ctx.stroke();
-
-  ctx.fillStyle = '#7fb4e8';
-  ctx.font = '11px system-ui';
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('глаза', cx - skullR - 14, eyesY);
-
-  // --- Шея: последняя (5-я) доля головы, от y4 до y5 ---
-  const neckW = skullR * 0.5;
-  ctx.strokeStyle = '#e8b04b';
-  ctx.lineWidth = 1.8;
-  ctx.beginPath();
-  ctx.moveTo(cx - neckW, y4);
-  ctx.lineTo(cx - neckW, y5);
-  ctx.moveTo(cx + neckW, y4);
-  ctx.lineTo(cx + neckW, y5);
-  ctx.stroke();
-
-  // --- Подписи долей справа ---
+  // Подписи долей
   ctx.fillStyle = '#b8b8c0';
   ctx.font = '10px system-ui';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-
-  const labelX = cx + skullR + 8;
-  ctx.fillText('1/5', labelX, headTop + fifth * 0.5);
-  ctx.fillText('2/5', labelX, y1 + fifth * 0.5);
-  ctx.fillText('3/5 — низ черепа', labelX, y2 + fifth * 0.5);
-  ctx.fillText('4/5 — подбородок', labelX, y3 + fifth * 0.5);
-  ctx.fillText('5/5 — шея', labelX, y4 + fifth * 0.5);
+  for (let i = 1; i <= 5; i++) {
+    ctx.fillText(`${i}/5`, cx + r + 6, top + fifth * i - fifth / 2);
+  }
 }
 
 range.addEventListener('input', () => {
