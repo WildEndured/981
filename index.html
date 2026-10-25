@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Шаг 2. Голова (настройка)</title>
+<title>Шаг 2. Голова</title>
 <style>
   body {
     margin: 0; min-height: 100vh; background: #1e1e24; color: #e6e6e6;
@@ -11,35 +11,38 @@
     display: flex; flex-direction: column; align-items: center;
     padding: 20px; box-sizing: border-box;
   }
-  .controls {
-    display: flex; flex-direction: column; gap: 10px;
-    margin-bottom: 16px; font-size: .9rem;
-    background: #2a2a33; padding: 12px 16px; border-radius: 8px;
+  .controls { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 10px; 
+    margin-bottom: 16px; 
+    font-size: .9rem;
+    background: #2a2a33;
+    padding: 12px 16px;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 400px;
   }
-  .row { display: flex; align-items: center; gap: 12px; }
-  .row label { width: 160px; }
-  input[type="range"] { width: 150px; accent-color: #e8b04b; }
-  span.val { width: 30px; text-align: right; font-variant-numeric: tabular-nums; }
+  .control-row { display: flex; align-items: center; justify-content: space-between; }
+  input[type="range"] { width: 200px; accent-color: #e8b04b; }
+  span.val { display: inline-block; width: 30px; text-align: right; }
   canvas { background: #2a2a33; border-radius: 8px; }
 </style>
 </head>
 <body>
 
 <div class="controls">
-  <div class="row">
+  <div class="control-row">
     <label>Частей (голов):</label>
-    <input id="rangeParts" type="range" min="3" max="10" value="7" step="1">
-    <span class="val" id="valParts">7</span>
+    <div><input id="rangeParts" type="range" min="3" max="10" value="7" step="1"> <span class="val" id="valParts">7</span></div>
   </div>
-  <div class="row">
-    <label>Размер круга (головы):</label>
-    <input id="rangeRadius" type="range" min="0.8" max="2.0" value="1.5" step="0.1">
-    <span class="val" id="valRadius">1.5</span>
+  <div class="control-row">
+    <label>Размер круга:</label>
+    <div><input id="rangeRadius" type="range" min="1.0" max="2.0" value="1.5" step="0.1"> <span class="val" id="valRadius">1.5</span></div>
   </div>
-  <div class="row">
-    <label>Длина подбородка:</label>
-    <input id="rangeChin" type="range" min="3.0" max="4.8" value="4.0" step="0.1">
-    <span class="val" id="valChin">4.0</span>
+  <div class="control-row">
+    <label>Ширина подбородка:</label>
+    <div><input id="rangeChin" type="range" min="0.2" max="1.0" value="0.55" step="0.05"> <span class="val" id="valChin">0.55</span></div>
   </div>
 </div>
 
@@ -48,21 +51,18 @@
 <script>
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
-const elParts = document.getElementById('rangeParts');
-const elRadius = document.getElementById('rangeRadius');
-const elChin = document.getElementById('rangeChin');
+
+const rangeParts = document.getElementById('rangeParts');
 const valParts = document.getElementById('valParts');
+const rangeRadius = document.getElementById('rangeRadius');
 const valRadius = document.getElementById('valRadius');
+const rangeChin = document.getElementById('rangeChin');
 const valChin = document.getElementById('valChin');
 
 function draw() {
-  const parts = parseInt(elParts.value);
-  const rMult = parseFloat(elRadius.value);   // множитель радиуса (в долях)
-  const chinMult = parseFloat(elChin.value);  // уровень подбородка (в долях)
-
-  valParts.textContent = parts;
-  valRadius.textContent = rMult.toFixed(1);
-  valChin.textContent = chinMult.toFixed(1);
+  const parts = parseInt(rangeParts.value);
+  const radiusMultiplier = parseFloat(rangeRadius.value);
+  const chinMultiplier = parseFloat(rangeChin.value);
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -70,7 +70,7 @@ function draw() {
   const top = pad;
   const bottom = canvas.height - pad;
   const height = bottom - top;
-  const step = height / parts;
+  const step = height / parts;          
   const left = 20;
   const right = canvas.width - 20;
   const cx = (left + right) / 2;
@@ -103,27 +103,28 @@ function draw() {
   // ================= ШАГ 2: голова =================
   const fifth = step / 5;
   
-  const y0 = top;
-  const y4 = top + fifth * chinMult; // Уровень подбородка (по ползунку)
+  const y0 = top;                   // 0/5
+  const y4 = top + fifth * 4;       // 4/5 (линия подбородка)
 
-  // Радиус круга
-  const r = fifth * rMult;
+  // Круг черепа
+  // radiusMultiplier по умолчанию 1.5 (это 3/5 высоты головы)
+  const r = fifth * radiusMultiplier;
   const cy = y0 + r;                
 
-  // Челюсть начинается от экватора круга (самое широкое место)
+  // Ширина челюсти
   const jawWidthTop = r * 2;        
-  // Ширина подбородка (сужается относительно ширины круга)
-  const jawWidthBot = r * 1.1;      
+  // Ширина подбородка задается ползунком (от 0.2 до 1.0 от ширины на уровне круга)
+  const jawWidthBot = jawWidthTop * chinMultiplier;      
 
-  // Вспомогательные пунктирные линии (5 долей)
+  // Вспомогательные пунктирные линии
   ctx.strokeStyle = 'rgba(232,176,75,0.30)';
   ctx.lineWidth = 1;
   ctx.setLineDash([3, 4]);
   for (let i = 1; i <= 5; i++) {
     const y = top + fifth * i;
     ctx.beginPath();
-    ctx.moveTo(cx - 100, y);
-    ctx.lineTo(cx + 100, y);
+    ctx.moveTo(cx - r - 40, y);
+    ctx.lineTo(cx + r + 40, y);
     ctx.stroke();
   }
   ctx.setLineDash([]);
@@ -139,9 +140,13 @@ function draw() {
   ctx.strokeStyle = '#e8b04b'; 
   ctx.lineWidth = 1.8;
   ctx.beginPath();
+  // Начинаем от экватора круга (на уровне центра cy)
   ctx.moveTo(cx - jawWidthTop / 2, cy);
+  // Идем вниз к подбородку (4/5)
   ctx.lineTo(cx - jawWidthBot / 2, y4);
+  // Линия подбородка
   ctx.lineTo(cx + jawWidthBot / 2, y4);
+  // Идем наверх к экватору круга
   ctx.lineTo(cx + jawWidthTop / 2, cy);
   ctx.stroke();
 
@@ -151,14 +156,27 @@ function draw() {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   for (let i = 1; i <= 5; i++) {
-    ctx.fillText(`${i}/5`, cx + 110, top + fifth * i - fifth / 2);
+    ctx.fillText(`${i}/5`, cx + r + 10, top + fifth * i - fifth / 2);
   }
 }
 
-elParts.addEventListener('input', draw);
-elRadius.addEventListener('input', draw);
-elChin.addEventListener('input', draw);
+// Обработчики событий
+rangeParts.addEventListener('input', () => {
+  valParts.textContent = rangeParts.value;
+  draw();
+});
 
+rangeRadius.addEventListener('input', () => {
+  valRadius.textContent = rangeRadius.value;
+  draw();
+});
+
+rangeChin.addEventListener('input', () => {
+  valChin.textContent = rangeChin.value;
+  draw();
+});
+
+// Старт
 draw();
 </script>
 </body>
