@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Голова (Исправленная проекция осей)</title>
+<title>Голова: 3D-математика на 2D (Финальный масштаб)</title>
 <style>
   :root {
     --bg: #141419;
@@ -49,7 +49,7 @@
   .control { display: flex; flex-direction: column; gap: 4px; }
   .control-head { display: flex; justify-content: space-between; align-items: center; font-size: .8rem; }
   .badge {
-    background: var(--panel-2); border: 1px solid var(--border);
+    background: var(--panel); border: 1px solid var(--border);
     color: var(--accent); font-variant-numeric: tabular-nums;
     font-size: .7rem; font-weight: 600;
     padding: 1px 6px; border-radius: 999px;
@@ -111,7 +111,7 @@
 
 <header>
   <h1>Голова: 3D-математика на 2D</h1>
-  <p>Исправленная проекция (Z — высота)</p>
+  <p>Исправленный масштаб сферы</p>
 </header>
 
 <div class="app">
@@ -361,23 +361,18 @@ let params = {
 };
 
 function project(x, y, z, scale, cx, cy) {
-  // В loomis: X - влево/вправо, Y - глубина (перед/зад), Z - вверх/вниз
-  // Вращение вокруг вертикальной оси (Y)
   const radY = rad(params.rotY);
   const cosY = Math.cos(radY), sinY = Math.sin(radY);
   let x1 = x * cosY - y * sinY;
   let y1 = x * sinY + y * cosY;
   let z1 = z;
 
-  // Наклон вокруг горизонтальной оси (X)
   const radX = rad(params.rotX);
   const cosX = Math.cos(radX), sinX = Math.sin(radX);
   let x2 = x1;
   let y2 = y1 * cosX - z1 * sinX;
   let z2 = y1 * sinX + z1 * cosX;
   
-  // Возвращаем 2D координаты: X экран = X3D, Y экран = -Z3D (т.к. в Canvas Y растет вниз).
-  // Глубина для сортировки = Y3D
   return {
     x: cx + x2 * scale,
     y: cy - z2 * scale,
@@ -385,7 +380,6 @@ function project(x, y, z, scale, cx, cy) {
   };
 }
 
-// Проверка, скрыта ли точка
 function occluded(o3, target3, solid) {
   const { width, cut, r0, top, back } = solid;
   const o = [o3[0], o3[2], o3[1]]; 
@@ -444,6 +438,7 @@ function draw() {
   const height = canvas.height - pad * 2;
   const step = height / params.parts;
   
+  // Радиус сферы = 1. Сетка = step. Значит scale = step / 2.
   const scale = step / 2;
   const cx = canvas.width / 2;
   const cy = top + step; 
