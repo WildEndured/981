@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Шаг 2. Голова (Исправленная проекция)</title>
+<title>Голова: Внедрение логики three.js в 2D</title>
 <style>
   :root {
     --bg: #141419;
@@ -14,6 +14,8 @@
     --muted: #8a8a99;
     --border: #33333f;
     --danger: #e85b5b;
+    --red: #f03e6e;
+    --blue: #3b7cff;
   }
   * { box-sizing: border-box; }
   body {
@@ -29,7 +31,7 @@
   .app {
     display: flex; gap: 24px; align-items: flex-start;
     flex-wrap: wrap; justify-content: center;
-    width: 100%; max-width: 950px;
+    width: 100%; max-width: 1000px;
   }
   .controls {
     background: var(--panel); border: 1px solid var(--border);
@@ -81,18 +83,38 @@
     cursor: pointer; font-size: .75rem; transition: all .2s;
   }
   .btn-reset:hover { border-color: var(--danger); color: var(--danger); }
+  
+  .stage {
+    position: relative;
+    width: 500px;
+    height: 800px;
+    max-width: 100%;
+  }
   canvas {
+    display: block;
     background: var(--panel); border: 1px solid var(--border);
     border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
-    max-width: 100%; height: auto;
   }
+  .label-layer {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; overflow: hidden;
+  }
+  .guide-label {
+    position: absolute; top: 0; left: 0;
+    font-family: monospace; font-weight: bold; font-size: 14px;
+    text-shadow: 0 1px 3px #000;
+    transition: transform 0.1s ease-out;
+  }
+  .label-red { color: var(--red); }
+  .label-blue { color: var(--blue); }
+  .label-ink { color: var(--muted); }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Голова: 3D-математика на 2D</h1>
-  <p>Проекция сферы и челюсти на сетку</p>
+  <h1>Голова: Логика three.js в 2D</h1>
+  <p>Скрытие задних линий, сортировка по глубине и умные метки</p>
 </header>
 
 <div class="app">
@@ -168,11 +190,11 @@
     <h2>Камера</h2>
     <div class="control">
       <div class="control-head"><label>Поворот (Y)</label><span class="badge" id="valRotY">0°</span></div>
-      <input id="rangeRotY" type="range" min="-90" max="90" value="0" step="1">
+      <input id="rangeRotY" type="range" min="-180" max="180" value="0" step="1">
     </div>
     <div class="control">
-      <div class="control-head"><label>Наклон (Z)</label><span class="badge" id="valRotZ">0°</span></div>
-      <input id="rangeRotZ" type="range" min="-45" max="45" value="0" step="1">
+      <div class="control-head"><label>Наклон (X)</label><span class="badge" id="valRotX">0°</span></div>
+      <input id="rangeRotX" type="range" min="-45" max="45" value="0" step="1">
     </div>
 
     <div class="actions">
@@ -180,18 +202,23 @@
     </div>
   </div>
 
-  <canvas id="canvas" width="500" height="800"></canvas>
+  <div class="stage">
+    <canvas id="canvas" width="500" height="800"></canvas>
+    <div class="label-layer" id="labelLayer"></div>
+  </div>
 </div>
 
 <script>
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
+const labelLayer = document.getElementById('labelLayer');
 
-// --- МАТЕМАТИКА (АДАПТИРОВАННАЯ) ---
+// --- МАТЕМАТИКА (ИЗ LOOMIS.JS) ---
 const rad = (d) => (d * Math.PI) / 180;
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const len = (a) => Math.hypot(a[0], a[1], a[2]);
 const norm = (a) => { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 const mirror = (a) => [-a[0], a[1], a[2]];
 
 function makeBall({ cut, r0, top = 1, back = 1 }) {
@@ -205,8 +232,42 @@ function makeBall({ cut, r0, top = 1, back = 1 }) {
   };
 }
 
-function buildHead3D(p) {
-  const r0 = 0.68; 
+// Скругление углов (из исходного кода)
+function rounded(items, radius) {
+  const pts0 = [];
+  for (const it of items) {
+    if (!pts0.length || len(sub(it.p, pts0[pts0.length - 1].p)) > 1e-6) pts0.push(it);
+  }
+  if (pts0.length < 3) return { pts: pts0.map((it) => it.p), corners: [] };
+  const out = [pts0[0].p];
+  const corners = [];
+  for (let i = 1; i < pts0.length - 1; i++) {
+    const P = pts0[i - 1].p, V = pts0[i].p, N = pts0[i + 1].p;
+    const kk = pts0[i].k ?? 0;
+    const d1 = sub(V, P), d2 = sub(N, V);
+    const L1 = len(d1), L2 = len(d2);
+    const u1 = norm(d1), u2 = norm(d2);
+    const cos = Math.max(-1, Math.min(1, u1[0] * u2[0] + u1[1] * u2[1] + u1[2] * u2[2]));
+    const turn = Math.acos(cos);
+    if (turn < 1e-3) { out.push(V); corners.push({ v: V, p: V }); continue; }
+    const base = radius * Math.tan(Math.min(turn, Math.PI * 0.95) / 2);
+    const t1 = Math.min(Math.max(base, kk * 0.5 * L1), L1 * 0.5);
+    const t2 = Math.min(Math.max(base, kk * 0.5 * L2), L2 * 0.5);
+    const T1 = [V[0] - u1[0] * t1, V[1] - u1[1] * t1, V[2] - u1[2] * t1];
+    const T2 = [V[0] + u2[0] * t2, V[1] + u2[1] * t2, V[2] + u2[2] * t2];
+    const STEPS = 2 * (3 + Math.round(kk * 9));
+    for (let j = 0; j <= STEPS; j++) {
+      const s = j / STEPS, a = (1 - s) * (1 - s), b = 2 * s * (1 - s), c = s * s;
+      out.push([a * T1[0] + b * V[0] + c * T2[0], a * T1[1] + b * V[1] + c * T2[1], a * T1[2] + b * V[2] + c * T2[2]]);
+    }
+    corners.push({ v: V, p: [0.25 * T1[0] + 0.5 * V[0] + 0.25 * T2[0], 0.25 * T1[1] + 0.5 * V[1] + 0.25 * T2[1], 0.25 * T1[2] + 0.5 * V[2] + 0.25 * T2[2]] });
+  }
+  out.push(pts0[pts0.length - 1].p);
+  return { pts: out, corners };
+}
+
+function buildHead(p) {
+  const r0 = 0.68;
   const ball = makeBall({ cut: p.cut, r0, top: p.top, back: p.back });
   const { width, cut, stretch, normal } = ball;
   
@@ -214,22 +275,27 @@ function buildHead3D(p) {
   const zChin = -r0 - r0 * p.chin_len;
   const xPlane = cut;
 
-  const surf = (pt) => pt; // без lift
+  const surf = (pt) => {
+    const n = normal(...pt);
+    return [pt[0] + n[0]*0.01, pt[1] + n[1]*0.01, pt[2] + n[2]*0.01];
+  };
   const rim = (t, x = xPlane) => {
     const [, y, z] = stretch(0, r0 * Math.cos(t), r0 * Math.sin(t));
     return [x, y, z];
   };
 
   const lines = [];
+  const labels = {};
+  const add = (id, color, pts, closed = false) => lines.push({ id, color, closed, pts });
 
-  // 1. Центральная линия (профиль)
+  // 1. Центральная линия
   const pts1 = [];
   for (let i = 0; i < 64; i++) {
     const t = (i / 64) * Math.PI * 2;
     pts1.push(surf(stretch(0, Math.cos(t), Math.sin(t))));
   }
-  lines.push({ id: '1', pts: pts1, closed: true, color: '#e8b04b', isBackLine: false });
-
+  add('1', 'red', pts1, true);
+  
   // 2. Линия глаз
   const pts2 = [];
   const zu = zEye / ball.sz(zEye);
@@ -239,85 +305,153 @@ function buildHead3D(p) {
     const t = (i / 64) * Math.PI * 2;
     pts2.push(surf(stretch(half2 * Math.cos(t), rho * Math.sin(t), zu)));
   }
-  lines.push({ id: '2', pts: pts2, closed: true, color: '#e8b04b', isBackLine: true });
+  add('2', 'red', pts2, true);
 
   // 3. Боковые круги
   for (const sx of [1, -1]) {
     const x = sx * xPlane;
     const circle = [];
     for (let i = 0; i < 64; i++) circle.push(rim((i / 64) * Math.PI * 2, x));
-    lines.push({ id: '3', pts: circle, closed: true, color: 'rgba(232,176,75,0.4)', isBackLine: false });
+    add('3', 'red', circle, true);
   }
 
   // 7. Челюсть
-  const A = rim(rad(-90)); 
+  const A = rim(rad(-90));
   const tilt = rad(p.jaw_tilt);
   const B = [p.jaw_x, A[1] - p.jaw_len * Math.sin(tilt), A[2] - p.jaw_len * Math.cos(tilt)];
   const Cf = [p.chin_w, -p.chin_front, zChin];
+  const k = p.chin_round;
   
-  const rightSide = [A, B, Cf, mirror(B), mirror(A)];
-  lines.push({ id: '7', pts: rightSide, closed: false, color: '#7fb4e8', isBackLine: false });
+  const jaw = rounded([
+    { p: A }, { p: B, k: 0 }, { p: Cf, k },
+    { p: mirror(Cf), k }, { p: mirror(B), k: 0 }, { p: mirror(A) },
+  ], 0.05);
   
+  add('7', 'blue', jaw.pts);
+  const CfR = jaw.corners.find((c) => c.v === Cf)?.p ?? Cf;
+  const CfL = mirror(CfR);
+
   // 8. Щеки
   const zEyeU = zEye / ball.sz(zEye);
   const eyeEdge = [xPlane, -Math.sqrt(Math.max(0, r0 * r0 - zEyeU * zEyeU)), zEye];
-  lines.push({ id: '8', pts: [Cf, eyeEdge], closed: false, color: '#7fb4e8', isBackLine: false });
-  lines.push({ id: '8', pts: [mirror(Cf), mirror(eyeEdge)], closed: false, color: '#7fb4e8', isBackLine: false });
+  add('8', 'blue', [CfR, eyeEdge]);
+  add('8', 'blue', [CfL, mirror(eyeEdge)]);
 
   // 6. Центр лица
   const front = surf(stretch(0, -Math.sqrt(Math.max(0, 1 - zEyeU * zEyeU)), zEyeU));
   const chinMid = [0, -p.chin_front, zChin];
-  lines.push({ id: '6', pts: [front, chinMid], closed: false, color: '#e8b04b', isBackLine: false });
+  add('6', 'red', [front, chinMid]);
 
-  return { lines, chinMid };
+  // Лейблы (позиции для цифр)
+  const out = (p) => norm(p);
+  const BR = jaw.corners.find((c) => c.v === B)?.p ?? B;
+  const jawMid = lerp(BR, CfR, 0.5);
+  const jawDir = sub(CfR, BR);
+  const cheek = lerp(CfR, eyeEdge, 0.5);
+  const cheekDir = sub(eyeEdge, CfR);
+
+  labels['1'] = [{ p: pts1[16], n: normal(...pts1[16]), t: [0, -1, 0] }];
+  labels['2'] = [{ p: pts2[0], n: normal(...pts2[0]), t: [1, 0, 0] }];
+  labels['3'] = [{ p: rim(Math.PI/4, xPlane), n: [1, 0, 0], t: [0, -1, 1] }];
+  labels['6'] = [{ p: lerp(front, chinMid, 0.8), n: [0, -1, 0], t: sub(chinMid, front) }];
+  labels['7'] = [{ p: jawMid, n: out(jawMid), t: jawDir }, { p: mirror(jawMid), n: out(mirror(jawMid)), t: mirror(jawDir) }];
+  labels['8'] = [{ p: cheek, n: out(cheek), t: cheekDir }, { p: mirror(cheek), n: out(mirror(cheek)), t: mirror(cheekDir) }];
+  labels['A'] = [{ p: A, n: norm([1, 0, -0.4]) }, { p: mirror(A), n: norm([-1, 0, -0.4]) }];
+  labels['B'] = [{ p: BR, n: out(BR) }, { p: mirror(BR), n: out(mirror(BR)) }];
+  labels['C'] = [{ p: chinMid, n: norm([0, -1, -1]) }];
+
+  return { lines, labels, solid: { width, cut, r0, top: p.top, back: p.back } };
 }
 
-// --- ПРОЕКЦИЯ ---
+// --- ПРОЕКЦИЯ И ОТРИСОВКА ---
 let params = {
   parts: 7, cut: 0.73, top: 1.0, back: 1.0, eye: 0.0,
   jaw_x: 0.62, jaw_len: 0.40, jaw_tilt: 10,
-  chin_len: 1.0, chin_w: 0.22, chin_front: 0.85,
-  neckW: 0.4, neckL: 1.0, rotY: 0, rotZ: 0
+  chin_len: 1.0, chin_w: 0.22, chin_front: 0.85, chin_round: 0.5,
+  neckW: 0.4, neckL: 1.0, rotY: 0, rotX: 0
 };
 
-// Функция проекции 3D в 2D, привязанная к сетке
 function project(x, y, z, scale, cx, cy) {
-  // Вращение Y (влево/вправо)
   const radY = rad(params.rotY);
   const cosY = Math.cos(radY), sinY = Math.sin(radY);
-  let x1 = x * cosY - y * sinY; // В твоем коде Y - это глубина (перед/зад)
+  let x1 = x * cosY - y * sinY;
   let y1 = x * sinY + y * cosY;
-  let z1 = z; // Высота не меняется при повороте Y
+  let z1 = z;
 
-  // Вращение Z (наклон)
-  const radZ = rad(params.rotZ);
-  const cosZ = Math.cos(radZ), sinZ = Math.sin(radZ);
-  let x2 = x1 * cosZ - z1 * sinZ;
-  let z2 = x1 * sinZ + z1 * cosZ;
+  const radX = rad(params.rotX);
+  const cosX = Math.cos(radX), sinX = Math.sin(radX);
+  let y2 = y1 * cosX - z1 * sinX;
+  let z2 = y1 * sinX + z1 * cosX;
   
-  // В твоем коде Z - это верх/низ. В Canvas Y растет вниз, поэтому инвертируем.
   return {
-    x: cx + x2 * scale,
-    y: cy - z2 * scale, 
-    z: y1 // Глубина (для сортировки)
+    x: cx + x1 * scale,
+    y: cy - z2 * scale,
+    z: y2 // Глубина
   };
 }
+
+// Проверка, скрыта ли точка (из three.js кода)
+function occluded(o3, target3, solid) {
+  const { width, cut, r0, top, back } = solid;
+  const o = [o3[0], o3[2], o3[1]]; // В формат loomis (Y-глубина, Z-высота)
+  const q = [target3[0], target3[2], target3[1]];
+  let d = [q[0] - o[0], q[1] - o[1], q[2] - o[2]];
+  const dist = Math.hypot(...d);
+  if (dist < 1e-6) return false;
+  d = d.map((v) => v / dist);
+  const at = (t) => [o[0] + d[0] * t, o[1] + d[1] * t, o[2] + d[2] * t];
+  const sy = (y) => (y > 0 ? back : 1), sz = (z) => (z > 0 ? top : 1);
+  let hit = Infinity;
+  
+  for (const by of new Set([1, back])) {
+    for (const bz of new Set([1, top])) {
+      const k = [1 / (width * width), 1 / (by * by), 1 / (bz * bz)];
+      const a = k[0] * d[0] * d[0] + k[1] * d[1] * d[1] + k[2] * d[2] * d[2];
+      const b = 2 * (k[0] * o[0] * d[0] + k[1] * o[1] * d[1] + k[2] * o[2] * d[2]);
+      const c = k[0] * o[0] * o[0] + k[1] * o[1] * o[1] + k[2] * o[2] * o[2] - 1;
+      const disc = b * b - 4 * a * c;
+      if (disc < 0) continue;
+      const sq = Math.sqrt(disc);
+      for (const t of [(-b - sq) / (2 * a), (-b + sq) / (2 * a)]) {
+        const pt = at(t);
+        if (t > 0 && Math.abs(pt[0]) <= cut && sy(pt[1]) === by && sz(pt[2]) === bz) hit = Math.min(hit, t);
+      }
+    }
+  }
+  
+  if (Math.abs(d[0]) > 1e-9) {
+    for (const sx of [cut, -cut]) {
+      const t = (sx - o[0]) / d[0];
+      const pt = at(t);
+      const yu = pt[1] / sy(pt[1]), zu = pt[2] / sz(pt[2]);
+      if (t > 0 && yu * yu + zu * zu <= r0 * r0) hit = Math.min(hit, t);
+    }
+  }
+  return hit < dist - 0.02;
+}
+
+// Создание элементов для меток
+const LABELS = { '1': '①', '2': '②', '3': '③', '4': '④', '5': '⑤', '6': '⑥', '7': '⑦', '8': '⑧', 'A': 'Ⓐ', 'B': 'Ⓑ', 'C': 'Ⓒ' };
+const labelEls = {};
+Object.keys(LABELS).forEach(id => {
+  const el = document.createElement('div');
+  el.className = `guide-label label-${['1','2','3','6'].includes(id) ? 'red' : (['4','5','7','8'].includes(id) ? 'blue' : 'ink')}`;
+  el.textContent = LABELS[id];
+  el.style.display = 'none';
+  labelLayer.appendChild(el);
+  labelEls[id] = el;
+});
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   
   const pad = 20;
   const top = pad;
-  const bottom = canvas.height - pad;
-  const height = bottom - top;
+  const height = canvas.height - pad * 2;
   const step = height / params.parts;
   
-  // Размер головы = 1 часть сетки. 
-  // В 3D-модели диаметр сферы равен 2 (от -1 до 1). Значит scale = step / 2.
   const scale = step / 2;
   const cx = canvas.width / 2;
-  // Центр сферы по вертикали должен быть в начале второй части сетки (top + step).
-  // Но сфера имеет радиус 1, значит её центр смещен вниз на 1 единицу от верха.
   const cy = top + step; 
 
   // Сетка
@@ -336,27 +470,29 @@ function draw() {
   
   ctx.strokeStyle = 'rgba(255,255,255,0.06)';
   ctx.setLineDash([4, 6]);
-  ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, bottom); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, canvas.height - pad); ctx.stroke();
   ctx.setLineDash([]);
 
-  // Строим 3D
-  const head3D = buildHead3D(params);
+  // 3D-построение
+  const head3D = buildHead(params);
   
-  // Проецируем и сортируем по глубине (Z)
+  // Проекция и сортировка
   const allLines = [];
   head3D.lines.forEach(line => {
     const projected = line.pts.map(p => project(p[0], p[1], p[2], scale, cx, cy));
     const avgZ = projected.reduce((sum, p) => sum + p.z, 0) / projected.length;
     allLines.push({ ...line, projected, avgZ });
   });
-  allLines.sort((a, b) => a.avgZ - b.avgZ); // Рисуем сначала задние
+  allLines.sort((a, b) => a.avgZ - b.avgZ);
 
-  // Рисуем линии
+  // Камера в локальных координатах (для проверки скрытия)
+  const camLocal = [0, -2, 0]; // Камера смотрит спереди-сверху
+
+  // Рисование линий
   allLines.forEach(line => {
+    const isBack = line.avgZ > 0.1;
     ctx.beginPath();
-    // Если линия ушла на затылок, делаем её полупрозрачной
-    const isBack = line.avgZ > 0.1; 
-    ctx.strokeStyle = isBack ? 'rgba(138,138,153,0.3)' : line.color;
+    ctx.strokeStyle = isBack ? 'rgba(138,138,153,0.2)' : (line.color === 'red' ? '#f03e6e' : '#3b7cff');
     ctx.lineWidth = isBack ? 1 : 2;
     
     line.projected.forEach((p, i) => {
@@ -367,10 +503,8 @@ function draw() {
     ctx.stroke();
   });
 
-  // Шея (2D упрощенно от подбородка вниз)
-  const chinPt = project(head3D.chinMid[0], head3D.chinMid[1], head3D.chinMid[2], scale, cx, cy);
-  
-  // Ширина шеи в пикселях (зависит от scale)
+  // Шея
+  const chinPt = project(head3D.labels['C'][0].p[0], head3D.labels['C'][0].p[1], head3D.labels['C'][0].p[2], scale, cx, cy);
   const neckWidthPx = params.neckW * scale;
   const neckLenPx = params.neckL * scale;
   
@@ -384,11 +518,51 @@ function draw() {
   ctx.lineTo(chinPt.x + neckWidthPx / 2, chinPt.y);
   ctx.fill();
   ctx.stroke();
+
+  // Умные метки
+  const labelState = [];
+  Object.keys(labelEls).forEach(id => { labelEls[id].style.display = 'none'; });
+
+  Object.entries(head3D.labels).forEach(([id, cands]) => {
+    let best = null;
+    for (const c of cands) {
+      const p = project(c.p[0], c.p[1], c.p[2], scale, cx, cy);
+      const n = project(c.p[0] + c.n[0]*0.1, c.p[1] + c.n[1]*0.1, c.p[2] + c.n[2]*0.1, scale, cx, cy);
+      const facing = (n.x - p.x) * 0 + (n.y - p.y) * -1; // Упрощенно: смотрим на Z или Y
+      const hidden = occluded(camLocal, c.p, head3D.solid);
+      
+      const score = (c.p[2] > 0 ? 10 : 0) + (hidden ? -100 : 0) + facing;
+      if (!best || score > best.score) best = { ...c, score, hidden, p, n };
+    }
+    
+    if (best && !best.hidden) {
+      const el = labelEls[id];
+      if (!el) return;
+      
+      const dx = best.n.x - best.p.x;
+      const dy = best.n.y - best.p.y;
+      const dn = Math.hypot(dx, dy);
+      let nx = dn > 0.1 ? dx / dn : 0.6;
+      let ny = dn > 0.1 ? dy / dn : -0.8;
+      
+      let lx = best.p.x + nx * 20;
+      let ly = best.p.y + ny * 20;
+      
+      for (let k = 0; k < 3 && labelState.some(o => Math.hypot(o.x - lx, o.y - ly) < 20); k++) {
+        lx += nx * 15;
+        ly += ny * 15;
+      }
+      
+      el.style.display = 'block';
+      el.style.transform = `translate(${lx}px, ${ly}px) translate(-50%, -50%)`;
+      labelState.push({ x: lx, y: ly });
+    }
+  });
 }
 
 // --- UI ---
-const inputs = ['parts', 'cut', 'top', 'back', 'eye', 'jawX', 'jawLen', 'jawTilt', 'chinLen', 'chinW', 'chinFront', 'chinRound', 'neckW', 'neckL', 'rotY', 'rotZ'];
-const paramMap = { parts: 'parts', cut: 'cut', top: 'top', back: 'back', eye: 'eye', jawX: 'jaw_x', jawLen: 'jaw_len', jawTilt: 'jaw_tilt', chinLen: 'chin_len', chinW: 'chin_w', chinFront: 'chin_front', chinRound: 'chin_round', neckW: 'neckW', neckL: 'neckL', rotY: 'rotY', rotZ: 'rotZ' };
+const inputs = ['parts', 'cut', 'top', 'back', 'eye', 'jawX', 'jawLen', 'jawTilt', 'chinLen', 'chinW', 'chinFront', 'chinRound', 'neckW', 'neckL', 'rotY', 'rotX'];
+const paramMap = { parts: 'parts', cut: 'cut', top: 'top', back: 'back', eye: 'eye', jawX: 'jaw_x', jawLen: 'jaw_len', jawTilt: 'jaw_tilt', chinLen: 'chin_len', chinW: 'chin_w', chinFront: 'chin_front', chinRound: 'chin_round', neckW: 'neckW', neckL: 'neckL', rotY: 'rotY', rotX: 'rotX' };
 
 inputs.forEach(id => {
   const el = document.getElementById('range' + id.charAt(0).toUpperCase() + id.slice(1));
@@ -399,7 +573,7 @@ inputs.forEach(id => {
     const val = parseFloat(el.value);
     params[paramMap[id]] = val;
     if (valEl) {
-      if (id === 'jawTilt' || id === 'rotY' || id === 'rotZ') valEl.textContent = val + '°';
+      if (id === 'jawTilt' || id === 'rotY' || id === 'rotX') valEl.textContent = val + '°';
       else if (id === 'parts') valEl.textContent = val;
       else valEl.textContent = val.toFixed(2);
     }
