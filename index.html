@@ -3,22 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Голова Лумиса — 2D</title>
+<title>Фигура — 2D скелет</title>
 <style>
   :root {
-    --guide-red: #f03e6e;
-    --guide-blue: #3b7cff;
-    --guide-gray: #cdc7d6;
+    --bone: #3b7cff;
+    --joint: #f03e6e;
+    --joint-fill: #ffe0ea;
+    --bone-fill: #eaf2ff;
     --bg: #faf8fc;
     --panel: #ffffff;
     --text: #2a2430;
     --muted: #8a8394;
     --line: #e5e1eb;
     --accent: #7a4dff;
+    --highlight: #ffb020;
   }
-
   * { box-sizing: border-box; }
-
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -30,69 +30,50 @@
     height: 100vh;
     overflow: hidden;
   }
-
   header {
     grid-column: 1 / -1;
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    gap: 12px;
+    display: flex; align-items: center;
+    padding: 0 16px; gap: 12px;
     border-bottom: 1px solid var(--line);
     background: var(--panel);
   }
-  header h1 {
-    font-size: 15px;
-    font-weight: 600;
-    margin: 0;
-    flex: 1;
-  }
+  header h1 { font-size: 15px; font-weight: 600; margin: 0; flex: 1; }
   header .btn { font-size: 13px; padding: 6px 10px; }
 
   #stage {
-    position: relative;
-    overflow: hidden;
-    background:
-      radial-gradient(circle at 50% 45%, #ffffff 0%, var(--bg) 70%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: relative; overflow: hidden;
+    background: radial-gradient(circle at 50% 45%, #ffffff 0%, var(--bg) 70%);
     touch-action: none;
+  }
+  #stage svg { width: 100%; height: 100%; display: block; user-select: none; }
+
+  #stage .bone { stroke: var(--bone); stroke-linecap: round; fill: none; }
+  #stage .bone-shadow { stroke: #fff; stroke-linecap: round; fill: none; }
+  #stage .joint {
+    fill: var(--joint-fill);
+    stroke: var(--joint);
+    stroke-width: 2.5;
     cursor: grab;
   }
-  #stage:active { cursor: grabbing; }
-
-  #stage svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-    user-select: none;
-  }
-
-  #stage .label {
-    font-size: 13px;
+  #stage .joint:hover { fill: #ffd0e0; }
+  #stage .joint.dragging { fill: var(--highlight); cursor: grabbing; }
+  #stage .joint-label {
+    font-size: 11px;
     font-weight: 600;
+    fill: var(--muted);
+    pointer-events: none;
     paint-order: stroke;
     stroke: #fff;
     stroke-width: 3px;
     stroke-linejoin: round;
-    pointer-events: none;
-    user-select: none;
   }
-  .label--red  { fill: var(--guide-red); }
-  .label--blue { fill: var(--guide-blue); }
-  .label--ink  { fill: var(--text); }
 
   #drop-cover {
-    position: absolute;
-    inset: 0;
+    position: absolute; inset: 0;
     background: rgba(122, 77, 255, 0.15);
     border: 2px dashed var(--accent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 600; color: var(--accent);
     pointer-events: none;
   }
   #drop-cover[hidden] { display: none; }
@@ -105,154 +86,77 @@
   }
   section { padding: 0 16px 12px; }
   section h2 {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    font-weight: 600;
-    margin: 14px 0 8px;
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted);
+    font-weight: 600; margin: 14px 0 8px;
   }
 
   .btn {
-    font: inherit;
-    font-size: 12px;
-    padding: 7px 10px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: #fff;
-    color: var(--text);
-    cursor: pointer;
-    transition: all 0.12s;
+    font: inherit; font-size: 12px; padding: 7px 10px;
+    border: 1px solid var(--line); border-radius: 8px;
+    background: #fff; color: var(--text);
+    cursor: pointer; transition: all 0.12s;
   }
   .btn:hover { border-color: var(--accent); color: var(--accent); }
   .btn:disabled { opacity: 0.4; cursor: default; }
   .btn[aria-pressed="true"] {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
+    background: var(--accent); border-color: var(--accent); color: #fff;
   }
 
-  .row {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    margin-bottom: 8px;
-  }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 
   .slider {
-    display: grid;
-    grid-template-columns: 1fr 44px;
-    grid-template-rows: auto auto;
-    gap: 2px 8px;
-    margin-bottom: 10px;
+    display: grid; grid-template-columns: 1fr 48px;
+    gap: 2px 8px; margin-bottom: 10px;
     align-items: center;
   }
-  .slider label {
-    grid-column: 1 / -1;
-    font-size: 12px;
-    color: var(--text);
-  }
-  .slider input[type="range"] {
-    width: 100%;
-    height: 20px;
-    accent-color: var(--accent);
-  }
+  .slider label { grid-column: 1 / -1; font-size: 12px; }
+  .slider input[type="range"] { width: 100%; height: 20px; accent-color: var(--accent); }
   .slider output {
-    text-align: right;
-    font-size: 11px;
-    color: var(--muted);
+    text-align: right; font-size: 11px; color: var(--muted);
     font-variant-numeric: tabular-nums;
   }
 
-  .group-h {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    font-weight: 600;
-    margin: 12px 0 6px;
-  }
-
-  .hint {
-    font-size: 12px;
-    color: var(--muted);
-    line-height: 1.4;
-    margin-bottom: 8px;
-  }
+  .hint { font-size: 12px; color: var(--muted); line-height: 1.4; margin-bottom: 8px; }
 
   @media (max-width: 800px) {
-    body {
-      grid-template-columns: 1fr;
-      grid-template-rows: 48px 1fr auto;
-      height: 100dvh;
-    }
-    aside {
-      border-left: none;
-      border-top: 1px solid var(--line);
-      max-height: 45vh;
-    }
+    body { grid-template-columns: 1fr; grid-template-rows: 48px 1fr auto; height: 100dvh; }
+    aside { border-left: none; border-top: 1px solid var(--line); max-height: 45vh; }
   }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Голова Лумиса — 2D</h1>
-  <button class="btn" id="about-btn" type="button">О методе</button>
+  <h1>Фигура — 2D скелет</h1>
+  <button class="btn" id="reset-pose" type="button">Сброс позы</button>
 </header>
 
 <main id="stage">
-  <svg id="canvas" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
+  <svg id="canvas" viewBox="0 0 600 800" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
   <div id="drop-cover" hidden>Отпустите, чтобы вставить</div>
 </main>
 
 <aside>
   <section>
-    <h2>Поворот</h2>
-    <div class="slider">
-      <label>Yaw (влево-вправо)</label>
-      <input type="range" id="yaw" min="-60" max="60" step="1" value="0">
-      <output id="yaw-out">0°</output>
-    </div>
-    <div class="slider">
-      <label>Pitch (вверх-вниз)</label>
-      <input type="range" id="pitch" min="-30" max="30" step="1" value="0">
-      <output id="pitch-out">0°</output>
-    </div>
-    <div class="row">
-      <button class="btn" data-angle="front" type="button">Анфас</button>
-      <button class="btn" data-angle="three" type="button">Три четверти</button>
-      <button class="btn" data-angle="side" type="button">Профиль</button>
-      <button class="btn" id="reset-view" type="button">Сброс</button>
-    </div>
-  </section>
-
-  <section>
-    <h2>Пресеты формы</h2>
+    <h2>Пресеты позы</h2>
     <div class="row" id="presets"></div>
   </section>
 
   <section>
-    <h2>Форма</h2>
-    <div id="shape-sliders"></div>
+    <h2>Пропорции</h2>
+    <div id="prop-sliders"></div>
   </section>
 
   <section>
-    <h2>Отображение</h2>
-    <div class="slider">
-      <label>Толщина линии</label>
-      <input type="range" id="line" min="0.004" max="0.04" step="0.001" value="0.012">
-      <output id="line-out">0.012</output>
-    </div>
-    <div class="row">
-      <button class="btn" id="toggle-hidden" aria-pressed="true" type="button">Скрытые линии</button>
-      <button class="btn" id="toggle-labels" aria-pressed="true" type="button">Подписи</button>
-    </div>
+    <h2>Углы (правые)</h2>
+    <div id="angle-sliders"></div>
+    <p class="hint">Левая сторона отражает правую. Чтобы сделать позу асимметричной — перетаскивай суставы мышью.</p>
   </section>
 
   <section>
     <h2>Подложка</h2>
-    <p class="hint" id="underlay-hint">Перетащи файл, вставь из буфера или выбери ниже</p>
+    <p class="hint" id="underlay-hint">Перетащи файл или выбери ниже</p>
     <div class="row">
       <button class="btn" id="underlay-pick" type="button">Выбрать</button>
       <button class="btn" id="underlay-remove" type="button" hidden>Удалить</button>
@@ -281,281 +185,153 @@
 
 <script type="module">
 /* ==================================================================
- * loomis.js — математика формы (без зависимости от рендера)
- * ================================================================== */
+ * Модель скелета
+ * ==================================================================
+ * Иерархия (каждый сустав знает родителя и локальные координаты):
+ *   pelvis (корень)
+ *   ├── spine
+ *   │   └── chest
+ *   │       ├── neck
+ *   │       │   └── head
+ *   │       ├── shoulderR → elbowR → wristR
+ *   │       └── shoulderL → elbowL → wristL
+ *   ├── hipR → kneeR → ankleR → toeR
+ *   └── hipL → kneeL → ankleL → toeL
+ *
+ * Координаты в локальной системе родителя. Единица = 1/8 роста примерно.
+ * Все координаты — «вперёд/вверх», но в 2D мы работаем в экранных (x вправо, y вниз).
+ * Для ясности используем модель «мир: x вправо, y вверх», а на экран флипаем y.
+ */
 
-const SHAPE_PARAMS = [
-  { key: 'cut',        label: 'Ширина головы',          min: 0.4,  max: 0.95, step: 0.01, def: 0.73 },
-  { key: 'top',        label: 'Высота макушки',         min: 0.8,  max: 1.4,  step: 0.01, def: 1 },
-  { key: 'back',       label: 'Выступ затылка',         min: 0.8,  max: 1.4,  step: 0.01, def: 1 },
-  { key: 'r0',         label: '③ Размер круга',         min: 0.3,  max: 0.95, step: 0.01, def: 0.68 },
-  { key: 'eye',        label: '② Уровень глаз',         min: -0.9, max: 0.9,  step: 0.01, def: 0 },
-  { key: 'forehead',   label: '④ Линия волос',          min: 0.3,  max: 1.4,  step: 0.01, def: 1 },
-  { key: 'jaw_start',  label: 'Ⓐ Начало челюсти',       min: -60,  max: 60,   step: 1,    def: 0,  unit: '°' },
-  { key: 'jaw_len',    label: '⑦ Длина челюсти',        min: 0,    max: 1.2,  step: 0.01, def: 0.4 },
-  { key: 'jaw_tilt',   label: '⑦ Наклон челюсти',       min: -40,  max: 70,   step: 1,    def: 10, unit: '°' },
-  { key: 'jaw_x',      label: 'Ⓑ Ширина скулы',         min: 0.2,  max: 0.95, step: 0.01, def: 0.62 },
-  { key: 'chin_len',   label: 'Ⓒ Высота подбородка',    min: 0.5,  max: 1.5,  step: 0.01, def: 1 },
-  { key: 'chin_front', label: 'Ⓒ Выступ подбородка',    min: 0.4,  max: 1.4,  step: 0.01, def: 0.85 },
-  { key: 'chin_w',     label: 'Ⓒ Ширина подбородка',    min: 0.03, max: 0.6,  step: 0.01, def: 0.22 },
-  { key: 'chin_round', label: 'Ⓒ Скругление подбородка', min: 0,   max: 1,    step: 0.01, def: 0.5 },
+const BONES = {
+  pelvis:    { parent: null,       local: [0, 0],              name: 'Таз' },
+  spine:     { parent: 'pelvis',   local: [0, 40],             name: 'Поясница' },
+  chest:     { parent: 'spine',    local: [0, 55],             name: 'Грудь' },
+  neck:      { parent: 'chest',    local: [0, 30],             name: 'Шея' },
+  head:      { parent: 'neck',     local: [0, 25],             name: 'Голова' },
+  shoulderR: { parent: 'chest',    local: [28, 20],            name: 'Плечо R' },
+  elbowR:    { parent: 'shoulderR',local: [55, 0],             name: 'Локоть R' },
+  wristR:    { parent: 'elbowR',   local: [50, 0],             name: 'Кисть R' },
+  shoulderL: { parent: 'chest',    local: [-28, 20],           name: 'Плечо L' },
+  elbowL:    { parent: 'shoulderL',local: [-55, 0],            name: 'Локоть L' },
+  wristL:    { parent: 'elbowL',   local: [-50, 0],            name: 'Кисть L' },
+  hipR:      { parent: 'pelvis',   local: [18, -8],            name: 'Бедро R' },
+  kneeR:     { parent: 'hipR',     local: [0, -75],            name: 'Колено R' },
+  ankleR:    { parent: 'kneeR',    local: [0, -70],            name: 'Стопа R' },
+  toeR:      { parent: 'ankleR',   local: [22, -10],           name: 'Носок R' },
+  hipL:      { parent: 'pelvis',   local: [-18, -8],           name: 'Бедро L' },
+  kneeL:     { parent: 'hipL',     local: [0, -75],            name: 'Колено L' },
+  ankleL:    { parent: 'kneeL',    local: [0, -70],            name: 'Стопа L' },
+  toeL:      { parent: 'ankleL',   local: [-22, -10],          name: 'Носок L' },
+};
+
+const BONE_ORDER = ['pelvis', 'spine', 'chest', 'neck', 'head',
+  'shoulderR', 'elbowR', 'wristR', 'shoulderL', 'elbowL', 'wristL',
+  'hipR', 'kneeR', 'ankleR', 'toeR', 'hipL', 'kneeL', 'ankleL', 'toeL'];
+
+/* Пропорции: масштабныe множители по группам */
+const PROPS = [
+  { key: 'torso',   label: 'Торс',       min: 0.6, max: 1.4, def: 1 },
+  { key: 'head',    label: 'Голова',     min: 0.6, max: 1.5, def: 1 },
+  { key: 'arm',     label: 'Руки',       min: 0.6, max: 1.4, def: 1 },
+  { key: 'leg',     label: 'Ноги',       min: 0.6, max: 1.4, def: 1 },
+  { key: 'shoulder',label: 'Плечи (шир.)',min: 0.6, max: 1.4, def: 1 },
+  { key: 'hip',     label: 'Бёдра (шир.)',min: 0.6, max: 1.4, def: 1 },
 ];
 
-const LINE_PARAM = { min: 0.004, max: 0.04, step: 0.001, def: 0.012 };
-const RED = 'red', BLUE = 'blue';
-const CORNER = 0.05;
-const MAX_Z = 0.98;
-const LOOP_SEGMENTS = 96;
+/* Углы (в градусах, поворот сегмента относительно родителя).
+ * Плоскость: 0 = вверх, положительный — вправо.
+ * Для рук/ног: 0 — «прямо вниз» вдоль локальной оси. */
+const ANGLES = [
+  { key: 'spine',    label: 'Наклон корпуса', min: -30, max: 30, def: 0 },
+  { key: 'chest',    label: 'Наклон груди',   min: -20, max: 20, def: 0 },
+  { key: 'neck',     label: 'Шея',            min: -20, max: 20, def: 0 },
+  { key: 'head',     label: 'Голова',         min: -30, max: 30, def: 0 },
+  { key: 'shoulderR',label: 'Плечо R',        min: -180, max: 180, def: 0 },
+  { key: 'elbowR',   label: 'Локоть R',       min: -150, max: 150, def: 0 },
+  { key: 'wristR',   label: 'Кисть R',        min: -60, max: 60, def: 0 },
+  { key: 'hipR',     label: 'Бедро R',        min: -90, max: 90, def: 0 },
+  { key: 'kneeR',    label: 'Колено R',       min: -90, max: 90, def: 0 },
+  { key: 'ankleR',   label: 'Стопа R',        min: -45, max: 45, def: 0 },
+];
 
-const rad = (d) => (d * Math.PI) / 180;
-const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const len = (a) => Math.hypot(a[0], a[1], a[2]);
-const norm = (a) => { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
-const mirror = (a) => [-a[0], a[1], a[2]];
-const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-
-function defaultShape() {
-  const s = {};
-  for (const p of SHAPE_PARAMS) s[p.key] = p.def;
-  return s;
-}
-
-function clampShape(input) {
-  const s = {};
-  for (const p of SHAPE_PARAMS) {
-    const v = Number(input?.[p.key]);
-    s[p.key] = Number.isFinite(v) ? Math.min(p.max, Math.max(p.min, v)) : p.def;
-  }
-  return s;
-}
-
-function makeBall({ cut, r0, top = 1, back = 1 }) {
-  const width = cut / Math.sqrt(1 - r0 * r0);
-  const sy = (y) => (y > 0 ? back : 1);
-  const sz = (z) => (z > 0 ? top : 1);
-  return {
-    width, cut, r0, top, back, sy, sz,
-    stretch: (x, y, z) => [x, y * sy(y), z * sz(z)],
-    normal: (x, y, z) => norm([x / (width * width), y / (sy(y) ** 2), z / (sz(z) ** 2)]),
-  };
-}
-
-function rounded(items, radius) {
-  const pts0 = [];
-  for (const it of items) {
-    if (!pts0.length || len(sub(it.p, pts0[pts0.length - 1].p)) > 1e-6) pts0.push(it);
-  }
-  if (pts0.length < 3) return { pts: pts0.map((it) => it.p), corners: [] };
-
-  const out = [pts0[0].p];
-  const corners = [];
-  for (let i = 1; i < pts0.length - 1; i++) {
-    const P = pts0[i - 1].p, V = pts0[i].p, N = pts0[i + 1].p;
-    const kk = pts0[i].k ?? 0;
-    const d1 = sub(V, P), d2 = sub(N, V);
-    const L1 = len(d1), L2 = len(d2);
-    const u1 = norm(d1), u2 = norm(d2);
-    const cos = Math.max(-1, Math.min(1, u1[0] * u2[0] + u1[1] * u2[1] + u1[2] * u2[2]));
-    const turn = Math.acos(cos);
-    if (turn < 1e-3) { out.push(V); corners.push({ v: V, p: V }); continue; }
-    const base = radius * Math.tan(Math.min(turn, Math.PI * 0.95) / 2);
-    const t1 = Math.min(Math.max(base, kk * 0.5 * L1), L1 * 0.5);
-    const t2 = Math.min(Math.max(base, kk * 0.5 * L2), L2 * 0.5);
-    const T1 = [V[0] - u1[0] * t1, V[1] - u1[1] * t1, V[2] - u1[2] * t1];
-    const T2 = [V[0] + u2[0] * t2, V[1] + u2[1] * t2, V[2] + u2[2] * t2];
-    const STEPS = 2 * (3 + Math.round(kk * 9));
-    for (let j = 0; j <= STEPS; j++) {
-      const s = j / STEPS, a = (1 - s) * (1 - s), b = 2 * s * (1 - s), c = s * s;
-      out.push([a * T1[0] + b * V[0] + c * T2[0], a * T1[1] + b * V[1] + c * T2[1], a * T1[2] + b * V[2] + c * T2[2]]);
-    }
-    corners.push({ v: V, p: [0.25 * T1[0] + 0.5 * V[0] + 0.25 * T2[0], 0.25 * T1[1] + 0.5 * V[1] + 0.25 * T2[1], 0.25 * T1[2] + 0.5 * V[2] + 0.25 * T2[2]] });
-  }
-  out.push(pts0[pts0.length - 1].p);
-  return { pts: out, corners };
-}
-
-function buildHead(input, lift = 0) {
-  const s = clampShape(input);
-  const ball = makeBall(s);
-  const { width, cut, r0, stretch, normal } = ball;
-
-  const zEye = s.eye * r0;
-  const zHair = Math.min(s.forehead * r0, MAX_Z * s.top);
-  const zNose = -r0;
-  const zChin = -r0 - r0 * s.chin_len;
-  const xPlane = cut + lift;
-
-  const surf = (p) => {
-    const n = normal(...p);
-    return [p[0] + n[0] * lift, p[1] + n[1] * lift, p[2] + n[2] * lift];
-  };
-  const rim = (t, x = xPlane) => {
-    const [, y, z] = stretch(0, r0 * Math.cos(t), r0 * Math.sin(t));
-    return [x, y, z];
-  };
-
-  const lines = [];
-  const labels = {};
-  const add = (id, color, pts, closed = false) => lines.push({ id, color, closed, pts });
-
-  const ring = (z) => {
-    const zu = z / ball.sz(z);
-    const rho = Math.sqrt(Math.max(0, 1 - zu * zu));
-    const half = width * rho;
-    const at = (t) => surf(stretch(half * Math.cos(t), rho * Math.sin(t), zu));
-    if (half <= cut * (1 + 1e-6)) {
-      const pts = [];
-      for (let i = 0; i < LOOP_SEGMENTS; i++) pts.push(at((i / LOOP_SEGMENTS) * Math.PI * 2));
-      return [{ pts, closed: true }];
-    }
-    const t0 = Math.acos(cut / half);
-    const arc = (a, b) => {
-      const n = Math.max(8, Math.round((LOOP_SEGMENTS * (b - a)) / (Math.PI * 2)));
-      const pts = [];
-      for (let i = 0; i <= n; i++) pts.push(at(a + ((b - a) * i) / n));
-      return { pts, closed: false };
-    };
-    return [arc(-Math.PI + t0, -t0), arc(t0, Math.PI - t0)];
-  };
-
-  const ringLabels = (parts) => {
-    const out = [];
-    for (const part of parts) {
-      const fr = part.closed ? [0.125, 0.375, 0.625, 0.875] : [0.28, 0.72];
-      const last = part.pts.length - 1;
-      for (const f of fr) {
-        const i = Math.round(f * last);
-        const p = part.pts[i];
-        out.push({ p, n: normal(...p), t: sub(part.pts[Math.min(last, i + 1)], part.pts[Math.max(0, i - 1)]) });
-      }
-    }
-    return out;
-  };
-
-  // ① центральная линия
-  {
-    const pts = [];
-    for (let i = 0; i < LOOP_SEGMENTS; i++) {
-      const t = (i / LOOP_SEGMENTS) * Math.PI * 2;
-      pts.push(surf(stretch(0, Math.cos(t), Math.sin(t))));
-    }
-    add('1', RED, pts, true);
-    labels['1'] = [22.5, 67.5, 112.5, 157.5].map((d) => {
-      const t = rad(d);
-      const p = surf(stretch(0, Math.cos(t), Math.sin(t)));
-      return { p, n: normal(...p), t: stretch(0, -Math.sin(t), Math.cos(t)) };
-    });
-  }
-
-  // ② ④ ⑤
-  for (const [id, color, z] of [['2', RED, zEye], ['4', BLUE, zHair], ['5', BLUE, zNose]]) {
-    const parts = ring(z);
-    for (const part of parts) add(id, color, part.pts, part.closed);
-    labels[id] = ringLabels(parts);
-  }
-
-  // ③ боковые круги и кресты
-  labels['3'] = [];
-  for (const sx of [1, -1]) {
-    const x = sx * xPlane;
-    const circle = [];
-    for (let i = 0; i < LOOP_SEGMENTS; i++) circle.push(rim((i / LOOP_SEGMENTS) * Math.PI * 2, x));
-    add('3', RED, circle, true);
-    add('3', RED, [rim(Math.PI / 2, x), rim(-Math.PI / 2, x)]);
-    add('3', RED, [rim(Math.PI, x), rim(0, x)]);
-    labels['3'].push({ p: rim(Math.PI / 4, x), n: [sx, 0, 0], t: [0, -1, 1] });
-  }
-
-  // контрольные точки челюсти
-  const A = rim(rad(-90 - s.jaw_start));
-  const tilt = rad(s.jaw_tilt);
-  const B = [s.jaw_x, A[1] - s.jaw_len * Math.sin(tilt), A[2] - s.jaw_len * Math.cos(tilt)];
-  const Cf = [s.chin_w, -s.chin_front, zChin];
-
-  // ⑦ челюсть
-  const k = s.chin_round;
-  const jaw = rounded([
-    { p: A }, { p: B, k: 0 }, { p: Cf, k },
-    { p: mirror(Cf), k }, { p: mirror(B), k: 0 }, { p: mirror(A) },
-  ], CORNER);
-  add('7', BLUE, jaw.pts);
-  const cornerOf = (v) => jaw.corners.find((c) => c.v === v)?.p ?? v;
-  const CfR = cornerOf(Cf);
-  const CfL = mirror(CfR);
-
-  // ⑧ скула
-  const zEyeU = zEye / ball.sz(zEye);
-  const eyeEdge = [xPlane, -Math.sqrt(Math.max(0, r0 * r0 - zEyeU * zEyeU)), zEye];
-  add('8', BLUE, [CfR, eyeEdge]);
-  add('8', BLUE, [CfL, mirror(eyeEdge)]);
-
-  // ⑥ центральная линия лица
-  const front = surf(stretch(0, -Math.sqrt(Math.max(0, 1 - zEyeU * zEyeU)), zEyeU));
-  const chinMid = [0, -s.chin_front, zChin];
-  add('6', RED, [front, chinMid]);
-
-  // метки
-  const out = (p) => norm(p);
-  const BR = cornerOf(B);
-  const jawMid = lerp(BR, CfR, 0.5);
-  const jawDir = sub(CfR, BR);
-  const cheek = lerp(CfR, eyeEdge, 0.5);
-  const cheekDir = sub(eyeEdge, CfR);
-  labels['6'] = [{ p: lerp(front, chinMid, 0.8), n: [0, -1, 0], t: sub(chinMid, front) }];
-  labels['7'] = [{ p: jawMid, n: out(jawMid), t: jawDir }, { p: mirror(jawMid), n: out(mirror(jawMid)), t: mirror(jawDir) }];
-  labels['8'] = [{ p: cheek, n: out(cheek), t: cheekDir }, { p: mirror(cheek), n: out(mirror(cheek)), t: mirror(cheekDir) }];
-  labels['A'] = [{ p: A, n: norm([1, 0, -0.4]) }, { p: mirror(A), n: norm([-1, 0, -0.4]) }];
-  labels['B'] = [{ p: BR, n: out(BR) }, { p: mirror(BR), n: out(mirror(BR)) }];
-  labels['C'] = [{ p: chinMid, n: norm([0, -1, -1]) }];
-
-  return { lines, labels, solid: { width, cut, r0, top: s.top, back: s.back } };
-}
-
-/* ==================================================================
- * Пресеты формы
- * ================================================================== */
-
-const PRESETS = [
-  { id: 'standard', label: 'Стандарт', values: {} },
-  { id: 'round',    label: 'Круглое',  values: { cut: 0.85, top: 0.95, back: 0.95, r0: 0.75, jaw_x: 0.75, chin_w: 0.3, chin_round: 0.8 } },
-  { id: 'long',     label: 'Вытянутое', values: { cut: 0.65, top: 1.15, back: 1.05, r0: 0.62, jaw_x: 0.55, chin_len: 1.2, chin_front: 0.9 } },
-  { id: 'square',   label: 'Квадратное', values: { cut: 0.85, top: 1.05, back: 1.05, r0: 0.7, jaw_x: 0.8, jaw_tilt: 30, chin_w: 0.35, chin_round: 0.1 } },
-  { id: 'child',    label: 'Детское',  values: { cut: 0.8, top: 1.05, back: 0.95, r0: 0.78, eye: -0.3, jaw_x: 0.7, chin_len: 0.7, chin_w: 0.3, chin_round: 0.9 } },
+/* Пресеты поз: {angleKey: value}. Симметричные — R и L одинаковые */
+const POSES = [
+  { id: 'stand', label: 'Стоя', values: {} },
+  { id: 'walk', label: 'Идёт', values: {
+    hipR: 25, kneeR: -35, ankleR: 10,
+    hipL: -25, kneeL: -15, ankleL: -10,
+    shoulderR: -20, elbowR: -30,
+    shoulderL: 20, elbowL: 30,
+    spine: 5,
+  }},
+  { id: 'run', label: 'Бежит', values: {
+    hipR: 45, kneeR: -70, ankleR: 20,
+    hipL: -35, kneeL: -60, ankleL: -20,
+    shoulderR: -50, elbowR: -80,
+    shoulderL: 50, elbowL: 80,
+    spine: 15,
+  }},
+  { id: 'sit', label: 'Сидит', values: {
+    hipR: 90, kneeR: -90, ankleR: 0,
+    hipL: 90, kneeL: -90, ankleL: 0,
+    spine: -5,
+    shoulderR: 10, elbowR: 40,
+    shoulderL: -10, elbowL: -40,
+  }},
+  { id: 'tpose', label: 'T-поза', values: {
+    shoulderR: 90, shoulderL: -90,
+    hipR: 0, hipL: 0,
+  }},
 ];
 
 /* ==================================================================
  * Состояние
  * ================================================================== */
 
-const STORE_KEY = 'loomis-2d:v1';
-const state = loadState();
+const STORE_KEY = 'loomis-figure:v1';
 
-function loadState() {
-  const def = {
-    shape: defaultShape(),
-    preset: 'standard',
-    line: LINE_PARAM.def,
-    view: { yaw: 0, pitch: 0 },
-    display: { hidden: true, labels: true },
-    underlay: { opacity: 0.4, scale: 1 },
+function defaultState() {
+  return {
+    pose: 'stand',
+    props: Object.fromEntries(PROPS.map((p) => [p.key, p.def])),
+    angles: Object.fromEntries(ANGLES.map((a) => [a.key, a.def])),
+    // Дополнительные смещения (после ручного перетаскивания суставов)
+    overrides: {},   // {boneId: [x, y]} в мировых координатах
+    underlay: { opacity: 0.4, scale: 1, x: 0, y: 0 },
   };
-  try {
-    const raw = JSON.parse(localStorage.getItem(STORE_KEY));
-    if (!raw) return def;
-    return {
-      ...def,
-      shape: clampShape(raw.shape),
-      preset: PRESETS.some((p) => p.id === raw.preset) ? raw.preset : null,
-      line: Number.isFinite(raw.line) ? Math.min(LINE_PARAM.max, Math.max(LINE_PARAM.min, raw.line)) : def.line,
-      view: {
-        yaw: Number.isFinite(raw.view?.yaw) ? Math.min(60, Math.max(-60, raw.view.yaw)) : 0,
-        pitch: Number.isFinite(raw.view?.pitch) ? Math.min(30, Math.max(-30, raw.view.pitch)) : 0,
-      },
-      display: { hidden: raw.display?.hidden !== false, labels: raw.display?.labels !== false },
-      underlay: { opacity: 0.4, scale: 1 },
-    };
-  } catch { return def; }
 }
+
+function sanitize(raw) {
+  const s = defaultState();
+  if (!raw || typeof raw !== 'object') return s;
+  if (POSES.some((p) => p.id === raw.pose)) s.pose = raw.pose;
+  for (const p of PROPS) {
+    if (Number.isFinite(raw.props?.[p.key]))
+      s.props[p.key] = Math.min(p.max, Math.max(p.min, raw.props[p.key]));
+  }
+  for (const a of ANGLES) {
+    if (Number.isFinite(raw.angles?.[a.key]))
+      s.angles[a.key] = Math.min(a.max, Math.max(a.min, raw.angles[a.key]));
+  }
+  // overrides — сохраняем как есть, если это объект
+  if (raw.overrides && typeof raw.overrides === 'object') {
+    for (const [k, v] of Object.entries(raw.overrides)) {
+      if (BONES[k] && Array.isArray(v) && v.length === 2 && v.every(Number.isFinite)) {
+        s.overrides[k] = [v[0], v[1]];
+      }
+    }
+  }
+  if (raw.underlay) {
+    s.underlay.opacity = Math.min(0.9, Math.max(0.1, raw.underlay.opacity ?? 0.4));
+    s.underlay.scale = Math.min(2, Math.max(0.3, raw.underlay.scale ?? 1));
+    s.underlay.x = Number.isFinite(raw.underlay.x) ? raw.underlay.x : 0;
+    s.underlay.y = Number.isFinite(raw.underlay.y) ? raw.underlay.y : 0;
+  }
+  return s;
+}
+
+const state = sanitize(JSON.parse(localStorage.getItem(STORE_KEY) || 'null'));
 
 let saveTimer = 0;
 function save() {
@@ -566,233 +342,247 @@ function save() {
 }
 
 /* ==================================================================
+ * Математика скелета
+ * ==================================================================
+ * Каждый сустав имеет:
+ *   - локальную позицию [lx, ly] относительно родителя
+ *   - локальный угол (в градусах): 0 = «вверх» по родительской оси
+ *   - масштабы из props (применяются к local)
+ *   - override — ручное смещение в мир. координатах (приоритетнее)
+ *
+ * Мировые координаты считаются сверху вниз по дереву.
+ * Оси мира: x вправо, y вверх (как в анатомии). На экран флипаем y.
+ */
+
+const rad = (d) => (d * Math.PI) / 180;
+
+// Локальный угол по умолчанию для сустава. Для рук/ног «0» = «прямо вниз»,
+// чтобы слайдер «плечо 90°» поднимал руку в сторону. Остальное «0» = вверх.
+const DEFAULT_LOCAL_ANGLE = {
+  spine: 0, chest: 0, neck: 0, head: 0,
+  shoulderR: 90, shoulderL: -90,   // плечи «в сторону» — это T-поза при 0° отклонения
+  elbowR: 90, elbowL: -90,         // предплечья продолжают линию плеча
+  wristR: 90, wristL: -90,
+  hipR: -90, hipL: 90,             // бёдра вниз — «−90°» от направления «вверх»
+  kneeR: -90, kneeL: 90,
+  ankleR: -90, ankleL: 90,
+  toeR: 0, toeL: 0,
+};
+
+function propForBone(id) {
+  if (id.startsWith('shoulder') || id.startsWith('elbow') || id.startsWith('wrist')) return 'arm';
+  if (id.startsWith('hip') || id.startsWith('knee') || id.startsWith('ankle') || id.startsWith('toe')) return 'leg';
+  if (id === 'head') return 'head';
+  return 'torso';
+}
+
+function scaleLocal(id, [lx, ly]) {
+  const bone = BONES[id];
+  const p = propForBone(id);
+  const s = state.props[p] ?? 1;
+  // ширина плеч и бёдер влияет на X в соответствующей точке
+  if (id.startsWith('shoulder')) {
+    const sx = state.props.shoulder ?? 1;
+    return [lx * sx, ly * s];
+  }
+  if (id.startsWith('hip')) {
+    const sx = state.props.hip ?? 1;
+    return [lx * sx, ly * s];
+  }
+  // плечи/бёдра — вершины цепочек; их концевые точки (локти, колени) масштабируются через родителя
+  if (p === 'arm' || p === 'leg') {
+    // длина сегмента (по локальной оси) масштабируется пропорционально
+    return [lx, ly * s];
+  }
+  if (id === 'head') {
+    // голова масштабируется по «длине», сохраняя направление
+    return [lx, ly * s];
+  }
+  return [lx * 1, ly * s];
+}
+
+// поворот точки [x,y] на угол a (в градусах, 0 = не поворачивать, положительный — по часовой в экранных координатах = против часовой в мире)
+function rot2([x, y], a) {
+  const c = Math.cos(a), s = Math.sin(a);
+  return [x * c - y * s, x * s + y * c];
+}
+
+function effectiveAngle(id) {
+  const def = DEFAULT_LOCAL_ANGLE[id] ?? 0;
+  // углы «R» и «L» симметричны, если это парные конечности
+  let key = id;
+  if (!ANGLES.some((a) => a.key === id)) {
+    // для L-пар ищем R-ключ
+    if (id.endsWith('L')) key = id.slice(0, -1) + 'R';
+  }
+  const extra = state.angles[key] ?? 0;
+  // для L-стороны знак угла инвертируется (зеркально)
+  if (id.endsWith('L') && key !== id) return def - extra;
+  return def + extra;
+}
+
+// Мировые позиции суставов и их углы (углы в мире — для отрисовки).
+function computeSkeleton() {
+  const world = {};   // {id: {x, y, angle}}
+  for (const id of BONE_ORDER) {
+    const bone = BONES[id];
+    const [lx0, ly0] = scaleLocal(id, bone.local);
+    // локальный поворот вокруг родителя (учёт положения родителя)
+    let wx, wy, wAngle;
+    const angleLocal = effectiveAngle(id);
+
+    if (bone.parent === null) {
+      // корень — в мировой позиции 0,0
+      wx = 0;
+      wy = 0;
+      wAngle = angleLocal;
+    } else {
+      const par = world[bone.parent];
+      // локальный вектор в системе родителя
+      const localVec = rot2([lx0, ly0], rad(par.angle));
+      wx = par.x + localVec[0];
+      wy = par.y + localVec[1];
+      wAngle = par.angle + angleLocal;
+    }
+
+    // override — прямое смещение в мировых координатах
+    if (state.overrides[id]) {
+      wx += state.overrides[id][0];
+      wy += state.overrides[id][1];
+    }
+
+    world[id] = { x: wx, y: wy, angle: wAngle };
+  }
+  return world;
+}
+
+/* ==================================================================
  * Рендер SVG
  * ================================================================== */
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const svg = document.getElementById('canvas');
 const stage = document.getElementById('stage');
-const VIEW_SIZE = 600;
-const CX = VIEW_SIZE / 2, CY = VIEW_SIZE / 2;
-const SCALE = 200;   // 1 единица мира = 200 SVG-пикселей
 
-// группы
+// Размер мира
+const VIEW_W = 600, VIEW_H = 800;
+// Центр фигуры на экране: точка «таз» в (300, 500), масштаб 1 мира = 2.5 px (примерно)
+const SCALE = 2.6;
+const ORIGIN_X = VIEW_W / 2;
+const ORIGIN_Y = VIEW_H * 0.72;   // таз ниже центра
+
+// Группы
 const gUnderlay = document.createElementNS(SVG_NS, 'g');
-const gHidden = document.createElementNS(SVG_NS, 'g');
-const gVisible = document.createElementNS(SVG_NS, 'g');
+const gBones = document.createElementNS(SVG_NS, 'g');
+const gJoints = document.createElementNS(SVG_NS, 'g');
 const gLabels = document.createElementNS(SVG_NS, 'g');
 svg.appendChild(gUnderlay);
-svg.appendChild(gHidden);
-svg.appendChild(gVisible);
+svg.appendChild(gBones);
+svg.appendChild(gJoints);
 svg.appendChild(gLabels);
 
-// подложка
+// Подложка
 const underlayImg = document.createElementNS(SVG_NS, 'image');
 underlayImg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-underlayImg.setAttribute('x', CX - SCALE);
-underlayImg.setAttribute('y', CY - SCALE);
-underlayImg.setAttribute('width', SCALE * 2);
-underlayImg.setAttribute('height', SCALE * 2);
+underlayImg.setAttribute('x', 0);
+underlayImg.setAttribute('y', 0);
+underlayImg.setAttribute('width', VIEW_W);
+underlayImg.setAttribute('height', VIEW_H);
 underlayImg.style.display = 'none';
 gUnderlay.appendChild(underlayImg);
 
-const LABEL_TEXT = { 1: '①', 2: '②', 3: '③', 4: '④', 5: '⑤', 6: '⑥', 7: '⑦', 8: '⑧', A: 'Ⓐ', B: 'Ⓑ', C: 'Ⓒ' };
-const LABEL_COLOR = { 1: 'red', 2: 'red', 3: 'red', 6: 'red', 4: 'blue', 5: 'blue', 7: 'blue', 8: 'blue', A: 'ink', B: 'ink', C: 'ink' };
-
-// Проекция: yaw (вокруг Z), затем pitch (вокруг X). Лицо = −Y по спецификации.
-function project([x, y, z]) {
-  const yaw = rad(state.view.yaw), pitch = rad(state.view.pitch);
-  const cy = Math.cos(yaw), sy = Math.sin(yaw);
-  const cp = Math.cos(pitch), sp = Math.sin(pitch);
-  // yaw вокруг Z (верх)
-  const x1 = x * cy - y * sy;
-  const y1 = x * sy + y * cy;
-  const z1 = z;
-  // pitch вокруг X
-  const x2 = x1;
-  const y2 = y1 * cp - z1 * sp;
-  const z2 = y1 * sp + z1 * cp;
-  // экран: x → CX + x2*SCALE, y → CY − z2*SCALE; глубина — y2 (чем меньше, тем ближе к камере)
-  return { x: CX + x2 * SCALE, y: CY - z2 * SCALE, depth: y2 };
-}
-
-// видимость точки: нормаль точки в этой позе смотрит на камеру?
-function isVisiblePoint(p, n) {
-  // поворот нормали теми же углами
-  const yaw = rad(state.view.yaw), pitch = rad(state.view.pitch);
-  const cy = Math.cos(yaw), sy = Math.sin(yaw);
-  const cp = Math.cos(pitch), sp = Math.sin(pitch);
-  const nx1 = n[0] * cy - n[1] * sy;
-  const ny1 = n[0] * sy + n[1] * cy;
-  const nz1 = n[2];
-  const ny2 = ny1 * cp - nz1 * sp;
-  const nz2 = ny1 * sp + nz1 * cp;
-  const nx2 = nx1;
-  // камера смотрит по +Y в мире (спереди -Y), значит «к камере» — нормаль с отрицательным Y после поворота
-  return ny2 < 0;
-}
-
-function lineToPath(pts, closed) {
-  if (!pts.length) return '';
-  let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
-  for (let i = 1; i < pts.length; i++) d += `L${pts[i].x.toFixed(1)},${pts[i].y.toFixed(1)}`;
-  if (closed) d += 'Z';
-  return d;
-}
-
-function render() {
-  const head = buildHead(state.shape, state.line);
-  gVisible.innerHTML = '';
-  gHidden.innerHTML = '';
-  gLabels.innerHTML = '';
-
-  const strokeW = state.line * SCALE;
-
-  for (const l of head.lines) {
-    // разбиваем на видимые/невидимые сегменты по средней видимости
-    const projected = l.pts.map((p) => project(p));
-    // определяем видимость каждого сегмента по нормали в точке
-    const parts = splitByVisibility(l.pts, projected);
-
-    for (const part of parts) {
-      if (part.pts2d.length < 2) continue;
-      const path = document.createElementNS(SVG_NS, 'path');
-      path.setAttribute('d', lineToPath(part.pts2d, false));
-      path.setAttribute('fill', 'none');
-      path.setAttribute('stroke', l.color === RED ? 'var(--guide-red)' : 'var(--guide-blue)');
-      path.setAttribute('stroke-width', strokeW.toFixed(2));
-      path.setAttribute('stroke-linecap', 'round');
-      path.setAttribute('stroke-linejoin', 'round');
-      if (!part.visible) {
-        if (!state.display.hidden) continue;
-        path.setAttribute('stroke-opacity', '0.22');
-        path.setAttribute('stroke-dasharray', `${(strokeW * 1.5).toFixed(1)} ${(strokeW * 2.5).toFixed(1)}`);
-        gHidden.appendChild(path);
-      } else {
-        gVisible.appendChild(path);
-      }
-    }
-  }
-
-  // метки
-  if (state.display.labels) {
-    for (const [id, cands] of Object.entries(head.labels)) {
-      let best = null;
-      for (const c of cands) {
-        const n = c.n;
-        const visible = isVisiblePoint(c.p, n);
-        if (!visible) continue;
-        const proj = project(c.p);
-        if (!best) best = { proj, c };
-      }
-      if (!best) continue;
-      const t = document.createElementNS(SVG_NS, 'text');
-      // сдвиг по нормали (спроецированной)
-      const nProj = project([
-        best.c.p[0] + best.c.n[0] * 0.15,
-        best.c.p[1] + best.c.n[1] * 0.15,
-        best.c.p[2] + best.c.n[2] * 0.15,
-      ]);
-      let dx = nProj.x - best.proj.x;
-      let dy = nProj.y - best.proj.y;
-      const dl = Math.hypot(dx, dy) || 1;
-      dx /= dl; dy /= dl;
-      const x = best.proj.x + dx * 14;
-      const y = best.proj.y + dy * 14;
-      t.setAttribute('x', x.toFixed(1));
-      t.setAttribute('y', y.toFixed(1));
-      t.setAttribute('text-anchor', 'middle');
-      t.setAttribute('dominant-baseline', 'central');
-      t.setAttribute('class', `label label--${LABEL_COLOR[id]}`);
-      t.textContent = LABEL_TEXT[id];
-      gLabels.appendChild(t);
-    }
-  }
-}
-
-// разбить линию на видимые и невидимые куски
-function splitByVisibility(pts, projected) {
-  const result = [];
-  let cur = { visible: null, pts2d: [] };
-  for (let i = 0; i < pts.length; i++) {
-    const p = pts[i];
-    const center = len([p[0], p[1], p[2]]) > 1e-9 ? p : [0, 0, 0];
-    const n = norm(center);   // грубая нормаль к сфере
-    const vis = isVisiblePoint(p, n);
-    if (cur.visible === null) {
-      cur.visible = vis;
-      cur.pts2d.push(projected[i]);
-    } else if (cur.visible === vis) {
-      cur.pts2d.push(projected[i]);
-    } else {
-      // добавляем точку перехода в оба куска
-      cur.pts2d.push(projected[i]);
-      result.push(cur);
-      cur = { visible: vis, pts2d: [projected[i]] };
-    }
-  }
-  if (cur.pts2d.length) result.push(cur);
-  return result;
+// Преобразование мира в экран: y флипается
+function toScreen(x, y) {
+  return { x: ORIGIN_X + x * SCALE, y: ORIGIN_Y - y * SCALE };
 }
 
 /* ==================================================================
- * UI
+ * Отрисовка
+ * ================================================================== */
+
+function render() {
+  const world = computeSkeleton();
+
+  gBones.innerHTML = '';
+  gJoints.innerHTML = '';
+  gLabels.innerHTML = '';
+
+  // 1. Кости (линии между суставами)
+  for (const id of BONE_ORDER) {
+    const bone = BONES[id];
+    if (!bone.parent) continue;
+    const p = world[bone.parent];
+    const c = world[id];
+    const a = toScreen(p.x, p.y);
+    const b = toScreen(c.x, c.y);
+
+    // тень-обводка
+    const shadow = document.createElementNS(SVG_NS, 'line');
+    shadow.setAttribute('x1', a.x); shadow.setAttribute('y1', a.y);
+    shadow.setAttribute('x2', b.x); shadow.setAttribute('y2', b.y);
+    shadow.setAttribute('stroke-width', '8');
+    shadow.setAttribute('class', 'bone-shadow');
+    gBones.appendChild(shadow);
+
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('x1', a.x); line.setAttribute('y1', a.y);
+    line.setAttribute('x2', b.x); line.setAttribute('y2', b.y);
+    line.setAttribute('stroke-width', '5');
+    line.setAttribute('class', 'bone');
+    gBones.appendChild(line);
+  }
+
+  // 2. Суставы (кружки, за которые можно тянуть)
+  for (const id of BONE_ORDER) {
+    const p = world[id];
+    const s = toScreen(p.x, p.y);
+    const r = id === 'pelvis' || id === 'chest' || id === 'head' ? 9 : 7;
+
+    const circle = document.createElementNS(SVG_NS, 'circle');
+    circle.setAttribute('cx', s.x);
+    circle.setAttribute('cy', s.y);
+    circle.setAttribute('r', r);
+    circle.setAttribute('class', 'joint');
+    circle.dataset.bone = id;
+    gJoints.appendChild(circle);
+  }
+
+  // 3. Подписи — только для главных суставов
+  const LABELS = { pelvis: 'таз', chest: 'грудь', head: 'голова', wristR: 'R', wristL: 'L', ankleR: 'R', ankleL: 'L' };
+  for (const [id, text] of Object.entries(LABELS)) {
+    const p = world[id];
+    if (!p) continue;
+    const s = toScreen(p.x, p.y);
+    const label = document.createElementNS(SVG_NS, 'text');
+    label.setAttribute('x', s.x + 12);
+    label.setAttribute('y', s.y - 10);
+    label.setAttribute('class', 'joint-label');
+    label.textContent = text;
+    gLabels.appendChild(label);
+  }
+}
+
+/* ==================================================================
+ * UI: пресеты
  * ================================================================== */
 
 const $ = (id) => document.getElementById(id);
 
-// Yaw / Pitch
-const yawInput = $('yaw'), pitchInput = $('pitch');
-yawInput.addEventListener('input', () => {
-  state.view.yaw = Number(yawInput.value);
-  $('yaw-out').textContent = state.view.yaw + '°';
-  render();
-  save();
-});
-pitchInput.addEventListener('input', () => {
-  state.view.pitch = Number(pitchInput.value);
-  $('pitch-out').textContent = state.view.pitch + '°';
-  render();
-  save();
-});
-
-// кнопки углов
-document.querySelectorAll('[data-angle]').forEach((b) => {
-  b.addEventListener('click', () => {
-    const angles = { front: [0, 0], three: [-30, 0], side: [-60, 0] };
-    const [yaw, pitch] = angles[b.dataset.angle] || [0, 0];
-    state.view.yaw = yaw;
-    state.view.pitch = pitch;
-    yawInput.value = yaw;
-    pitchInput.value = pitch;
-    $('yaw-out').textContent = yaw + '°';
-    $('pitch-out').textContent = pitch + '°';
-    render();
-    save();
-  });
-});
-
-$('reset-view').addEventListener('click', () => {
-  state.view.yaw = 0;
-  state.view.pitch = 0;
-  yawInput.value = 0;
-  pitchInput.value = 0;
-  $('yaw-out').textContent = '0°';
-  $('pitch-out').textContent = '0°';
-  render();
-  save();
-});
-
-// пресеты
-const presetButtons = PRESETS.map((p) => {
+const presetButtons = POSES.map((p) => {
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'btn';
   b.textContent = p.label;
   b.addEventListener('click', () => {
-    state.preset = p.id;
-    state.shape = { ...defaultShape(), ...p.values };
-    syncShapeSliders();
+    // Сбрасываем углы и overrides, применяем пресет
+    state.angles = Object.fromEntries(ANGLES.map((a) => [a.key, a.def]));
+    state.overrides = {};
+    for (const [k, v] of Object.entries(p.values)) {
+      const a = ANGLES.find((x) => x.key === k);
+      if (a) state.angles[k] = Math.min(a.max, Math.max(a.min, v));
+    }
+    state.pose = p.id;
+    syncAngleSliders();
     renderPresets();
     render();
     save();
@@ -802,75 +592,161 @@ const presetButtons = PRESETS.map((p) => {
 });
 
 function renderPresets() {
-  PRESETS.forEach((p, i) => presetButtons[i].setAttribute('aria-pressed', String(state.preset === p.id)));
+  POSES.forEach((p, i) => presetButtons[i].setAttribute('aria-pressed', String(state.pose === p.id)));
 }
 
-// слайдеры формы
-const shapeSyncers = [];
-const shapeHost = $('shape-sliders');
-const SHAPE_GROUPS = { cut: 'Голова', eye: 'Лицо', jaw_start: 'Челюсть', chin_len: 'Подбородок' };
-for (const p of SHAPE_PARAMS) {
-  if (SHAPE_GROUPS[p.key]) {
-    const h = document.createElement('div');
-    h.className = 'group-h';
-    h.textContent = SHAPE_GROUPS[p.key];
-    shapeHost.appendChild(h);
-  }
+/* ==================================================================
+ * UI: пропорции
+ * ================================================================== */
+
+const propSyncers = [];
+const propHost = $('prop-sliders');
+
+for (const p of PROPS) {
   const row = document.createElement('div');
   row.className = 'slider';
-  const id = `shape-${p.key}`;
+  const id = `prop-${p.key}`;
   row.innerHTML = `<label for="${id}">${p.label}</label>
-    <input type="range" id="${id}" min="${p.min}" max="${p.max}" step="${p.step}">
+    <input type="range" id="${id}" min="${p.min}" max="${p.max}" step="0.01">
     <output for="${id}"></output>`;
-  shapeHost.appendChild(row);
+  propHost.appendChild(row);
   const input = row.querySelector('input');
   const out = row.querySelector('output');
-  const fmt = (v) => p.unit ? `${Math.round(v)}${p.unit}` : v.toFixed(2);
+  const fmt = (v) => Math.round(v * 100) + '%';
   const sync = () => {
-    input.value = state.shape[p.key];
-    out.textContent = fmt(state.shape[p.key]);
+    input.value = state.props[p.key];
+    out.textContent = fmt(state.props[p.key]);
   };
   input.addEventListener('input', () => {
-    state.shape[p.key] = Number(input.value);
-    state.preset = null;
+    state.props[p.key] = Number(input.value);
+    state.pose = null;
     out.textContent = fmt(Number(input.value));
     renderPresets();
     render();
     save();
   });
   sync();
-  shapeSyncers.push(sync);
+  propSyncers.push(sync);
 }
 
-function syncShapeSliders() {
-  for (const s of shapeSyncers) s();
+/* ==================================================================
+ * UI: углы
+ * ================================================================== */
+
+const angleSyncers = [];
+const angleHost = $('angle-sliders');
+
+for (const a of ANGLES) {
+  const row = document.createElement('div');
+  row.className = 'slider';
+  const id = `angle-${a.key}`;
+  row.innerHTML = `<label for="${id}">${a.label}</label>
+    <input type="range" id="${id}" min="${a.min}" max="${a.max}" step="1">
+    <output for="${id}"></output>`;
+  angleHost.appendChild(row);
+  const input = row.querySelector('input');
+  const out = row.querySelector('output');
+  const fmt = (v) => Math.round(v) + '°';
+  const sync = () => {
+    input.value = state.angles[a.key];
+    out.textContent = fmt(state.angles[a.key]);
+  };
+  input.addEventListener('input', () => {
+    state.angles[a.key] = Number(input.value);
+    state.pose = null;
+    out.textContent = fmt(Number(input.value));
+    renderPresets();
+    render();
+    save();
+  });
+  sync();
+  angleSyncers.push(sync);
 }
 
-// толщина линии
-const lineInput = $('line'), lineOut = $('line-out');
-lineInput.value = state.line;
-lineOut.textContent = state.line.toFixed(3);
-lineInput.addEventListener('input', () => {
-  state.line = Number(lineInput.value);
-  lineOut.textContent = state.line.toFixed(3);
+function syncAngleSliders() {
+  for (const s of angleSyncers) s();
+}
+
+/* ==================================================================
+ * Перетаскивание суставов
+ * ================================================================== */
+
+let drag = null;
+
+stage.addEventListener('pointerdown', (e) => {
+  const target = e.target.closest('.joint');
+  if (!target) return;
+  e.preventDefault();
+  const id = target.dataset.bone;
+  if (!id) return;
+
+  target.classList.add('dragging');
+
+  // запоминаем, где сейчас сустав в мире
+  const world = computeSkeleton();
+  const w = world[id];
+  const startClient = { x: e.clientX, y: e.clientY };
+  const startWorld = { x: w.x, y: w.y };
+
+  drag = { id, startClient, startWorld, target };
+  stage.setPointerCapture(e.pointerId);
+});
+
+stage.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  e.preventDefault();
+
+  // пересчёт: смещение мыши в мире
+  const rect = svg.getBoundingClientRect();
+  // экран -> viewBox: масштаб
+  const vbScaleX = VIEW_W / rect.width;
+  const vbScaleY = VIEW_H / rect.height;
+  const dxScreen = (e.clientX - drag.startClient.x) * vbScaleX;
+  const dyScreen = (e.clientY - drag.startClient.y) * vbScaleY;
+
+  // в мире: dx = dxScreen / SCALE, dy = -dyScreen / SCALE (y флип)
+  const dxWorld = dxScreen / SCALE;
+  const dyWorld = -dyScreen / SCALE;
+
+  // Это движение в абсолюте мира. Сохраняем как override.
+  // Сносим прежний override для этого сустава, потому что двигаем «с нуля» от чистой позы.
+  // Но чтобы избежать скачка — учитываем его в начальной позиции.
+  const base = sanitizeAngleOverride(drag.id);
+  state.overrides[drag.id] = [base[0] + dxWorld, base[1] + dyWorld];
   render();
+});
+
+stage.addEventListener('pointerup', (e) => {
+  if (!drag) return;
+  drag.target.classList.remove('dragging');
+  drag = null;
+  save();
+});
+stage.addEventListener('pointercancel', () => {
+  if (drag) drag.target.classList.remove('dragging');
+  drag = null;
   save();
 });
 
-// переключатели
-const toggleHidden = $('toggle-hidden');
-const toggleLabels = $('toggle-labels');
-toggleHidden.setAttribute('aria-pressed', String(state.display.hidden));
-toggleLabels.setAttribute('aria-pressed', String(state.display.labels));
-toggleHidden.addEventListener('click', () => {
-  state.display.hidden = !state.display.hidden;
-  toggleHidden.setAttribute('aria-pressed', String(state.display.hidden));
-  render();
-  save();
-});
-toggleLabels.addEventListener('click', () => {
-  state.display.labels = !state.display.labels;
-  toggleLabels.setAttribute('aria-pressed', String(state.display.labels));
+// Возвращает [dx, dy], который уже был применён к суставу до начала drag.
+// Так проще: во время движения state.overrides = base + delta.
+function sanitizeAngleOverride(id) {
+  // Если overrides есть — он уже применён в computeSkeleton. Возвращаем как base.
+  return state.overrides[id] ?? [0, 0];
+}
+
+/* ==================================================================
+ * Сброс позы
+ * ================================================================== */
+
+$('reset-pose').addEventListener('click', () => {
+  state.angles = Object.fromEntries(ANGLES.map((a) => [a.key, a.def]));
+  state.props = Object.fromEntries(PROPS.map((p) => [p.key, p.def]));
+  state.overrides = {};
+  state.pose = 'stand';
+  syncAngleSliders();
+  for (const s of propSyncers) s();
+  renderPresets();
   render();
   save();
 });
@@ -895,7 +771,7 @@ underlayRemove.addEventListener('click', () => {
   underlayImg.removeAttribute('href');
   underlayImg.style.display = 'none';
   underlayRemove.hidden = true;
-  $('underlay-hint').textContent = 'Перетащи файл, вставь из буфера или выбери ниже';
+  $('underlay-hint').textContent = 'Перетащи файл или выбери ниже';
   try { localStorage.removeItem(STORE_KEY + ':img'); } catch {}
 });
 
@@ -918,9 +794,8 @@ $('underlay-scale-out').textContent = Math.round(state.underlay.scale * 100) + '
 
 function applyUnderlayTransform() {
   const s = state.underlay.scale;
-  const cx = CX, cy = CY;
   underlayImg.setAttribute('transform',
-    `translate(${cx} ${cy}) scale(${s}) translate(${-cx} ${-cy})`);
+    `translate(${VIEW_W / 2} ${VIEW_H / 2}) scale(${s}) translate(${-VIEW_W / 2} ${-VIEW_H / 2})`);
   underlayImg.style.opacity = state.underlay.opacity;
 }
 
@@ -928,18 +803,16 @@ function loadUnderlay(file) {
   if (!file || !file.type.startsWith('image/')) return;
   const reader = new FileReader();
   reader.onload = () => {
-    const dataUrl = reader.result;
-    underlayImg.setAttribute('href', dataUrl);
+    underlayImg.setAttribute('href', reader.result);
     underlayImg.style.display = '';
     underlayRemove.hidden = false;
     $('underlay-hint').textContent = file.name;
     applyUnderlayTransform();
-    try { localStorage.setItem(STORE_KEY + ':img', dataUrl); } catch {}
+    try { localStorage.setItem(STORE_KEY + ':img', reader.result); } catch {}
   };
   reader.readAsDataURL(file);
 }
 
-// восстановить подложку
 try {
   const saved = localStorage.getItem(STORE_KEY + ':img');
   if (saved) {
@@ -971,27 +844,21 @@ window.addEventListener('drop', (e) => {
   const f = e.dataTransfer.files?.[0];
   if (f) loadUnderlay(f);
 });
-
-// вставка
 document.addEventListener('paste', (e) => {
   const item = [...(e.clipboardData?.items ?? [])].find((i) => i.type.startsWith('image/'));
-  if (item) {
-    e.preventDefault();
-    loadUnderlay(item.getAsFile());
-  }
+  if (item) { e.preventDefault(); loadUnderlay(item.getAsFile()); }
 });
 
 /* ==================================================================
  * Экспорт
  * ================================================================== */
 
-$('save-png').addEventListener('click', async () => {
+$('save-png').addEventListener('click', () => {
   const clone = svg.cloneNode(true);
   clone.setAttribute('xmlns', SVG_NS);
-  // белый фон
   const bg = document.createElementNS(SVG_NS, 'rect');
-  bg.setAttribute('width', VIEW_SIZE);
-  bg.setAttribute('height', VIEW_SIZE);
+  bg.setAttribute('width', VIEW_W);
+  bg.setAttribute('height', VIEW_H);
   bg.setAttribute('fill', '#ffffff');
   clone.insertBefore(bg, clone.firstChild);
 
@@ -1001,14 +868,14 @@ $('save-png').addEventListener('click', async () => {
   const img = new Image();
   img.onload = () => {
     const canvas = document.createElement('canvas');
-    canvas.width = 1200;
-    canvas.height = 1200;
+    canvas.width = VIEW_W * 2;
+    canvas.height = VIEW_H * 2;
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     URL.revokeObjectURL(url);
-    canvas.toBlob((b) => download(b, 'loomis-head.png'));
+    canvas.toBlob((b) => download(b, 'figure.png'));
   };
   img.src = url;
 });
@@ -1018,7 +885,7 @@ $('save-svg').addEventListener('click', () => {
   clone.setAttribute('xmlns', SVG_NS);
   const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone);
   const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
-  download(blob, 'loomis-head.svg');
+  download(blob, 'figure.svg');
 });
 
 function download(blob, name) {
@@ -1030,55 +897,11 @@ function download(blob, name) {
 }
 
 /* ==================================================================
- * О методе
- * ================================================================== */
-
-$('about-btn').addEventListener('click', () => {
-  alert(
-    'Голова Лумиса (2D)\n\n' +
-    '① — центральная линия\n' +
-    '② — уровень бровей / глаз\n' +
-    '③ — боковой круг (висок → затылок)\n' +
-    '④ — линия волос\n' +
-    '⑤ — линия носа\n' +
-    '⑥ — центральная линия лица\n' +
-    '⑦ — линия челюсти Ⓐ→Ⓑ→Ⓒ\n' +
-    '⑧ — линия скулы\n\n' +
-    'Перетаскивай мышью — поворот головы.\n' +
-    'Двойной клик по слайдеру — сброс к значению по умолчанию.'
-  );
-});
-
-/* ==================================================================
- * Перетаскивание мышью для поворота
- * ================================================================== */
-
-let dragStart = null;
-stage.addEventListener('pointerdown', (e) => {
-  if (e.target.closest('aside')) return;
-  dragStart = { x: e.clientX, y: e.clientY, yaw: state.view.yaw, pitch: state.view.pitch };
-  stage.setPointerCapture(e.pointerId);
-});
-stage.addEventListener('pointermove', (e) => {
-  if (!dragStart) return;
-  const dx = e.clientX - dragStart.x;
-  const dy = e.clientY - dragStart.y;
-  state.view.yaw = Math.max(-60, Math.min(60, dragStart.yaw + dx * 0.4));
-  state.view.pitch = Math.max(-30, Math.min(30, dragStart.pitch - dy * 0.3));
-  yawInput.value = state.view.yaw;
-  pitchInput.value = state.view.pitch;
-  $('yaw-out').textContent = Math.round(state.view.yaw) + '°';
-  $('pitch-out').textContent = Math.round(state.view.pitch) + '°';
-  render();
-});
-stage.addEventListener('pointerup', () => { dragStart = null; save(); });
-stage.addEventListener('pointercancel', () => { dragStart = null; save(); });
-
-/* ==================================================================
  * Запуск
  * ================================================================== */
 
-syncShapeSliders();
+for (const s of propSyncers) s();
+syncAngleSliders();
 renderPresets();
 render();
 </script>
