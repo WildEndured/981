@@ -3,224 +3,262 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Шаг 2. Голова</title>
+<title>Loomis 2D (по спецификации)</title>
 <style>
   :root {
-    --bg: #141419; --panel: #1e1e26; --panel-2: #262630;
-    --accent: #e8b04b; --text: #e8e8f0; --muted: #8a8a99;
-    --border: #33333f; --danger: #e85b5b;
+    --bg: #141419; --panel: #1e1e26; --accent: #e8b04b;
+    --text: #e8e8f0; --muted: #8a8a99; --border: #33333f;
+    --danger: #e85b5b; --red: #f03e6e; --blue: #3b7cff;
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0; min-height: 100vh;
-    background: radial-gradient(circle at top, #1c1c26 0%, var(--bg) 70%);
-    color: var(--text); font-family: system-ui, -apple-system, sans-serif;
-    display: flex; flex-direction: column; align-items: center;
-    padding: 24px 16px; gap: 20px;
+    margin: 0; min-height: 100vh; background: radial-gradient(circle at top, #1c1c26 0%, var(--bg) 70%);
+    color: var(--text); font-family: system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; padding: 24px 16px; gap: 20px;
   }
   header { text-align: center; }
-  header h1 { font-size: 1.15rem; font-weight: 600; margin: 0 0 4px; letter-spacing: .3px; }
+  header h1 { font-size: 1.15rem; font-weight: 600; margin: 0 0 4px; }
   header p { margin: 0; font-size: .8rem; color: var(--muted); }
-  .app {
-    display: flex; gap: 24px; align-items: flex-start;
-    flex-wrap: wrap; justify-content: center;
-    width: 100%; max-width: 900px;
-  }
+  .app { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 1050px; }
   .controls {
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: 16px; padding: 18px 20px;
-    width: 100%; max-width: 360px;
-    display: flex; flex-direction: column; gap: 14px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px;
+    width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35); max-height: 85vh; overflow-y: auto;
   }
-  .controls h2 {
-    font-size: .75rem; text-transform: uppercase;
-    letter-spacing: 1px; color: var(--muted);
-    margin: 0 0 4px; font-weight: 600;
-  }
-  .control { display: flex; flex-direction: column; gap: 6px; }
-  .control-head { display: flex; justify-content: space-between; align-items: center; font-size: .85rem; }
-  .badge {
-    background: var(--panel-2); border: 1px solid var(--border);
-    color: var(--accent); font-variant-numeric: tabular-nums;
-    font-size: .75rem; font-weight: 600; padding: 2px 8px;
-    border-radius: 999px; min-width: 46px; text-align: center;
-  }
-  input[type="range"] {
-    -webkit-appearance: none; appearance: none; width: 100%;
-    height: 6px; border-radius: 3px; background: #33333f;
-    outline: none; cursor: pointer;
-  }
-  input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none; appearance: none; width: 16px; height: 16px;
-    border-radius: 50%; background: #fff; border: 3px solid var(--accent);
-    box-shadow: 0 2px 6px rgba(0,0,0,.4); cursor: pointer; transition: transform .15s;
-  }
-  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
-  .actions {
-    display: flex; justify-content: flex-end; align-items: center;
-    padding-top: 12px; border-top: 1px solid var(--border); margin-top: 8px;
-  }
-  .btn-reset {
-    background: transparent; border: 1px solid var(--border);
-    color: var(--muted); padding: 6px 12px; border-radius: 6px;
-    cursor: pointer; font-size: .75rem; transition: all .2s;
-  }
+  .controls h2 { font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 8px 0 4px; font-weight: 600; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+  .control { display: flex; flex-direction: column; gap: 2px; }
+  .control-head { display: flex; justify-content: space-between; align-items: center; font-size: .75rem; }
+  .badge { background: var(--panel); border: 1px solid var(--border); color: var(--accent); font-variant-numeric: tabular-nums; font-size: .7rem; font-weight: 600; padding: 1px 6px; border-radius: 999px; min-width: 38px; text-align: center; }
+  input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 2px; background: #33333f; outline: none; cursor: pointer; position: relative; }
+  input[type="range"]::-webkit-slider-runnable-track { background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--fill, 0%), #33333f var(--fill, 0%), #33333f 100%); height: 4px; border-radius: 2px; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,.4); cursor: pointer; margin-top: -5px; }
+  .actions { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--border); margin-top: 8px; }
+  .btn-reset { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: .75rem; transition: all .2s; }
   .btn-reset:hover { border-color: var(--danger); color: var(--danger); }
-  .stage { position: relative; }
-  canvas {
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
-    display: block;
-  }
-  .hint { font-size: .75rem; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--border); padding-top: 12px; }
+  .stage { position: relative; width: 500px; height: 800px; max-width: 100%; }
+  canvas { display: block; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  .label-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; }
+  .guide-label { position: absolute; top: 0; left: 0; font-family: monospace; font-weight: bold; font-size: 14px; text-shadow: 0 1px 3px #000; }
+  .label-red { color: var(--red); } .label-blue { color: var(--blue); } .label-ink { color: var(--muted); }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Построение головы</h1>
-  <p>Настрой пропорции черепа, челюсти и подбородка</p>
+  <h1>Loomis 2D</h1>
+  <p>Строго по спецификации геометрии</p>
 </header>
 
 <div class="app">
-  <div class="controls">
-    <h2>Параметры</h2>
-
-    <div class="control">
-      <div class="control-head">
-        <label>Частей (голов)</label>
-        <span class="badge" id="valParts">7</span>
-      </div>
-      <input id="rangeParts" type="range" min="3" max="10" value="7" step="1">
-    </div>
-
-    <div class="control">
-      <div class="control-head">
-        <label>Размер круга головы</label>
-        <span class="badge" id="valRadius">1.5</span>
-      </div>
-      <input id="rangeRadius" type="range" min="1.0" max="2.0" value="1.5" step="0.1">
-    </div>
-
-    <div class="control">
-      <div class="control-head">
-        <label>Крепление челюсти</label>
-        <span class="badge" id="valAttach">2.0</span>
-      </div>
-      <input id="rangeAttach" type="range" min="1.0" max="3.0" value="2.0" step="0.1">
-    </div>
-
-    <div class="control">
-      <div class="control-head">
-        <label>Ширина подбородка</label>
-        <span class="badge" id="valChinW">0.50</span>
-      </div>
-      <input id="rangeChinW" type="range" min="0.05" max="1.0" value="0.5" step="0.05">
-    </div>
-
-    <div class="control">
-      <div class="control-head">
-        <label>Высота подбородка</label>
-        <span class="badge" id="valChinH">4.0</span>
-      </div>
-      <input id="rangeChinH" type="range" min="3.0" max="5.0" value="4.0" step="0.1">
-    </div>
-
-    <div class="control">
-      <div class="control-head">
-        <label>Округлость</label>
-        <span class="badge" id="valRound">0.00</span>
-      </div>
-      <input id="rangeRound" type="range" min="0" max="1" value="0" step="0.05">
-    </div>
-
-    <div class="actions">
-      <button class="btn-reset" id="btnReset">Сбросить</button>
-    </div>
-
-    <div class="hint">
-      Значения подбородка измеряются в долях головы (от 3/5 до 5/5).
-      Округлость 0 — угловатая челюсть, 1 — мягкая дуга.
-    </div>
-  </div>
-
+  <div class="controls" id="controls"></div>
   <div class="stage">
-    <canvas id="canvas" width="450" height="800"></canvas>
+    <canvas id="canvas" width="500" height="800"></canvas>
+    <div class="label-layer" id="labelLayer"></div>
   </div>
 </div>
 
 <script>
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
+const labelLayer = document.getElementById('labelLayer');
 
-const els = {
-  parts:  { r: document.getElementById('rangeParts'),  v: document.getElementById('valParts'),  def: 7 },
-  radius: { r: document.getElementById('rangeRadius'), v: document.getElementById('valRadius'), def: 1.5 },
-  attach: { r: document.getElementById('rangeAttach'), v: document.getElementById('valAttach'), def: 2.0 },
-  chinW:  { r: document.getElementById('rangeChinW'),  v: document.getElementById('valChinW'),  def: 0.5 },
-  chinH:  { r: document.getElementById('rangeChinH'),  v: document.getElementById('valChinH'),  def: 4.0 },
-  round:  { r: document.getElementById('rangeRound'),  v: document.getElementById('valRound'),  def: 0 }
-};
+// ================= МАТЕМАТИКА (по спецификации) =================
+const rad = (d) => (d * Math.PI) / 180;
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const len = (a) => Math.hypot(a[0], a[1], a[2]);
+const norm = (a) => { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+const mirror = (a) => [-a[0], a[1], a[2]];
+const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
-const btnReset = document.getElementById('btnReset');
+const SHAPE_PARAMS = [
+  { key: 'cut',        label: '頭の幅',                 min: 0.4,  max: 0.95, step: 0.01, def: 0.73 },
+  { key: 'top',        label: 'てっぺんの高さ',         min: 0.8,  max: 1.4,  step: 0.01, def: 1 },
+  { key: 'back',       label: '後頭部の出っ張り',       min: 0.8,  max: 1.4,  step: 0.01, def: 1 },
+  { key: 'r0',         label: '③ 側面の円の大きさ',     min: 0.3,  max: 0.95, step: 0.01, def: 0.68 },
+  { key: 'eye',        label: '② 眉・目の線の高さ',     min: -0.9, max: 0.9,  step: 0.01, def: 0 },
+  { key: 'forehead',   label: '④ 生え際の高さ',         min: 0.3,  max: 1.4,  step: 0.01, def: 1 },
+  { key: 'jaw_start',  label: 'Ⓐ 顎ラインの起点',       min: -60,  max: 60,   step: 1,    def: 0,  unit: '°' },
+  { key: 'jaw_len',    label: '⑦ 顎ライン Ⓐ→Ⓑの長さ', min: 0,    max: 1.2,  step: 0.01, def: 0.4 },
+  { key: 'jaw_tilt',   label: '⑦ 顎ライン Ⓐ→Ⓑの傾き', min: -40,  max: 70,   step: 1,    def: 10, unit: '°' },
+  { key: 'jaw_x',      label: 'Ⓑ エラの幅',             min: 0.2,  max: 0.95, step: 0.01, def: 0.62 },
+  { key: 'chin_len',   label: 'Ⓒ あご先の高さ',         min: 0.5,  max: 1.5,  step: 0.01, def: 1 },
+  { key: 'chin_front', label: 'Ⓒ あご先の前後',         min: 0.4,  max: 1.4,  step: 0.01, def: 0.85 },
+  { key: 'chin_w',     label: 'Ⓒ あご先の幅',           min: 0.03, max: 0.6,  step: 0.01, def: 0.22 },
+  { key: 'chin_round', label: 'Ⓒ あご先の丸み',         min: 0,    max: 1,    step: 0.01, def: 0.5 },
+];
 
-function updateFill(el) {
-  const min = parseFloat(el.min), max = parseFloat(el.max), val = parseFloat(el.value);
-  el.style.setProperty('--fill', ((val - min) / (max - min)) * 100 + '%');
+let params = {};
+SHAPE_PARAMS.forEach(p => params[p.key] = p.def);
+
+function makeBall({ cut, r0, top = 1, back = 1 }) {
+  const width = cut / Math.sqrt(1 - r0 * r0);
+  const sy = (y) => (y > 0 ? back : 1);
+  const sz = (z) => (z > 0 ? top : 1);
+  return {
+    width, cut, r0, top, back, sy, sz,
+    stretch: (x, y, z) => [x, y * sy(y), z * sz(z)],
+    normal: (x, y, z) => norm([x / (width * width), y / (sy(y) ** 2), z / (sz(z) ** 2)]),
+  };
 }
 
-function updateValDisplay(el, valEl) {
-  valEl.textContent = (el.id === 'rangeChinW' || el.id === 'rangeRound') 
-    ? parseFloat(el.value).toFixed(2) 
-    : parseFloat(el.value).toFixed(1).replace('.0', '');
-}
-
-Object.values(els).forEach(({ r, v }) => {
-  r.addEventListener('input', () => {
-    if (r.id === 'rangeAttach' && parseFloat(r.value) > parseFloat(els.chinH.r.value) - 0.5) {
-      r.value = parseFloat(els.chinH.r.value) - 0.5;
+function rounded(items, radius) {
+  const pts0 = [];
+  for (const it of items) {
+    if (!pts0.length || len(sub(it.p, pts0[pts0.length - 1].p)) > 1e-6) pts0.push(it);
+  }
+  if (pts0.length < 3) return { pts: pts0.map((it) => it.p), corners: [] };
+  const out = [pts0[0].p];
+  const corners = [];
+  for (let i = 1; i < pts0.length - 1; i++) {
+    const P = pts0[i - 1].p, V = pts0[i].p, N = pts0[i + 1].p;
+    const kk = pts0[i].k ?? 0;
+    const d1 = sub(V, P), d2 = sub(N, V);
+    const L1 = len(d1), L2 = len(d2);
+    const u1 = norm(d1), u2 = norm(d2);
+    const cos = Math.max(-1, Math.min(1, u1[0] * u2[0] + u1[1] * u2[1] + u1[2] * u2[2]));
+    const turn = Math.acos(cos);
+    if (turn < 1e-3) { out.push(V); corners.push({ v: V, p: V }); continue; }
+    const base = radius * Math.tan(Math.min(turn, Math.PI * 0.95) / 2);
+    const t1 = Math.min(Math.max(base, kk * 0.5 * L1), L1 * 0.5);
+    const t2 = Math.min(Math.max(base, kk * 0.5 * L2), L2 * 0.5);
+    const T1 = [V[0] - u1[0] * t1, V[1] - u1[1] * t1, V[2] - u1[2] * t1];
+    const T2 = [V[0] + u2[0] * t2, V[1] + u2[1] * t2, V[2] + u2[2] * t2];
+    const STEPS = 2 * (3 + Math.round(kk * 9));
+    for (let j = 0; j <= STEPS; j++) {
+      const s = j / STEPS, a = (1 - s) * (1 - s), b = 2 * s * (1 - s), c = s * s;
+      out.push([a * T1[0] + b * V[0] + c * T2[0], a * T1[1] + b * V[1] + c * T2[1], a * T1[2] + b * V[2] + c * T2[2]]);
     }
-    if (r.id === 'rangeChinH' && parseFloat(r.value) < parseFloat(els.attach.r.value) + 0.5) {
-      r.value = parseFloat(els.attach.r.value) + 0.5;
-    }
-    
-    updateValDisplay(r, v);
-    updateFill(r);
-    if (r.id === 'rangeAttach') updateFill(els.chinH.r);
-    if (r.id === 'rangeChinH') updateFill(els.attach.r);
-    draw();
-  });
-  updateValDisplay(r, v);
-  updateFill(r);
-});
-
-btnReset.addEventListener('click', () => {
-  Object.values(els).forEach(({ r, def }) => { r.value = def; updateFill(r); });
-  Object.keys(els).forEach(k => updateValDisplay(els[k].r, els[k].v));
-  draw();
-});
-
-function drawPoint(x, y, color = '#e85b5b') {
-  ctx.beginPath();
-  ctx.arc(x, y, 4, 0, Math.PI * 2);
-  ctx.fillStyle = color; ctx.fill();
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    corners.push({ v: V, p: [0.25 * T1[0] + 0.5 * V[0] + 0.25 * T2[0], 0.25 * T1[1] + 0.5 * V[1] + 0.25 * T2[1], 0.25 * T1[2] + 0.5 * V[2] + 0.25 * T2[2]] });
+  }
+  out.push(pts0[pts0.length - 1].p);
+  return { pts: out, corners };
 }
+
+function buildHead(p) {
+  const ball = makeBall(p);
+  const { width, cut, r0, stretch, normal } = ball;
+
+  const zEye = p.eye * r0;
+  const zChin = -r0 - r0 * p.chin_len;
+  const xPlane = cut;
+
+  const surf = (pt) => pt;
+  const rim = (t, x = xPlane) => {
+    const [, y, z] = stretch(0, r0 * Math.cos(t), r0 * Math.sin(t));
+    return [x, y, z];
+  };
+
+  const lines = [];
+  const labels = {};
+
+  // 1. Меридиан
+  const pts1 = [];
+  for (let i = 0; i < 128; i++) {
+    const t = (i / 128) * Math.PI * 2;
+    pts1.push(surf(stretch(0, Math.cos(t), Math.sin(t))));
+  }
+  lines.push({ id: '1', color: 'red', closed: true, pts: pts1 });
+  labels['1'] = [{ p: pts1[32] }];
+
+  // 2. Линия глаз
+  const pts2 = [];
+  const zu = zEye / ball.sz(zEye);
+  const rho = Math.sqrt(Math.max(0, 1 - zu * zu));
+  const half2 = width * rho;
+  for (let i = 0; i < 128; i++) {
+    const t = (i / 128) * Math.PI * 2;
+    pts2.push(surf(stretch(half2 * Math.cos(t), rho * Math.sin(t), zu)));
+  }
+  lines.push({ id: '2', color: 'red', closed: true, pts: pts2 });
+  labels['2'] = [{ p: pts2[0] }];
+
+  // 3. Боковые круги
+  for (const sx of [1, -1]) {
+    const x = sx * xPlane;
+    const circle = [];
+    for (let i = 0; i < 128; i++) circle.push(rim((i / 128) * Math.PI * 2, x));
+    lines.push({ id: '3', color: 'red', closed: true, pts: circle });
+  }
+  labels['3'] = [{ p: rim(Math.PI/4, xPlane) }];
+
+  // 7. Челюсть
+  const A = rim(rad(-90 - p.jaw_start));
+  const tilt = rad(p.jaw_tilt);
+  const B = [p.jaw_x, A[1] - p.jaw_len * Math.sin(tilt), A[2] - p.jaw_len * Math.cos(tilt)];
+  const Cf = [p.chin_w, -p.chin_front, zChin];
+
+  const jaw = rounded([
+    { p: A }, { p: B, k: 0 }, { p: Cf, k: p.chin_round },
+    { p: mirror(Cf), k: p.chin_round }, { p: mirror(B), k: 0 }, { p: mirror(A) },
+  ], 0.05);
+
+  lines.push({ id: '7', color: 'blue', closed: false, pts: jaw.pts });
+  labels['7'] = [{ p: B }, { p: mirror(B) }];
+
+  // 8. Щеки
+  const zEyeU = zEye / ball.sz(zEye);
+  const eyeEdge = [xPlane, -Math.sqrt(Math.max(0, r0 * r0 - zEyeU * zEyeU)), zEye];
+  const CfR = jaw.corners.find(c => c.v[0] === Cf[0] && c.v[2] === Cf[2])?.p ?? Cf;
+  lines.push({ id: '8', color: 'blue', closed: false, pts: [CfR, eyeEdge] });
+  lines.push({ id: '8', color: 'blue', closed: false, pts: [mirror(CfR), mirror(eyeEdge)] });
+  labels['8'] = [{ p: lerp(CfR, eyeEdge, 0.5) }];
+
+  // 6. Центр лица
+  const front = surf(stretch(0, -Math.sqrt(Math.max(0, 1 - zEyeU * zEyeU)), zEyeU));
+  const chinMid = [0, -p.chin_front, zChin];
+  lines.push({ id: '6', color: 'red', closed: false, pts: [front, chinMid] });
+  labels['6'] = [{ p: lerp(front, chinMid, 0.8) }];
+
+  // Череп (обрезок сферы для 2D-отрисовки)
+  const skullPts = [];
+  const a0 = Math.acos(Math.min(1, xPlane / width));
+  for (let i = 0; i <= 64; i++) {
+    const a = -a0 + (2 * a0 * i) / 64;
+    const x = width * Math.sin(a);
+    const z = Math.cos(a);
+    skullPts.push({ x: x, z: z * (z > 0 ? p.top : 1) });
+  }
+  // Замыкаем снизу
+  for (let i = 64; i >= 0; i--) {
+    const a = -a0 + (2 * a0 * i) / 64;
+    const x = width * Math.sin(a);
+    const z = -Math.cos(a);
+    skullPts.push({ x: x, z: z });
+  }
+
+  return { lines, labels, skullPts };
+}
+
+// ================= ПРОЕКЦИЯ В 2D =================
+function project(pt, scale, cx, cy) {
+  // pt = [X, Y(глубина), Z(высота)]. Для вида спереди берем X и Z.
+  return { x: cx + pt[0] * scale, y: cy - pt[2] * scale };
+}
+
+const LABELS = { '1': '①', '2': '②', '3': '③', '6': '⑥', '7': '⑦', '8': '⑧' };
+const labelEls = {};
+Object.keys(LABELS).forEach(id => {
+  const el = document.createElement('div');
+  el.className = `guide-label label-${['1','2','6'].includes(id) ? 'red' : 'blue'}`;
+  el.textContent = LABELS[id];
+  el.style.display = 'none';
+  labelLayer.appendChild(el);
+  labelEls[id] = el;
+});
 
 function draw() {
-  const parts = parseInt(els.parts.r.value);
-  const radiusMultiplier = parseFloat(els.radius.r.value);
-  const attachPos = parseFloat(els.attach.r.value);
-  const chinWidthMul = parseFloat(els.chinW.r.value);
-  const chinHeightPos = parseFloat(els.chinH.r.value);
-  const roundness = parseFloat(els.round.r.value);
-
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const pad = 20, top = pad, bottom = canvas.height - pad;
-  const height = bottom - top, step = height / parts;
-  const left = 20, right = canvas.width - 20, cx = (left + right) / 2;
+  const pad = 20;
+  const top = pad;
+  const height = canvas.height - pad * 2;
+  const parts = 7; // Фиксировано для сетки
+  const step = height / parts;
+
+  // Масштаб: R=1 в 3D. 1 часть сетки = 2 единицы (диаметр сферы)
+  const scale = step / 2;
+  const cx = canvas.width / 2;
+  const cy = top + step;
 
   // Сетка
   ctx.strokeStyle = '#3a3a46'; ctx.lineWidth = 1;
@@ -228,88 +266,117 @@ function draw() {
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   for (let i = 0; i <= parts; i++) {
     const y = top + i * step;
-    ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(right, y); ctx.stroke();
-    if (i < parts) ctx.fillText(i + 1, right - 16, y + step / 2);
+    ctx.beginPath(); ctx.moveTo(20, y); ctx.lineTo(canvas.width - 20, y); ctx.stroke();
+    if (i < parts) ctx.fillText(i + 1, canvas.width - 40, y + step / 2);
   }
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.setLineDash([4, 6]);
-  ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, bottom); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.setLineDash([4, 6]);
+  ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, canvas.height - pad); ctx.stroke(); ctx.setLineDash([]);
 
-  // Геометрия
-  const fifth = step / 5;
-  const y0 = top;
-  const yAttach = top + fifth * attachPos;
-  const y3 = top + fifth * 3;
-  const yChin = top + fifth * chinHeightPos;
+  const head = buildHead(params);
 
-  const r = fifth * radiusMultiplier;
-  const cy = y0 + r;
-
-  const yAttachOffset = Math.abs(yAttach - cy);
-  const jawWidthTop = yAttachOffset < r ? 2 * Math.sqrt(r*r - yAttachOffset*yAttachOffset) : r * 2;
-  const jawWidthBot = jawWidthTop * chinWidthMul;
-
-  // Вспомогательные линии
-  ctx.strokeStyle = 'rgba(232,176,75,0.22)'; ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
-  for (let i = 1; i <= 5; i++) {
-    const y = top + fifth * i;
-    ctx.beginPath(); ctx.moveTo(cx - r - 40, y); ctx.lineTo(cx + r + 40, y); ctx.stroke();
-  }
-  ctx.setLineDash([]);
-
-  // Череп
-  ctx.strokeStyle = '#e8b04b'; ctx.lineWidth = 1.8;
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-
-  // Челюсть
+  // Череп (контур)
   ctx.beginPath();
-  const halfTop = jawWidthTop / 2;
-  const halfBot = jawWidthBot / 2;
-  const ptTopL = { x: cx - halfTop, y: yAttach };
-  const ptTopR = { x: cx + halfTop, y: yAttach };
-  const ptBotL = { x: cx - halfBot, y: yChin };
-  const ptBotR = { x: cx + halfBot, y: yChin };
-
-  ctx.moveTo(ptTopL.x, ptTopL.y);
-  const yBreak = Math.min(y3, yChin); 
-  ctx.lineTo(cx - halfTop, yBreak);
-
-  if (roundness > 0) {
-    const cp1x = cx - halfBot - (halfTop - halfBot) * 0.4;
-    const cp1y = yBreak + (yChin - yBreak) * 0.3;
-    const cp2x = cx - halfBot;
-    const cp2y = yBreak + (yChin - yBreak) * 0.8;
-    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ptBotL.x, ptBotL.y);
-  } else {
-    ctx.lineTo(ptBotL.x, ptBotL.y);
-  }
-
-  if (roundness > 0) {
-    const dip = (yChin - yBreak) * 0.4 * roundness;
-    ctx.quadraticCurveTo(cx, yChin + dip, ptBotR.x, ptBotR.y);
-  } else {
-    ctx.lineTo(ptBotR.x, ptBotR.y);
-  }
-
-  if (roundness > 0) {
-    const cp1x = cx + halfBot;
-    const cp1y = yBreak + (yChin - yBreak) * 0.8;
-    const cp2x = cx + halfBot + (halfTop - halfBot) * 0.4;
-    const cp2y = yBreak + (yChin - yBreak) * 0.3;
-    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ptTopR.x, yBreak);
-  } else {
-    ctx.lineTo(ptTopR.x, yBreak);
-  }
-
-  ctx.lineTo(ptTopR.x, ptTopR.y);
+  ctx.strokeStyle = '#e8b04b';
+  ctx.lineWidth = 2;
+  head.skullPts.forEach((pt, i) => {
+    const p = project([pt.x, 0, pt.z], scale, cx, cy);
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  });
+  ctx.closePath();
   ctx.stroke();
 
-  // Подписи долей
-  ctx.fillStyle = '#8a8a99'; ctx.font = '10px system-ui';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  for (let i = 1; i <= 5; i++) {
-    ctx.fillText(`${i}/5`, cx + r + 10, top + fifth * i - fifth / 2);
-  }
+  // Линии
+  head.lines.forEach(line => {
+    ctx.beginPath();
+    ctx.strokeStyle = line.color === 'red' ? '#f03e6e' : '#3b7cff';
+    ctx.lineWidth = 2;
+    line.pts.forEach((pt, i) => {
+      const p = project(pt, scale, cx, cy);
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+    if (line.closed) ctx.closePath();
+    ctx.stroke();
+  });
+
+  // Шея
+  const chinPt = project(head.labels['6'][0].p, scale, cx, cy);
+  const neckW = 60; // фикс
+  const neckL = 120;
+  ctx.fillStyle = 'rgba(232,176,75,0.1)';
+  ctx.strokeStyle = '#e8b04b';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(chinPt.x - neckW / 2, chinPt.y);
+  ctx.lineTo(chinPt.x - neckW / 2, chinPt.y + neckL);
+  ctx.lineTo(chinPt.x + neckW / 2, chinPt.y + neckL);
+  ctx.lineTo(chinPt.x + neckW / 2, chinPt.y);
+  ctx.fill(); ctx.stroke();
+
+  // Метки
+  Object.keys(labelEls).forEach(id => { labelEls[id].style.display = 'none'; });
+  Object.entries(head.labels).forEach(([id, cands]) => {
+    if (!cands || cands.length === 0) return;
+    const p = project(cands[0].p, scale, cx, cy);
+    const el = labelEls[id];
+    if (!el) return;
+    el.style.display = 'block';
+    el.style.transform = `translate(${p.x + 15}px, ${p.y - 15}px) translate(-50%, -50%)`;
+  });
 }
+
+// ================= UI =================
+const controlsHost = document.getElementById('controls');
+SHAPE_PARAMS.forEach(p => {
+  const row = document.createElement('div');
+  row.className = 'control';
+  row.innerHTML = `
+    <div class="control-head">
+      <label>${p.label}</label>
+      <span class="badge" id="val-${p.key}">${p.def.toFixed(2)}</span>
+    </div>
+    <input id="range-${p.key}" type="range" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.def}">
+  `;
+  controlsHost.appendChild(row);
+
+  const input = row.querySelector('input');
+  const badge = row.querySelector('.badge');
+  
+  const updateFill = () => {
+    const val = parseFloat(input.value);
+    const pct = ((val - p.min) / (p.max - p.min)) * 100;
+    input.style.setProperty('--fill', pct + '%');
+    badge.textContent = p.unit ? `${Math.round(val)}${p.unit}` : val.toFixed(2);
+  };
+  
+  input.addEventListener('input', () => {
+    params[p.key] = parseFloat(input.value);
+    updateFill();
+    draw();
+  });
+  
+  updateFill();
+});
+
+// Кнопка сброса
+const actions = document.createElement('div');
+actions.className = 'actions';
+actions.innerHTML = `<button class="btn-reset" id="btnReset">Сбросить</button>`;
+controlsHost.appendChild(actions);
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  SHAPE_PARAMS.forEach(p => {
+    params[p.key] = p.def;
+    const input = document.getElementById(`range-${p.key}`);
+    const badge = document.getElementById(`val-${p.key}`);
+    input.value = p.def;
+    const pct = ((p.def - p.min) / (p.max - p.min)) * 100;
+    input.style.setProperty('--fill', pct + '%');
+    badge.textContent = p.unit ? `${Math.round(p.def)}${p.unit}` : p.def.toFixed(2);
+  });
+  draw();
+});
 
 draw();
 </script>
