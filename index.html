@@ -59,7 +59,9 @@
     touch-action: none;
     cursor: grab;
   }
+  #stage.dragging-underlay { cursor: move; }
   #stage:active { cursor: grabbing; }
+  #stage.dragging-underlay:active { cursor: move; }
   #stage svg { width: 100%; height: 100%; display: block; user-select: none; }
 
   #stage .label {
@@ -239,8 +241,12 @@
     <div class="row">
       <button class="btn" id="underlay-pick" type="button">Выбрать</button>
       <button class="btn" id="underlay-remove" type="button" hidden>Удалить</button>
-      <input type="file" id="underlay-input" accept="image/*" hidden>
     </div>
+    <div class="row">
+      <button class="btn" id="underlay-move" type="button" aria-pressed="false">✥ Двигать подложку</button>
+      <button class="btn" id="underlay-center" type="button">Центрировать</button>
+    </div>
+    <input type="file" id="underlay-input" accept="image/*" hidden>
     <div class="slider">
       <label>Прозрачность</label>
       <input type="range" id="underlay-opacity" min="0.1" max="0.9" step="0.05" value="0.4">
@@ -250,6 +256,16 @@
       <label>Масштаб</label>
       <input type="range" id="underlay-scale" min="0.3" max="2" step="0.01" value="1">
       <output id="underlay-scale-out">100%</output>
+    </div>
+    <div class="slider">
+      <label>Смещение X</label>
+      <input type="range" id="underlay-x" min="-1.5" max="1.5" step="0.005" value="0">
+      <output id="underlay-x-out">0.00</output>
+    </div>
+    <div class="slider">
+      <label>Смещение Y</label>
+      <input type="range" id="underlay-y" min="-1.5" max="1.5" step="0.005" value="0">
+      <output id="underlay-y-out">0.00</output>
     </div>
   </section>
 
@@ -287,7 +303,7 @@ const SHAPE_PARAMS = [
   { key: 'neck_d',     label: 'Ⓝ Глубина шеи',           min: 0.2,  max: 0.9,  step: 0.01, def: 0.55 },
   { key: 'neck_len',   label: 'Ⓝ Длина шеи (× H)',       min: 0.1,  max: 0.5,  step: 0.01, def: 0.2 },
   { key: 'neck_tilt',  label: 'Ⓝ Наклон шеи',            min: -15,  max: 25,   step: 1,    def: 6,  unit: '°' },
-  { key: 'neck_up',    label: 'Ⓝ Заглубление',           min: 0,    max: 0.3,  step: 0.01, def: 0.1 },
+  { key: 'neck_up',    label: 'Ⓝ Заглубление',           min: 0,    max: 0.5,  step: 0.01, def: 0.3 },
 ];
 
 const LINE_PARAM = { min: 0.004, max: 0.04, step: 0.001, def: 0.012 };
@@ -387,7 +403,6 @@ function buildHead(input, lift = 0, opts = {}) {
 
   const lines = [];
   const labels = {};
-  /* normals: если заданы — используются для видимости; иначе norm(p) */
   const add = (id, color, pts, closed = false, normals = null) =>
     lines.push({ id, color, closed, pts, normals });
 
@@ -487,7 +502,6 @@ function buildHead(input, lift = 0, opts = {}) {
   const chinMid = [0, -s.chin_front, zChin];
   add('6', RED, [front, chinMid]);
 
-  // ⑥ метки
   const out = (p) => norm(p);
   const BR = cornerOf(B);
   const jawMid = lerp(BR, CfR, 0.5);
@@ -502,7 +516,7 @@ function buildHead(input, lift = 0, opts = {}) {
   labels['C'] = [{ p: chinMid, n: norm([0, -1, -1]) }];
 
   /* ------------------------------------------------------------------
-   * Ⓝ ШЕЯ — эллиптический цилиндр, длина = neck_len · H_head
+   * Ⓝ ШЕЯ — эллиптический цилиндр
    * ------------------------------------------------------------------ */
   if (showNeck) {
     const H_head = r0 * s.top - zChin;
@@ -514,29 +528,25 @@ function buildHead(input, lift = 0, opts = {}) {
     const zTopNeck = zChin + s.neck_up;
     const zBotNeck = zTopNeck - L_neck;
 
-    // точка на цилиндре: t — угол (0 = вперёд, −y), z — высота
     const neckAt = (t, z) => {
       const x = rx * Math.sin(t);
       const y = ry * Math.cos(t);
-      const k = (zTopNeck - z) * Math.tan(neckTilt); // наклон вперёд/назад
+      const k = (zTopNeck - z) * Math.tan(neckTilt);
       return [x, y - k, z];
     };
-    // нормаль к боковой поверхности (не зависит от z)
     const neckNormal = (t) => norm([Math.sin(t) / rx, Math.cos(t) / ry, 0]);
 
-    // верхнее и нижнее торцевые кольца
     const topLoop = [], botLoop = [], topNorms = [], botNorms = [];
     for (let i = 0; i < NECK_SEGMENTS; i++) {
       const t = (i / NECK_SEGMENTS) * Math.PI * 2;
       topLoop.push(neckAt(t, zTopNeck));
       botLoop.push(neckAt(t, zBotNeck));
-      topNorms.push([0, 0, 1]);   // верх — нормаль вверх
-      botNorms.push([0, 0, -1]);  // низ — нормаль вниз
+      topNorms.push([0, 0, 1]);
+      botNorms.push([0, 0, -1]);
     }
     add('N-top', BLUE, topLoop, true, topNorms);
     add('N-bot', BLUE, botLoop, true, botNorms);
 
-    // образующие (силуэт цилиндра) — 4 шт: ±X, ±Y (спереди/сзади)
     for (const t of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
       add('N-gen', BLUE,
         [neckAt(t, zTopNeck), neckAt(t, zBotNeck)],
@@ -555,14 +565,14 @@ function buildHead(input, lift = 0, opts = {}) {
 }
 
 /* ==================================================================
- * Пресеты формы (значения из presets.js + поля шеи)
+ * Пресеты
  * ================================================================== */
 
 const PRESETS = [
-  { id: 'standard', label: 'Стандарт',  values: { r0: 0.68, eye: 0.0,   jaw_len: 0.40, jaw_x: 0.62, chin_len: 1.0,  chin_w: 0.22, neck_w: 0.55, neck_d: 0.55, neck_len: 0.20, neck_tilt: 6,  neck_up: 0.10 } },
-  { id: 'youth',    label: 'Юноша',     values: { r0: 0.70, eye: -0.1,  jaw_len: 0.45, jaw_x: 0.60, chin_len: 1.05, chin_w: 0.18, neck_w: 0.50, neck_d: 0.50, neck_len: 0.21, neck_tilt: 5,  neck_up: 0.10 } },
-  { id: 'girl',     label: 'Девушка',   values: { r0: 0.64, eye: -0.35, jaw_len: 0.30, jaw_x: 0.55, chin_len: 0.85, chin_w: 0.16, neck_w: 0.42, neck_d: 0.45, neck_len: 0.22, neck_tilt: 8,  neck_up: 0.10 } },
-  { id: 'child',    label: 'Ребёнок',   values: { r0: 0.58, eye: -0.6,  jaw_len: 0.20, jaw_x: 0.60, chin_len: 0.65, chin_w: 0.25, neck_w: 0.60, neck_d: 0.58, neck_len: 0.18, neck_tilt: 3,  neck_up: 0.08 } },
+  { id: 'standard', label: 'Стандарт',  values: { r0: 0.68, eye: 0.0,   jaw_len: 0.40, jaw_x: 0.62, chin_len: 1.0,  chin_w: 0.22, neck_w: 0.55, neck_d: 0.55, neck_len: 0.20, neck_tilt: 6,  neck_up: 0.30 } },
+  { id: 'youth',    label: 'Юноша',     values: { r0: 0.70, eye: -0.1,  jaw_len: 0.45, jaw_x: 0.60, chin_len: 1.05, chin_w: 0.18, neck_w: 0.50, neck_d: 0.50, neck_len: 0.21, neck_tilt: 5,  neck_up: 0.30 } },
+  { id: 'girl',     label: 'Девушка',   values: { r0: 0.64, eye: -0.35, jaw_len: 0.30, jaw_x: 0.55, chin_len: 0.85, chin_w: 0.16, neck_w: 0.42, neck_d: 0.45, neck_len: 0.22, neck_tilt: 8,  neck_up: 0.30 } },
+  { id: 'child',    label: 'Ребёнок',   values: { r0: 0.58, eye: -0.6,  jaw_len: 0.20, jaw_x: 0.60, chin_len: 0.65, chin_w: 0.25, neck_w: 0.60, neck_d: 0.58, neck_len: 0.18, neck_tilt: 3,  neck_up: 0.30 } },
 ];
 
 function presetShape(id) {
@@ -574,7 +584,7 @@ function presetShape(id) {
  * Состояние
  * ================================================================== */
 
-const STORE_KEY = 'loomis-2d:v1';
+const STORE_KEY = 'loomis-2d:v2';
 const state = loadState();
 
 function wrapYaw(y) { return ((((y + 180) % 360) + 360) % 360) - 180; }
@@ -586,11 +596,13 @@ function loadState() {
     line: LINE_PARAM.def,
     view: { yaw: 0, pitch: 0 },
     display: { hidden: true, labels: true, neck: true },
-    underlay: { opacity: 0.4, scale: 1 },
+    underlay: { opacity: 0.4, scale: 1, x: 0, y: 0 },
+    underlayMove: false,
   };
   try {
     const raw = JSON.parse(localStorage.getItem(STORE_KEY));
     if (!raw) return def;
+    const u = raw.underlay || {};
     return {
       ...def,
       shape: clampShape(raw.shape),
@@ -605,7 +617,13 @@ function loadState() {
         labels: raw.display?.labels !== false,
         neck: raw.display?.neck !== false,
       },
-      underlay: { opacity: 0.4, scale: 1 },
+      underlay: {
+        opacity: Number.isFinite(u.opacity) ? Math.min(0.9, Math.max(0.1, u.opacity)) : 0.4,
+        scale:   Number.isFinite(u.scale)   ? Math.min(2,   Math.max(0.3, u.scale))   : 1,
+        x:       Number.isFinite(u.x)       ? Math.min(1.5, Math.max(-1.5, u.x))       : 0,
+        y:       Number.isFinite(u.y)       ? Math.min(1.5, Math.max(-1.5, u.y))       : 0,
+      },
+      underlayMove: raw.underlayMove === true,
     };
   } catch { return def; }
 }
@@ -631,11 +649,11 @@ const SCALE = 200;
 
 const gUnderlay = document.createElementNS(SVG_NS, 'g');
 const gHidden = document.createElementNS(SVG_NS, 'g');
-const gVisible = document.createElementNS(SVG_NS, 'g');
-const gLabels = document.createElementNS(SVG_NS, 'g');
+const gVisible = document.createElement(SVG_NS, 'g') || document.createElementNS(SVG_NS, 'g');
 svg.appendChild(gUnderlay);
 svg.appendChild(gHidden);
 svg.appendChild(gVisible);
+const gLabels = document.createElementNS(SVG_NS, 'g');
 svg.appendChild(gLabels);
 
 const underlayImg = document.createElementNS(SVG_NS, 'image');
@@ -645,6 +663,7 @@ underlayImg.setAttribute('y', CY - SCALE);
 underlayImg.setAttribute('width', SCALE * 2);
 underlayImg.setAttribute('height', SCALE * 2);
 underlayImg.style.display = 'none';
+underlayImg.style.pointerEvents = 'none';
 gUnderlay.appendChild(underlayImg);
 
 const LABEL_TEXT = { 1: '①', 2: '②', 3: '③', 4: '④', 5: '⑤', 6: '⑥', 7: '⑦', 8: '⑧', A: 'Ⓐ', B: 'Ⓑ', C: 'Ⓒ', N: 'Ⓝ' };
@@ -681,7 +700,6 @@ function lineToPath(pts, closed) {
   return d;
 }
 
-/* splitByVisibility — с учётом явных нормалей (line.normals) */
 function splitByVisibility(line, projected) {
   const pts = line.pts;
   const normals = line.normals;
@@ -954,8 +972,33 @@ toggleNeck.addEventListener('click', () => {
 const underlayPick = $('underlay-pick');
 const underlayInput = $('underlay-input');
 const underlayRemove = $('underlay-remove');
+const underlayMoveBtn = $('underlay-move');
+const underlayCenterBtn = $('underlay-center');
 const underlayOpacity = $('underlay-opacity');
 const underlayScale = $('underlay-scale');
+const underlayX = $('underlay-x');
+const underlayY = $('underlay-y');
+
+function underlayIsLoaded() {
+  return underlayImg.style.display !== 'none' && underlayImg.getAttribute('href');
+}
+
+function setUnderlayMoveMode(on) {
+  state.underlayMove = on;
+  underlayMoveBtn.setAttribute('aria-pressed', String(on));
+  stage.classList.toggle('dragging-underlay', on);
+  save();
+}
+
+underlayMoveBtn.addEventListener('click', () => setUnderlayMoveMode(!state.underlayMove));
+underlayCenterBtn.addEventListener('click', () => {
+  state.underlay.x = 0;
+  state.underlay.y = 0;
+  underlayX.value = 0; underlayY.value = 0;
+  $('underlay-x-out').textContent = '0.00';
+  $('underlay-y-out').textContent = '0.00';
+  applyUnderlayTransform(); save();
+});
 
 underlayPick.addEventListener('click', () => underlayInput.click());
 underlayInput.addEventListener('change', (e) => {
@@ -968,6 +1011,7 @@ underlayRemove.addEventListener('click', () => {
   underlayImg.style.display = 'none';
   underlayRemove.hidden = true;
   $('underlay-hint').textContent = 'Перетащи файл, вставь из буфера или выбери ниже';
+  setUnderlayMoveMode(false);
   try { localStorage.removeItem(STORE_KEY + ':img'); } catch {}
 });
 
@@ -982,15 +1026,36 @@ underlayScale.addEventListener('input', () => {
   $('underlay-scale-out').textContent = Math.round(state.underlay.scale * 100) + '%';
   applyUnderlayTransform(); save();
 });
-underlayOpacity.value = state.underlay.opacity;
-underlayScale.value = state.underlay.scale;
-$('underlay-opacity-out').textContent = Math.round(state.underlay.opacity * 100) + '%';
-$('underlay-scale-out').textContent = Math.round(state.underlay.scale * 100) + '%';
+underlayX.addEventListener('input', () => {
+  state.underlay.x = Number(underlayX.value);
+  $('underlay-x-out').textContent = state.underlay.x.toFixed(2);
+  applyUnderlayTransform(); save();
+});
+underlayY.addEventListener('input', () => {
+  state.underlay.y = Number(underlayY.value);
+  $('underlay-y-out').textContent = state.underlay.y.toFixed(2);
+  applyUnderlayTransform(); save();
+});
+
+function syncUnderlayUI() {
+  underlayOpacity.value = state.underlay.opacity;
+  $('underlay-opacity-out').textContent = Math.round(state.underlay.opacity * 100) + '%';
+  underlayScale.value = state.underlay.scale;
+  $('underlay-scale-out').textContent = Math.round(state.underlay.scale * 100) + '%';
+  underlayX.value = state.underlay.x;
+  $('underlay-x-out').textContent = state.underlay.x.toFixed(2);
+  underlayY.value = state.underlay.y;
+  $('underlay-y-out').textContent = state.underlay.y.toFixed(2);
+  underlayMoveBtn.setAttribute('aria-pressed', String(state.underlayMove));
+  stage.classList.toggle('dragging-underlay', state.underlayMove);
+}
 
 function applyUnderlayTransform() {
   const s = state.underlay.scale;
+  const tx = state.underlay.x * SCALE;
+  const ty = state.underlay.y * SCALE;
   underlayImg.setAttribute('transform',
-    `translate(${CX} ${CY}) scale(${s}) translate(${-CX} ${-CY})`);
+    `translate(${CX + tx} ${CY + ty}) scale(${s}) translate(${-CX} ${-CY})`);
   underlayImg.style.opacity = state.underlay.opacity;
 }
 
@@ -1009,6 +1074,7 @@ function loadUnderlay(file) {
   reader.readAsDataURL(file);
 }
 
+// восстановление сохранённой подложки
 try {
   const saved = localStorage.getItem(STORE_KEY + ':img');
   if (saved) {
@@ -1016,10 +1082,13 @@ try {
     underlayImg.style.display = '';
     underlayRemove.hidden = false;
     $('underlay-hint').textContent = 'Сохранённая подложка';
-    applyUnderlayTransform();
   }
 } catch {}
 
+syncUnderlayUI();
+applyUnderlayTransform();
+
+/* --- drag-and-drop и paste --- */
 let dragDepth = 0;
 const hasFiles = (e) => [...(e.dataTransfer?.types ?? [])].includes('Files');
 window.addEventListener('dragenter', (e) => {
@@ -1109,26 +1178,70 @@ $('about-btn').addEventListener('click', () => {
     'Ⓝ — шея (цилиндр, длина ≈ 1/5 высоты головы)\n\n' +
     'Перетаскивай мышью — вращение по кругу (yaw) и наклон (pitch).\n' +
     'Кнопка «Крутить» — плавный автоповорот.\n' +
-    'Скрытые линии — приглушённый пунктир на обратной стороне.\n' +
-    'Кнопка «Шея» скрывает/показывает цилиндр шеи.'
+    'Скрытые линии — приглушённый пунктир на обратной стороне.\n\n' +
+    'Подложка:\n' +
+    '• «✥ Двигать подложку» — режим перетаскивания (или Shift+drag в любом режиме)\n' +
+    '• «Центрировать» — сброс смещения\n' +
+    '• Колесо мыши над сценой — масштаб подложки\n' +
+    '• Слайдеры «Смещение X/Y» — точная подстройка'
   );
 });
 
 /* ==================================================================
- * Перетаскивание мышью
+ * Взаимодействие со сценой: вращение головы / перетаскивание подложки
  * ================================================================== */
 
 let dragStart = null;
+
+function screenToModelDelta(dxPx, dyPx) {
+  // перевод пикселей экрана в единицы модели: viewBox 600, SCALE 200
+  // фактический масштаб зависит от размера контейнера — учитываем через getBoundingClientRect
+  const rect = svg.getBoundingClientRect();
+  const k = VIEW_SIZE / Math.max(1, Math.min(rect.width, rect.height));
+  return { dx: (dxPx * k) / SCALE, dy: (dyPx * k) / SCALE };
+}
+
 stage.addEventListener('pointerdown', (e) => {
   if (e.target.closest('aside')) return;
+
+  const wantUnderlay =
+    underlayIsLoaded() &&
+    (state.underlayMove || e.shiftKey);
+
+  if (wantUnderlay) {
+    e.preventDefault();
+    dragStart = {
+      mode: 'underlay',
+      x: e.clientX, y: e.clientY,
+      ux: state.underlay.x, uy: state.underlay.y,
+    };
+    stage.setPointerCapture(e.pointerId);
+    return;
+  }
+
   stopSpin();
-  dragStart = { x: e.clientX, y: e.clientY, yaw: state.view.yaw, pitch: state.view.pitch };
+  dragStart = { mode: 'rotate', x: e.clientX, y: e.clientY, yaw: state.view.yaw, pitch: state.view.pitch };
   stage.setPointerCapture(e.pointerId);
 });
+
 stage.addEventListener('pointermove', (e) => {
   if (!dragStart) return;
+
   const dx = e.clientX - dragStart.x;
   const dy = e.clientY - dragStart.y;
+
+  if (dragStart.mode === 'underlay') {
+    const { dx: mx, dy: my } = screenToModelDelta(dx, dy);
+    state.underlay.x = Math.min(1.5, Math.max(-1.5, dragStart.ux + mx));
+    state.underlay.y = Math.min(1.5, Math.max(-1.5, dragStart.uy - my)); // экранный Y вниз, модельный вверх
+    underlayX.value = state.underlay.x;
+    underlayY.value = state.underlay.y;
+    $('underlay-x-out').textContent = state.underlay.x.toFixed(2);
+    $('underlay-y-out').textContent = state.underlay.y.toFixed(2);
+    applyUnderlayTransform();
+    return;
+  }
+
   state.view.yaw = wrapYaw(dragStart.yaw + dx * 0.5);
   state.view.pitch = Math.max(-60, Math.min(60, dragStart.pitch - dy * 0.3));
   yawInput.value = state.view.yaw;
@@ -1137,8 +1250,26 @@ stage.addEventListener('pointermove', (e) => {
   $('pitch-out').textContent = Math.round(state.view.pitch) + '°';
   render(); updateViewName();
 });
-stage.addEventListener('pointerup', () => { dragStart = null; save(); });
-stage.addEventListener('pointercancel', () => { dragStart = null; save(); });
+
+function endDrag() {
+  if (dragStart && dragStart.mode === 'underlay') save();
+  dragStart = null;
+}
+stage.addEventListener('pointerup', endDrag);
+stage.addEventListener('pointercancel', endDrag);
+
+/* колесо мыши — масштаб подложки */
+stage.addEventListener('wheel', (e) => {
+  if (!underlayIsLoaded()) return;
+  // масштабируем только если зажат Ctrl/Cmd — иначе не мешаем странице
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? 0.97 : 1.03;
+  state.underlay.scale = Math.min(2, Math.max(0.3, state.underlay.scale * delta));
+  underlayScale.value = state.underlay.scale;
+  $('underlay-scale-out').textContent = Math.round(state.underlay.scale * 100) + '%';
+  applyUnderlayTransform(); save();
+}, { passive: false });
 
 /* ==================================================================
  * Запуск
@@ -1150,4 +1281,4 @@ render();
 updateViewName();
 </script>
 </body>
-</html>
+  </html>
