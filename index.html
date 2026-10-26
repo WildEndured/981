@@ -16,9 +16,7 @@
     --line: #e5e1eb;
     --accent: #7a4dff;
   }
-
   * { box-sizing: border-box; }
-
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -30,7 +28,6 @@
     height: 100vh;
     overflow: hidden;
   }
-
   header {
     grid-column: 1 / -1;
     display: flex;
@@ -48,7 +45,6 @@
     margin-left: auto;
   }
   header .btn { font-size: 13px; padding: 6px 10px; }
-
   #stage {
     position: relative;
     overflow: hidden;
@@ -63,7 +59,6 @@
   #stage:active { cursor: grabbing; }
   #stage.dragging-underlay:active { cursor: move; }
   #stage svg { width: 100%; height: 100%; display: block; user-select: none; }
-
   #stage .label {
     font-size: 13px;
     font-weight: 600;
@@ -77,7 +72,6 @@
   .label--red  { fill: var(--guide-red); }
   .label--blue { fill: var(--guide-blue); }
   .label--ink  { fill: var(--text); }
-
   #drop-cover {
     position: absolute;
     inset: 0;
@@ -92,7 +86,6 @@
     pointer-events: none;
   }
   #drop-cover[hidden] { display: none; }
-
   aside {
     border-left: 1px solid var(--line);
     background: var(--panel);
@@ -108,7 +101,6 @@
     font-weight: 600;
     margin: 14px 0 8px;
   }
-
   .btn {
     font: inherit;
     font-size: 12px;
@@ -127,9 +119,7 @@
     border-color: var(--accent);
     color: #fff;
   }
-
   .row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-
   .slider {
     display: grid;
     grid-template-columns: 1fr 52px;
@@ -146,7 +136,6 @@
     color: var(--muted);
     font-variant-numeric: tabular-nums;
   }
-
   .group-h {
     font-size: 11px;
     text-transform: uppercase;
@@ -155,14 +144,12 @@
     font-weight: 600;
     margin: 12px 0 6px;
   }
-
   .hint {
     font-size: 12px;
     color: var(--muted);
     line-height: 1.4;
     margin-bottom: 8px;
   }
-
   @media (max-width: 800px) {
     body {
       grid-template-columns: 1fr;
@@ -280,7 +267,7 @@
 
 <script type="module">
 /* ==================================================================
- * loomis.js — математика формы
+ * loomis.js
  * ================================================================== */
 
 const SHAPE_PARAMS = [
@@ -298,7 +285,6 @@ const SHAPE_PARAMS = [
   { key: 'chin_front', label: 'Ⓒ Выступ подбородка',     min: 0.4,  max: 1.4,  step: 0.01, def: 0.85 },
   { key: 'chin_w',     label: 'Ⓒ Ширина подбородка',     min: 0.03, max: 0.6,  step: 0.01, def: 0.22 },
   { key: 'chin_round', label: 'Ⓒ Скругление подбородка', min: 0,    max: 1,    step: 0.01, def: 0.5 },
-  /* --- шея --- */
   { key: 'neck_w',     label: 'Ⓝ Ширина шеи',            min: 0.2,  max: 0.9,  step: 0.01, def: 0.55 },
   { key: 'neck_d',     label: 'Ⓝ Глубина шеи',           min: 0.2,  max: 0.9,  step: 0.01, def: 0.55 },
   { key: 'neck_len',   label: 'Ⓝ Длина шеи (× H)',       min: 0.1,  max: 0.5,  step: 0.01, def: 0.2 },
@@ -515,9 +501,7 @@ function buildHead(input, lift = 0, opts = {}) {
   labels['B'] = [{ p: BR, n: out(BR) }, { p: mirror(BR), n: out(mirror(BR)) }];
   labels['C'] = [{ p: chinMid, n: norm([0, -1, -1]) }];
 
-  /* ------------------------------------------------------------------
-   * Ⓝ ШЕЯ — эллиптический цилиндр
-   * ------------------------------------------------------------------ */
+  // Ⓝ шея
   if (showNeck) {
     const H_head = r0 * s.top - zChin;
     const L_neck = H_head * s.neck_len;
@@ -584,13 +568,12 @@ function presetShape(id) {
  * Состояние
  * ================================================================== */
 
-const STORE_KEY = 'loomis-2d:v2';
-const state = loadState();
+const STORE_KEY = 'loomis-2d:v3';
 
 function wrapYaw(y) { return ((((y + 180) % 360) + 360) % 360) - 180; }
 
-function loadState() {
-  const def = {
+function defaultState() {
+  return {
     shape: defaultShape(),
     preset: 'standard',
     line: LINE_PARAM.def,
@@ -599,9 +582,13 @@ function loadState() {
     underlay: { opacity: 0.4, scale: 1, x: 0, y: 0 },
     underlayMove: false,
   };
+}
+
+function loadState() {
+  const def = defaultState();
   try {
     const raw = JSON.parse(localStorage.getItem(STORE_KEY));
-    if (!raw) return def;
+    if (!raw || typeof raw !== 'object') return def;
     const u = raw.underlay || {};
     return {
       ...def,
@@ -628,6 +615,8 @@ function loadState() {
   } catch { return def; }
 }
 
+const state = loadState();
+
 let saveTimer = 0;
 function save() {
   clearTimeout(saveTimer);
@@ -649,11 +638,11 @@ const SCALE = 200;
 
 const gUnderlay = document.createElementNS(SVG_NS, 'g');
 const gHidden = document.createElementNS(SVG_NS, 'g');
-const gVisible = document.createElement(SVG_NS, 'g') || document.createElementNS(SVG_NS, 'g');
+const gVisible = document.createElementNS(SVG_NS, 'g');
+const gLabels = document.createElementNS(SVG_NS, 'g');
 svg.appendChild(gUnderlay);
 svg.appendChild(gHidden);
 svg.appendChild(gVisible);
-const gLabels = document.createElementNS(SVG_NS, 'g');
 svg.appendChild(gLabels);
 
 const underlayImg = document.createElementNS(SVG_NS, 'image');
@@ -736,7 +725,6 @@ function render() {
   for (const l of head.lines) {
     const projected = l.pts.map((p) => project(p));
     const parts = splitByVisibility(l, projected);
-
     for (const part of parts) {
       if (part.pts2d.length < 2) continue;
       const path = document.createElementNS(SVG_NS, 'path');
@@ -876,7 +864,6 @@ spinBtn.addEventListener('click', () => {
   }
 });
 
-// пресеты
 const presetButtons = PRESETS.map((p) => {
   const b = document.createElement('button');
   b.type = 'button';
@@ -895,7 +882,6 @@ function renderPresets() {
   PRESETS.forEach((p, i) => presetButtons[i].setAttribute('aria-pressed', String(state.preset === p.id)));
 }
 
-// слайдеры формы
 const shapeSyncers = [];
 const shapeHost = $('shape-sliders');
 const SHAPE_GROUPS = { cut: 'Голова', eye: 'Лицо', jaw_start: 'Челюсть', chin_len: 'Подбородок', neck_w: 'Шея' };
@@ -929,10 +915,8 @@ for (const p of SHAPE_PARAMS) {
   sync();
   shapeSyncers.push(sync);
 }
-
 function syncShapeSliders() { for (const s of shapeSyncers) s(); }
 
-// толщина линии
 const lineInput = $('line'), lineOut = $('line-out');
 lineInput.value = state.line;
 lineOut.textContent = state.line.toFixed(3);
@@ -942,7 +926,6 @@ lineInput.addEventListener('input', () => {
   render(); save();
 });
 
-// переключатели
 const toggleHidden = $('toggle-hidden');
 const toggleLabels = $('toggle-labels');
 const toggleNeck = $('toggle-neck');
@@ -980,7 +963,7 @@ const underlayX = $('underlay-x');
 const underlayY = $('underlay-y');
 
 function underlayIsLoaded() {
-  return underlayImg.style.display !== 'none' && underlayImg.getAttribute('href');
+  return underlayImg.style.display !== 'none' && !!underlayImg.getAttribute('href');
 }
 
 function setUnderlayMoveMode(on) {
@@ -1074,7 +1057,6 @@ function loadUnderlay(file) {
   reader.readAsDataURL(file);
 }
 
-// восстановление сохранённой подложки
 try {
   const saved = localStorage.getItem(STORE_KEY + ':img');
   if (saved) {
@@ -1088,7 +1070,6 @@ try {
 syncUnderlayUI();
 applyUnderlayTransform();
 
-/* --- drag-and-drop и paste --- */
 let dragDepth = 0;
 const hasFiles = (e) => [...(e.dataTransfer?.types ?? [])].includes('Files');
 window.addEventListener('dragenter', (e) => {
@@ -1182,20 +1163,18 @@ $('about-btn').addEventListener('click', () => {
     'Подложка:\n' +
     '• «✥ Двигать подложку» — режим перетаскивания (или Shift+drag в любом режиме)\n' +
     '• «Центрировать» — сброс смещения\n' +
-    '• Колесо мыши над сценой — масштаб подложки\n' +
+    '• Ctrl/Cmd + колесо — масштаб подложки\n' +
     '• Слайдеры «Смещение X/Y» — точная подстройка'
   );
 });
 
 /* ==================================================================
- * Взаимодействие со сценой: вращение головы / перетаскивание подложки
+ * Взаимодействие
  * ================================================================== */
 
 let dragStart = null;
 
 function screenToModelDelta(dxPx, dyPx) {
-  // перевод пикселей экрана в единицы модели: viewBox 600, SCALE 200
-  // фактический масштаб зависит от размера контейнера — учитываем через getBoundingClientRect
   const rect = svg.getBoundingClientRect();
   const k = VIEW_SIZE / Math.max(1, Math.min(rect.width, rect.height));
   return { dx: (dxPx * k) / SCALE, dy: (dyPx * k) / SCALE };
@@ -1203,22 +1182,13 @@ function screenToModelDelta(dxPx, dyPx) {
 
 stage.addEventListener('pointerdown', (e) => {
   if (e.target.closest('aside')) return;
-
-  const wantUnderlay =
-    underlayIsLoaded() &&
-    (state.underlayMove || e.shiftKey);
-
+  const wantUnderlay = underlayIsLoaded() && (state.underlayMove || e.shiftKey);
   if (wantUnderlay) {
     e.preventDefault();
-    dragStart = {
-      mode: 'underlay',
-      x: e.clientX, y: e.clientY,
-      ux: state.underlay.x, uy: state.underlay.y,
-    };
+    dragStart = { mode: 'underlay', x: e.clientX, y: e.clientY, ux: state.underlay.x, uy: state.underlay.y };
     stage.setPointerCapture(e.pointerId);
     return;
   }
-
   stopSpin();
   dragStart = { mode: 'rotate', x: e.clientX, y: e.clientY, yaw: state.view.yaw, pitch: state.view.pitch };
   stage.setPointerCapture(e.pointerId);
@@ -1226,14 +1196,13 @@ stage.addEventListener('pointerdown', (e) => {
 
 stage.addEventListener('pointermove', (e) => {
   if (!dragStart) return;
-
   const dx = e.clientX - dragStart.x;
   const dy = e.clientY - dragStart.y;
 
   if (dragStart.mode === 'underlay') {
     const { dx: mx, dy: my } = screenToModelDelta(dx, dy);
     state.underlay.x = Math.min(1.5, Math.max(-1.5, dragStart.ux + mx));
-    state.underlay.y = Math.min(1.5, Math.max(-1.5, dragStart.uy - my)); // экранный Y вниз, модельный вверх
+    state.underlay.y = Math.min(1.5, Math.max(-1.5, dragStart.uy - my));
     underlayX.value = state.underlay.x;
     underlayY.value = state.underlay.y;
     $('underlay-x-out').textContent = state.underlay.x.toFixed(2);
@@ -1258,10 +1227,8 @@ function endDrag() {
 stage.addEventListener('pointerup', endDrag);
 stage.addEventListener('pointercancel', endDrag);
 
-/* колесо мыши — масштаб подложки */
 stage.addEventListener('wheel', (e) => {
   if (!underlayIsLoaded()) return;
-  // масштабируем только если зажат Ctrl/Cmd — иначе не мешаем странице
   if (!e.ctrlKey && !e.metaKey) return;
   e.preventDefault();
   const delta = e.deltaY > 0 ? 0.97 : 1.03;
@@ -1281,4 +1248,4 @@ render();
 updateViewName();
 </script>
 </body>
-  </html>
+</html>
