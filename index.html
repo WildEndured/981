@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Голова Лумиса + Торс — 2D (360°)</title>
+<title>Голова Лумиса — 2D (360°)</title>
 <style>
   :root {
     --guide-red: #f03e6e;
@@ -15,7 +15,6 @@
     --muted: #8a8394;
     --line: #e5e1eb;
     --accent: #7a4dff;
-    --torso-line: #e8842c;
   }
   * { box-sizing: border-box; }
   body {
@@ -73,7 +72,6 @@
   .label--red  { fill: var(--guide-red); }
   .label--blue { fill: var(--guide-blue); }
   .label--ink  { fill: var(--text); }
-  .label--orange { fill: var(--torso-line); }
   
   #drop-cover {
     position: absolute;
@@ -166,7 +164,7 @@
 <body>
 
 <header>
-  <h1>Голова Лумиса — Торс</h1>
+  <h1>Голова Лумиса — 2D</h1>
   <span class="view-name" id="view-name">Анфас · 0°</span>
   <button class="btn" id="about-btn" type="button">О методе</button>
 </header>
@@ -232,7 +230,6 @@
       <button class="btn" id="toggle-hidden" aria-pressed="true" type="button">Скрытые линии</button>
       <button class="btn" id="toggle-labels" aria-pressed="true" type="button">Подписи</button>
       <button class="btn" id="toggle-neck" aria-pressed="true" type="button">Шея</button>
-      <button class="btn" id="toggle-torso" aria-pressed="true" type="button">Торс</button>
     </div>
   </section>
 
@@ -310,29 +307,22 @@ const SHAPE_PARAMS = [
   { key: 'chin_front', label: 'Ⓒ Выступ подбородка',     min: 0.4,  max: 1.4,  step: 0.01, def: 0.85 },
   { key: 'chin_w',     label: 'Ⓒ Ширина подбородка',     min: 0.03, max: 0.6,  step: 0.01, def: 0.22 },
   { key: 'chin_round', label: 'Ⓒ Скругление подбородка', min: 0,    max: 1,    step: 0.01, def: 0.5 },
-  
   { key: 'neck_w',     label: 'Ⓝ Ширина шеи',            min: 0.2,  max: 0.9,  step: 0.01, def: 0.30 },
   { key: 'neck_d',     label: 'Ⓝ Глубина шеи',           min: 0.2,  max: 0.9,  step: 0.01, def: 0.55 },
   { key: 'neck_len',   label: 'Ⓝ Длина шеи (× H)',       min: 0.1,  max: 0.5,  step: 0.01, def: 0.45 },
   { key: 'neck_tilt',  label: 'Ⓝ Наклон шеи',            min: -15,  max: 25,   step: 1,    def: -12, unit: '°' },
   { key: 'neck_up',    label: 'Ⓝ Заглубление',           min: 0,    max: 0.5,  step: 0.01, def: 0.3 },
-
-  // Параметры торса
-  { key: 'torso_h',    label: 'Т Высота (в головах)',    min: 1.0,  max: 2.0,  step: 0.05, def: 1.0 },
-  { key: 'torso_w',    label: 'Т Ширина',                min: 0.5,  max: 1.5,  step: 0.05, def: 0.9 },
-  { key: 'torso_d',    label: 'Т Глубина',               min: 0.5,  max: 1.5,  step: 0.05, def: 0.75 },
-  { key: 'torso_tilt', label: 'Т Наклон',                min: 0,    max: 30,   step: 1,    def: 15, unit: '°' },
 ];
 
 const LINE_PARAM = { min: 0.004, max: 0.04, step: 0.001, def: 0.012 };
 const FIGURE_SCALE = { min: 0.2, max: 3, step: 0.01, def: 1 };
 const UNDERLAY_SCALE = { min: 0.1, max: 10, step: 0.01, def: 1 };
 const UNDERLAY_OFFSET = { min: -20, max: 20, def: 0 };
-const RED = 'red', BLUE = 'blue', ORANGE = 'orange';
+const RED = 'red', BLUE = 'blue';
 const CORNER = 0.05;
 const MAX_Z = 0.98;
-const LOOP_SEGMENTS = 64;
-const NECK_SEGMENTS = 32;
+const LOOP_SEGMENTS = 96;
+const NECK_SEGMENTS = 48;
 
 const rad = (d) => (d * Math.PI) / 180;
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -403,7 +393,6 @@ function rounded(items, radius) {
 
 function buildHead(input, lift = 0, opts = {}) {
   const showNeck = opts.neck !== false;
-  const showTorso = opts.torso !== false;
   const s = clampShape(input);
   const ball = makeBall(s);
   const { width, cut, r0, stretch, normal } = ball;
@@ -538,7 +527,6 @@ function buildHead(input, lift = 0, opts = {}) {
   labels['C'] = [{ p: chinMid, n: norm([0, -1, -1]) }];
 
   // Ⓝ шея
-  let zBotNeck = zChin; // на случай если шея выключена
   if (showNeck) {
     const H_head = r0 * s.top - zChin;
     const L_neck = H_head * s.neck_len;
@@ -547,7 +535,7 @@ function buildHead(input, lift = 0, opts = {}) {
     const neckTilt = rad(s.neck_tilt);
 
     const zTopNeck = zChin + s.neck_up;
-    zBotNeck = zTopNeck - L_neck;
+    const zBotNeck = zTopNeck - L_neck;
 
     const neckAt = (t, z) => {
       const x = rx * Math.sin(t);
@@ -582,90 +570,6 @@ function buildHead(input, lift = 0, opts = {}) {
     }];
   }
 
-  // ТОРС (Грудная клетка)
-  if (showTorso) {
-    const H_head = r0 * s.top - zChin; // высота головы
-    const torsoLen = H_head * s.torso_h; // высота торса
-    const zTop = zBotNeck + 0.1; // крепим чуть ниже шеи
-    const zBot = zTop - torsoLen;
-    
-    // Полуоси эллипсоида
-    const rx = s.torso_w * H_head * 0.35;
-    const ry = s.torso_d * H_head * 0.25;
-    
-    const torsoTilt = rad(s.torso_tilt);
-    
-    // Центр торса по Z
-    const zMid = (zTop + zBot) / 2;
-    const hHalf = torsoLen / 2;
-
-    // Функция получения точки на поверхности яйца
-    // t — угол по горизонтали (0..2PI)
-    // h — высота от -1 (низ) до 1 (верх)
-    const torsoAt = (t, h) => {
-      // Форма яйца: сужается кверху, расширяется книзу
-      // Модификатор радиуса в зависимости от высоты
-      const eggMod = 1 - 0.4 * Math.max(0, h); 
-      const x = rx * eggMod * Math.sin(t);
-      
-      // Смещение вперед (наклон): чем ниже, тем сильнее выдвигаем
-      const tiltY = (1 - h) * Math.tan(torsoTilt) * hHalf;
-      
-      // Глубина (Y) — эллипс
-      const baseY = ry * eggMod * Math.cos(t);
-      const y = baseY - tiltY - ry * 0.2; // Сдвигаем весь торс чуть вперед от центра
-      
-      const z = zMid + h * hHalf;
-      return [x, y, z];
-    };
-
-    // Нормаль для освещения/видимости
-    const torsoNormal = (t, h) => {
-      const x = Math.sin(t);
-      const y = Math.cos(t);
-      return norm([x, y, 0]);
-    };
-
-    // Кольца (Ключицы, Грудь, Талия)
-    const slices = [
-      { h: 0.8, id: 'T-top', label: 'Ключицы' }, // верхнее
-      { h: 0.0, id: 'T-mid', label: 'Грудь' },   // среднее
-      { h: -0.8, id: 'T-bot', label: 'Талия' }   // нижнее
-    ];
-
-    labels['T'] = [];
-    
-    for (const slice of slices) {
-      const pts = [];
-      const norms = [];
-      for (let i = 0; i < LOOP_SEGMENTS; i++) {
-        const t = (i / LOOP_SEGMENTS) * Math.PI * 2;
-        pts.push(torsoAt(t, slice.h));
-        norms.push(torsoNormal(t, slice.h));
-      }
-      add(slice.id, ORANGE, pts, true, norms);
-      
-      // Метка для каждого кольца
-      labels['T'].push({
-        p: torsoAt(Math.PI / 2, slice.h),
-        n: torsoNormal(Math.PI / 2, slice.h),
-        t: [0, 0, 1]
-      });
-    }
-
-    // Вертикальные образующие (4 шт: перед, спина, бока)
-    for (const t of [0, Math.PI/2, Math.PI, -Math.PI/2]) {
-      const pts = [];
-      const norms = [];
-      for (let i = 0; i <= 10; i++) {
-        const h = 0.9 - (i / 10) * 1.8;
-        pts.push(torsoAt(t, h));
-        norms.push(torsoNormal(t, h));
-      }
-      add('T-gen', ORANGE, pts, false, norms);
-    }
-  }
-
   return { lines, labels, solid: { width, cut, r0, top: s.top, back: s.back } };
 }
 
@@ -674,10 +578,10 @@ function buildHead(input, lift = 0, opts = {}) {
  * ================================================================== */
 
 const PRESETS = [
-  { id: 'standard', label: 'Стандарт',  values: { r0: 0.68, eye: 0.0,   jaw_len: 0.40, jaw_x: 0.62, chin_len: 1.0,  chin_w: 0.22, neck_w: 0.30, neck_d: 0.55, neck_len: 0.45, neck_tilt: -12, neck_up: 0.30, torso_h: 1.0, torso_w: 0.9, torso_d: 0.75, torso_tilt: 15 } },
-  { id: 'youth',    label: 'Юноша',     values: { r0: 0.70, eye: -0.1,  jaw_len: 0.45, jaw_x: 0.60, chin_len: 1.05, chin_w: 0.18, neck_w: 0.30, neck_d: 0.50, neck_len: 0.45, neck_tilt: -12, neck_up: 0.30, torso_h: 1.1, torso_w: 1.0, torso_d: 0.7, torso_tilt: 15 } },
-  { id: 'girl',     label: 'Девушка',   values: { r0: 0.64, eye: -0.35, jaw_len: 0.30, jaw_x: 0.55, chin_len: 0.85, chin_w: 0.16, neck_w: 0.30, neck_d: 0.45, neck_len: 0.45, neck_tilt: -12, neck_up: 0.30, torso_h: 0.9, torso_w: 0.8, torso_d: 0.8, torso_tilt: 18 } },
-  { id: 'child',    label: 'Ребёнок',   values: { r0: 0.58, eye: -0.6,  jaw_len: 0.20, jaw_x: 0.60, chin_len: 0.65, chin_w: 0.25, neck_w: 0.30, neck_d: 0.58, neck_len: 0.45, neck_tilt: -12, neck_up: 0.30, torso_h: 0.8, torso_w: 0.9, torso_d: 0.9, torso_tilt: 5 } },
+  { id: 'standard', label: 'Стандарт',  values: { r0: 0.68, eye: 0.0,   jaw_len: 0.40, jaw_x: 0.62, chin_len: 1.0,  chin_w: 0.22, neck_w: 0.30, neck_d: 0.55, neck_len: 0.45, neck_tilt: -12, neck_up: 0.30 } },
+  { id: 'youth',    label: 'Юноша',     values: { r0: 0.70, eye: -0.1,  jaw_len: 0.45, jaw_x: 0.60, chin_len: 1.05, chin_w: 0.18, neck_w: 0.30, neck_d: 0.50, neck_len: 0.45, neck_tilt: -12, neck_up: 0.30 } },
+  { id: 'girl',     label: 'Девушка',   values: { r0: 0.64, eye: -0.35, jaw_len: 0.30, jaw_x: 0.55, chin_len: 0.85, chin_w: 0.16, neck_w: 0.30, neck_d: 0.45, neck_len: 0.45, neck_tilt: -12, neck_up: 0.30 } },
+  { id: 'child',    label: 'Ребёнок',   values: { r0: 0.58, eye: -0.6,  jaw_len: 0.20, jaw_x: 0.60, chin_len: 0.65, chin_w: 0.25, neck_w: 0.30, neck_d: 0.58, neck_len: 0.45, neck_tilt: -12, neck_up: 0.30 } },
 ];
 
 function presetShape(id) {
@@ -689,7 +593,7 @@ function presetShape(id) {
  * Состояние
  * ================================================================== */
 
-const STORE_KEY = 'loomis-2d:v14';
+const STORE_KEY = 'loomis-2d:v16';
 
 function wrapYaw(y) { return ((((y + 180) % 360) + 360) % 360) - 180; }
 
@@ -700,7 +604,7 @@ function defaultState() {
     line: LINE_PARAM.def,
     figureScale: FIGURE_SCALE.def,
     view: { yaw: 0, pitch: 0 },
-    display: { hidden: true, labels: true, neck: true, torso: true },
+    display: { hidden: true, labels: true, neck: true },
     underlay: { opacity: 0.4, scale: UNDERLAY_SCALE.def, x: UNDERLAY_OFFSET.def, y: UNDERLAY_OFFSET.def },
     underlayMove: false,
   };
@@ -726,7 +630,6 @@ function loadState() {
         hidden: raw.display?.hidden !== false,
         labels: raw.display?.labels !== false,
         neck: raw.display?.neck !== false,
-        torso: raw.display?.torso !== false,
       },
       underlay: {
         opacity: Number.isFinite(u.opacity) ? Math.min(0.9, Math.max(0.1, u.opacity)) : 0.4,
@@ -779,8 +682,8 @@ underlayImg.style.display = 'none';
 underlayImg.style.pointerEvents = 'none';
 gUnderlay.appendChild(underlayImg);
 
-const LABEL_TEXT = { 1: '①', 2: '②', 3: '③', 4: '④', 5: '⑤', 6: '⑥', 7: '⑦', 8: '⑧', A: 'Ⓐ', B: 'Ⓑ', C: 'Ⓒ', N: 'Ⓝ', T: 'T' };
-const LABEL_COLOR = { 1: 'red', 2: 'red', 3: 'red', 6: 'red', 4: 'blue', 5: 'blue', 7: 'blue', 8: 'blue', N: 'blue', A: 'ink', B: 'ink', C: 'ink', T: 'orange' };
+const LABEL_TEXT = { 1: '①', 2: '②', 3: '③', 4: '④', 5: '⑤', 6: '⑥', 7: '⑦', 8: '⑧', A: 'Ⓐ', B: 'Ⓑ', C: 'Ⓒ', N: 'Ⓝ' };
+const LABEL_COLOR = { 1: 'red', 2: 'red', 3: 'red', 6: 'red', 4: 'blue', 5: 'blue', 7: 'blue', 8: 'blue', N: 'blue', A: 'ink', B: 'ink', C: 'ink' };
 
 function rotate(p) {
   const yaw = rad(state.view.yaw), pitch = rad(state.view.pitch);
@@ -840,7 +743,7 @@ function splitByVisibility(line, projected) {
 }
 
 function render() {
-  const head = buildHead(state.shape, state.line, { neck: state.display.neck, torso: state.display.torso });
+  const head = buildHead(state.shape, state.line, { neck: state.display.neck });
   gVisible.innerHTML = '';
   gHidden.innerHTML = '';
   gLabels.innerHTML = '';
@@ -855,12 +758,7 @@ function render() {
       const path = document.createElementNS(SVG_NS, 'path');
       path.setAttribute('d', lineToPath(part.pts2d, false));
       path.setAttribute('fill', 'none');
-      
-      let strokeColor = 'var(--guide-blue)';
-      if (l.color === RED) strokeColor = 'var(--guide-red)';
-      else if (l.color === ORANGE) strokeColor = 'var(--torso-line)';
-      
-      path.setAttribute('stroke', strokeColor);
+      path.setAttribute('stroke', l.color === RED ? 'var(--guide-red)' : 'var(--guide-blue)');
       path.setAttribute('stroke-width', strokeW.toFixed(2));
       path.setAttribute('stroke-linecap', 'round');
       path.setAttribute('stroke-linejoin', 'round');
@@ -1029,13 +927,7 @@ $('figure-scale-reset').addEventListener('click', () => applyFigureScale(1));
 /* ----- слайдеры формы ----- */
 const shapeSyncers = [];
 const shapeHost = $('shape-sliders');
-const SHAPE_GROUPS = { 
-  cut: 'Голова', 
-  eye: 'Лицо', 
-  jaw_start: 'Челюсть', 
-  neck_w: 'Шея',
-  torso_h: 'Торс'
-};
+const SHAPE_GROUPS = { cut: 'Голова', eye: 'Лицо', jaw_start: 'Челюсть', chin_len: 'Подбородок', neck_w: 'Шея' };
 for (const p of SHAPE_PARAMS) {
   if (SHAPE_GROUPS[p.key]) {
     const h = document.createElement('div');
@@ -1082,11 +974,9 @@ lineInput.addEventListener('input', () => {
 const toggleHidden = $('toggle-hidden');
 const toggleLabels = $('toggle-labels');
 const toggleNeck = $('toggle-neck');
-const toggleTorso = $('toggle-torso');
 toggleHidden.setAttribute('aria-pressed', String(state.display.hidden));
 toggleLabels.setAttribute('aria-pressed', String(state.display.labels));
 toggleNeck.setAttribute('aria-pressed', String(state.display.neck));
-toggleTorso.setAttribute('aria-pressed', String(state.display.torso));
 toggleHidden.addEventListener('click', () => {
   state.display.hidden = !state.display.hidden;
   toggleHidden.setAttribute('aria-pressed', String(state.display.hidden));
@@ -1100,11 +990,6 @@ toggleLabels.addEventListener('click', () => {
 toggleNeck.addEventListener('click', () => {
   state.display.neck = !state.display.neck;
   toggleNeck.setAttribute('aria-pressed', String(state.display.neck));
-  render(); save();
-});
-toggleTorso.addEventListener('click', () => {
-  state.display.torso = !state.display.torso;
-  toggleTorso.setAttribute('aria-pressed', String(state.display.torso));
   render(); save();
 });
 
@@ -1329,7 +1214,7 @@ function download(blob, name) {
 
 $('about-btn').addEventListener('click', () => {
   alert(
-    'Голова Лумиса + Торс (2D, 360°)\n\n' +
+    'Голова Лумиса (2D, 360°)\n\n' +
     '① — центральная линия\n' +
     '② — уровень бровей / глаз\n' +
     '③ — боковой круг (висок → затылок)\n' +
@@ -1338,15 +1223,15 @@ $('about-btn').addEventListener('click', () => {
     '⑥ — центральная линия лица\n' +
     '⑦ — линия челюсти Ⓐ→Ⓑ→Ⓒ\n' +
     '⑧ — линия скулы\n' +
-    'Ⓝ — шея (цилиндр)\n' +
-    'T — торс (яйцевидная форма)\n\n' +
+    'Ⓝ — шея (цилиндр)\n\n' +
     'Перетаскивай мышью — вращение по кругу (yaw) и наклон (pitch).\n' +
     'Кнопка «Крутить» — плавный автоповорот.\n' +
     'Скрытые линии — приглушённый пунктир на обратной стороне.\n\n' +
-    'Торс:\n' +
-    '• Верх крепится к основанию шеи.\n' +
-    '• «Высота» задается в головах (по умолчанию 1.0).\n' +
-    '• Наклон вперед (15°) создает эффект объема.\n\n' +
+    'Масштаб:\n' +
+    '• «Масштаб фигуры» — 0.2…3.0, влияет на голову и шею.\n' +
+    '• «Масштаб подложки» — 0.1…10.0, независимо от фигуры.\n' +
+    '• Кнопки «−» / «+» / «×1» — быстрый шаг.\n' +
+    '• Ctrl/Cmd + колесо — плавный масштаб подложки.\n\n' +
     'Подложка:\n' +
     '• «✥ Двигать подложку» или Shift+drag — перетаскивание.\n' +
     '• «Центрировать» — сброс смещения.\n' +
