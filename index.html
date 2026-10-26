@@ -316,7 +316,6 @@ const SHAPE_PARAMS = [
   { key: 'chin_w',     label: 'Ⓒ Ширина подбородка',     min: 0.03, max: 0.6,  step: 0.01, def: 0.22 },
   { key: 'chin_round', label: 'Ⓒ Скругление подбородка', min: 0,    max: 1,    step: 0.01, def: 0.5 },
   
-  // Новые параметры для аниме-челюсти (⑨)
   { key: 'anime_on',    label: '⑨ Аниме-контур',          min: 0,    max: 1,    step: 1,    def: 1 },
   { key: 'anime_curve', label: '⑨ Изгиб щеки',            min: -0.5, max: 0.5,  step: 0.01, def: 0.15 },
   { key: 'anime_width', label: '⑨ Сужение к подбородку',  min: 0.3,  max: 1.0,  step: 0.01, def: 0.6 },
@@ -540,23 +539,21 @@ function buildHead(input, lift = 0, opts = {}) {
   const chinMid = [0, -s.chin_front, zChin];
   add('6', RED, [front, chinMid]);
 
+  const out = (p) => norm(p);
+
   // --- ⑨ АНИМЕ-КОНТУР ---
   if (s.anime_on > 0.5) {
-    // 1. Берем точки от базовой челюсти
     const A_start = A; 
     
-    // 2. Вычисляем "аниме-скулу" — она смещена от Ⓑ в сторону Ⓐ и вперед
     const anime_cheek = [
       s.jaw_x * s.anime_width, 
       lerp(BR[1], CfR[1], 0.2), 
       lerp(BR[2], CfR[2], 0.2)
     ];
     
-    // 3. Строим кривую Безье от виска (A) через аниме-скулу к подбородку (CfR)
     const segs = 24; 
     const anime_pts = [];
     
-    // Функция квадратичной кривой Безье
     const bezier = (p0, p1, p2, t) => {
       const mt = 1 - t;
       return [
@@ -566,7 +563,6 @@ function buildHead(input, lift = 0, opts = {}) {
       ];
     };
 
-    // Вычисляем контрольную точку для плавного изгиба щеки
     const midAC = lerp(A, CfR, 0.5);
     const ctrl1 = [
       anime_cheek[0] + s.anime_curve, 
@@ -574,7 +570,6 @@ function buildHead(input, lift = 0, opts = {}) {
       lerp(A[2], CfR[2], 0.5) + s.anime_curve * 0.5 
     ];
 
-    // Строим правую половину
     for (let i = 0; i <= segs; i++) {
       const t = i / segs;
       anime_pts.push(bezier(A, ctrl1, CfR, t));
@@ -583,7 +578,6 @@ function buildHead(input, lift = 0, opts = {}) {
     add('9', GREEN, anime_pts);
     add('9', GREEN, anime_pts.map(mirror));
 
-    // Подпись ⑨
     const anime_mid = anime_pts[Math.floor(segs * 0.6)];
     labels['9'] = [{ 
       p: anime_mid, 
@@ -592,7 +586,6 @@ function buildHead(input, lift = 0, opts = {}) {
     }];
   }
 
-  const out = (p) => norm(p);
   const jawMid = lerp(BR, CfR, 0.5);
   const jawDir = sub(CfR, BR);
   const cheek = lerp(CfR, eyeEdge, 0.5);
@@ -671,7 +664,7 @@ function presetShape(id) {
  * Состояние
  * ================================================================== */
 
-const STORE_KEY = 'loomis-2d:v8';
+const STORE_KEY = 'loomis-2d:v9';
 
 function wrapYaw(y) { return ((((y + 180) % 360) + 360) % 360) - 180; }
 
@@ -832,7 +825,6 @@ function render() {
 
   const strokeW = state.line * BASE_SCALE * state.figureScale;
 
-  // ----- серая заливка эллипса -----
   {
     const outline = buildBallOutline();
     const proj = outline.map(project);
@@ -1416,4 +1408,4 @@ render();
 updateViewName();
 </script>
 </body>
-  </html>
+</html>
