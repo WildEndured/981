@@ -205,6 +205,16 @@
 
   <section>
     <h2>Форма</h2>
+    <div class="slider">
+      <label>Масштаб фигуры</label>
+      <input type="range" id="figure-scale" min="0.2" max="3" step="0.01" value="1">
+      <output id="figure-scale-out">1.00</output>
+    </div>
+    <div class="row">
+      <button class="btn" id="figure-scale-minus" type="button">−</button>
+      <button class="btn" id="figure-scale-plus" type="button">+</button>
+      <button class="btn" id="figure-scale-reset" type="button">×1</button>
+    </div>
     <div id="shape-sliders"></div>
   </section>
 
@@ -240,18 +250,23 @@
       <output id="underlay-opacity-out">40%</output>
     </div>
     <div class="slider">
-      <label>Масштаб</label>
-      <input type="range" id="underlay-scale" min="0.3" max="2" step="0.01" value="1">
+      <label>Масштаб подложки</label>
+      <input type="range" id="underlay-scale" min="0.1" max="10" step="0.01" value="1">
       <output id="underlay-scale-out">100%</output>
+    </div>
+    <div class="row">
+      <button class="btn" id="underlay-scale-minus" type="button">−</button>
+      <button class="btn" id="underlay-scale-plus" type="button">+</button>
+      <button class="btn" id="underlay-scale-reset" type="button">×1</button>
     </div>
     <div class="slider">
       <label>Смещение X</label>
-      <input type="range" id="underlay-x" min="-1.5" max="1.5" step="0.005" value="0">
+      <input type="range" id="underlay-x" min="-3" max="3" step="0.005" value="0">
       <output id="underlay-x-out">0.00</output>
     </div>
     <div class="slider">
       <label>Смещение Y</label>
-      <input type="range" id="underlay-y" min="-1.5" max="1.5" step="0.005" value="0">
+      <input type="range" id="underlay-y" min="-3" max="3" step="0.005" value="0">
       <output id="underlay-y-out">0.00</output>
     </div>
   </section>
@@ -293,6 +308,8 @@ const SHAPE_PARAMS = [
 ];
 
 const LINE_PARAM = { min: 0.004, max: 0.04, step: 0.001, def: 0.012 };
+const FIGURE_SCALE = { min: 0.2, max: 3, step: 0.01, def: 1 };
+const UNDERLAY_SCALE = { min: 0.1, max: 10, step: 0.01, def: 1 };
 const RED = 'red', BLUE = 'blue';
 const CORNER = 0.05;
 const MAX_Z = 0.98;
@@ -568,7 +585,7 @@ function presetShape(id) {
  * Состояние
  * ================================================================== */
 
-const STORE_KEY = 'loomis-2d:v3';
+const STORE_KEY = 'loomis-2d:v4';
 
 function wrapYaw(y) { return ((((y + 180) % 360) + 360) % 360) - 180; }
 
@@ -577,6 +594,7 @@ function defaultState() {
     shape: defaultShape(),
     preset: 'standard',
     line: LINE_PARAM.def,
+    figureScale: FIGURE_SCALE.def,
     view: { yaw: 0, pitch: 0 },
     display: { hidden: true, labels: true, neck: true },
     underlay: { opacity: 0.4, scale: 1, x: 0, y: 0 },
@@ -595,6 +613,7 @@ function loadState() {
       shape: clampShape(raw.shape),
       preset: PRESETS.some((p) => p.id === raw.preset) ? raw.preset : null,
       line: Number.isFinite(raw.line) ? Math.min(LINE_PARAM.max, Math.max(LINE_PARAM.min, raw.line)) : def.line,
+      figureScale: Number.isFinite(raw.figureScale) ? Math.min(FIGURE_SCALE.max, Math.max(FIGURE_SCALE.min, raw.figureScale)) : FIGURE_SCALE.def,
       view: {
         yaw: Number.isFinite(raw.view?.yaw) ? wrapYaw(raw.view.yaw) : 0,
         pitch: Number.isFinite(raw.view?.pitch) ? Math.min(60, Math.max(-60, raw.view.pitch)) : 0,
@@ -606,9 +625,9 @@ function loadState() {
       },
       underlay: {
         opacity: Number.isFinite(u.opacity) ? Math.min(0.9, Math.max(0.1, u.opacity)) : 0.4,
-        scale:   Number.isFinite(u.scale)   ? Math.min(2,   Math.max(0.3, u.scale))   : 1,
-        x:       Number.isFinite(u.x)       ? Math.min(1.5, Math.max(-1.5, u.x))       : 0,
-        y:       Number.isFinite(u.y)       ? Math.min(1.5, Math.max(-1.5, u.y))       : 0,
+        scale:   Number.isFinite(u.scale)   ? Math.min(UNDERLAY_SCALE.max, Math.max(UNDERLAY_SCALE.min, u.scale)) : 1,
+        x:       Number.isFinite(u.x)       ? Math.min(3, Math.max(-3, u.x)) : 0,
+        y:       Number.isFinite(u.y)       ? Math.min(3, Math.max(-3, u.y)) : 0,
       },
       underlayMove: raw.underlayMove === true,
     };
@@ -634,7 +653,7 @@ const svg = document.getElementById('canvas');
 const stage = document.getElementById('stage');
 const VIEW_SIZE = 600;
 const CX = VIEW_SIZE / 2, CY = VIEW_SIZE / 2;
-const SCALE = 200;
+const BASE_SCALE = 200;
 
 const gUnderlay = document.createElementNS(SVG_NS, 'g');
 const gHidden = document.createElementNS(SVG_NS, 'g');
@@ -647,10 +666,10 @@ svg.appendChild(gLabels);
 
 const underlayImg = document.createElementNS(SVG_NS, 'image');
 underlayImg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-underlayImg.setAttribute('x', CX - SCALE);
-underlayImg.setAttribute('y', CY - SCALE);
-underlayImg.setAttribute('width', SCALE * 2);
-underlayImg.setAttribute('height', SCALE * 2);
+underlayImg.setAttribute('x', CX - BASE_SCALE);
+underlayImg.setAttribute('y', CY - BASE_SCALE);
+underlayImg.setAttribute('width', BASE_SCALE * 2);
+underlayImg.setAttribute('height', BASE_SCALE * 2);
 underlayImg.style.display = 'none';
 underlayImg.style.pointerEvents = 'none';
 gUnderlay.appendChild(underlayImg);
@@ -673,7 +692,8 @@ function rotate(p) {
 
 function project(p) {
   const r = rotate(p);
-  return { x: CX + r[0] * SCALE, y: CY - r[2] * SCALE, depth: r[1] };
+  const fs = state.figureScale;
+  return { x: CX + r[0] * BASE_SCALE * fs, y: CY - r[2] * BASE_SCALE * fs, depth: r[1] };
 }
 
 function isVisible(n) {
@@ -720,7 +740,7 @@ function render() {
   gHidden.innerHTML = '';
   gLabels.innerHTML = '';
 
-  const strokeW = state.line * SCALE;
+  const strokeW = state.line * BASE_SCALE * state.figureScale;
 
   for (const l of head.lines) {
     const projected = l.pts.map((p) => project(p));
@@ -882,6 +902,21 @@ function renderPresets() {
   PRESETS.forEach((p, i) => presetButtons[i].setAttribute('aria-pressed', String(state.preset === p.id)));
 }
 
+/* ----- масштаб фигуры ----- */
+const figureScaleInput = $('figure-scale');
+const figureScaleOut = $('figure-scale-out');
+function applyFigureScale(v) {
+  state.figureScale = Math.min(FIGURE_SCALE.max, Math.max(FIGURE_SCALE.min, v));
+  figureScaleInput.value = state.figureScale;
+  figureScaleOut.textContent = state.figureScale.toFixed(2);
+  render(); save();
+}
+figureScaleInput.addEventListener('input', () => applyFigureScale(Number(figureScaleInput.value)));
+$('figure-scale-minus').addEventListener('click', () => applyFigureScale(state.figureScale - 0.1));
+$('figure-scale-plus').addEventListener('click', () => applyFigureScale(state.figureScale + 0.1));
+$('figure-scale-reset').addEventListener('click', () => applyFigureScale(1));
+
+/* ----- слайдеры формы ----- */
 const shapeSyncers = [];
 const shapeHost = $('shape-sliders');
 const SHAPE_GROUPS = { cut: 'Голова', eye: 'Лицо', jaw_start: 'Челюсть', chin_len: 'Подбородок', neck_w: 'Шея' };
@@ -917,6 +952,7 @@ for (const p of SHAPE_PARAMS) {
 }
 function syncShapeSliders() { for (const s of shapeSyncers) s(); }
 
+/* ----- толщина линии ----- */
 const lineInput = $('line'), lineOut = $('line-out');
 lineInput.value = state.line;
 lineOut.textContent = state.line.toFixed(3);
@@ -926,6 +962,7 @@ lineInput.addEventListener('input', () => {
   render(); save();
 });
 
+/* ----- переключатели ----- */
 const toggleHidden = $('toggle-hidden');
 const toggleLabels = $('toggle-labels');
 const toggleNeck = $('toggle-neck');
@@ -1004,11 +1041,11 @@ underlayOpacity.addEventListener('input', () => {
   underlayImg.style.opacity = state.underlay.opacity;
   save();
 });
-underlayScale.addEventListener('input', () => {
-  state.underlay.scale = Number(underlayScale.value);
-  $('underlay-scale-out').textContent = Math.round(state.underlay.scale * 100) + '%';
-  applyUnderlayTransform(); save();
-});
+underlayScale.addEventListener('input', () => applyUnderlayScale(Number(underlayScale.value)));
+$('underlay-scale-minus').addEventListener('click', () => applyUnderlayScale(state.underlay.scale / 1.1));
+$('underlay-scale-plus').addEventListener('click', () => applyUnderlayScale(state.underlay.scale * 1.1));
+$('underlay-scale-reset').addEventListener('click', () => applyUnderlayScale(1));
+
 underlayX.addEventListener('input', () => {
   state.underlay.x = Number(underlayX.value);
   $('underlay-x-out').textContent = state.underlay.x.toFixed(2);
@@ -1019,6 +1056,13 @@ underlayY.addEventListener('input', () => {
   $('underlay-y-out').textContent = state.underlay.y.toFixed(2);
   applyUnderlayTransform(); save();
 });
+
+function applyUnderlayScale(v) {
+  state.underlay.scale = Math.min(UNDERLAY_SCALE.max, Math.max(UNDERLAY_SCALE.min, v));
+  underlayScale.value = state.underlay.scale;
+  $('underlay-scale-out').textContent = Math.round(state.underlay.scale * 100) + '%';
+  applyUnderlayTransform(); save();
+}
 
 function syncUnderlayUI() {
   underlayOpacity.value = state.underlay.opacity;
@@ -1035,8 +1079,8 @@ function syncUnderlayUI() {
 
 function applyUnderlayTransform() {
   const s = state.underlay.scale;
-  const tx = state.underlay.x * SCALE;
-  const ty = state.underlay.y * SCALE;
+  const tx = state.underlay.x * BASE_SCALE;
+  const ty = state.underlay.y * BASE_SCALE;
   underlayImg.setAttribute('transform',
     `translate(${CX + tx} ${CY + ty}) scale(${s}) translate(${-CX} ${-CY})`);
   underlayImg.style.opacity = state.underlay.opacity;
@@ -1160,11 +1204,15 @@ $('about-btn').addEventListener('click', () => {
     'Перетаскивай мышью — вращение по кругу (yaw) и наклон (pitch).\n' +
     'Кнопка «Крутить» — плавный автоповорот.\n' +
     'Скрытые линии — приглушённый пунктир на обратной стороне.\n\n' +
+    'Масштаб:\n' +
+    '• «Масштаб фигуры» — 0.2…3.0, влияет на голову и шею.\n' +
+    '• «Масштаб подложки» — 0.1…10.0, независимо от фигуры.\n' +
+    '• Кнопки «−» / «+» / «×1» — быстрый шаг.\n' +
+    '• Ctrl/Cmd + колесо — плавный масштаб подложки.\n\n' +
     'Подложка:\n' +
-    '• «✥ Двигать подложку» — режим перетаскивания (или Shift+drag в любом режиме)\n' +
-    '• «Центрировать» — сброс смещения\n' +
-    '• Ctrl/Cmd + колесо — масштаб подложки\n' +
-    '• Слайдеры «Смещение X/Y» — точная подстройка'
+    '• «✥ Двигать подложку» или Shift+drag — перетаскивание.\n' +
+    '• «Центрировать» — сброс смещения.\n' +
+    '• Слайдеры «Смещение X/Y» — точная подстройка, диапазон −3…+3.'
   );
 });
 
@@ -1177,7 +1225,7 @@ let dragStart = null;
 function screenToModelDelta(dxPx, dyPx) {
   const rect = svg.getBoundingClientRect();
   const k = VIEW_SIZE / Math.max(1, Math.min(rect.width, rect.height));
-  return { dx: (dxPx * k) / SCALE, dy: (dyPx * k) / SCALE };
+  return { dx: (dxPx * k) / BASE_SCALE, dy: (dyPx * k) / BASE_SCALE };
 }
 
 stage.addEventListener('pointerdown', (e) => {
@@ -1201,8 +1249,8 @@ stage.addEventListener('pointermove', (e) => {
 
   if (dragStart.mode === 'underlay') {
     const { dx: mx, dy: my } = screenToModelDelta(dx, dy);
-    state.underlay.x = Math.min(1.5, Math.max(-1.5, dragStart.ux + mx));
-    state.underlay.y = Math.min(1.5, Math.max(-1.5, dragStart.uy - my));
+    state.underlay.x = Math.min(3, Math.max(-3, dragStart.ux + mx));
+    state.underlay.y = Math.min(3, Math.max(-3, dragStart.uy - my));
     underlayX.value = state.underlay.x;
     underlayY.value = state.underlay.y;
     $('underlay-x-out').textContent = state.underlay.x.toFixed(2);
@@ -1232,16 +1280,14 @@ stage.addEventListener('wheel', (e) => {
   if (!e.ctrlKey && !e.metaKey) return;
   e.preventDefault();
   const delta = e.deltaY > 0 ? 0.97 : 1.03;
-  state.underlay.scale = Math.min(2, Math.max(0.3, state.underlay.scale * delta));
-  underlayScale.value = state.underlay.scale;
-  $('underlay-scale-out').textContent = Math.round(state.underlay.scale * 100) + '%';
-  applyUnderlayTransform(); save();
+  applyUnderlayScale(state.underlay.scale * delta);
 }, { passive: false });
 
 /* ==================================================================
  * Запуск
  * ================================================================== */
 
+applyFigureScale(state.figureScale);
 syncShapeSliders();
 renderPresets();
 render();
