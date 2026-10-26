@@ -261,13 +261,19 @@
     </div>
     <div class="slider">
       <label>Смещение X</label>
-      <input type="range" id="underlay-x" min="-3" max="3" step="0.005" value="0">
+      <input type="range" id="underlay-x" min="-20" max="20" step="0.01" value="0">
       <output id="underlay-x-out">0.00</output>
     </div>
     <div class="slider">
       <label>Смещение Y</label>
-      <input type="range" id="underlay-y" min="-3" max="3" step="0.005" value="0">
+      <input type="range" id="underlay-y" min="-20" max="20" step="0.01" value="0">
       <output id="underlay-y-out">0.00</output>
+    </div>
+    <div class="row">
+      <button class="btn" id="underlay-x-minus" type="button">← X</button>
+      <button class="btn" id="underlay-x-plus" type="button">X →</button>
+      <button class="btn" id="underlay-y-minus" type="button">↑ Y</button>
+      <button class="btn" id="underlay-y-plus" type="button">Y ↓</button>
     </div>
   </section>
 
@@ -310,6 +316,7 @@ const SHAPE_PARAMS = [
 const LINE_PARAM = { min: 0.004, max: 0.04, step: 0.001, def: 0.012 };
 const FIGURE_SCALE = { min: 0.2, max: 3, step: 0.01, def: 1 };
 const UNDERLAY_SCALE = { min: 0.1, max: 10, step: 0.01, def: 1 };
+const UNDERLAY_OFFSET = { min: -20, max: 20, def: 0 };
 const RED = 'red', BLUE = 'blue';
 const CORNER = 0.05;
 const MAX_Z = 0.98;
@@ -585,7 +592,7 @@ function presetShape(id) {
  * Состояние
  * ================================================================== */
 
-const STORE_KEY = 'loomis-2d:v4';
+const STORE_KEY = 'loomis-2d:v5';
 
 function wrapYaw(y) { return ((((y + 180) % 360) + 360) % 360) - 180; }
 
@@ -597,7 +604,7 @@ function defaultState() {
     figureScale: FIGURE_SCALE.def,
     view: { yaw: 0, pitch: 0 },
     display: { hidden: true, labels: true, neck: true },
-    underlay: { opacity: 0.4, scale: 1, x: 0, y: 0 },
+    underlay: { opacity: 0.4, scale: UNDERLAY_SCALE.def, x: UNDERLAY_OFFSET.def, y: UNDERLAY_OFFSET.def },
     underlayMove: false,
   };
 }
@@ -625,9 +632,9 @@ function loadState() {
       },
       underlay: {
         opacity: Number.isFinite(u.opacity) ? Math.min(0.9, Math.max(0.1, u.opacity)) : 0.4,
-        scale:   Number.isFinite(u.scale)   ? Math.min(UNDERLAY_SCALE.max, Math.max(UNDERLAY_SCALE.min, u.scale)) : 1,
-        x:       Number.isFinite(u.x)       ? Math.min(3, Math.max(-3, u.x)) : 0,
-        y:       Number.isFinite(u.y)       ? Math.min(3, Math.max(-3, u.y)) : 0,
+        scale:   Number.isFinite(u.scale)   ? Math.min(UNDERLAY_SCALE.max, Math.max(UNDERLAY_SCALE.min, u.scale)) : UNDERLAY_SCALE.def,
+        x:       Number.isFinite(u.x)       ? Math.min(UNDERLAY_OFFSET.max, Math.max(UNDERLAY_OFFSET.min, u.x)) : UNDERLAY_OFFSET.def,
+        y:       Number.isFinite(u.y)       ? Math.min(UNDERLAY_OFFSET.max, Math.max(UNDERLAY_OFFSET.min, u.y)) : UNDERLAY_OFFSET.def,
       },
       underlayMove: raw.underlayMove === true,
     };
@@ -1046,16 +1053,26 @@ $('underlay-scale-minus').addEventListener('click', () => applyUnderlayScale(sta
 $('underlay-scale-plus').addEventListener('click', () => applyUnderlayScale(state.underlay.scale * 1.1));
 $('underlay-scale-reset').addEventListener('click', () => applyUnderlayScale(1));
 
-underlayX.addEventListener('input', () => {
-  state.underlay.x = Number(underlayX.value);
-  $('underlay-x-out').textContent = state.underlay.x.toFixed(2);
+function applyUnderlayOffset(axis, v) {
+  const clamped = Math.min(UNDERLAY_OFFSET.max, Math.max(UNDERLAY_OFFSET.min, v));
+  state.underlay[axis] = clamped;
+  if (axis === 'x') {
+    underlayX.value = clamped;
+    $('underlay-x-out').textContent = clamped.toFixed(2);
+  } else {
+    underlayY.value = clamped;
+    $('underlay-y-out').textContent = clamped.toFixed(2);
+  }
   applyUnderlayTransform(); save();
-});
-underlayY.addEventListener('input', () => {
-  state.underlay.y = Number(underlayY.value);
-  $('underlay-y-out').textContent = state.underlay.y.toFixed(2);
-  applyUnderlayTransform(); save();
-});
+}
+
+underlayX.addEventListener('input', () => applyUnderlayOffset('x', Number(underlayX.value)));
+underlayY.addEventListener('input', () => applyUnderlayOffset('y', Number(underlayY.value)));
+
+$('underlay-x-minus').addEventListener('click', () => applyUnderlayOffset('x', state.underlay.x - 0.5));
+$('underlay-x-plus').addEventListener('click',  () => applyUnderlayOffset('x', state.underlay.x + 0.5));
+$('underlay-y-minus').addEventListener('click', () => applyUnderlayOffset('y', state.underlay.y + 0.5)); // ↑
+$('underlay-y-plus').addEventListener('click',  () => applyUnderlayOffset('y', state.underlay.y - 0.5)); // ↓
 
 function applyUnderlayScale(v) {
   state.underlay.scale = Math.min(UNDERLAY_SCALE.max, Math.max(UNDERLAY_SCALE.min, v));
@@ -1065,6 +1082,11 @@ function applyUnderlayScale(v) {
 }
 
 function syncUnderlayUI() {
+  underlayX.min = UNDERLAY_OFFSET.min;
+  underlayX.max = UNDERLAY_OFFSET.max;
+  underlayY.min = UNDERLAY_OFFSET.min;
+  underlayY.max = UNDERLAY_OFFSET.max;
+
   underlayOpacity.value = state.underlay.opacity;
   $('underlay-opacity-out').textContent = Math.round(state.underlay.opacity * 100) + '%';
   underlayScale.value = state.underlay.scale;
@@ -1212,7 +1234,8 @@ $('about-btn').addEventListener('click', () => {
     'Подложка:\n' +
     '• «✥ Двигать подложку» или Shift+drag — перетаскивание.\n' +
     '• «Центрировать» — сброс смещения.\n' +
-    '• Слайдеры «Смещение X/Y» — точная подстройка, диапазон −3…+3.'
+    '• Слайдеры «Смещение X/Y» — точная подстройка, диапазон −20…+20.\n' +
+    '• Кнопки ←X / X→ / ↑Y / Y↓ — шаг 0.5.'
   );
 });
 
@@ -1249,8 +1272,8 @@ stage.addEventListener('pointermove', (e) => {
 
   if (dragStart.mode === 'underlay') {
     const { dx: mx, dy: my } = screenToModelDelta(dx, dy);
-    state.underlay.x = Math.min(3, Math.max(-3, dragStart.ux + mx));
-    state.underlay.y = Math.min(3, Math.max(-3, dragStart.uy - my));
+    state.underlay.x = Math.min(UNDERLAY_OFFSET.max, Math.max(UNDERLAY_OFFSET.min, dragStart.ux + mx));
+    state.underlay.y = Math.min(UNDERLAY_OFFSET.max, Math.max(UNDERLAY_OFFSET.min, dragStart.uy - my));
     underlayX.value = state.underlay.x;
     underlayY.value = state.underlay.y;
     $('underlay-x-out').textContent = state.underlay.x.toFixed(2);
@@ -1294,4 +1317,4 @@ render();
 updateViewName();
 </script>
 </body>
-</html>
+        </html>
