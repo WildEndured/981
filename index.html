@@ -541,51 +541,13 @@ function buildHead(input, lift = 0, opts = {}) {
 
   const out = (p) => norm(p);
 
-  // --- ⑨ АНИМЕ-КОНТУР (2D-ДУГА) ---
-  if (s.anime_on > 0.5) {
-    const segs = 24; 
-    const anime_pts = [];
-    
-    // Опорные точки: висок и подбородок
-    const p0 = A; 
-    const p2 = CfR; 
-
-    // Вычисляем точку скулы (середина + смещение)
-    const midPoint = [
-      (A[0] + CfR[0]) / 2,
-      (A[1] + CfR[1]) / 2,
-      (A[2] + CfR[2]) / 2
-    ];
-
-    // В аниме скула «выдвигается» вперед по оси Y и слегка сужается по X
-    const p1 = [
-      midPoint[0] * s.anime_width,
-      midPoint[1] - s.anime_curve, // выступ вперед
-      midPoint[2] 
-    ];
-
-    // Квадратичная кривая Безье
-    for (let i = 0; i <= segs; i++) {
-      const t = i / segs;
-      const mt = 1 - t;
-      const x = mt*mt*p0[0] + 2*mt*t*p1[0] + t*t*p2[0];
-      const y = mt*mt*p0[1] + 2*mt*t*p1[1] + t*t*p2[1];
-      const z = mt*mt*p0[2] + 2*mt*t*p1[2] + t*t*p2[2];
-      
-      anime_pts.push([x, y, z]); 
-    }
-    
-    add('9', GREEN, anime_pts);
-    add('9', GREEN, anime_pts.map(mirror));
-
-    // Подпись
-    const anime_mid = anime_pts[Math.floor(segs * 0.5)];
-    labels['9'] = [{ 
-      p: anime_mid, 
-      n: [0, -1, 0], 
-      t: sub(anime_pts[segs], anime_pts[0]) 
-    }];
-  }
+  // --- ⑨ АНИМЕ-КОНТУР (БУДЕТ РИСОВАТЬСЯ В 2D) ---
+  const anime_p1 = {
+    A, CfR, BR, 
+    curve: s.anime_curve, 
+    width: s.anime_width,
+    active: s.anime_on > 0.5
+  };
 
   const jawMid = lerp(BR, CfR, 0.5);
   const jawDir = sub(CfR, BR);
@@ -642,7 +604,7 @@ function buildHead(input, lift = 0, opts = {}) {
     }];
   }
 
-  return { lines, labels, solid: { width, cut, r0, top: s.top, back: s.back } };
+  return { lines, labels, solid: { width, cut, r0, top: s.top, back: s.back }, anime_p1 };
 }
 
 /* ==================================================================
@@ -665,7 +627,7 @@ function presetShape(id) {
  * Состояние
  * ================================================================== */
 
-const STORE_KEY = 'loomis-2d:v11';
+const STORE_KEY = 'loomis-2d:v12';
 
 function wrapYaw(y) { return ((((y + 180) % 360) + 360) % 360) - 180; }
 
@@ -862,6 +824,70 @@ function render() {
         gVisible.appendChild(path);
       }
     }
+  }
+
+  // ----- АНИМЕ-КОНТУР ⑨ (2D-СЛОЙ) -----
+  if (head.anime_p1 && head.anime_p1.active) {
+    const { A, CfR, BR, curve, width } = head.anime_p1;
+    
+    // Проецируем опорные точки на экран
+    const p0 = project(A);
+    const p2 = project(CfR);
+    const pB = project(BR);
+    
+    // Контрольная точка для кривой Безье (в экранных координатах)
+    // Берем середину между A и CfR и выдвигаем в сторону скулы
+    const midX = (p0.x + p2.x) / 2;
+    const midY = (p0.y + p2.y) / 2;
+    
+    // Сдвигаем в сторону от центра лица (вправо для правой щеки)
+    const p1 = {
+      x: midX + (pB.x - midX) * (1 - width) + curve * 50,
+      y: midY
+    };
+
+    // Квадратичная кривая Безье
+    const path = document.createElementNS(SVG_NS, 'path');
+    let d = `M ${p0.x.toFixed(1)} ${p0.y.toFixed(1)} `;
+    d += `Q ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', '#00b86b');
+    path.setAttribute('stroke-width', strokeW.toFixed(2));
+    path.setAttribute('stroke-linecap', 'round');
+    gVisible.appendChild(path);
+
+    // Левая сторона (зеркально)
+    const p0L = project(mirror(A));
+    const p2L = project(mirror(CfR));
+    const pBL = project(mirror(BR));
+    const midXL = (p0L.x + p2L.x) / 2;
+    const midYL = (p0L.y + p2L.y) / 2;
+    const p1L = {
+      x: midXL + (pBL.x - midXL) * (1 - width) - curve * 50,
+      y: midYL
+    };
+    
+    const pathL = document.createElementNS(SVG_NS, 'path');
+    let dL = `M ${p0L.x.toFixed(1)} ${p0L.y.toFixed(1)} `;
+    dL += `Q ${p1L.x.toFixed(1)} ${p1L.y.toFixed(1)} ${p2L.x.toFixed(1)} ${p2L.y.toFixed(1)}`;
+    pathL.setAttribute('d', dL);
+    pathL.setAttribute('fill', 'none');
+    pathL.setAttribute('stroke', '#00b86b');
+    pathL.setAttribute('stroke-width', strokeW.toFixed(2));
+    pathL.setAttribute('stroke-linecap', 'round');
+    gVisible.appendChild(pathL);
+
+    // Подпись ⑨
+    const anime_mid_proj = { x: (midX + p1.x) / 2, y: (midY + p1.y) / 2 };
+    const t = document.createElementNS(SVG_NS, 'text');
+    t.setAttribute('x', anime_mid_proj.x.toFixed(1));
+    t.setAttribute('y', anime_mid_proj.y.toFixed(1));
+    t.setAttribute('text-anchor', 'middle');
+    t.setAttribute('dominant-baseline', 'central');
+    t.setAttribute('class', 'label label--green');
+    t.textContent = '⑨';
+    gLabels.appendChild(t);
   }
 
   if (state.display.labels) {
