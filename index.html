@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Голова Лумиса — 2D (360°) + Редактор</title>
+<title>Голова Лумиса — 2D (360°)</title>
 <style>
   :root {
     --guide-red: #f03e6e;
@@ -15,7 +15,6 @@
     --muted: #8a8394;
     --line: #e5e1eb;
     --accent: #7a4dff;
-    --green: #2ea44f;
   }
 
   * { box-sizing: border-box; }
@@ -49,29 +48,6 @@
     margin-left: auto;
   }
   header .btn { font-size: 13px; padding: 6px 10px; }
-
-  .tabs {
-    display: flex;
-    gap: 4px;
-    margin-left: 16px;
-  }
-  .tab-btn {
-    font: inherit;
-    font-size: 13px;
-    padding: 6px 14px;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--muted);
-    cursor: pointer;
-    transition: all 0.12s;
-  }
-  .tab-btn:hover { color: var(--text); background: #f3f0f8; }
-  .tab-btn[aria-selected="true"] {
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);
-  }
 
   #stage {
     position: relative;
@@ -149,10 +125,6 @@
     border-color: var(--accent);
     color: #fff;
   }
-  .btn--green[aria-pressed="true"] {
-    background: var(--green);
-    border-color: var(--green);
-  }
 
   .row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 
@@ -189,70 +161,6 @@
     margin-bottom: 8px;
   }
 
-  /* Editor panel */
-  .editor-panel {
-    position: absolute;
-    top: 12px;
-    left: 12px;
-    background: rgba(255, 255, 255, 0.97);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 12px;
-    font-size: 12px;
-    max-width: 260px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-    z-index: 10;
-  }
-  .editor-panel h3 {
-    margin: 0 0 8px;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--muted);
-  }
-  .editor-panel textarea {
-    width: 100%;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 11px;
-    line-height: 1.4;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 6px;
-    resize: vertical;
-    background: #faf8fc;
-  }
-  .editor-panel .row { margin-top: 6px; margin-bottom: 0; }
-  .editor-panel .btn { font-size: 11px; padding: 5px 8px; }
-
-  .coord-list { max-height: 220px; overflow-y: auto; }
-  .coord-item {
-    display: grid;
-    grid-template-columns: 60px 1fr 1fr 1fr;
-    gap: 4px;
-    align-items: center;
-    margin-bottom: 3px;
-  }
-  .coord-item span { font-size: 11px; color: var(--muted); }
-  .coord-item input {
-    font: inherit;
-    font-size: 11px;
-    width: 100%;
-    padding: 2px 4px;
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    background: #fff;
-  }
-  .coord-item input:focus { outline: none; border-color: var(--accent); }
-
-  .status-msg {
-    font-size: 11px;
-    padding: 4px 8px;
-    border-radius: 6px;
-    margin-top: 6px;
-  }
-  .status-msg.error { background: #ffe6ec; color: #c2185b; }
-  .status-msg.ok { background: #e6f7ea; color: #2e7d32; }
-
   @media (max-width: 800px) {
     body {
       grid-template-columns: 1fr;
@@ -260,7 +168,6 @@
       height: 100dvh;
     }
     aside { border-left: none; border-top: 1px solid var(--line); max-height: 45vh; }
-    .editor-panel { max-width: 200px; }
   }
 </style>
 </head>
@@ -268,10 +175,6 @@
 
 <header>
   <h1>Голова Лумиса — 2D</h1>
-  <nav class="tabs">
-    <button class="tab-btn" id="tab-head" aria-selected="true" type="button">Голова</button>
-    <button class="tab-btn" id="tab-edit" aria-selected="false" type="button">Редактор</button>
-  </nav>
   <span class="view-name" id="view-name">Анфас · 0°</span>
   <button class="btn" id="about-btn" type="button">О методе</button>
 </header>
@@ -279,23 +182,9 @@
 <main id="stage">
   <svg id="canvas" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
   <div id="drop-cover" hidden>Отпустите, чтобы вставить</div>
-
-  <!-- Editor overlay -->
-  <div class="editor-panel" id="editor-panel" hidden>
-    <h3>Прямое редактирование</h3>
-    <p class="hint" style="margin:0 0 6px">Выберите линию и редактируйте координаты точек (x, y, z).</p>
-    <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:2px">Линия</label>
-    <select id="edit-line-select" style="width:100%;font:inherit;font-size:11px;padding:4px;border:1px solid var(--line);border-radius:6px;margin-bottom:8px;background:#fff;"></select>
-    <div class="coord-list" id="coord-list"></div>
-    <div class="row">
-      <button class="btn btn--green" id="apply-coords" type="button" aria-pressed="false" style="flex:1;">Применить</button>
-      <button class="btn" id="reset-coords" type="button">Сброс</button>
-    </div>
-    <div id="edit-status"></div>
-  </div>
 </main>
 
-<aside id="sidebar">
+<aside>
   <section>
     <h2>Поворот</h2>
     <div class="slider">
@@ -320,9 +209,12 @@
     </div>
   </section>
 
-  <section id="shape-section">
+  <section>
     <h2>Пресеты формы</h2>
     <div class="row" id="presets"></div>
+  </section>
+
+  <section>
     <h2>Форма</h2>
     <div id="shape-sliders"></div>
   </section>
@@ -337,6 +229,7 @@
     <div class="row">
       <button class="btn" id="toggle-hidden" aria-pressed="true" type="button">Скрытые линии</button>
       <button class="btn" id="toggle-labels" aria-pressed="true" type="button">Подписи</button>
+      <button class="btn" id="toggle-neck" aria-pressed="true" type="button">Шея</button>
     </div>
   </section>
 
@@ -389,6 +282,12 @@ const SHAPE_PARAMS = [
   { key: 'chin_front', label: 'Ⓒ Выступ подбородка',     min: 0.4,  max: 1.4,  step: 0.01, def: 0.85 },
   { key: 'chin_w',     label: 'Ⓒ Ширина подбородка',     min: 0.03, max: 0.6,  step: 0.01, def: 0.22 },
   { key: 'chin_round', label: 'Ⓒ Скругление подбородка', min: 0,    max: 1,    step: 0.01, def: 0.5 },
+  /* --- шея --- */
+  { key: 'neck_w',     label: 'Ⓝ Ширина шеи',            min: 0.2,  max: 0.9,  step: 0.01, def: 0.55 },
+  { key: 'neck_d',     label: 'Ⓝ Глубина шеи',           min: 0.2,  max: 0.9,  step: 0.01, def: 0.55 },
+  { key: 'neck_len',   label: 'Ⓝ Длина шеи (× H)',       min: 0.1,  max: 0.5,  step: 0.01, def: 0.2 },
+  { key: 'neck_tilt',  label: 'Ⓝ Наклон шеи',            min: -15,  max: 25,   step: 1,    def: 6,  unit: '°' },
+  { key: 'neck_up',    label: 'Ⓝ Заглубление',           min: 0,    max: 0.3,  step: 0.01, def: 0.1 },
 ];
 
 const LINE_PARAM = { min: 0.004, max: 0.04, step: 0.001, def: 0.012 };
@@ -396,6 +295,7 @@ const RED = 'red', BLUE = 'blue';
 const CORNER = 0.05;
 const MAX_Z = 0.98;
 const LOOP_SEGMENTS = 96;
+const NECK_SEGMENTS = 48;
 
 const rad = (d) => (d * Math.PI) / 180;
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -464,7 +364,8 @@ function rounded(items, radius) {
   return { pts: out, corners };
 }
 
-function buildHead(input, lift = 0) {
+function buildHead(input, lift = 0, opts = {}) {
+  const showNeck = opts.neck !== false;
   const s = clampShape(input);
   const ball = makeBall(s);
   const { width, cut, r0, stretch, normal } = ball;
@@ -486,7 +387,9 @@ function buildHead(input, lift = 0) {
 
   const lines = [];
   const labels = {};
-  const add = (id, color, pts, closed = false) => lines.push({ id, color, closed, pts });
+  /* normals: если заданы — используются для видимости; иначе norm(p) */
+  const add = (id, color, pts, closed = false, normals = null) =>
+    lines.push({ id, color, closed, pts, normals });
 
   const ring = (z) => {
     const zu = z / ball.sz(z);
@@ -584,7 +487,7 @@ function buildHead(input, lift = 0) {
   const chinMid = [0, -s.chin_front, zChin];
   add('6', RED, [front, chinMid]);
 
-  // метки
+  // ⑥ метки
   const out = (p) => norm(p);
   const BR = cornerOf(B);
   const jawMid = lerp(BR, CfR, 0.5);
@@ -598,18 +501,68 @@ function buildHead(input, lift = 0) {
   labels['B'] = [{ p: BR, n: out(BR) }, { p: mirror(BR), n: out(mirror(BR)) }];
   labels['C'] = [{ p: chinMid, n: norm([0, -1, -1]) }];
 
+  /* ------------------------------------------------------------------
+   * Ⓝ ШЕЯ — эллиптический цилиндр, длина = neck_len · H_head
+   * ------------------------------------------------------------------ */
+  if (showNeck) {
+    const H_head = r0 * s.top - zChin;
+    const L_neck = H_head * s.neck_len;
+    const rx = Math.max(1e-4, s.neck_w * width);
+    const ry = Math.max(1e-4, s.neck_d * r0);
+    const neckTilt = rad(s.neck_tilt);
+
+    const zTopNeck = zChin + s.neck_up;
+    const zBotNeck = zTopNeck - L_neck;
+
+    // точка на цилиндре: t — угол (0 = вперёд, −y), z — высота
+    const neckAt = (t, z) => {
+      const x = rx * Math.sin(t);
+      const y = ry * Math.cos(t);
+      const k = (zTopNeck - z) * Math.tan(neckTilt); // наклон вперёд/назад
+      return [x, y - k, z];
+    };
+    // нормаль к боковой поверхности (не зависит от z)
+    const neckNormal = (t) => norm([Math.sin(t) / rx, Math.cos(t) / ry, 0]);
+
+    // верхнее и нижнее торцевые кольца
+    const topLoop = [], botLoop = [], topNorms = [], botNorms = [];
+    for (let i = 0; i < NECK_SEGMENTS; i++) {
+      const t = (i / NECK_SEGMENTS) * Math.PI * 2;
+      topLoop.push(neckAt(t, zTopNeck));
+      botLoop.push(neckAt(t, zBotNeck));
+      topNorms.push([0, 0, 1]);   // верх — нормаль вверх
+      botNorms.push([0, 0, -1]);  // низ — нормаль вниз
+    }
+    add('N-top', BLUE, topLoop, true, topNorms);
+    add('N-bot', BLUE, botLoop, true, botNorms);
+
+    // образующие (силуэт цилиндра) — 4 шт: ±X, ±Y (спереди/сзади)
+    for (const t of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+      add('N-gen', BLUE,
+        [neckAt(t, zTopNeck), neckAt(t, zBotNeck)],
+        false,
+        [neckNormal(t), neckNormal(t)]);
+    }
+
+    labels['N'] = [{
+      p: neckAt(Math.PI / 2, (zTopNeck + zBotNeck) / 2),
+      n: norm([1, 0, 0]),
+      t: [0, 0, 1],
+    }];
+  }
+
   return { lines, labels, solid: { width, cut, r0, top: s.top, back: s.back } };
 }
 
 /* ==================================================================
- * Пресеты формы — оригинальные значения из presets.js 3D-версии
+ * Пресеты формы (значения из presets.js + поля шеи)
  * ================================================================== */
 
 const PRESETS = [
-  { id: 'standard', label: 'Стандарт',  values: { r0: 0.68, eye: 0.0,   jaw_len: 0.40, jaw_x: 0.62, chin_len: 1.0,  chin_w: 0.22 } },
-  { id: 'youth',    label: 'Юноша',     values: { r0: 0.70, eye: -0.1,  jaw_len: 0.45, jaw_x: 0.60, chin_len: 1.05, chin_w: 0.18 } },
-  { id: 'girl',     label: 'Девушка',   values: { r0: 0.64, eye: -0.35, jaw_len: 0.30, jaw_x: 0.55, chin_len: 0.85, chin_w: 0.16 } },
-  { id: 'child',    label: 'Ребёнок',   values: { r0: 0.58, eye: -0.6,  jaw_len: 0.20, jaw_x: 0.60, chin_len: 0.65, chin_w: 0.25 } },
+  { id: 'standard', label: 'Стандарт',  values: { r0: 0.68, eye: 0.0,   jaw_len: 0.40, jaw_x: 0.62, chin_len: 1.0,  chin_w: 0.22, neck_w: 0.55, neck_d: 0.55, neck_len: 0.20, neck_tilt: 6,  neck_up: 0.10 } },
+  { id: 'youth',    label: 'Юноша',     values: { r0: 0.70, eye: -0.1,  jaw_len: 0.45, jaw_x: 0.60, chin_len: 1.05, chin_w: 0.18, neck_w: 0.50, neck_d: 0.50, neck_len: 0.21, neck_tilt: 5,  neck_up: 0.10 } },
+  { id: 'girl',     label: 'Девушка',   values: { r0: 0.64, eye: -0.35, jaw_len: 0.30, jaw_x: 0.55, chin_len: 0.85, chin_w: 0.16, neck_w: 0.42, neck_d: 0.45, neck_len: 0.22, neck_tilt: 8,  neck_up: 0.10 } },
+  { id: 'child',    label: 'Ребёнок',   values: { r0: 0.58, eye: -0.6,  jaw_len: 0.20, jaw_x: 0.60, chin_len: 0.65, chin_w: 0.25, neck_w: 0.60, neck_d: 0.58, neck_len: 0.18, neck_tilt: 3,  neck_up: 0.08 } },
 ];
 
 function presetShape(id) {
@@ -632,7 +585,7 @@ function loadState() {
     preset: 'standard',
     line: LINE_PARAM.def,
     view: { yaw: 0, pitch: 0 },
-    display: { hidden: true, labels: true },
+    display: { hidden: true, labels: true, neck: true },
     underlay: { opacity: 0.4, scale: 1 },
   };
   try {
@@ -647,7 +600,11 @@ function loadState() {
         yaw: Number.isFinite(raw.view?.yaw) ? wrapYaw(raw.view.yaw) : 0,
         pitch: Number.isFinite(raw.view?.pitch) ? Math.min(60, Math.max(-60, raw.view.pitch)) : 0,
       },
-      display: { hidden: raw.display?.hidden !== false, labels: raw.display?.labels !== false },
+      display: {
+        hidden: raw.display?.hidden !== false,
+        labels: raw.display?.labels !== false,
+        neck: raw.display?.neck !== false,
+      },
       underlay: { opacity: 0.4, scale: 1 },
     };
   } catch { return def; }
@@ -690,8 +647,8 @@ underlayImg.setAttribute('height', SCALE * 2);
 underlayImg.style.display = 'none';
 gUnderlay.appendChild(underlayImg);
 
-const LABEL_TEXT = { 1: '①', 2: '②', 3: '③', 4: '④', 5: '⑤', 6: '⑥', 7: '⑦', 8: '⑧', A: 'Ⓐ', B: 'Ⓑ', C: 'Ⓒ' };
-const LABEL_COLOR = { 1: 'red', 2: 'red', 3: 'red', 6: 'red', 4: 'blue', 5: 'blue', 7: 'blue', 8: 'blue', A: 'ink', B: 'ink', C: 'ink' };
+const LABEL_TEXT = { 1: '①', 2: '②', 3: '③', 4: '④', 5: '⑤', 6: '⑥', 7: '⑦', 8: '⑧', A: 'Ⓐ', B: 'Ⓑ', C: 'Ⓒ', N: 'Ⓝ' };
+const LABEL_COLOR = { 1: 'red', 2: 'red', 3: 'red', 6: 'red', 4: 'blue', 5: 'blue', 7: 'blue', 8: 'blue', N: 'blue', A: 'ink', B: 'ink', C: 'ink' };
 
 function rotate(p) {
   const yaw = rad(state.view.yaw), pitch = rad(state.view.pitch);
@@ -711,7 +668,7 @@ function project(p) {
   return { x: CX + r[0] * SCALE, y: CY - r[2] * SCALE, depth: r[1] };
 }
 
-function isVisiblePoint(p, n) {
+function isVisible(n) {
   const rn = rotate(n);
   return rn[1] < 0;
 }
@@ -724,14 +681,17 @@ function lineToPath(pts, closed) {
   return d;
 }
 
-function splitByVisibility(pts, projected) {
+/* splitByVisibility — с учётом явных нормалей (line.normals) */
+function splitByVisibility(line, projected) {
+  const pts = line.pts;
+  const normals = line.normals;
   const result = [];
   if (!pts.length) return result;
   let cur = { visible: null, pts2d: [] };
   for (let i = 0; i < pts.length; i++) {
     const p = pts[i];
-    const n = norm(p);
-    const vis = isVisiblePoint(p, n);
+    const n = normals ? normals[i] : norm(p);
+    const vis = isVisible(n);
     if (cur.visible === null) {
       cur.visible = vis;
       cur.pts2d.push(projected[i]);
@@ -747,15 +707,8 @@ function splitByVisibility(pts, projected) {
   return result;
 }
 
-// Переменные для редактора: текущая форма
-let currentHead = null;
-let editorLines = []; // { id, color, closed, pts }
-
 function render() {
-  const head = buildHead(state.shape, state.line);
-  currentHead = head;
-  editorLines = head.lines;
-
+  const head = buildHead(state.shape, state.line, { neck: state.display.neck });
   gVisible.innerHTML = '';
   gHidden.innerHTML = '';
   gLabels.innerHTML = '';
@@ -764,7 +717,7 @@ function render() {
 
   for (const l of head.lines) {
     const projected = l.pts.map((p) => project(p));
-    const parts = splitByVisibility(l.pts, projected);
+    const parts = splitByVisibility(l, projected);
 
     for (const part of parts) {
       if (part.pts2d.length < 2) continue;
@@ -790,7 +743,7 @@ function render() {
     for (const [id, cands] of Object.entries(head.labels)) {
       let best = null;
       for (const c of cands) {
-        if (!isVisiblePoint(c.p, c.n)) continue;
+        if (!isVisible(c.n)) continue;
         const proj = project(c.p);
         if (!best) best = { proj, c };
       }
@@ -927,7 +880,7 @@ function renderPresets() {
 // слайдеры формы
 const shapeSyncers = [];
 const shapeHost = $('shape-sliders');
-const SHAPE_GROUPS = { cut: 'Голова', eye: 'Лицо', jaw_start: 'Челюсть', chin_len: 'Подбородок' };
+const SHAPE_GROUPS = { cut: 'Голова', eye: 'Лицо', jaw_start: 'Челюсть', chin_len: 'Подбородок', neck_w: 'Шея' };
 for (const p of SHAPE_PARAMS) {
   if (SHAPE_GROUPS[p.key]) {
     const h = document.createElement('div');
@@ -974,8 +927,10 @@ lineInput.addEventListener('input', () => {
 // переключатели
 const toggleHidden = $('toggle-hidden');
 const toggleLabels = $('toggle-labels');
+const toggleNeck = $('toggle-neck');
 toggleHidden.setAttribute('aria-pressed', String(state.display.hidden));
 toggleLabels.setAttribute('aria-pressed', String(state.display.labels));
+toggleNeck.setAttribute('aria-pressed', String(state.display.neck));
 toggleHidden.addEventListener('click', () => {
   state.display.hidden = !state.display.hidden;
   toggleHidden.setAttribute('aria-pressed', String(state.display.hidden));
@@ -984,6 +939,11 @@ toggleHidden.addEventListener('click', () => {
 toggleLabels.addEventListener('click', () => {
   state.display.labels = !state.display.labels;
   toggleLabels.setAttribute('aria-pressed', String(state.display.labels));
+  render(); save();
+});
+toggleNeck.addEventListener('click', () => {
+  state.display.neck = !state.display.neck;
+  toggleNeck.setAttribute('aria-pressed', String(state.display.neck));
   render(); save();
 });
 
@@ -1132,233 +1092,6 @@ function download(blob, name) {
 }
 
 /* ==================================================================
- * Вкладки
- * ================================================================== */
-
-const tabHead = $('tab-head');
-const tabEdit = $('tab-edit');
-const editorPanel = $('editor-panel');
-const shapeSection = $('shape-section');
-
-function switchTab(mode) {
-  if (mode === 'head') {
-    tabHead.setAttribute('aria-selected', 'true');
-    tabEdit.setAttribute('aria-selected', 'false');
-    editorPanel.hidden = true;
-    shapeSection.style.display = '';
-  } else {
-    tabHead.setAttribute('aria-selected', 'false');
-    tabEdit.setAttribute('aria-selected', 'true');
-    editorPanel.hidden = false;
-    shapeSection.style.display = 'none';
-    refreshEditorLineList();
-  }
-}
-
-tabHead.addEventListener('click', () => switchTab('head'));
-tabEdit.addEventListener('click', () => switchTab('edit'));
-
-/* ==================================================================
- * Редактор геометрии
- * ================================================================== */
-
-const editLineSelect = $('edit-line-select');
-const coordList = $('coord-list');
-const applyCoords = $('apply-coords');
-const resetCoords = $('reset-coords');
-const editStatus = $('edit-status');
-
-// Буфер для редактируемых линий: { lineId, color, closed, pts: [{x,y,z}] }
-let editBuffer = null;
-let originalBuffer = null;
-
-function refreshEditorLineList() {
-  if (!currentHead) return;
-  // Группируем линии по id
-  const grouped = {};
-  for (const l of currentHead.lines) {
-    if (!grouped[l.id]) grouped[l.id] = [];
-    grouped[l.id].push(l);
-  }
-  editLineSelect.innerHTML = '';
-  const ids = Object.keys(grouped).sort((a, b) => {
-    const order = ['1','2','3','4','5','6','7','8','A','B','C'];
-    return order.indexOf(a) - order.indexOf(b);
-  });
-  for (const id of ids) {
-    const lines = grouped[id];
-    const color = lines[0].color;
-    const opt = document.createElement('option');
-    opt.value = id;
-    opt.textContent = `${LABEL_TEXT[id] || id} (${lines.length} сегм., ${color === RED ? 'красн.' : 'син.'})`;
-    editLineSelect.appendChild(opt);
-  }
-  if (ids.length) {
-    editLineSelect.value = ids[0];
-    loadLineForEditing(ids[0]);
-  }
-}
-
-function loadLineForEditing(id) {
-  if (!currentHead) return;
-  const lines = currentHead.lines.filter(l => l.id === id);
-  if (!lines.length) return;
-
-  // Собираем все точки из всех сегментов линии
-  editBuffer = [];
-  for (const l of lines) {
-    for (const p of l.pts) {
-      editBuffer.push({ x: +p[0].toFixed(4), y: +p[1].toFixed(4), z: +p[2].toFixed(4), color: l.color, closed: l.closed });
-    }
-  }
-  originalBuffer = editBuffer.map(p => ({ ...p }));
-
-  // Показываем только уникальные точки (первую из каждой)
-  // Для простоты показываем все, но сгруппированные по сегментам
-  renderCoordList();
-  editStatus.innerHTML = '';
-}
-
-function renderCoordList() {
-  if (!editBuffer) return;
-  coordList.innerHTML = '';
-  // Показываем первые 50 точек для производительности
-  const maxShow = Math.min(editBuffer.length, 80);
-  for (let i = 0; i < maxShow; i++) {
-    const p = editBuffer[i];
-    const row = document.createElement('div');
-    row.className = 'coord-item';
-    row.innerHTML = `
-      <span>#${i}</span>
-      <input type="number" step="0.01" value="${p.x}" data-idx="${i}" data-axis="x" title="X">
-      <input type="number" step="0.01" value="${p.y}" data-idx="${i}" data-axis="y" title="Y">
-      <input type="number" step="0.01" value="${p.z}" data-idx="${i}" data-axis="z" title="Z">
-    `;
-    coordList.appendChild(row);
-  }
-  if (editBuffer.length > maxShow) {
-    const note = document.createElement('p');
-    note.className = 'hint';
-    note.textContent = `… и ещё ${editBuffer.length - maxShow} точек (не показаны для производительности)`;
-    coordList.appendChild(note);
-  }
-}
-
-coordList.addEventListener('input', (e) => {
-  const inp = e.target.closest('input');
-  if (!inp || !editBuffer) return;
-  const idx = Number(inp.dataset.idx);
-  const axis = inp.dataset.axis;
-  const val = parseFloat(inp.value);
-  if (Number.isFinite(val) && editBuffer[idx]) {
-    editBuffer[idx][axis] = val;
-  }
-});
-
-applyCoords.addEventListener('click', () => {
-  if (!editBuffer || !currentHead) return;
-  const lineId = editLineSelect.value;
-  const lines = currentHead.lines.filter(l => l.id === lineId);
-  if (!lines.length) return;
-
-  // Распределяем отредактированные точки обратно по сегментам
-  let offset = 0;
-  for (const l of lines) {
-    for (let i = 0; i < l.pts.length; i++) {
-      if (offset < editBuffer.length) {
-        const p = editBuffer[offset];
-        l.pts[i] = [p.x, p.y, p.z];
-      }
-      offset++;
-    }
-  }
-
-  // Перерисовываем с новыми данными
-  // Временно заменяем lines в currentHead и рендерим напрямую
-  renderCustomLines();
-  editStatus.innerHTML = '<div class="status-msg ok">Применено</div>';
-  setTimeout(() => { editStatus.innerHTML = ''; }, 1500);
-});
-
-resetCoords.addEventListener('click', () => {
-  if (!originalBuffer) return;
-  editBuffer = originalBuffer.map(p => ({ ...p }));
-  renderCoordList();
-  editStatus.innerHTML = '<div class="status-msg ok">Сброшено</div>';
-  setTimeout(() => { editStatus.innerHTML = ''; }, 1500);
-});
-
-editLineSelect.addEventListener('change', () => {
-  loadLineForEditing(editLineSelect.value);
-});
-
-// Отрисовка кастомных линий (без пересборки head)
-function renderCustomLines() {
-  if (!currentHead) return;
-  gVisible.innerHTML = '';
-  gHidden.innerHTML = '';
-  gLabels.innerHTML = '';
-
-  const strokeW = state.line * SCALE;
-
-  for (const l of currentHead.lines) {
-    const projected = l.pts.map((p) => project(p));
-    const parts = splitByVisibility(l.pts, projected);
-
-    for (const part of parts) {
-      if (part.pts2d.length < 2) continue;
-      const path = document.createElementNS(SVG_NS, 'path');
-      path.setAttribute('d', lineToPath(part.pts2d, false));
-      path.setAttribute('fill', 'none');
-      path.setAttribute('stroke', l.color === RED ? 'var(--guide-red)' : 'var(--guide-blue)');
-      path.setAttribute('stroke-width', strokeW.toFixed(2));
-      path.setAttribute('stroke-linecap', 'round');
-      path.setAttribute('stroke-linejoin', 'round');
-      if (!part.visible) {
-        if (!state.display.hidden) continue;
-        path.setAttribute('stroke-opacity', '0.22');
-        path.setAttribute('stroke-dasharray', `${(strokeW * 1.5).toFixed(1)} ${(strokeW * 2.5).toFixed(1)}`);
-        gHidden.appendChild(path);
-      } else {
-        gVisible.appendChild(path);
-      }
-    }
-  }
-
-  // Подписи
-  if (state.display.labels) {
-    for (const [id, cands] of Object.entries(currentHead.labels)) {
-      let best = null;
-      for (const c of cands) {
-        if (!isVisiblePoint(c.p, c.n)) continue;
-        const proj = project(c.p);
-        if (!best) best = { proj, c };
-      }
-      if (!best) continue;
-      const t = document.createElementNS(SVG_NS, 'text');
-      const nProj = project([
-        best.c.p[0] + best.c.n[0] * 0.15,
-        best.c.p[1] + best.c.n[1] * 0.15,
-        best.c.p[2] + best.c.n[2] * 0.15,
-      ]);
-      let dx = nProj.x - best.proj.x;
-      let dy = nProj.y - best.proj.y;
-      const dl = Math.hypot(dx, dy) || 1;
-      dx /= dl; dy /= dl;
-      const x = best.proj.x + dx * 14;
-      const y = best.proj.y + dy * 14;
-      t.setAttribute('x', x.toFixed(1));
-      t.setAttribute('y', y.toFixed(1));
-      t.setAttribute('text-anchor', 'middle');
-      t.setAttribute('dominant-baseline', 'central');
-      t.setAttribute('class', `label label--${LABEL_COLOR[id]}`);
-      t.textContent = LABEL_TEXT[id];
-      gLabels.appendChild(t);
-    }
-  }
-}
-
-/* ==================================================================
  * О методе
  * ================================================================== */
 
@@ -1372,11 +1105,12 @@ $('about-btn').addEventListener('click', () => {
     '⑤ — линия носа\n' +
     '⑥ — центральная линия лица\n' +
     '⑦ — линия челюсти Ⓐ→Ⓑ→Ⓒ\n' +
-    '⑧ — линия скулы\n\n' +
+    '⑧ — линия скулы\n' +
+    'Ⓝ — шея (цилиндр, длина ≈ 1/5 высоты головы)\n\n' +
     'Перетаскивай мышью — вращение по кругу (yaw) и наклон (pitch).\n' +
     'Кнопка «Крутить» — плавный автоповорот.\n' +
-    'Скрытые линии — приглушённый пунктир на обратной стороне.\n\n' +
-    'Вкладка «Редактор» — прямое редактирование координат линий.'
+    'Скрытые линии — приглушённый пунктир на обратной стороне.\n' +
+    'Кнопка «Шея» скрывает/показывает цилиндр шеи.'
   );
 });
 
@@ -1386,7 +1120,7 @@ $('about-btn').addEventListener('click', () => {
 
 let dragStart = null;
 stage.addEventListener('pointerdown', (e) => {
-  if (e.target.closest('aside') || e.target.closest('.editor-panel')) return;
+  if (e.target.closest('aside')) return;
   stopSpin();
   dragStart = { x: e.clientX, y: e.clientY, yaw: state.view.yaw, pitch: state.view.pitch };
   stage.setPointerCapture(e.pointerId);
