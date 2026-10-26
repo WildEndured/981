@@ -15,6 +15,7 @@
     --muted: #8a8394;
     --line: #e5e1eb;
     --accent: #7a4dff;
+    --ball-fill: rgba(140, 128, 170, 0.22);
   }
   * { box-sizing: border-box; }
   body {
@@ -72,6 +73,14 @@
   .label--red  { fill: var(--guide-red); }
   .label--blue { fill: var(--guide-blue); }
   .label--ink  { fill: var(--text); }
+  .label--green { fill: #00b86b; }
+  
+  #stage .ball-fill {
+    fill: var(--ball-fill);
+    stroke: none;
+    pointer-events: none;
+  }
+
   #drop-cover {
     position: absolute;
     inset: 0;
@@ -306,6 +315,12 @@ const SHAPE_PARAMS = [
   { key: 'chin_front', label: 'Ⓒ Выступ подбородка',     min: 0.4,  max: 1.4,  step: 0.01, def: 0.85 },
   { key: 'chin_w',     label: 'Ⓒ Ширина подбородка',     min: 0.03, max: 0.6,  step: 0.01, def: 0.22 },
   { key: 'chin_round', label: 'Ⓒ Скругление подбородка', min: 0,    max: 1,    step: 0.01, def: 0.5 },
+  
+  // Новые параметры для аниме-челюсти (⑨)
+  { key: 'anime_on',    label: '⑨ Аниме-контур',          min: 0,    max: 1,    step: 1,    def: 1 },
+  { key: 'anime_curve', label: '⑨ Изгиб щеки',            min: -0.5, max: 0.5,  step: 0.01, def: 0.15 },
+  { key: 'anime_width', label: '⑨ Сужение к подбородку',  min: 0.3,  max: 1.0,  step: 0.01, def: 0.6 },
+
   { key: 'neck_w',     label: 'Ⓝ Ширина шеи',            min: 0.2,  max: 0.9,  step: 0.01, def: 0.30 },
   { key: 'neck_d',     label: 'Ⓝ Глубина шеи',           min: 0.2,  max: 0.9,  step: 0.01, def: 0.55 },
   { key: 'neck_len',   label: 'Ⓝ Длина шеи (× H)',       min: 0.1,  max: 0.5,  step: 0.01, def: 0.45 },
@@ -317,7 +332,7 @@ const LINE_PARAM = { min: 0.004, max: 0.04, step: 0.001, def: 0.012 };
 const FIGURE_SCALE = { min: 0.2, max: 3, step: 0.01, def: 1 };
 const UNDERLAY_SCALE = { min: 0.1, max: 10, step: 0.01, def: 1 };
 const UNDERLAY_OFFSET = { min: -20, max: 20, def: 0 };
-const RED = 'red', BLUE = 'blue';
+const RED = 'red', BLUE = 'blue', GREEN = 'green';
 const CORNER = 0.05;
 const MAX_Z = 0.98;
 const LOOP_SEGMENTS = 96;
@@ -388,6 +403,18 @@ function rounded(items, radius) {
   }
   out.push(pts0[pts0.length - 1].p);
   return { pts: out, corners };
+}
+
+function buildBallOutline() {
+  const s = clampShape(state.shape);
+  const ball = makeBall(s);
+  const { r0, stretch } = ball;
+  const pts = [];
+  for (let i = 0; i < LOOP_SEGMENTS; i++) {
+    const t = (i / LOOP_SEGMENTS) * Math.PI * 2;
+    pts.push(stretch(0, r0 * Math.cos(t), r0 * Math.sin(t)));
+  }
+  return pts;
 }
 
 function buildHead(input, lift = 0, opts = {}) {
@@ -490,7 +517,7 @@ function buildHead(input, lift = 0, opts = {}) {
   const B = [s.jaw_x, A[1] - s.jaw_len * Math.sin(tilt), A[2] - s.jaw_len * Math.cos(tilt)];
   const Cf = [s.chin_w, -s.chin_front, zChin];
 
-  // ⑦ челюсть
+  // ⑦ челюсть (базовая)
   const k = s.chin_round;
   const jaw = rounded([
     { p: A }, { p: B, k: 0 }, { p: Cf, k },
@@ -500,6 +527,7 @@ function buildHead(input, lift = 0, opts = {}) {
   const cornerOf = (v) => jaw.corners.find((c) => c.v === v)?.p ?? v;
   const CfR = cornerOf(Cf);
   const CfL = mirror(CfR);
+  const BR = cornerOf(B);
 
   // ⑧ скула
   const zEyeU = zEye / ball.sz(zEye);
@@ -512,8 +540,59 @@ function buildHead(input, lift = 0, opts = {}) {
   const chinMid = [0, -s.chin_front, zChin];
   add('6', RED, [front, chinMid]);
 
+  // --- ⑨ АНИМЕ-КОНТУР ---
+  if (s.anime_on > 0.5) {
+    // 1. Берем точки от базовой челюсти
+    const A_start = A; 
+    
+    // 2. Вычисляем "аниме-скулу" — она смещена от Ⓑ в сторону Ⓐ и вперед
+    const anime_cheek = [
+      s.jaw_x * s.anime_width, 
+      lerp(BR[1], CfR[1], 0.2), 
+      lerp(BR[2], CfR[2], 0.2)
+    ];
+    
+    // 3. Строим кривую Безье от виска (A) через аниме-скулу к подбородку (CfR)
+    const segs = 24; 
+    const anime_pts = [];
+    
+    // Функция квадратичной кривой Безье
+    const bezier = (p0, p1, p2, t) => {
+      const mt = 1 - t;
+      return [
+        mt*mt*p0[0] + 2*mt*t*p1[0] + t*t*p2[0],
+        mt*mt*p0[1] + 2*mt*t*p1[1] + t*t*p2[1],
+        mt*mt*p0[2] + 2*mt*t*p1[2] + t*t*p2[2],
+      ];
+    };
+
+    // Вычисляем контрольную точку для плавного изгиба щеки
+    const midAC = lerp(A, CfR, 0.5);
+    const ctrl1 = [
+      anime_cheek[0] + s.anime_curve, 
+      lerp(A[1], CfR[1], 0.5),
+      lerp(A[2], CfR[2], 0.5) + s.anime_curve * 0.5 
+    ];
+
+    // Строим правую половину
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs;
+      anime_pts.push(bezier(A, ctrl1, CfR, t));
+    }
+    
+    add('9', GREEN, anime_pts);
+    add('9', GREEN, anime_pts.map(mirror));
+
+    // Подпись ⑨
+    const anime_mid = anime_pts[Math.floor(segs * 0.6)];
+    labels['9'] = [{ 
+      p: anime_mid, 
+      n: out(anime_mid), 
+      t: sub(anime_pts[segs], anime_pts[0]) 
+    }];
+  }
+
   const out = (p) => norm(p);
-  const BR = cornerOf(B);
   const jawMid = lerp(BR, CfR, 0.5);
   const jawDir = sub(CfR, BR);
   const cheek = lerp(CfR, eyeEdge, 0.5);
@@ -592,7 +671,7 @@ function presetShape(id) {
  * Состояние
  * ================================================================== */
 
-const STORE_KEY = 'loomis-2d:v6';
+const STORE_KEY = 'loomis-2d:v8';
 
 function wrapYaw(y) { return ((((y + 180) % 360) + 360) % 360) - 180; }
 
@@ -663,10 +742,12 @@ const CX = VIEW_SIZE / 2, CY = VIEW_SIZE / 2;
 const BASE_SCALE = 200;
 
 const gUnderlay = document.createElementNS(SVG_NS, 'g');
+const gBallFill = document.createElementNS(SVG_NS, 'g');
 const gHidden = document.createElementNS(SVG_NS, 'g');
 const gVisible = document.createElementNS(SVG_NS, 'g');
 const gLabels = document.createElementNS(SVG_NS, 'g');
 svg.appendChild(gUnderlay);
+svg.appendChild(gBallFill);
 svg.appendChild(gHidden);
 svg.appendChild(gVisible);
 svg.appendChild(gLabels);
@@ -681,8 +762,8 @@ underlayImg.style.display = 'none';
 underlayImg.style.pointerEvents = 'none';
 gUnderlay.appendChild(underlayImg);
 
-const LABEL_TEXT = { 1: '①', 2: '②', 3: '③', 4: '④', 5: '⑤', 6: '⑥', 7: '⑦', 8: '⑧', A: 'Ⓐ', B: 'Ⓑ', C: 'Ⓒ', N: 'Ⓝ' };
-const LABEL_COLOR = { 1: 'red', 2: 'red', 3: 'red', 6: 'red', 4: 'blue', 5: 'blue', 7: 'blue', 8: 'blue', N: 'blue', A: 'ink', B: 'ink', C: 'ink' };
+const LABEL_TEXT = { 1: '①', 2: '②', 3: '③', 4: '④', 5: '⑤', 6: '⑥', 7: '⑦', 8: '⑧', 9: '⑨', A: 'Ⓐ', B: 'Ⓑ', C: 'Ⓒ', N: 'Ⓝ' };
+const LABEL_COLOR = { 1: 'red', 2: 'red', 3: 'red', 6: 'red', 9: 'green', 4: 'blue', 5: 'blue', 7: 'blue', 8: 'blue', N: 'blue', A: 'ink', B: 'ink', C: 'ink' };
 
 function rotate(p) {
   const yaw = rad(state.view.yaw), pitch = rad(state.view.pitch);
@@ -743,11 +824,23 @@ function splitByVisibility(line, projected) {
 
 function render() {
   const head = buildHead(state.shape, state.line, { neck: state.display.neck });
+  
+  gBallFill.innerHTML = '';
   gVisible.innerHTML = '';
   gHidden.innerHTML = '';
   gLabels.innerHTML = '';
 
   const strokeW = state.line * BASE_SCALE * state.figureScale;
+
+  // ----- серая заливка эллипса -----
+  {
+    const outline = buildBallOutline();
+    const proj = outline.map(project);
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', lineToPath(proj, true));
+    path.setAttribute('class', 'ball-fill');
+    gBallFill.appendChild(path);
+  }
 
   for (const l of head.lines) {
     const projected = l.pts.map((p) => project(p));
@@ -757,7 +850,12 @@ function render() {
       const path = document.createElementNS(SVG_NS, 'path');
       path.setAttribute('d', lineToPath(part.pts2d, false));
       path.setAttribute('fill', 'none');
-      path.setAttribute('stroke', l.color === RED ? 'var(--guide-red)' : 'var(--guide-blue)');
+      
+      let strokeColor = 'var(--guide-blue)';
+      if (l.color === RED) strokeColor = 'var(--guide-red)';
+      else if (l.color === GREEN) strokeColor = '#00b86b';
+      
+      path.setAttribute('stroke', strokeColor);
       path.setAttribute('stroke-width', strokeW.toFixed(2));
       path.setAttribute('stroke-linecap', 'round');
       path.setAttribute('stroke-linejoin', 'round');
@@ -926,7 +1024,7 @@ $('figure-scale-reset').addEventListener('click', () => applyFigureScale(1));
 /* ----- слайдеры формы ----- */
 const shapeSyncers = [];
 const shapeHost = $('shape-sliders');
-const SHAPE_GROUPS = { cut: 'Голова', eye: 'Лицо', jaw_start: 'Челюсть', chin_len: 'Подбородок', neck_w: 'Шея' };
+const SHAPE_GROUPS = { cut: 'Голова', eye: 'Лицо', jaw_start: 'Челюсть', anime_on: 'Аниме-контур', neck_w: 'Шея' };
 for (const p of SHAPE_PARAMS) {
   if (SHAPE_GROUPS[p.key]) {
     const h = document.createElement('div');
@@ -943,7 +1041,7 @@ for (const p of SHAPE_PARAMS) {
   shapeHost.appendChild(row);
   const input = row.querySelector('input');
   const out = row.querySelector('output');
-  const fmt = (v) => p.unit ? `${Math.round(v)}${p.unit}` : v.toFixed(2);
+  const fmt = (v) => p.unit ? `${Math.round(v)}${p.unit}` : (p.step >= 1 ? v.toFixed(0) : v.toFixed(2));
   const sync = () => {
     input.value = state.shape[p.key];
     out.textContent = fmt(state.shape[p.key]);
@@ -1220,9 +1318,10 @@ $('about-btn').addEventListener('click', () => {
     '④ — линия волос\n' +
     '⑤ — линия носа\n' +
     '⑥ — центральная линия лица\n' +
-    '⑦ — линия челюсти Ⓐ→Ⓑ→Ⓒ\n' +
+    '⑦ — линия челюсти Ⓐ→Ⓑ→Ⓒ (каркас)\n' +
     '⑧ — линия скулы\n' +
-    'Ⓝ — шея (цилиндр, длина по умолчанию 0.45·H)\n\n' +
+    '⑨ — аниме-контур лица (привязан к Ⓐ и Ⓒ)\n' +
+    'Ⓝ — шея (цилиндр)\n\n' +
     'Перетаскивай мышью — вращение по кругу (yaw) и наклон (pitch).\n' +
     'Кнопка «Крутить» — плавный автоповорот.\n' +
     'Скрытые линии — приглушённый пунктир на обратной стороне.\n\n' +
@@ -1317,4 +1416,4 @@ render();
 updateViewName();
 </script>
 </body>
-</html>
+  </html>
