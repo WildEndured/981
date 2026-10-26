@@ -2,290 +2,562 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Голова Лумиса — 2D (360°)</title>
 <style>
   :root {
+    --bg: #fff7fa;
+    --surface: #ffffff;
+    --ink: #3a2b3f;
+    --ink-2: #7a6880;
+    --accent: #ff5c93;
+    --accent-ink: #c2255c;
+    --pressed: #ffd9e6;
+    --pressed-ink: var(--ink);
+    --chip: #ece6ff;
+    --track: #ffe3ee;
+    --edge: #f6cddc;
+    --edge-w: 1.5px;
+    --card-shadow: 0 3px 0 #f6d6e2;
+    --btn-shadow: 0 2px 0 #f6cddc;
+    --grid: #ffdfeb;
+    --radius: 18px;
+    --pill: 999px;
+
     --guide-red: #f03e6e;
     --guide-blue: #3b7cff;
-    --guide-gray: #cdc7d6;
-    --bg: #faf8fc;
-    --panel: #ffffff;
-    --text: #2a2430;
-    --muted: #8a8394;
-    --line: #e5e1eb;
-    --accent: #7a4dff;
+    --label-halo: #ffffff;
+
+    --font-head: "Mochiy Pop One", "Jua", "Zen Maru Gothic", "Nunito", sans-serif;
+    --font-body: "Zen Maru Gothic", "Jua", "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --head-weight: 400;
+
+    --panel-w: 340px;
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
   body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    color: var(--text);
     background: var(--bg);
+    color: var(--ink);
+    font: 500 14px/1.6 var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  [hidden] { display: none !important; }
+
+  .app {
     display: grid;
-    grid-template-columns: 1fr 340px;
-    grid-template-rows: 48px 1fr;
-    height: 100vh;
-    overflow: hidden;
+    grid-template-columns: minmax(0, 1fr) var(--panel-w);
+    grid-template-rows: minmax(0, 1fr);
+    height: 100dvh;
   }
-  header {
-    grid-column: 1 / -1;
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    gap: 12px;
-    border-bottom: 1px solid var(--line);
-    background: var(--panel);
+
+  /* ----- Сцена ----- */
+  .stage { position: relative; overflow: hidden; min-width: 0; background: var(--bg); }
+  .sheet, .gl-wrap, .labels-layer { position: absolute; inset: 0; }
+  .sheet {
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-position: -1px -1px;
+    pointer-events: none;
   }
-  header h1 { font-size: 15px; font-weight: 600; margin: 0; }
-  header .view-name {
-    font-size: 12px;
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
-    margin-left: auto;
-  }
-  header .btn { font-size: 13px; padding: 6px 10px; }
-  #stage {
-    position: relative;
-    overflow: hidden;
-    background: radial-gradient(circle at 50% 45%, #ffffff 0%, var(--bg) 70%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    touch-action: none;
-    cursor: grab;
-  }
-  #stage.dragging-underlay { cursor: move; }
+  #underlay { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  #underlay svg { width: 100%; height: 100%; display: block; }
+  #canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #stage { touch-action: none; cursor: grab; }
   #stage:active { cursor: grabbing; }
-  #stage.dragging-underlay:active { cursor: move; }
-  #stage svg { width: 100%; height: 100%; display: block; user-select: none; }
+  #stage.dragging-underlay, #stage.dragging-underlay:active { cursor: move; }
   #stage .label {
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 17px;
+    font-weight: 700;
     paint-order: stroke;
-    stroke: #fff;
-    stroke-width: 3px;
+    stroke: var(--label-halo);
+    stroke-width: 4px;
     stroke-linejoin: round;
     pointer-events: none;
     user-select: none;
   }
   .label--red  { fill: var(--guide-red); }
   .label--blue { fill: var(--guide-blue); }
-  .label--ink  { fill: var(--text); }
-  
-  #drop-cover {
-    position: absolute;
-    inset: 0;
-    background: rgba(122, 77, 255, 0.15);
-    border: 2px dashed var(--accent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--accent);
+  .label--ink  { fill: var(--ink); }
+
+  .title {
+    position: absolute; left: 28px; top: 22px;
     pointer-events: none;
   }
-  #drop-cover[hidden] { display: none; }
-  aside {
-    border-left: 1px solid var(--line);
-    background: var(--panel);
-    overflow-y: auto;
-    padding: 12px 0;
+  .title h1 {
+    display: inline;
+    margin: 0;
+    font: var(--head-weight) 24px/1.3 var(--font-head);
+    letter-spacing: 0.02em;
+    background: linear-gradient(transparent 58%, var(--pressed) 58%, var(--pressed) 92%, transparent 92%);
+    padding: 0 4px;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone;
   }
-  section { padding: 0 16px 12px; }
-  section h2 {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    font-weight: 600;
-    margin: 14px 0 8px;
-  }
-  .btn {
-    font: inherit;
-    font-size: 12px;
-    padding: 7px 10px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: #fff;
-    color: var(--text);
-    cursor: pointer;
-    transition: all 0.12s;
-  }
-  .btn:hover { border-color: var(--accent); color: var(--accent); }
-  .btn:disabled { opacity: 0.4; cursor: default; }
-  .btn[aria-pressed="true"] {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-  }
-  .row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-  .slider {
-    display: grid;
-    grid-template-columns: 1fr 52px;
-    grid-template-rows: auto auto;
-    gap: 2px 8px;
-    margin-bottom: 10px;
-    align-items: center;
-  }
-  .slider label { grid-column: 1 / -1; font-size: 12px; color: var(--text); }
-  .slider input[type="range"] { width: 100%; height: 20px; accent-color: var(--accent); }
-  .slider output {
-    text-align: right;
-    font-size: 11px;
-    color: var(--muted);
+  .title p {
+    margin: 6px 0 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink-2);
+    text-shadow: 0 0 4px #fff, 0 0 4px #fff;
     font-variant-numeric: tabular-nums;
   }
+
+  .hints {
+    position: absolute; left: 28px; bottom: 24px;
+    margin: 0; padding: 0; list-style: none;
+    font-size: 12px; line-height: 1.75;
+    display: grid; grid-template-columns: max-content max-content;
+    column-gap: 1em;
+    pointer-events: none;
+    text-shadow: 0 0 4px #fff, 0 0 4px #fff;
+  }
+  .hints li { display: contents; }
+  .hints b { font-weight: 700; }
+
+  .view-tools {
+    position: absolute; right: 22px; bottom: 22px;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  }
+  .angles { display: flex; align-items: center; gap: 8px; }
+  .angles-label { font-size: 12px; font-weight: 700; text-shadow: 0 0 4px #fff; }
+  .seg { display: flex; border-radius: var(--pill); box-shadow: var(--btn-shadow); }
+  .seg .btn { flex: 1; border-radius: 0; box-shadow: none; }
+  .seg .btn + .btn { border-left-width: 0; }
+  .seg .btn:first-child { border-radius: var(--pill) 0 0 var(--pill); }
+  .seg .btn:last-child { border-radius: 0 var(--pill) var(--pill) 0; }
+  .history { display: flex; gap: 6px; }
+
+  .drop-cover {
+    position: absolute; inset: 22px;
+    display: grid; place-items: center;
+    border: 2px dashed var(--accent);
+    border-radius: var(--radius);
+    background: rgba(255, 247, 250, 0.7);
+    pointer-events: none;
+    font: var(--head-weight) 22px var(--font-head);
+    color: var(--accent-ink);
+    z-index: 3;
+  }
+
+  /* ----- Панель ----- */
+  .panel {
+    position: relative;
+    min-width: 0; min-height: 0;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+  }
+  .sheet-handle { display: none; }
+  .panel-body {
+    overflow-x: hidden; overflow-y: auto; flex: 1;
+    overscroll-behavior: contain;
+    padding: 0 26px 14px 4px;
+    scrollbar-width: none;
+  }
+  .panel-body::-webkit-scrollbar { display: none; }
+
+  .scrollbar {
+    position: absolute; right: 4px; top: 12px; bottom: 12px; width: 16px;
+    border-radius: var(--pill); background: var(--track);
+    cursor: pointer; touch-action: none;
+  }
+  .scrollbar-thumb {
+    position: absolute; left: 2px; right: 2px; top: 0; min-height: 44px;
+    border-radius: var(--pill); background: var(--accent);
+    opacity: 0.55; transition: opacity 0.12s;
+    cursor: grab;
+  }
+  .scrollbar:hover .scrollbar-thumb, .scrollbar.dragging .scrollbar-thumb { opacity: 0.9; }
+  .scrollbar.dragging .scrollbar-thumb { cursor: grabbing; }
+
+  .sec {
+    padding-bottom: 16px;
+    margin-bottom: 12px;
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+  }
+  .sec-h {
+    display: flex; align-items: center;
+    margin: 0 0 10px; padding: 14px 14px 0;
+    font: var(--head-weight) 15px/1 var(--font-head);
+  }
+  .sec-h span {
+    background: var(--chip);
+    padding: 7px 14px 6px;
+    border-radius: var(--pill);
+  }
+  .sec-body { padding: 0 16px; }
+  .note { margin: 0 0 8px; font-size: 12px; color: var(--ink-2); line-height: 1.6; }
+  .note:empty { display: none; }
+
   .group-h {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    font-weight: 600;
-    margin: 12px 0 6px;
+    margin: 12px 0 2px; padding-bottom: 3px;
+    font: var(--head-weight) 13px/1.2 var(--font-head);
+    color: var(--accent-ink);
+    border-bottom: 2px dotted var(--track);
   }
-  .hint {
-    font-size: 12px;
-    color: var(--muted);
+  .group-h:first-child { margin-top: 2px; }
+
+  .slider {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "label value" "range range";
+    column-gap: 8px;
+    font-size: 13px;
+  }
+  .slider label {
+    grid-area: label; font-weight: 700; line-height: 1.4;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .slider output {
+    grid-area: value; text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-size: 12px; font-weight: 700; color: var(--accent-ink);
     line-height: 1.4;
-    margin-bottom: 8px;
   }
+  .slider input { grid-area: range; }
+
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 24px; margin: 0;
+    background: transparent; cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 6px; background: var(--track); border-radius: var(--pill);
+  }
+  input[type="range"]::-moz-range-track {
+    height: 6px; background: var(--track); border-radius: var(--pill);
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 18px; height: 18px; margin-top: -6px;
+    background: var(--accent); border: 3px solid var(--surface); border-radius: 50%;
+    box-shadow: 0 0 0 1.5px var(--accent);
+    transition: transform 0.08s;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 12px; height: 12px;
+    background: var(--accent); border: 3px solid var(--surface); border-radius: 50%;
+    box-shadow: 0 0 0 1.5px var(--accent);
+  }
+  input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.12); }
+  input[type="range"]:hover::-moz-range-thumb { transform: scale(1.12); }
+  input[type="range"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--pill); }
+
+  .btn {
+    min-height: 34px;
+    padding: 5px 14px;
+    border: var(--edge-w) solid var(--edge);
+    border-radius: var(--pill);
+    background: var(--surface);
+    box-shadow: var(--btn-shadow);
+    font-weight: 700; font-size: 13px; line-height: 1.3;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 0.08s ease-out, box-shadow 0.08s ease-out, background 0.12s;
+  }
+  .btn:hover { background: #fff0f5; }
+  .btn:active { transform: translateY(2px); box-shadow: none; }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn:disabled { opacity: 0.5; cursor: default; background: var(--surface); transform: none; box-shadow: none; }
+  .btn[aria-pressed="true"] {
+    background: var(--pressed);
+    color: var(--pressed-ink);
+    border-color: var(--accent);
+  }
+  .btn-small { min-height: 28px; padding: 3px 12px; font-size: 12px; }
+  .btn-icon { min-width: 34px; padding: 0; font-size: 16px; }
+  .btn-strong { background: var(--accent); border-color: var(--accent); color: #fff; font-size: 14px; min-height: 42px; }
+  .btn-strong:hover { background: var(--accent-ink); border-color: var(--accent-ink); }
+
+  .row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .row > .btn { flex: 1; }
+
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .toggles, .saves { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .saves { margin-top: 0; margin-bottom: 6px; }
+
+  .underlay-file { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; min-width: 0; }
+  .file-name {
+    flex: 1; min-width: 0;
+    font-size: 11px; color: var(--ink-2);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  .panel-foot { display: flex; justify-content: center; padding: 2px 0 6px; }
+  .link-btn {
+    border: 0; background: none; padding: 6px 10px; cursor: pointer;
+    font-size: 12px; font-weight: 700; color: var(--ink-2);
+    text-decoration: underline; text-underline-offset: 3px;
+  }
+  .link-btn:hover { color: var(--accent-ink); }
+  .link-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--pill); }
+
+  /* ----- Диалог ----- */
+  .about {
+    width: min(500px, calc(100vw - 32px));
+    max-height: min(82dvh, 720px);
+    padding: 22px 22px 18px;
+    border: 0; border-radius: var(--radius);
+    background: var(--surface); color: var(--ink);
+    box-shadow: var(--card-shadow);
+    overflow-y: auto; overscroll-behavior: contain;
+  }
+  .about::backdrop { background: rgba(58, 43, 63, 0.35); }
+  .about h2 { margin: 0 0 12px; font: var(--head-weight) 18px/1.3 var(--font-head); }
+  .about h3 { margin: 14px 0 4px; font-size: 13px; font-weight: 700; color: var(--accent-ink); }
+  .about p { margin: 0 0 6px; font-size: 13px; line-height: 1.75; }
+  .about code { background: var(--chip); border-radius: 6px; padding: 0 4px; font-size: 12px; }
+  .about-close { display: flex; justify-content: center; margin-top: 16px; }
+  .about-close .btn { min-width: 120px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn { transition: none; }
+    .btn:active { transform: none; }
+    input[type="range"]:hover::-webkit-slider-thumb { transform: none; }
+  }
+
+  /* ----- Мобильные: панель = нижний ящик ----- */
   @media (max-width: 800px) {
-    body {
-      grid-template-columns: 1fr;
-      grid-template-rows: 48px 1fr auto;
-      height: 100dvh;
+    .app {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr) auto;
     }
-    aside { border-left: none; border-top: 1px solid var(--line); max-height: 45vh; }
+    .panel { height: 50px; border-top: var(--edge-w) solid var(--track); }
+    .panel.open { height: min(56dvh, 520px); }
+    .panel:not(.open) .panel-body { display: none; }
+    .panel:not(.open) .scrollbar { display: none; }
+    .panel-body { padding: 0 22px 10px 10px; }
+    .scrollbar { top: 54px; }
+    .sheet-handle {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      height: 48px; flex: none;
+      border: 0; background: var(--bg);
+      font: var(--head-weight) 15px/1 var(--font-head);
+      cursor: pointer; position: relative;
+    }
+    .sheet-handle::before {
+      content: ""; position: absolute; top: 6px; left: 50%;
+      width: 40px; height: 4px; margin-left: -20px;
+      border-radius: var(--pill); background: var(--track);
+    }
+    .sheet-handle::after { content: "▲"; font-size: 10px; color: var(--accent-ink); }
+    .panel.open .sheet-handle::after { content: "▼"; }
+    .title { left: 16px; top: 14px; }
+    .title h1 { font-size: 20px; }
+    .title p { font-size: 12px; }
+    .hints { left: 16px; top: 76px; bottom: auto; font-size: 11px; column-gap: 0.6em; }
+    .app:has(.panel.open) .hints { display: none; }
+    .view-tools { right: 12px; bottom: 12px; }
+    .angles-label { display: none; }
+    .drop-cover { inset: 14px; font-size: 18px; }
   }
 </style>
 </head>
 <body>
+<div class="app">
+  <main class="stage" id="stage">
+    <div class="sheet" aria-hidden="true"></div>
+    <div id="underlay">
+      <svg id="underlay-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <svg id="canvas" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
 
-<header>
-  <h1>Голова Лумиса — 2D</h1>
-  <span class="view-name" id="view-name">Анфас · 0°</span>
-  <button class="btn" id="about-btn" type="button">О методе</button>
-</header>
+    <header class="title">
+      <h1>Голова Лумиса</h1>
+      <p id="view-name">Анфас · 0°</p>
+    </header>
 
-<main id="stage">
-  <svg id="canvas" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
-  <div id="drop-cover" hidden>Отпустите, чтобы вставить</div>
-</main>
+    <ul class="hints">
+      <li><b>Драг</b><span>поворот</span></li>
+      <li><b>Shift+драг</b><span>подложка</span></li>
+      <li><b>Ctrl+колесо</b><span>масштаб подложки</span></li>
+    </ul>
 
-<aside>
+    <div class="view-tools">
+      <div class="history">
+        <button class="btn btn-small" id="spin" type="button" aria-pressed="false">↻ Крутить</button>
+        <button class="btn btn-small" id="reset-view" type="button">Сброс</button>
+      </div>
+      <div class="angles">
+        <span class="angles-label">Угол</span>
+        <div class="seg">
+          <button class="btn" type="button" data-angle="front">Анфас</button>
+          <button class="btn" type="button" data-angle="three">3/4</button>
+          <button class="btn" type="button" data-angle="side">Профиль</button>
+          <button class="btn" type="button" data-angle="back">Спина</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="drop-cover" id="drop-cover" hidden>Отпустите, чтобы вставить</div>
+  </main>
+
+  <aside class="panel" id="panel" aria-label="Настройки">
+    <button class="sheet-handle" id="sheet-handle" type="button" aria-expanded="false" aria-controls="panel-body">Настройки</button>
+    <div class="panel-body" id="panel-body">
+
+      <section class="sec">
+        <h2 class="sec-h"><span>Пресеты формы</span></h2>
+        <div class="sec-body">
+          <div class="presets" id="presets"></div>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec-h"><span>Подложка</span></h2>
+        <div class="sec-body">
+          <div class="underlay-file">
+            <button class="btn" id="underlay-pick" type="button">Выбрать</button>
+            <span class="file-name" id="underlay-hint">Файл, drag&nbsp;&amp;&nbsp;drop или Ctrl+V</span>
+            <button class="btn btn-icon" id="underlay-remove" type="button" aria-label="Убрать подложку" title="Убрать подложку" hidden>×</button>
+            <input type="file" id="underlay-input" accept="image/*" hidden>
+          </div>
+          <div class="row">
+            <button class="btn" id="underlay-move" type="button" aria-pressed="false">✥ Двигать</button>
+            <button class="btn" id="underlay-center" type="button">Центрировать</button>
+          </div>
+          <div class="slider">
+            <label for="underlay-opacity">Прозрачность</label>
+            <input type="range" id="underlay-opacity" min="0.1" max="0.9" step="0.05" value="0.4">
+            <output id="underlay-opacity-out">40%</output>
+          </div>
+          <div class="slider">
+            <label for="underlay-scale">Масштаб подложки</label>
+            <input type="range" id="underlay-scale" min="0.1" max="10" step="0.01" value="1">
+            <output id="underlay-scale-out">100%</output>
+          </div>
+          <div class="row">
+            <button class="btn btn-small" id="underlay-scale-minus" type="button">−</button>
+            <button class="btn btn-small" id="underlay-scale-plus" type="button">+</button>
+            <button class="btn btn-small" id="underlay-scale-reset" type="button">×1</button>
+          </div>
+          <div class="slider">
+            <label for="underlay-x">Смещение X</label>
+            <input type="range" id="underlay-x" min="-20" max="20" step="0.01" value="0">
+            <output id="underlay-x-out">0.00</output>
+          </div>
+          <div class="slider">
+            <label for="underlay-y">Смещение Y</label>
+            <input type="range" id="underlay-y" min="-20" max="20" step="0.01" value="0">
+            <output id="underlay-y-out">0.00</output>
+          </div>
+          <div class="row">
+            <button class="btn btn-small" id="underlay-x-minus" type="button">← X</button>
+            <button class="btn btn-small" id="underlay-x-plus" type="button">X →</button>
+            <button class="btn btn-small" id="underlay-y-minus" type="button">↑ Y</button>
+            <button class="btn btn-small" id="underlay-y-plus" type="button">Y ↓</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec-h"><span>Поворот</span></h2>
+        <div class="sec-body">
+          <div class="slider">
+            <label for="yaw">Yaw (вокруг вертикали)</label>
+            <input type="range" id="yaw" min="-180" max="180" step="1" value="0">
+            <output id="yaw-out">0°</output>
+          </div>
+          <div class="slider">
+            <label for="pitch">Pitch (вверх-вниз)</label>
+            <input type="range" id="pitch" min="-60" max="60" step="1" value="0">
+            <output id="pitch-out">0°</output>
+          </div>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec-h"><span>Форма головы</span></h2>
+        <div class="sec-body">
+          <div class="slider">
+            <label for="figure-scale">Масштаб фигуры</label>
+            <input type="range" id="figure-scale" min="0.2" max="3" step="0.01" value="1">
+            <output id="figure-scale-out">1.00</output>
+          </div>
+          <div class="row">
+            <button class="btn btn-small" id="figure-scale-minus" type="button">−</button>
+            <button class="btn btn-small" id="figure-scale-plus" type="button">+</button>
+            <button class="btn btn-small" id="figure-scale-reset" type="button">×1</button>
+          </div>
+          <div id="shape-sliders"></div>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec-h"><span>Отображение</span></h2>
+        <div class="sec-body">
+          <div class="slider">
+            <label for="line">Толщина линии</label>
+            <input type="range" id="line" min="0.004" max="0.04" step="0.001" value="0.012">
+            <output id="line-out">0.012</output>
+          </div>
+          <div class="toggles">
+            <button class="btn" id="toggle-hidden" aria-pressed="true" type="button">Скрытые линии</button>
+            <button class="btn" id="toggle-labels" aria-pressed="true" type="button">Подписи</button>
+          </div>
+          <div class="toggles" style="margin-top:8px;">
+            <button class="btn" id="toggle-neck" aria-pressed="true" type="button">Шея</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec-h"><span>Экспорт</span></h2>
+        <div class="sec-body">
+          <div class="saves">
+            <button class="btn btn-strong" id="save-png" type="button">PNG</button>
+            <button class="btn btn-strong" id="save-svg" type="button">SVG</button>
+          </div>
+          <p class="note" id="save-msg" role="status"></p>
+        </div>
+      </section>
+
+      <div class="panel-foot">
+        <button class="link-btn" id="about-open" type="button">О методе</button>
+      </div>
+    </div>
+    <div class="scrollbar" id="panel-scrollbar" aria-hidden="true"><div class="scrollbar-thumb"></div></div>
+  </aside>
+</div>
+
+<dialog class="about" id="about" aria-labelledby="about-title">
+  <h2 id="about-title">Голова Лумиса — 2D, 360°</h2>
   <section>
-    <h2>Поворот</h2>
-    <div class="slider">
-      <label>Yaw (вокруг вертикали)</label>
-      <input type="range" id="yaw" min="-180" max="180" step="1" value="0">
-      <output id="yaw-out">0°</output>
-    </div>
-    <div class="slider">
-      <label>Pitch (вверх-вниз)</label>
-      <input type="range" id="pitch" min="-60" max="60" step="1" value="0">
-      <output id="pitch-out">0°</output>
-    </div>
-    <div class="row">
-      <button class="btn" data-angle="front" type="button">Анфас</button>
-      <button class="btn" data-angle="three" type="button">3/4</button>
-      <button class="btn" data-angle="side" type="button">Профиль</button>
-      <button class="btn" data-angle="back" type="button">Спина</button>
-    </div>
-    <div class="row">
-      <button class="btn" id="spin" type="button" aria-pressed="false">↻ Крутить</button>
-      <button class="btn" id="reset-view" type="button">Сброс</button>
-    </div>
+    <h3>Обозначения</h3>
+    <p>
+      <code>①</code> центральная линия · <code>②</code> уровень глаз · <code>③</code> боковой круг ·
+      <code>④</code> линия волос · <code>⑤</code> линия носа · <code>⑥</code> центральная линия лица ·
+      <code>⑦</code> челюсть Ⓐ→Ⓑ→Ⓒ · <code>⑧</code> скула · <code>Ⓝ</code> шея.
+    </p>
   </section>
-
   <section>
-    <h2>Пресеты формы</h2>
-    <div class="row" id="presets"></div>
+    <h3>Управление</h3>
+    <p>
+      Перетаскивайте сцену для вращения (yaw) и наклона (pitch). Кнопка «Крутить» — плавный автоповорот.
+      «Скрытые линии» — приглушённый пунктир обратной стороны.
+    </p>
   </section>
-
   <section>
-    <h2>Форма головы</h2>
-    <div class="slider">
-      <label>Масштаб фигуры</label>
-      <input type="range" id="figure-scale" min="0.2" max="3" step="0.01" value="1">
-      <output id="figure-scale-out">1.00</output>
-    </div>
-    <div class="row">
-      <button class="btn" id="figure-scale-minus" type="button">−</button>
-      <button class="btn" id="figure-scale-plus" type="button">+</button>
-      <button class="btn" id="figure-scale-reset" type="button">×1</button>
-    </div>
-    <div id="shape-sliders"></div>
+    <h3>Масштаб</h3>
+    <p>
+      «Масштаб фигуры» — 0.2…3.0, влияет на голову и шею. «Масштаб подложки» — 0.1…10.0, независимо от фигуры.
+      Кнопки «−» / «+» / «×1» — быстрый шаг. Ctrl/Cmd + колесо — плавный масштаб подложки.
+    </p>
   </section>
-
   <section>
-    <h2>Отображение</h2>
-    <div class="slider">
-      <label>Толщина линии</label>
-      <input type="range" id="line" min="0.004" max="0.04" step="0.001" value="0.012">
-      <output id="line-out">0.012</output>
-    </div>
-    <div class="row">
-      <button class="btn" id="toggle-hidden" aria-pressed="true" type="button">Скрытые линии</button>
-      <button class="btn" id="toggle-labels" aria-pressed="true" type="button">Подписи</button>
-      <button class="btn" id="toggle-neck" aria-pressed="true" type="button">Шея</button>
-    </div>
+    <h3>Подложка</h3>
+    <p>
+      «✥ Двигать» или Shift+drag — перетаскивание. «Центрировать» — сброс смещения.
+      Слайдеры «Смещение X/Y» — диапазон −20…+20. Кнопки ←X / X→ / ↑Y / Y↓ — шаг 0.5.
+    </p>
   </section>
-
-  <section>
-    <h2>Подложка</h2>
-    <p class="hint" id="underlay-hint">Перетащи файл, вставь из буфера или выбери ниже</p>
-    <div class="row">
-      <button class="btn" id="underlay-pick" type="button">Выбрать</button>
-      <button class="btn" id="underlay-remove" type="button" hidden>Удалить</button>
-    </div>
-    <div class="row">
-      <button class="btn" id="underlay-move" type="button" aria-pressed="false">✥ Двигать подложку</button>
-      <button class="btn" id="underlay-center" type="button">Центрировать</button>
-    </div>
-    <input type="file" id="underlay-input" accept="image/*" hidden>
-    <div class="slider">
-      <label>Прозрачность</label>
-      <input type="range" id="underlay-opacity" min="0.1" max="0.9" step="0.05" value="0.4">
-      <output id="underlay-opacity-out">40%</output>
-    </div>
-    <div class="slider">
-      <label>Масштаб подложки</label>
-      <input type="range" id="underlay-scale" min="0.1" max="10" step="0.01" value="1">
-      <output id="underlay-scale-out">100%</output>
-    </div>
-    <div class="row">
-      <button class="btn" id="underlay-scale-minus" type="button">−</button>
-      <button class="btn" id="underlay-scale-plus" type="button">+</button>
-      <button class="btn" id="underlay-scale-reset" type="button">×1</button>
-    </div>
-    <div class="slider">
-      <label>Смещение X</label>
-      <input type="range" id="underlay-x" min="-20" max="20" step="0.01" value="0">
-      <output id="underlay-x-out">0.00</output>
-    </div>
-    <div class="slider">
-      <label>Смещение Y</label>
-      <input type="range" id="underlay-y" min="-20" max="20" step="0.01" value="0">
-      <output id="underlay-y-out">0.00</output>
-    </div>
-    <div class="row">
-      <button class="btn" id="underlay-x-minus" type="button">← X</button>
-      <button class="btn" id="underlay-x-plus" type="button">X →</button>
-      <button class="btn" id="underlay-y-minus" type="button">↑ Y</button>
-      <button class="btn" id="underlay-y-plus" type="button">Y ↓</button>
-    </div>
-  </section>
-
-  <section>
-    <h2>Экспорт</h2>
-    <div class="row">
-      <button class="btn" id="save-png" type="button">PNG</button>
-      <button class="btn" id="save-svg" type="button">SVG</button>
-    </div>
-  </section>
-</aside>
+  <form method="dialog" class="about-close"><button class="btn" type="submit">Закрыть</button></form>
+</dialog>
 
 <script type="module">
 /* ==================================================================
@@ -293,25 +565,25 @@
  * ================================================================== */
 
 const SHAPE_PARAMS = [
-  { key: 'cut',        label: 'Ширина головы',           min: 0.4,  max: 0.95, step: 0.01, def: 0.73 },
-  { key: 'top',        label: 'Высота макушки',          min: 0.8,  max: 1.4,  step: 0.01, def: 1 },
-  { key: 'back',       label: 'Выступ затылка',          min: 0.8,  max: 1.4,  step: 0.01, def: 1 },
-  { key: 'r0',         label: '③ Размер круга',          min: 0.3,  max: 0.95, step: 0.01, def: 0.68 },
-  { key: 'eye',        label: '② Уровень глаз',          min: -0.9, max: 0.9,  step: 0.01, def: 0 },
-  { key: 'forehead',   label: '④ Линия волос',           min: 0.3,  max: 1.4,  step: 0.01, def: 1 },
-  { key: 'jaw_start',  label: 'Ⓐ Начало челюсти',        min: -60,  max: 60,   step: 1,    def: 0,  unit: '°' },
-  { key: 'jaw_len',    label: '⑦ Длина челюсти',         min: 0,    max: 1.2,  step: 0.01, def: 0.4 },
-  { key: 'jaw_tilt',   label: '⑦ Наклон челюсти',        min: -40,  max: 70,   step: 1,    def: 10, unit: '°' },
-  { key: 'jaw_x',      label: 'Ⓑ Ширина скулы',          min: 0.2,  max: 0.95, step: 0.01, def: 0.62 },
-  { key: 'chin_len',   label: 'Ⓒ Высота подбородка',     min: 0.5,  max: 1.5,  step: 0.01, def: 1 },
-  { key: 'chin_front', label: 'Ⓒ Выступ подбородка',     min: 0.4,  max: 1.4,  step: 0.01, def: 0.85 },
-  { key: 'chin_w',     label: 'Ⓒ Ширина подбородка',     min: 0.03, max: 0.6,  step: 0.01, def: 0.22 },
-  { key: 'chin_round', label: 'Ⓒ Скругление подбородка', min: 0,    max: 1,    step: 0.01, def: 0.5 },
-  { key: 'neck_w',     label: 'Ⓝ Ширина шеи',            min: 0.2,  max: 0.9,  step: 0.01, def: 0.30 },
-  { key: 'neck_d',     label: 'Ⓝ Глубина шеи',           min: 0.2,  max: 0.9,  step: 0.01, def: 0.55 },
-  { key: 'neck_len',   label: 'Ⓝ Длина шеи (× H)',       min: 0.1,  max: 0.5,  step: 0.01, def: 0.45 },
-  { key: 'neck_tilt',  label: 'Ⓝ Наклон шеи',            min: -15,  max: 25,   step: 1,    def: -12, unit: '°' },
-  { key: 'neck_up',    label: 'Ⓝ Заглубление',           min: 0,    max: 0.5,  step: 0.01, def: 0.3 },
+  { key: 'cut',        label: 'Ширина головы',           min: 0.4,  max: 0.95, step: 0.01, def: 0.73, group: 'Голова' },
+  { key: 'top',        label: 'Высота макушки',          min: 0.8,  max: 1.4,  step: 0.01, def: 1,    group: 'Голова' },
+  { key: 'back',       label: 'Выступ затылка',          min: 0.8,  max: 1.4,  step: 0.01, def: 1,    group: 'Голова' },
+  { key: 'r0',         label: '③ Размер круга',          min: 0.3,  max: 0.95, step: 0.01, def: 0.68, group: 'Лицо' },
+  { key: 'eye',        label: '② Уровень глаз',          min: -0.9, max: 0.9,  step: 0.01, def: 0,    group: 'Лицо' },
+  { key: 'forehead',   label: '④ Линия волос',           min: 0.3,  max: 1.4,  step: 0.01, def: 1,    group: 'Лицо' },
+  { key: 'jaw_start',  label: 'Ⓐ Начало челюсти',        min: -60,  max: 60,   step: 1,    def: 0,    unit: '°', group: 'Челюсть' },
+  { key: 'jaw_len',    label: '⑦ Длина челюсти',         min: 0,    max: 1.2,  step: 0.01, def: 0.4,  group: 'Челюсть' },
+  { key: 'jaw_tilt',   label: '⑦ Наклон челюсти',        min: -40,  max: 70,   step: 1,    def: 10,   unit: '°', group: 'Челюсть' },
+  { key: 'jaw_x',      label: 'Ⓑ Ширина скулы',          min: 0.2,  max: 0.95, step: 0.01, def: 0.62, group: 'Челюсть' },
+  { key: 'chin_len',   label: 'Ⓒ Высота подбородка',     min: 0.5,  max: 1.5,  step: 0.01, def: 1,    group: 'Подбородок' },
+  { key: 'chin_front', label: 'Ⓒ Выступ подбородка',     min: 0.4,  max: 1.4,  step: 0.01, def: 0.85, group: 'Подбородок' },
+  { key: 'chin_w',     label: 'Ⓒ Ширина подбородка',     min: 0.03, max: 0.6,  step: 0.01, def: 0.22, group: 'Подбородок' },
+  { key: 'chin_round', label: 'Ⓒ Скругление подбородка', min: 0,    max: 1,    step: 0.01, def: 0.5,  group: 'Подбородок' },
+  { key: 'neck_w',     label: 'Ⓝ Ширина шеи',            min: 0.2,  max: 0.9,  step: 0.01, def: 0.30, group: 'Шея' },
+  { key: 'neck_d',     label: 'Ⓝ Глубина шеи',           min: 0.2,  max: 0.9,  step: 0.01, def: 0.55, group: 'Шея' },
+  { key: 'neck_len',   label: 'Ⓝ Длина шеи (× H)',       min: 0.1,  max: 0.5,  step: 0.01, def: 0.45, group: 'Шея' },
+  { key: 'neck_tilt',  label: 'Ⓝ Наклон шеи',            min: -15,  max: 25,   step: 1,    def: -12,  unit: '°', group: 'Шея' },
+  { key: 'neck_up',    label: 'Ⓝ Заглубление',           min: 0,    max: 0.5,  step: 0.01, def: 0.3,  group: 'Шея' },
 ];
 
 const LINE_PARAM = { min: 0.004, max: 0.04, step: 0.001, def: 0.012 };
@@ -451,7 +723,6 @@ function buildHead(input, lift = 0, opts = {}) {
     return out;
   };
 
-  // ① центральная линия
   {
     const pts = [];
     for (let i = 0; i < LOOP_SEGMENTS; i++) {
@@ -466,14 +737,12 @@ function buildHead(input, lift = 0, opts = {}) {
     });
   }
 
-  // ② ④ ⑤
   for (const [id, color, z] of [['2', RED, zEye], ['4', BLUE, zHair], ['5', BLUE, zNose]]) {
     const parts = ring(z);
     for (const part of parts) add(id, color, part.pts, part.closed);
     labels[id] = ringLabels(parts);
   }
 
-  // ③ боковые круги и кресты
   labels['3'] = [];
   for (const sx of [1, -1]) {
     const x = sx * xPlane;
@@ -485,13 +754,11 @@ function buildHead(input, lift = 0, opts = {}) {
     labels['3'].push({ p: rim(Math.PI / 4, x), n: [sx, 0, 0], t: [0, -1, 1] });
   }
 
-  // контрольные точки челюсти
   const A = rim(rad(-90 - s.jaw_start));
   const tilt = rad(s.jaw_tilt);
   const B = [s.jaw_x, A[1] - s.jaw_len * Math.sin(tilt), A[2] - s.jaw_len * Math.cos(tilt)];
   const Cf = [s.chin_w, -s.chin_front, zChin];
 
-  // ⑦ челюсть
   const k = s.chin_round;
   const jaw = rounded([
     { p: A }, { p: B, k: 0 }, { p: Cf, k },
@@ -502,13 +769,11 @@ function buildHead(input, lift = 0, opts = {}) {
   const CfR = cornerOf(Cf);
   const CfL = mirror(CfR);
 
-  // ⑧ скула
   const zEyeU = zEye / ball.sz(zEye);
   const eyeEdge = [xPlane, -Math.sqrt(Math.max(0, r0 * r0 - zEyeU * zEyeU)), zEye];
   add('8', BLUE, [CfR, eyeEdge]);
   add('8', BLUE, [CfL, mirror(eyeEdge)]);
 
-  // ⑥ центральная линия лица
   const front = surf(stretch(0, -Math.sqrt(Math.max(0, 1 - zEyeU * zEyeU)), zEyeU));
   const chinMid = [0, -s.chin_front, zChin];
   add('6', RED, [front, chinMid]);
@@ -526,7 +791,6 @@ function buildHead(input, lift = 0, opts = {}) {
   labels['B'] = [{ p: BR, n: out(BR) }, { p: mirror(BR), n: out(mirror(BR)) }];
   labels['C'] = [{ p: chinMid, n: norm([0, -1, -1]) }];
 
-  // Ⓝ шея
   if (showNeck) {
     const H_head = r0 * s.top - zChin;
     const L_neck = H_head * s.neck_len;
@@ -593,7 +857,7 @@ function presetShape(id) {
  * Состояние
  * ================================================================== */
 
-const STORE_KEY = 'loomis-2d:v16';
+const STORE_KEY = 'loomis-2d:v17';
 
 function wrapYaw(y) { return ((((y + 180) % 360) + 360) % 360) - 180; }
 
@@ -653,7 +917,7 @@ function save() {
 }
 
 /* ==================================================================
- * Рендер SVG
+ * SVG
  * ================================================================== */
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -663,15 +927,15 @@ const VIEW_SIZE = 600;
 const CX = VIEW_SIZE / 2, CY = VIEW_SIZE / 2;
 const BASE_SCALE = 200;
 
-const gUnderlay = document.createElementNS(SVG_NS, 'g');
 const gHidden = document.createElementNS(SVG_NS, 'g');
 const gVisible = document.createElementNS(SVG_NS, 'g');
 const gLabels = document.createElementNS(SVG_NS, 'g');
-svg.appendChild(gUnderlay);
 svg.appendChild(gHidden);
 svg.appendChild(gVisible);
 svg.appendChild(gLabels);
 
+/* подложка: отдельный svg */
+const underlaySvg = document.getElementById('underlay-svg');
 const underlayImg = document.createElementNS(SVG_NS, 'image');
 underlayImg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 underlayImg.setAttribute('x', CX - BASE_SCALE);
@@ -680,7 +944,7 @@ underlayImg.setAttribute('width', BASE_SCALE * 2);
 underlayImg.setAttribute('height', BASE_SCALE * 2);
 underlayImg.style.display = 'none';
 underlayImg.style.pointerEvents = 'none';
-gUnderlay.appendChild(underlayImg);
+underlaySvg.appendChild(underlayImg);
 
 const LABEL_TEXT = { 1: '①', 2: '②', 3: '③', 4: '④', 5: '⑤', 6: '⑥', 7: '⑦', 8: '⑧', A: 'Ⓐ', B: 'Ⓑ', C: 'Ⓒ', N: 'Ⓝ' };
 const LABEL_COLOR = { 1: 'red', 2: 'red', 3: 'red', 6: 'red', 4: 'blue', 5: 'blue', 7: 'blue', 8: 'blue', N: 'blue', A: 'ink', B: 'ink', C: 'ink' };
@@ -927,12 +1191,13 @@ $('figure-scale-reset').addEventListener('click', () => applyFigureScale(1));
 /* ----- слайдеры формы ----- */
 const shapeSyncers = [];
 const shapeHost = $('shape-sliders');
-const SHAPE_GROUPS = { cut: 'Голова', eye: 'Лицо', jaw_start: 'Челюсть', chin_len: 'Подбородок', neck_w: 'Шея' };
+let currentGroup = null;
 for (const p of SHAPE_PARAMS) {
-  if (SHAPE_GROUPS[p.key]) {
+  if (p.group && p.group !== currentGroup) {
+    currentGroup = p.group;
     const h = document.createElement('div');
     h.className = 'group-h';
-    h.textContent = SHAPE_GROUPS[p.key];
+    h.textContent = currentGroup;
     shapeHost.appendChild(h);
   }
   const row = document.createElement('div');
@@ -1038,7 +1303,7 @@ underlayRemove.addEventListener('click', () => {
   underlayImg.removeAttribute('href');
   underlayImg.style.display = 'none';
   underlayRemove.hidden = true;
-  $('underlay-hint').textContent = 'Перетащи файл, вставь из буфера или выбери ниже';
+  $('underlay-hint').textContent = 'Файл, drag & drop или Ctrl+V';
   setUnderlayMoveMode(false);
   try { localStorage.removeItem(STORE_KEY + ':img'); } catch {}
 });
@@ -1209,36 +1474,10 @@ function download(blob, name) {
 }
 
 /* ==================================================================
- * О методе
+ * Диалог
  * ================================================================== */
 
-$('about-btn').addEventListener('click', () => {
-  alert(
-    'Голова Лумиса (2D, 360°)\n\n' +
-    '① — центральная линия\n' +
-    '② — уровень бровей / глаз\n' +
-    '③ — боковой круг (висок → затылок)\n' +
-    '④ — линия волос\n' +
-    '⑤ — линия носа\n' +
-    '⑥ — центральная линия лица\n' +
-    '⑦ — линия челюсти Ⓐ→Ⓑ→Ⓒ\n' +
-    '⑧ — линия скулы\n' +
-    'Ⓝ — шея (цилиндр)\n\n' +
-    'Перетаскивай мышью — вращение по кругу (yaw) и наклон (pitch).\n' +
-    'Кнопка «Крутить» — плавный автоповорот.\n' +
-    'Скрытые линии — приглушённый пунктир на обратной стороне.\n\n' +
-    'Масштаб:\n' +
-    '• «Масштаб фигуры» — 0.2…3.0, влияет на голову и шею.\n' +
-    '• «Масштаб подложки» — 0.1…10.0, независимо от фигуры.\n' +
-    '• Кнопки «−» / «+» / «×1» — быстрый шаг.\n' +
-    '• Ctrl/Cmd + колесо — плавный масштаб подложки.\n\n' +
-    'Подложка:\n' +
-    '• «✥ Двигать подложку» или Shift+drag — перетаскивание.\n' +
-    '• «Центрировать» — сброс смещения.\n' +
-    '• Слайдеры «Смещение X/Y» — диапазон −20…+20.\n' +
-    '• Кнопки ←X / X→ / ↑Y / Y↓ — шаг 0.5.'
-  );
-});
+$('about-open').addEventListener('click', () => $('about').showModal());
 
 /* ==================================================================
  * Взаимодействие
@@ -1253,7 +1492,7 @@ function screenToModelDelta(dxPx, dyPx) {
 }
 
 stage.addEventListener('pointerdown', (e) => {
-  if (e.target.closest('aside')) return;
+  if (e.target.closest('aside') || e.target.closest('.view-tools') || e.target.closest('.panel')) return;
   const wantUnderlay = underlayIsLoaded() && (state.underlayMove || e.shiftKey);
   if (wantUnderlay) {
     e.preventDefault();
@@ -1308,6 +1547,76 @@ stage.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 /* ==================================================================
+ * Скроллбар панели
+ * ================================================================== */
+
+const panelBody = $('panel-body');
+const scrollbar = $('panel-scrollbar');
+const scrollThumb = scrollbar.querySelector('.scrollbar-thumb');
+
+function updateScrollbar() {
+  const visible = panelBody.scrollHeight > panelBody.clientHeight + 1;
+  scrollbar.hidden = !visible;
+  if (!visible) return;
+  const ratio = panelBody.clientHeight / panelBody.scrollHeight;
+  const trackH = scrollbar.clientHeight;
+  const thumbH = Math.max(44, trackH * ratio);
+  scrollThumb.style.height = thumbH + 'px';
+  const maxScroll = panelBody.scrollHeight - panelBody.clientHeight;
+  const top = (panelBody.scrollTop / maxScroll) * (trackH - thumbH);
+  scrollThumb.style.top = top + 'px';
+}
+
+panelBody.addEventListener('scroll', updateScrollbar);
+window.addEventListener('resize', updateScrollbar);
+
+let scrollDrag = null;
+scrollbar.addEventListener('pointerdown', (e) => {
+  if (e.target === scrollThumb) {
+    scrollDrag = { y: e.clientY, top: panelBody.scrollTop };
+    scrollbar.setPointerCapture(e.pointerId);
+    scrollbar.classList.add('dragging');
+  } else {
+    const rect = scrollbar.getBoundingClientRect();
+    const ratio = (e.clientY - rect.top) / rect.height;
+    panelBody.scrollTop = ratio * (panelBody.scrollHeight - panelBody.clientHeight);
+  }
+});
+scrollbar.addEventListener('pointermove', (e) => {
+  if (!scrollDrag) return;
+  const dy = e.clientY - scrollDrag.y;
+  const trackH = scrollbar.clientHeight;
+  const thumbH = scrollThumb.clientHeight;
+  const ratio = panelBody.scrollHeight - panelBody.clientHeight;
+  panelBody.scrollTop = scrollDrag.top + (dy / (trackH - thumbH)) * ratio;
+});
+scrollbar.addEventListener('pointerup', () => {
+  scrollDrag = null;
+  scrollbar.classList.remove('dragging');
+});
+
+/* ==================================================================
+ * Мобильная панель
+ * ================================================================== */
+
+const panel = $('panel');
+const sheetHandle = $('sheet-handle');
+function setPanelOpen(open) {
+  panel.classList.toggle('open', open);
+  sheetHandle.setAttribute('aria-expanded', String(open));
+  updateScrollbar();
+  setTimeout(updateScrollbar, 280);
+}
+sheetHandle.addEventListener('click', () => setPanelOpen(!panel.classList.contains('open')));
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 800) {
+    panel.classList.remove('open');
+    sheetHandle.setAttribute('aria-expanded', 'false');
+  }
+  updateScrollbar();
+});
+
+/* ==================================================================
  * Запуск
  * ================================================================== */
 
@@ -1316,6 +1625,7 @@ syncShapeSliders();
 renderPresets();
 render();
 updateViewName();
+setTimeout(updateScrollbar, 0);
 </script>
 </body>
-</html>
+  </html>
