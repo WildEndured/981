@@ -3,18 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Лумис: Голова + Торс (360°)</title>
+<title>Голова Лумиса — 2D (360°) + Редактор</title>
 <style>
   :root {
     --guide-red: #f03e6e;
     --guide-blue: #3b7cff;
-    --guide-green: #22c55e;
+    --guide-gray: #cdc7d6;
     --bg: #faf8fc;
     --panel: #ffffff;
     --text: #2a2430;
     --muted: #8a8394;
     --line: #e5e1eb;
     --accent: #7a4dff;
+    --green: #2ea44f;
   }
 
   * { box-sizing: border-box; }
@@ -49,6 +50,29 @@
   }
   header .btn { font-size: 13px; padding: 6px 10px; }
 
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-left: 16px;
+  }
+  .tab-btn {
+    font: inherit;
+    font-size: 13px;
+    padding: 6px 14px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .tab-btn:hover { color: var(--text); background: #f3f0f8; }
+  .tab-btn[aria-selected="true"] {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
   #stage {
     position: relative;
     overflow: hidden;
@@ -62,7 +86,7 @@
   #stage:active { cursor: grabbing; }
   #stage svg { width: 100%; height: 100%; display: block; user-select: none; }
 
-  .label {
+  #stage .label {
     font-size: 13px;
     font-weight: 600;
     paint-order: stroke;
@@ -75,6 +99,21 @@
   .label--red  { fill: var(--guide-red); }
   .label--blue { fill: var(--guide-blue); }
   .label--ink  { fill: var(--text); }
+
+  #drop-cover {
+    position: absolute;
+    inset: 0;
+    background: rgba(122, 77, 255, 0.15);
+    border: 2px dashed var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+    pointer-events: none;
+  }
+  #drop-cover[hidden] { display: none; }
 
   aside {
     border-left: 1px solid var(--line);
@@ -110,6 +149,10 @@
     border-color: var(--accent);
     color: #fff;
   }
+  .btn--green[aria-pressed="true"] {
+    background: var(--green);
+    border-color: var(--green);
+  }
 
   .row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 
@@ -139,6 +182,77 @@
     margin: 12px 0 6px;
   }
 
+  .hint {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+    margin-bottom: 8px;
+  }
+
+  /* Editor panel */
+  .editor-panel {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(255, 255, 255, 0.97);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 12px;
+    max-width: 260px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    z-index: 10;
+  }
+  .editor-panel h3 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .editor-panel textarea {
+    width: 100%;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px;
+    resize: vertical;
+    background: #faf8fc;
+  }
+  .editor-panel .row { margin-top: 6px; margin-bottom: 0; }
+  .editor-panel .btn { font-size: 11px; padding: 5px 8px; }
+
+  .coord-list { max-height: 220px; overflow-y: auto; }
+  .coord-item {
+    display: grid;
+    grid-template-columns: 60px 1fr 1fr 1fr;
+    gap: 4px;
+    align-items: center;
+    margin-bottom: 3px;
+  }
+  .coord-item span { font-size: 11px; color: var(--muted); }
+  .coord-item input {
+    font: inherit;
+    font-size: 11px;
+    width: 100%;
+    padding: 2px 4px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: #fff;
+  }
+  .coord-item input:focus { outline: none; border-color: var(--accent); }
+
+  .status-msg {
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    margin-top: 6px;
+  }
+  .status-msg.error { background: #ffe6ec; color: #c2185b; }
+  .status-msg.ok { background: #e6f7ea; color: #2e7d32; }
+
   @media (max-width: 800px) {
     body {
       grid-template-columns: 1fr;
@@ -146,31 +260,42 @@
       height: 100dvh;
     }
     aside { border-left: none; border-top: 1px solid var(--line); max-height: 45vh; }
+    .editor-panel { max-width: 200px; }
   }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Лумис: Голова + Торс</h1>
+  <h1>Голова Лумиса — 2D</h1>
+  <nav class="tabs">
+    <button class="tab-btn" id="tab-head" aria-selected="true" type="button">Голова</button>
+    <button class="tab-btn" id="tab-edit" aria-selected="false" type="button">Редактор</button>
+  </nav>
   <span class="view-name" id="view-name">Анфас · 0°</span>
   <button class="btn" id="about-btn" type="button">О методе</button>
 </header>
 
 <main id="stage">
   <svg id="canvas" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
+  <div id="drop-cover" hidden>Отпустите, чтобы вставить</div>
+
+  <!-- Editor overlay -->
+  <div class="editor-panel" id="editor-panel" hidden>
+    <h3>Прямое редактирование</h3>
+    <p class="hint" style="margin:0 0 6px">Выберите линию и редактируйте координаты точек (x, y, z).</p>
+    <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:2px">Линия</label>
+    <select id="edit-line-select" style="width:100%;font:inherit;font-size:11px;padding:4px;border:1px solid var(--line);border-radius:6px;margin-bottom:8px;background:#fff;"></select>
+    <div class="coord-list" id="coord-list"></div>
+    <div class="row">
+      <button class="btn btn--green" id="apply-coords" type="button" aria-pressed="false" style="flex:1;">Применить</button>
+      <button class="btn" id="reset-coords" type="button">Сброс</button>
+    </div>
+    <div id="edit-status"></div>
+  </div>
 </main>
 
-<aside>
-  <section>
-    <h2>Режим отображения</h2>
-    <div class="row">
-      <button class="btn" id="mode-head" type="button">Голова</button>
-      <button class="btn" id="mode-torso" type="button">Торс</button>
-      <button class="btn" id="mode-both" type="button">Вместе</button>
-    </div>
-  </section>
-
+<aside id="sidebar">
   <section>
     <h2>Поворот</h2>
     <div class="slider">
@@ -195,18 +320,11 @@
     </div>
   </section>
 
-  <!-- Настройки головы -->
-  <section id="sec-head" style="display:none;">
-    <h2>Форма головы</h2>
-    <div class="row" id="presets-head"></div>
-    <div id="shape-sliders-head"></div>
-  </section>
-
-  <!-- Настройки торса -->
-  <section id="sec-torso" style="display:block;">
-    <h2>Форма торса</h2>
-    <div class="row" id="presets-torso"></div>
-    <div id="shape-sliders-torso"></div>
+  <section id="shape-section">
+    <h2>Пресеты формы</h2>
+    <div class="row" id="presets"></div>
+    <h2>Форма</h2>
+    <div id="shape-sliders"></div>
   </section>
 
   <section>
@@ -221,42 +339,42 @@
       <button class="btn" id="toggle-labels" aria-pressed="true" type="button">Подписи</button>
     </div>
   </section>
+
+  <section>
+    <h2>Подложка</h2>
+    <p class="hint" id="underlay-hint">Перетащи файл, вставь из буфера или выбери ниже</p>
+    <div class="row">
+      <button class="btn" id="underlay-pick" type="button">Выбрать</button>
+      <button class="btn" id="underlay-remove" type="button" hidden>Удалить</button>
+      <input type="file" id="underlay-input" accept="image/*" hidden>
+    </div>
+    <div class="slider">
+      <label>Прозрачность</label>
+      <input type="range" id="underlay-opacity" min="0.1" max="0.9" step="0.05" value="0.4">
+      <output id="underlay-opacity-out">40%</output>
+    </div>
+    <div class="slider">
+      <label>Масштаб</label>
+      <input type="range" id="underlay-scale" min="0.3" max="2" step="0.01" value="1">
+      <output id="underlay-scale-out">100%</output>
+    </div>
+  </section>
+
+  <section>
+    <h2>Экспорт</h2>
+    <div class="row">
+      <button class="btn" id="save-png" type="button">PNG</button>
+      <button class="btn" id="save-svg" type="button">SVG</button>
+    </div>
+  </section>
 </aside>
 
 <script type="module">
 /* ==================================================================
- * 1. МАТЕМАТИКА И БАЗОВЫЕ ФУНКЦИИ
+ * loomis.js — математика формы
  * ================================================================== */
-const RED = 'red', BLUE = 'blue', GREEN = 'green', INK = 'ink';
-const LOOP_SEGMENTS = 64;
-const MAX_Z = 0.98;
 
-const rad = (d) => (d * Math.PI) / 180;
-const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const len = (a) => Math.hypot(a[0], a[1], a[2]);
-const norm = (a) => { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
-const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-
-// Поворот и проекция
-function rotatePoint(p, yawDeg, pitchDeg) {
-  const yaw = rad(yawDeg), pitch = rad(pitchDeg);
-  const cy = Math.cos(yaw), sy = Math.sin(yaw);
-  const cp = Math.cos(pitch), sp = Math.sin(pitch);
-  // Yaw вокруг Y
-  const x1 = p[0] * cy - p[1] * sy;
-  const y1 = p[0] * sy + p[1] * cy;
-  const z1 = p[2];
-  // Pitch вокруг X
-  const x2 = x1;
-  const y2 = y1 * cp - z1 * sp;
-  const z2 = y1 * sp + z1 * cp;
-  return [x2, y2, z2];
-}
-
-/* ==================================================================
- * 2. ПАРАМЕТРЫ ГОЛОВЫ (из оригинального кода)
- * ================================================================== */
-const SHAPE_PARAMS_HEAD = [
+const SHAPE_PARAMS = [
   { key: 'cut',        label: 'Ширина головы',           min: 0.4,  max: 0.95, step: 0.01, def: 0.73 },
   { key: 'top',        label: 'Высота макушки',          min: 0.8,  max: 1.4,  step: 0.01, def: 1 },
   { key: 'back',       label: 'Выступ затылка',          min: 0.8,  max: 1.4,  step: 0.01, def: 1 },
@@ -273,37 +391,34 @@ const SHAPE_PARAMS_HEAD = [
   { key: 'chin_round', label: 'Ⓒ Скругление подбородка', min: 0,    max: 1,    step: 0.01, def: 0.5 },
 ];
 
-function defaultShapeHead() {
+const LINE_PARAM = { min: 0.004, max: 0.04, step: 0.001, def: 0.012 };
+const RED = 'red', BLUE = 'blue';
+const CORNER = 0.05;
+const MAX_Z = 0.98;
+const LOOP_SEGMENTS = 96;
+
+const rad = (d) => (d * Math.PI) / 180;
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const len = (a) => Math.hypot(a[0], a[1], a[2]);
+const norm = (a) => { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+const mirror = (a) => [-a[0], a[1], a[2]];
+const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
+function defaultShape() {
   const s = {};
-  for (const p of SHAPE_PARAMS_HEAD) s[p.key] = p.def;
+  for (const p of SHAPE_PARAMS) s[p.key] = p.def;
   return s;
 }
 
-/* ==================================================================
- * 3. ПАРАМЕТРЫ ТОРСА (новая геометрия)
- * ================================================================== */
-const SHAPE_PARAMS_TORSO = [
-  { key: 'chest_w',   label: 'Ширина груди',      min: 0.4, max: 1.4, step: 0.01, def: 0.95 },
-  { key: 'chest_h',   label: 'Высота торса',      min: 0.8, max: 2.0, step: 0.01, def: 1.3 },
-  { key: 'chest_d',   label: 'Глубина торса',     min: 0.4, max: 1.2, step: 0.01, def: 0.7 },
-  { key: 'rib_taper', label: 'Сужение к талии',   min: 0.1, max: 0.9, step: 0.01, def: 0.6 },
-  { key: 'chest_flat',label: 'Плоскость спины',   min: 0.0, max: 0.5, step: 0.01, def: 0.2 },
-  { key: 'clavicle_z',label: 'Уровень ключиц',    min: -0.2,max: 0.8, step: 0.01, def: 0.6 },
-  { key: 'nipple_z',  label: 'Уровень груди',     min: -0.5,max: 0.5, step: 0.01, def: 0.15 },
-  { key: 'rib_bottom',label: 'Рёберная дуга',     min: -0.8,max: 0.0, step: 0.01, def: -0.6 },
-  { key: 'shoulder_x',label: 'Вынос плеч',        min: 0.6, max: 1.5, step: 0.01, def: 1.1 },
-  { key: 'shoulder_r',label: 'Размер плеч',       min: 0.15,max: 0.45,step: 0.01, def: 0.25 },
-];
-
-function defaultShapeTorso() {
+function clampShape(input) {
   const s = {};
-  for (const p of SHAPE_PARAMS_TORSO) s[p.key] = p.def;
+  for (const p of SHAPE_PARAMS) {
+    const v = Number(input?.[p.key]);
+    s[p.key] = Number.isFinite(v) ? Math.min(p.max, Math.max(p.min, v)) : p.def;
+  }
   return s;
 }
 
-/* ==================================================================
- * 4. ПОСТРОЕНИЕ ГОЛОВЫ (buildHead)
- * ================================================================== */
 function makeBall({ cut, r0, top = 1, back = 1 }) {
   const width = cut / Math.sqrt(1 - r0 * r0);
   const sy = (y) => (y > 0 ? back : 1);
@@ -315,17 +430,55 @@ function makeBall({ cut, r0, top = 1, back = 1 }) {
   };
 }
 
-function buildHead(input) {
-  const s = input;
+function rounded(items, radius) {
+  const pts0 = [];
+  for (const it of items) {
+    if (!pts0.length || len(sub(it.p, pts0[pts0.length - 1].p)) > 1e-6) pts0.push(it);
+  }
+  if (pts0.length < 3) return { pts: pts0.map((it) => it.p), corners: [] };
+
+  const out = [pts0[0].p];
+  const corners = [];
+  for (let i = 1; i < pts0.length - 1; i++) {
+    const P = pts0[i - 1].p, V = pts0[i].p, N = pts0[i + 1].p;
+    const kk = pts0[i].k ?? 0;
+    const d1 = sub(V, P), d2 = sub(N, V);
+    const L1 = len(d1), L2 = len(d2);
+    const u1 = norm(d1), u2 = norm(d2);
+    const cos = Math.max(-1, Math.min(1, u1[0] * u2[0] + u1[1] * u2[1] + u1[2] * u2[2]));
+    const turn = Math.acos(cos);
+    if (turn < 1e-3) { out.push(V); corners.push({ v: V, p: V }); continue; }
+    const base = radius * Math.tan(Math.min(turn, Math.PI * 0.95) / 2);
+    const t1 = Math.min(Math.max(base, kk * 0.5 * L1), L1 * 0.5);
+    const t2 = Math.min(Math.max(base, kk * 0.5 * L2), L2 * 0.5);
+    const T1 = [V[0] - u1[0] * t1, V[1] - u1[1] * t1, V[2] - u1[2] * t1];
+    const T2 = [V[0] + u2[0] * t2, V[1] + u2[1] * t2, V[2] + u2[2] * t2];
+    const STEPS = 2 * (3 + Math.round(kk * 9));
+    for (let j = 0; j <= STEPS; j++) {
+      const s = j / STEPS, a = (1 - s) * (1 - s), b = 2 * s * (1 - s), c = s * s;
+      out.push([a * T1[0] + b * V[0] + c * T2[0], a * T1[1] + b * V[1] + c * T2[1], a * T1[2] + b * V[2] + c * T2[2]]);
+    }
+    corners.push({ v: V, p: [0.25 * T1[0] + 0.5 * V[0] + 0.25 * T2[0], 0.25 * T1[1] + 0.5 * V[1] + 0.25 * T2[1], 0.25 * T1[2] + 0.5 * V[2] + 0.25 * T2[2]] });
+  }
+  out.push(pts0[pts0.length - 1].p);
+  return { pts: out, corners };
+}
+
+function buildHead(input, lift = 0) {
+  const s = clampShape(input);
   const ball = makeBall(s);
   const { width, cut, r0, stretch, normal } = ball;
+
   const zEye = s.eye * r0;
   const zHair = Math.min(s.forehead * r0, MAX_Z * s.top);
   const zNose = -r0;
   const zChin = -r0 - r0 * s.chin_len;
-  const xPlane = cut;
+  const xPlane = cut + lift;
 
-  const surf = (p) => p;
+  const surf = (p) => {
+    const n = normal(...p);
+    return [p[0] + n[0] * lift, p[1] + n[1] * lift, p[2] + n[2] * lift];
+  };
   const rim = (t, x = xPlane) => {
     const [, y, z] = stretch(0, r0 * Math.cos(t), r0 * Math.sin(t));
     return [x, y, z];
@@ -363,7 +516,7 @@ function buildHead(input) {
       for (const f of fr) {
         const i = Math.round(f * last);
         const p = part.pts[i];
-        out.push({ p, n: normal(...p) });
+        out.push({ p, n: normal(...p), t: sub(part.pts[Math.min(last, i + 1)], part.pts[Math.max(0, i - 1)]) });
       }
     }
     return out;
@@ -380,7 +533,7 @@ function buildHead(input) {
     labels['1'] = [22.5, 67.5, 112.5, 157.5].map((d) => {
       const t = rad(d);
       const p = surf(stretch(0, Math.cos(t), Math.sin(t)));
-      return { p, n: normal(...p) };
+      return { p, n: normal(...p), t: stretch(0, -Math.sin(t), Math.cos(t)) };
     });
   }
 
@@ -391,7 +544,7 @@ function buildHead(input) {
     labels[id] = ringLabels(parts);
   }
 
-  // ③ боковые круги
+  // ③ боковые круги и кресты
   labels['3'] = [];
   for (const sx of [1, -1]) {
     const x = sx * xPlane;
@@ -400,284 +553,767 @@ function buildHead(input) {
     add('3', RED, circle, true);
     add('3', RED, [rim(Math.PI / 2, x), rim(-Math.PI / 2, x)]);
     add('3', RED, [rim(Math.PI, x), rim(0, x)]);
-    labels['3'].push({ p: rim(Math.PI / 4, x), n: [sx, 0, 0] });
+    labels['3'].push({ p: rim(Math.PI / 4, x), n: [sx, 0, 0], t: [0, -1, 1] });
   }
 
+  // контрольные точки челюсти
   const A = rim(rad(-90 - s.jaw_start));
   const tilt = rad(s.jaw_tilt);
   const B = [s.jaw_x, A[1] - s.jaw_len * Math.sin(tilt), A[2] - s.jaw_len * Math.cos(tilt)];
   const Cf = [s.chin_w, -s.chin_front, zChin];
 
-  const jaw = [A, B, Cf, [-Cf[0], Cf[1], Cf[2]], [-B[0], B[1], B[2]], [-A[0], A[1], A[2]]];
-  add('7', BLUE, jaw);
-  
+  // ⑦ челюсть
+  const k = s.chin_round;
+  const jaw = rounded([
+    { p: A }, { p: B, k: 0 }, { p: Cf, k },
+    { p: mirror(Cf), k }, { p: mirror(B), k: 0 }, { p: mirror(A) },
+  ], CORNER);
+  add('7', BLUE, jaw.pts);
+  const cornerOf = (v) => jaw.corners.find((c) => c.v === v)?.p ?? v;
+  const CfR = cornerOf(Cf);
+  const CfL = mirror(CfR);
+
+  // ⑧ скула
   const zEyeU = zEye / ball.sz(zEye);
   const eyeEdge = [xPlane, -Math.sqrt(Math.max(0, r0 * r0 - zEyeU * zEyeU)), zEye];
-  add('8', BLUE, [Cf, eyeEdge]);
-  add('8', BLUE, [[-Cf[0], Cf[1], Cf[2]], [-eyeEdge[0], eyeEdge[1], eyeEdge[2]]]);
+  add('8', BLUE, [CfR, eyeEdge]);
+  add('8', BLUE, [CfL, mirror(eyeEdge)]);
 
+  // ⑥ центральная линия лица
   const front = surf(stretch(0, -Math.sqrt(Math.max(0, 1 - zEyeU * zEyeU)), zEyeU));
   const chinMid = [0, -s.chin_front, zChin];
   add('6', RED, [front, chinMid]);
 
-  labels['6'] = [{ p: lerp(front, chinMid, 0.8), n: [0, -1, 0] }];
-  labels['7'] = [{ p: lerp(B, Cf, 0.5), n: out(lerp(B, Cf, 0.5)) }, { p: lerp([-B[0],B[1],B[2]], [-Cf[0],Cf[1],Cf[2]], 0.5), n: out(lerp([-B[0],B[1],B[2]], [-Cf[0],Cf[1],Cf[2]], 0.5)) }];
-  labels['8'] = [{ p: lerp(Cf, eyeEdge, 0.5), n: out(lerp(Cf, eyeEdge, 0.5)) }, { p: lerp([-Cf[0],Cf[1],Cf[2]], [-eyeEdge[0],eyeEdge[1],eyeEdge[2]], 0.5), n: out(lerp([-Cf[0],Cf[1],Cf[2]], [-eyeEdge[0],eyeEdge[1],eyeEdge[2]], 0.5)) }];
-  labels['A'] = [{ p: A, n: norm([1, 0, -0.4]) }, { p: [-A[0], A[1], A[2]], n: norm([-1, 0, -0.4]) }];
-  labels['B'] = [{ p: B, n: out(B) }, { p: [-B[0], B[1], B[2]], n: out([-B[0], B[1], B[2]]) }];
+  // метки
+  const out = (p) => norm(p);
+  const BR = cornerOf(B);
+  const jawMid = lerp(BR, CfR, 0.5);
+  const jawDir = sub(CfR, BR);
+  const cheek = lerp(CfR, eyeEdge, 0.5);
+  const cheekDir = sub(eyeEdge, CfR);
+  labels['6'] = [{ p: lerp(front, chinMid, 0.8), n: [0, -1, 0], t: sub(chinMid, front) }];
+  labels['7'] = [{ p: jawMid, n: out(jawMid), t: jawDir }, { p: mirror(jawMid), n: out(mirror(jawMid)), t: mirror(jawDir) }];
+  labels['8'] = [{ p: cheek, n: out(cheek), t: cheekDir }, { p: mirror(cheek), n: out(mirror(cheek)), t: mirror(cheekDir) }];
+  labels['A'] = [{ p: A, n: norm([1, 0, -0.4]) }, { p: mirror(A), n: norm([-1, 0, -0.4]) }];
+  labels['B'] = [{ p: BR, n: out(BR) }, { p: mirror(BR), n: out(mirror(BR)) }];
   labels['C'] = [{ p: chinMid, n: norm([0, -1, -1]) }];
 
-  return { lines, labels };
-}
-
-function out(p) { return norm(p); }
-
-/* ==================================================================
- * 5. ПОСТРОЕНИЕ ТОРСА (buildTorso)
- * ================================================================== */
-function buildTorso(input) {
-  const s = input;
-  const lines = [];
-  const labels = {};
-  const add = (id, color, pts, closed = false) => lines.push({ id, color, closed, pts });
-
-  // Функция формы эллипсоида (яйца)
-  const stretch = (x, y, z) => {
-    // y от -1 (низ) до 1 (верх)
-    // Сужение к талии
-    const taper = 1 - s.rib_taper * (1 - (y + 1) / 2);
-    const currentW = s.chest_w * taper;
-    // Сплющивание спины
-    const currentD = z > 0 ? s.chest_d : s.chest_d * (1 - s.chest_flat);
-    return [x * currentW, y * s.chest_h, z * currentD];
-  };
-
-  const normal = (x, y, z) => {
-    const taper = 1 - s.rib_taper * (1 - (y + 1) / 2);
-    const currentW = s.chest_w * taper;
-    const currentD = z > 0 ? s.chest_d : s.chest_d * (1 - s.chest_flat);
-    return norm([x / currentW, y / s.chest_h, z / currentD]);
-  };
-
-  // Построение горизонтального кольца на уровне y (-1..1)
-  const ring = (y) => {
-    const rho = Math.sqrt(Math.max(0, 1 - y * y));
-    const taper = 1 - s.rib_taper * (1 - (y + 1) / 2);
-    const currentW = s.chest_w * taper;
-    const currentD = z0 => z0 > 0 ? s.chest_d : s.chest_d * (1 - s.chest_flat);
-    
-    const pts = [];
-    for (let i = 0; i < LOOP_SEGMENTS; i++) {
-      const t = (i / LOOP_SEGMENTS) * Math.PI * 2;
-      const px = rho * Math.cos(t);
-      const pz = rho * Math.sin(t);
-      pts.push(stretch(px, y, pz));
-    }
-    return [{ pts, closed: true }];
-  };
-
-  const ringLabels = (parts) => {
-    const out = [];
-    for (const part of parts) {
-      const last = part.pts.length - 1;
-      for (const f of [0.25, 0.75]) {
-        const i = Math.round(f * last);
-        const p = part.pts[i];
-        out.push({ p, n: normal(...p) });
-      }
-    }
-    return out;
-  };
-
-  // ① Центральная ось (вдоль Y)
-  {
-    const pts = [];
-    for (let i = 0; i <= 32; i++) {
-      const y = -1 + (i / 32) * 2;
-      pts.push(stretch(0, y, 0));
-    }
-    add('1', RED, pts);
-    labels['1'] = [{ p: stretch(0, 0.5, 0), n: [0, 0, 1] }];
-  }
-
-  // ② Линия ключиц
-  {
-    const parts = ring(s.clavicle_z);
-    for (const part of parts) add('2', RED, part.pts, part.closed);
-    labels['2'] = ringLabels(parts);
-  }
-
-  // ④ Линия груди
-  {
-    const parts = ring(s.nipple_z);
-    for (const part of parts) add('4', BLUE, part.pts, part.closed);
-    labels['4'] = ringLabels(parts);
-  }
-
-  // ⑤ Рёберная дуга
-  {
-    const parts = ring(s.rib_bottom);
-    for (const part of parts) add('5', BLUE, part.pts, part.closed);
-    labels['5'] = ringLabels(parts);
-  }
-
-  // ⑥ Центральная линия живота
-  {
-    const front = stretch(0, s.nipple_z, 1);
-    const bottom = stretch(0, s.rib_bottom, 0.7);
-    add('6', RED, [front, bottom]);
-    labels['6'] = [{ p: lerp(front, bottom, 0.5), n: [0, 0, 1] }];
-  }
-
-  // ③ Круги плеч
-  labels['3'] = [];
-  for (const sx of [1, -1]) {
-    const x = sx * s.shoulder_x;
-    const y = s.clavicle_z;
-    const circle = [];
-    for (let i = 0; i < LOOP_SEGMENTS; i++) {
-      const t = (i / LOOP_SEGMENTS) * Math.PI * 2;
-      // Круг плеча в плоскости XY (спереди)
-      circle.push([x + Math.cos(t) * s.shoulder_r, y + Math.sin(t) * s.shoulder_r, 0]);
-    }
-    add('3', RED, circle, true);
-    labels['3'].push({ p: [x, y, 0.2], n: [sx, 0, 0] });
-  }
-
-  // ⑦ Линии талии (боковые)
-  {
-    const leftTop = stretch(-1, s.rib_bottom, 0);
-    const leftBottom = stretch(-1, -1, 0);
-    const rightTop = stretch(1, s.rib_bottom, 0);
-    const rightBottom = stretch(1, -1, 0);
-    add('7', BLUE, [leftTop, leftBottom]);
-    add('7', BLUE, [rightTop, rightBottom]);
-    labels['7'] = [
-      { p: lerp(leftTop, leftBottom, 0.5), n: [-1, 0, 0] },
-      { p: lerp(rightTop, rightBottom, 0.5), n: [1, 0, 0] }
-    ];
-  }
-
-  return { lines, labels };
+  return { lines, labels, solid: { width, cut, r0, top: s.top, back: s.back } };
 }
 
 /* ==================================================================
- * 6. СОСТОЯНИЕ И UI
+ * Пресеты формы — оригинальные значения из presets.js 3D-версии
  * ================================================================== */
-const STORE_KEY = 'loomis-body:v1';
+
+const PRESETS = [
+  { id: 'standard', label: 'Стандарт',  values: { r0: 0.68, eye: 0.0,   jaw_len: 0.40, jaw_x: 0.62, chin_len: 1.0,  chin_w: 0.22 } },
+  { id: 'youth',    label: 'Юноша',     values: { r0: 0.70, eye: -0.1,  jaw_len: 0.45, jaw_x: 0.60, chin_len: 1.05, chin_w: 0.18 } },
+  { id: 'girl',     label: 'Девушка',   values: { r0: 0.64, eye: -0.35, jaw_len: 0.30, jaw_x: 0.55, chin_len: 0.85, chin_w: 0.16 } },
+  { id: 'child',    label: 'Ребёнок',   values: { r0: 0.58, eye: -0.6,  jaw_len: 0.20, jaw_x: 0.60, chin_len: 0.65, chin_w: 0.25 } },
+];
+
+function presetShape(id) {
+  const p = PRESETS.find((x) => x.id === id) ?? PRESETS[0];
+  return { ...defaultShape(), ...p.values };
+}
+
+/* ==================================================================
+ * Состояние
+ * ================================================================== */
+
+const STORE_KEY = 'loomis-2d:v1';
 const state = loadState();
-const $ = (id) => document.getElementById(id);
+
+function wrapYaw(y) { return ((((y + 180) % 360) + 360) % 360) - 180; }
 
 function loadState() {
   const def = {
-    mode: 'torso',
-    shapeHead: defaultShapeHead(),
-    shapeTorso: defaultShapeTorso(),
-    line: 0.012,
+    shape: defaultShape(),
+    preset: 'standard',
+    line: LINE_PARAM.def,
     view: { yaw: 0, pitch: 0 },
     display: { hidden: true, labels: true },
+    underlay: { opacity: 0.4, scale: 1 },
   };
   try {
     const raw = JSON.parse(localStorage.getItem(STORE_KEY));
     if (!raw) return def;
     return {
       ...def,
-      mode: raw.mode || def.mode,
-      shapeHead: { ...def.shapeHead, ...raw.shapeHead },
-      shapeTorso: { ...def.shapeTorso, ...raw.shapeTorso },
-      line: Number(raw.line) || def.line,
-      view: { yaw: Number(raw.view?.yaw) || 0, pitch: Number(raw.view?.pitch) || 0 },
+      shape: clampShape(raw.shape),
+      preset: PRESETS.some((p) => p.id === raw.preset) ? raw.preset : null,
+      line: Number.isFinite(raw.line) ? Math.min(LINE_PARAM.max, Math.max(LINE_PARAM.min, raw.line)) : def.line,
+      view: {
+        yaw: Number.isFinite(raw.view?.yaw) ? wrapYaw(raw.view.yaw) : 0,
+        pitch: Number.isFinite(raw.view?.pitch) ? Math.min(60, Math.max(-60, raw.view.pitch)) : 0,
+      },
       display: { hidden: raw.display?.hidden !== false, labels: raw.display?.labels !== false },
+      underlay: { opacity: 0.4, scale: 1 },
     };
   } catch { return def; }
 }
 
+let saveTimer = 0;
 function save() {
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {}
+  }, 300);
 }
 
-// SVG Setup
-const SVG_NS = 'http://www.w3.org/2000/svg';
-const svg = $('canvas');
-const stage = $('stage');
-const VIEW_SIZE = 600;
-const CX = 300, CY = 300;
-const SCALE = 180;
+/* ==================================================================
+ * Рендер SVG
+ * ================================================================== */
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('canvas');
+const stage = document.getElementById('stage');
+const VIEW_SIZE = 600;
+const CX = VIEW_SIZE / 2, CY = VIEW_SIZE / 2;
+const SCALE = 200;
+
+const gUnderlay = document.createElementNS(SVG_NS, 'g');
 const gHidden = document.createElementNS(SVG_NS, 'g');
 const gVisible = document.createElementNS(SVG_NS, 'g');
 const gLabels = document.createElementNS(SVG_NS, 'g');
+svg.appendChild(gUnderlay);
 svg.appendChild(gHidden);
 svg.appendChild(gVisible);
 svg.appendChild(gLabels);
 
-// Рендер
+const underlayImg = document.createElementNS(SVG_NS, 'image');
+underlayImg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+underlayImg.setAttribute('x', CX - SCALE);
+underlayImg.setAttribute('y', CY - SCALE);
+underlayImg.setAttribute('width', SCALE * 2);
+underlayImg.setAttribute('height', SCALE * 2);
+underlayImg.style.display = 'none';
+gUnderlay.appendChild(underlayImg);
+
+const LABEL_TEXT = { 1: '①', 2: '②', 3: '③', 4: '④', 5: '⑤', 6: '⑥', 7: '⑦', 8: '⑧', A: 'Ⓐ', B: 'Ⓑ', C: 'Ⓒ' };
+const LABEL_COLOR = { 1: 'red', 2: 'red', 3: 'red', 6: 'red', 4: 'blue', 5: 'blue', 7: 'blue', 8: 'blue', A: 'ink', B: 'ink', C: 'ink' };
+
+function rotate(p) {
+  const yaw = rad(state.view.yaw), pitch = rad(state.view.pitch);
+  const cy = Math.cos(yaw), sy = Math.sin(yaw);
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const x1 = p[0] * cy - p[1] * sy;
+  const y1 = p[0] * sy + p[1] * cy;
+  const z1 = p[2];
+  const x2 = x1;
+  const y2 = y1 * cp - z1 * sp;
+  const z2 = y1 * sp + z1 * cp;
+  return [x2, y2, z2];
+}
+
+function project(p) {
+  const r = rotate(p);
+  return { x: CX + r[0] * SCALE, y: CY - r[2] * SCALE, depth: r[1] };
+}
+
+function isVisiblePoint(p, n) {
+  const rn = rotate(n);
+  return rn[1] < 0;
+}
+
+function lineToPath(pts, closed) {
+  if (!pts.length) return '';
+  let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+  for (let i = 1; i < pts.length; i++) d += `L${pts[i].x.toFixed(1)},${pts[i].y.toFixed(1)}`;
+  if (closed) d += 'Z';
+  return d;
+}
+
+function splitByVisibility(pts, projected) {
+  const result = [];
+  if (!pts.length) return result;
+  let cur = { visible: null, pts2d: [] };
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    const n = norm(p);
+    const vis = isVisiblePoint(p, n);
+    if (cur.visible === null) {
+      cur.visible = vis;
+      cur.pts2d.push(projected[i]);
+    } else if (cur.visible === vis) {
+      cur.pts2d.push(projected[i]);
+    } else {
+      cur.pts2d.push(projected[i]);
+      result.push(cur);
+      cur = { visible: vis, pts2d: [projected[i]] };
+    }
+  }
+  if (cur.pts2d.length) result.push(cur);
+  return result;
+}
+
+// Переменные для редактора: текущая форма
+let currentHead = null;
+let editorLines = []; // { id, color, closed, pts }
+
 function render() {
+  const head = buildHead(state.shape, state.line);
+  currentHead = head;
+  editorLines = head.lines;
+
   gVisible.innerHTML = '';
   gHidden.innerHTML = '';
   gLabels.innerHTML = '';
 
-  const headData = buildHead(state.shapeHead);
-  const torsoData = buildTorso(state.shapeTorso);
-
-  let allLines = [];
-  let allLabels = {};
-
-  if (state.mode === 'head' || state.mode === 'both') {
-    allLines = allLines.concat(headData.lines);
-    Object.assign(allLabels, headData.labels);
-  }
-  if (state.mode === 'torso' || state.mode === 'both') {
-    // Сдвигаем торс вниз, если он один, или оставляем на месте
-    const offsetY = state.mode === 'torso' ? 0 : 0; 
-    const movedTorso = torsoData.lines.map(l => ({
-      ...l,
-      pts: l.pts.map(p => [p[0], p[1] + (state.mode === 'both' ? -1.5 : 0), p[2]])
-    }));
-    allLines = allLines.concat(movedTorso);
-    Object.assign(allLabels, torsoData.labels);
-  }
-
   const strokeW = state.line * SCALE;
 
-  for (const l of allLines) {
-    const projected = l.pts.map(p => project(p));
-    
-    // Разбиваем линии на видимые и скрытые
-    const parts = [];
-    let cur = { visible: null, pts2d: [] };
-    
-    for (let i = 0; i < l.pts.length; i++) {
-      const p = l.pts[i];
-      const n = norm(p); // Упрощённая нормаль
-      const rotatedN = rotatePoint(n, state.view.yaw, state.view.pitch);
-      const vis = rotatedN[1] < 0; // Нормаль смотрит на камеру
-
-      if (cur.visible === null) {
-        cur.visible = vis;
-        cur.pts2d.push(projected[i]);
-      } else if (cur.visible === vis) {
-        cur.pts2d.push(projected[i]);
-      } else {
-        cur.pts2d.push(projected[i]);
-        parts.push(cur);
-        cur = { visible: vis, pts2d: [projected[i]] };
-      }
-    }
-    if (cur.pts2d.length) parts.push(cur);
+  for (const l of head.lines) {
+    const projected = l.pts.map((p) => project(p));
+    const parts = splitByVisibility(l.pts, projected);
 
     for (const part of parts) {
       if (part.pts2d.length < 2) continue;
       const path = document.createElementNS(SVG_NS, 'path');
-      let d = `M${part.pts2d[0].x.toFixed(1)},${part.pts2d[0].y.toFixed(1)}`;
-      for (let i = 1; i < part.pts2d.length; i++) d += `L${part.pts2d[i].x.toFixed(1)},${part.pts2d[i].y.toFixed(1)}`;
-      path.setAttribute('d', d);
+      path.setAttribute('d', lineToPath(part.pts2d, false));
       path.setAttribute('fill', 'none');
-      path.setAttribute('stroke', l.color === RED ? 'var(--guide-red)' : l.color === BLUE ? 'var(--guide-blue)' : 'var(--guide-green)');
+      path.setAttribute('stroke', l.color === RED ? 'var(--guide-red)' : 'var(--guide-blue)');
       path.setAttribute('stroke-width', strokeW.toFixed(2));
       path.setAttribute('stroke-linecap', 'round');
       path.setAttribute('stroke-linejoin', 'round');
+      if (!part.visible) {
+        if (!state.display.hidden) continue;
+        path.setAttribute('stroke-opacity', '0.22');
+        path.setAttribute('stroke-dasharray', `${(strokeW * 1.5).toFixed(1)} ${(strokeW * 2.5).toFixed(1)}`);
+        gHidden.appendChild(path);
+      } else {
+        gVisible.appendChild(path);
+      }
+    }
+  }
 
+  if (state.display.labels) {
+    for (const [id, cands] of Object.entries(head.labels)) {
+      let best = null;
+      for (const c of cands) {
+        if (!isVisiblePoint(c.p, c.n)) continue;
+        const proj = project(c.p);
+        if (!best) best = { proj, c };
+      }
+      if (!best) continue;
+      const t = document.createElementNS(SVG_NS, 'text');
+      const nProj = project([
+        best.c.p[0] + best.c.n[0] * 0.15,
+        best.c.p[1] + best.c.n[1] * 0.15,
+        best.c.p[2] + best.c.n[2] * 0.15,
+      ]);
+      let dx = nProj.x - best.proj.x;
+      let dy = nProj.y - best.proj.y;
+      const dl = Math.hypot(dx, dy) || 1;
+      dx /= dl; dy /= dl;
+      const x = best.proj.x + dx * 14;
+      const y = best.proj.y + dy * 14;
+      t.setAttribute('x', x.toFixed(1));
+      t.setAttribute('y', y.toFixed(1));
+      t.setAttribute('text-anchor', 'middle');
+      t.setAttribute('dominant-baseline', 'central');
+      t.setAttribute('class', `label label--${LABEL_COLOR[id]}`);
+      t.textContent = LABEL_TEXT[id];
+      gLabels.appendChild(t);
+    }
+  }
+}
+
+/* ==================================================================
+ * UI
+ * ================================================================== */
+
+const $ = (id) => document.getElementById(id);
+
+function viewName() {
+  const y = state.view.yaw;
+  const ay = Math.abs(y);
+  if (ay <= 22) return 'Анфас';
+  if (ay <= 68) return y > 0 ? '3/4 влево' : '3/4 вправо';
+  if (ay <= 112) return y > 0 ? 'Профиль влево' : 'Профиль вправо';
+  if (ay <= 158) return 'Задний 3/4';
+  return 'Спина';
+}
+
+function updateViewName() {
+  const p = state.view.pitch;
+  const sign = p > 0 ? ` · ↑${Math.round(p)}°` : p < 0 ? ` · ↓${Math.round(-p)}°` : '';
+  $('view-name').textContent = `${viewName()} · ${Math.round(state.view.yaw)}°${sign}`;
+}
+
+const yawInput = $('yaw'), pitchInput = $('pitch');
+yawInput.addEventListener('input', () => {
+  stopSpin();
+  state.view.yaw = wrapYaw(Number(yawInput.value));
+  $('yaw-out').textContent = Math.round(state.view.yaw) + '°';
+  render(); updateViewName(); save();
+});
+pitchInput.addEventListener('input', () => {
+  state.view.pitch = Number(pitchInput.value);
+  $('pitch-out').textContent = Math.round(state.view.pitch) + '°';
+  render(); updateViewName(); save();
+});
+
+document.querySelectorAll('[data-angle]').forEach((b) => {
+  b.addEventListener('click', () => {
+    stopSpin();
+    const angles = { front: [0, 0], three: [45, 0], side: [90, 0], back: [180, 0] };
+    const [yaw, pitch] = angles[b.dataset.angle] || [0, 0];
+    state.view.yaw = yaw;
+    state.view.pitch = pitch;
+    yawInput.value = yaw;
+    pitchInput.value = pitch;
+    $('yaw-out').textContent = yaw + '°';
+    $('pitch-out').textContent = pitch + '°';
+    render(); updateViewName(); save();
+  });
+});
+
+$('reset-view').addEventListener('click', () => {
+  stopSpin();
+  state.view.yaw = 0;
+  state.view.pitch = 0;
+  yawInput.value = 0;
+  pitchInput.value = 0;
+  $('yaw-out').textContent = '0°';
+  $('pitch-out').textContent = '0°';
+  render(); updateViewName(); save();
+});
+
+let spinRAF = 0;
+const spinBtn = $('spin');
+function stopSpin() {
+  if (spinRAF) { cancelAnimationFrame(spinRAF); spinRAF = 0; }
+  spinBtn.setAttribute('aria-pressed', 'false');
+}
+spinBtn.addEventListener('click', () => {
+  const on = spinBtn.getAttribute('aria-pressed') !== 'true';
+  spinBtn.setAttribute('aria-pressed', String(on));
+  if (on) {
+    let last = performance.now();
+    const tick = (now) => {
+      const dt = Math.min(64, now - last);
+      last = now;
+      state.view.yaw = wrapYaw(state.view.yaw + dt * 0.04);
+      yawInput.value = state.view.yaw;
+      $('yaw-out').textContent = Math.round(state.view.yaw) + '°';
+      render(); updateViewName();
+      spinRAF = requestAnimationFrame(tick);
+    };
+    spinRAF = requestAnimationFrame(tick);
+  } else {
+    stopSpin(); save();
+  }
+});
+
+// пресеты
+const presetButtons = PRESETS.map((p) => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'btn';
+  b.textContent = p.label;
+  b.addEventListener('click', () => {
+    state.preset = p.id;
+    state.shape = presetShape(p.id);
+    syncShapeSliders();
+    renderPresets(); render(); save();
+  });
+  $('presets').appendChild(b);
+  return b;
+});
+function renderPresets() {
+  PRESETS.forEach((p, i) => presetButtons[i].setAttribute('aria-pressed', String(state.preset === p.id)));
+}
+
+// слайдеры формы
+const shapeSyncers = [];
+const shapeHost = $('shape-sliders');
+const SHAPE_GROUPS = { cut: 'Голова', eye: 'Лицо', jaw_start: 'Челюсть', chin_len: 'Подбородок' };
+for (const p of SHAPE_PARAMS) {
+  if (SHAPE_GROUPS[p.key]) {
+    const h = document.createElement('div');
+    h.className = 'group-h';
+    h.textContent = SHAPE_GROUPS[p.key];
+    shapeHost.appendChild(h);
+  }
+  const row = document.createElement('div');
+  row.className = 'slider';
+  const id = `shape-${p.key}`;
+  row.innerHTML = `<label for="${id}">${p.label}</label>
+    <input type="range" id="${id}" min="${p.min}" max="${p.max}" step="${p.step}">
+    <output for="${id}"></output>`;
+  shapeHost.appendChild(row);
+  const input = row.querySelector('input');
+  const out = row.querySelector('output');
+  const fmt = (v) => p.unit ? `${Math.round(v)}${p.unit}` : v.toFixed(2);
+  const sync = () => {
+    input.value = state.shape[p.key];
+    out.textContent = fmt(state.shape[p.key]);
+  };
+  input.addEventListener('input', () => {
+    state.shape[p.key] = Number(input.value);
+    state.preset = null;
+    out.textContent = fmt(Number(input.value));
+    renderPresets(); render(); save();
+  });
+  sync();
+  shapeSyncers.push(sync);
+}
+
+function syncShapeSliders() { for (const s of shapeSyncers) s(); }
+
+// толщина линии
+const lineInput = $('line'), lineOut = $('line-out');
+lineInput.value = state.line;
+lineOut.textContent = state.line.toFixed(3);
+lineInput.addEventListener('input', () => {
+  state.line = Number(lineInput.value);
+  lineOut.textContent = state.line.toFixed(3);
+  render(); save();
+});
+
+// переключатели
+const toggleHidden = $('toggle-hidden');
+const toggleLabels = $('toggle-labels');
+toggleHidden.setAttribute('aria-pressed', String(state.display.hidden));
+toggleLabels.setAttribute('aria-pressed', String(state.display.labels));
+toggleHidden.addEventListener('click', () => {
+  state.display.hidden = !state.display.hidden;
+  toggleHidden.setAttribute('aria-pressed', String(state.display.hidden));
+  render(); save();
+});
+toggleLabels.addEventListener('click', () => {
+  state.display.labels = !state.display.labels;
+  toggleLabels.setAttribute('aria-pressed', String(state.display.labels));
+  render(); save();
+});
+
+/* ==================================================================
+ * Подложка
+ * ================================================================== */
+
+const underlayPick = $('underlay-pick');
+const underlayInput = $('underlay-input');
+const underlayRemove = $('underlay-remove');
+const underlayOpacity = $('underlay-opacity');
+const underlayScale = $('underlay-scale');
+
+underlayPick.addEventListener('click', () => underlayInput.click());
+underlayInput.addEventListener('change', (e) => {
+  const f = e.target.files?.[0];
+  if (f) loadUnderlay(f);
+  e.target.value = '';
+});
+underlayRemove.addEventListener('click', () => {
+  underlayImg.removeAttribute('href');
+  underlayImg.style.display = 'none';
+  underlayRemove.hidden = true;
+  $('underlay-hint').textContent = 'Перетащи файл, вставь из буфера или выбери ниже';
+  try { localStorage.removeItem(STORE_KEY + ':img'); } catch {}
+});
+
+underlayOpacity.addEventListener('input', () => {
+  state.underlay.opacity = Number(underlayOpacity.value);
+  $('underlay-opacity-out').textContent = Math.round(state.underlay.opacity * 100) + '%';
+  underlayImg.style.opacity = state.underlay.opacity;
+  save();
+});
+underlayScale.addEventListener('input', () => {
+  state.underlay.scale = Number(underlayScale.value);
+  $('underlay-scale-out').textContent = Math.round(state.underlay.scale * 100) + '%';
+  applyUnderlayTransform(); save();
+});
+underlayOpacity.value = state.underlay.opacity;
+underlayScale.value = state.underlay.scale;
+$('underlay-opacity-out').textContent = Math.round(state.underlay.opacity * 100) + '%';
+$('underlay-scale-out').textContent = Math.round(state.underlay.scale * 100) + '%';
+
+function applyUnderlayTransform() {
+  const s = state.underlay.scale;
+  underlayImg.setAttribute('transform',
+    `translate(${CX} ${CY}) scale(${s}) translate(${-CX} ${-CY})`);
+  underlayImg.style.opacity = state.underlay.opacity;
+}
+
+function loadUnderlay(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUrl = reader.result;
+    underlayImg.setAttribute('href', dataUrl);
+    underlayImg.style.display = '';
+    underlayRemove.hidden = false;
+    $('underlay-hint').textContent = file.name;
+    applyUnderlayTransform();
+    try { localStorage.setItem(STORE_KEY + ':img', dataUrl); } catch {}
+  };
+  reader.readAsDataURL(file);
+}
+
+try {
+  const saved = localStorage.getItem(STORE_KEY + ':img');
+  if (saved) {
+    underlayImg.setAttribute('href', saved);
+    underlayImg.style.display = '';
+    underlayRemove.hidden = false;
+    $('underlay-hint').textContent = 'Сохранённая подложка';
+    applyUnderlayTransform();
+  }
+} catch {}
+
+let dragDepth = 0;
+const hasFiles = (e) => [...(e.dataTransfer?.types ?? [])].includes('Files');
+window.addEventListener('dragenter', (e) => {
+  if (!hasFiles(e)) return;
+  dragDepth++;
+  $('drop-cover').hidden = false;
+});
+window.addEventListener('dragleave', () => {
+  if (--dragDepth <= 0) { dragDepth = 0; $('drop-cover').hidden = true; }
+});
+window.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault(); });
+window.addEventListener('drop', (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth = 0;
+  $('drop-cover').hidden = true;
+  const f = e.dataTransfer.files?.[0];
+  if (f) loadUnderlay(f);
+});
+document.addEventListener('paste', (e) => {
+  const item = [...(e.clipboardData?.items ?? [])].find((i) => i.type.startsWith('image/'));
+  if (item) { e.preventDefault(); loadUnderlay(item.getAsFile()); }
+});
+
+/* ==================================================================
+ * Экспорт
+ * ================================================================== */
+
+$('save-png').addEventListener('click', async () => {
+  const clone = svg.cloneNode(true);
+  clone.setAttribute('xmlns', SVG_NS);
+  const bg = document.createElementNS(SVG_NS, 'rect');
+  bg.setAttribute('width', VIEW_SIZE);
+  bg.setAttribute('height', VIEW_SIZE);
+  bg.setAttribute('fill', '#ffffff');
+  clone.insertBefore(bg, clone.firstChild);
+
+  const xml = new XMLSerializer().serializeToString(clone);
+  const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 1200;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(url);
+    canvas.toBlob((b) => download(b, 'loomis-head.png'));
+  };
+  img.src = url;
+});
+
+$('save-svg').addEventListener('click', () => {
+  const clone = svg.cloneNode(true);
+  clone.setAttribute('xmlns', SVG_NS);
+  const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone);
+  const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+  download(blob, 'loomis-head.svg');
+});
+
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ==================================================================
+ * Вкладки
+ * ================================================================== */
+
+const tabHead = $('tab-head');
+const tabEdit = $('tab-edit');
+const editorPanel = $('editor-panel');
+const shapeSection = $('shape-section');
+
+function switchTab(mode) {
+  if (mode === 'head') {
+    tabHead.setAttribute('aria-selected', 'true');
+    tabEdit.setAttribute('aria-selected', 'false');
+    editorPanel.hidden = true;
+    shapeSection.style.display = '';
+  } else {
+    tabHead.setAttribute('aria-selected', 'false');
+    tabEdit.setAttribute('aria-selected', 'true');
+    editorPanel.hidden = false;
+    shapeSection.style.display = 'none';
+    refreshEditorLineList();
+  }
+}
+
+tabHead.addEventListener('click', () => switchTab('head'));
+tabEdit.addEventListener('click', () => switchTab('edit'));
+
+/* ==================================================================
+ * Редактор геометрии
+ * ================================================================== */
+
+const editLineSelect = $('edit-line-select');
+const coordList = $('coord-list');
+const applyCoords = $('apply-coords');
+const resetCoords = $('reset-coords');
+const editStatus = $('edit-status');
+
+// Буфер для редактируемых линий: { lineId, color, closed, pts: [{x,y,z}] }
+let editBuffer = null;
+let originalBuffer = null;
+
+function refreshEditorLineList() {
+  if (!currentHead) return;
+  // Группируем линии по id
+  const grouped = {};
+  for (const l of currentHead.lines) {
+    if (!grouped[l.id]) grouped[l.id] = [];
+    grouped[l.id].push(l);
+  }
+  editLineSelect.innerHTML = '';
+  const ids = Object.keys(grouped).sort((a, b) => {
+    const order = ['1','2','3','4','5','6','7','8','A','B','C'];
+    return order.indexOf(a) - order.indexOf(b);
+  });
+  for (const id of ids) {
+    const lines = grouped[id];
+    const color = lines[0].color;
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = `${LABEL_TEXT[id] || id} (${lines.length} сегм., ${color === RED ? 'красн.' : 'син.'})`;
+    editLineSelect.appendChild(opt);
+  }
+  if (ids.length) {
+    editLineSelect.value = ids[0];
+    loadLineForEditing(ids[0]);
+  }
+}
+
+function loadLineForEditing(id) {
+  if (!currentHead) return;
+  const lines = currentHead.lines.filter(l => l.id === id);
+  if (!lines.length) return;
+
+  // Собираем все точки из всех сегментов линии
+  editBuffer = [];
+  for (const l of lines) {
+    for (const p of l.pts) {
+      editBuffer.push({ x: +p[0].toFixed(4), y: +p[1].toFixed(4), z: +p[2].toFixed(4), color: l.color, closed: l.closed });
+    }
+  }
+  originalBuffer = editBuffer.map(p => ({ ...p }));
+
+  // Показываем только уникальные точки (первую из каждой)
+  // Для простоты показываем все, но сгруппированные по сегментам
+  renderCoordList();
+  editStatus.innerHTML = '';
+}
+
+function renderCoordList() {
+  if (!editBuffer) return;
+  coordList.innerHTML = '';
+  // Показываем первые 50 точек для производительности
+  const maxShow = Math.min(editBuffer.length, 80);
+  for (let i = 0; i < maxShow; i++) {
+    const p = editBuffer[i];
+    const row = document.createElement('div');
+    row.className = 'coord-item';
+    row.innerHTML = `
+      <span>#${i}</span>
+      <input type="number" step="0.01" value="${p.x}" data-idx="${i}" data-axis="x" title="X">
+      <input type="number" step="0.01" value="${p.y}" data-idx="${i}" data-axis="y" title="Y">
+      <input type="number" step="0.01" value="${p.z}" data-idx="${i}" data-axis="z" title="Z">
+    `;
+    coordList.appendChild(row);
+  }
+  if (editBuffer.length > maxShow) {
+    const note = document.createElement('p');
+    note.className = 'hint';
+    note.textContent = `… и ещё ${editBuffer.length - maxShow} точек (не показаны для производительности)`;
+    coordList.appendChild(note);
+  }
+}
+
+coordList.addEventListener('input', (e) => {
+  const inp = e.target.closest('input');
+  if (!inp || !editBuffer) return;
+  const idx = Number(inp.dataset.idx);
+  const axis = inp.dataset.axis;
+  const val = parseFloat(inp.value);
+  if (Number.isFinite(val) && editBuffer[idx]) {
+    editBuffer[idx][axis] = val;
+  }
+});
+
+applyCoords.addEventListener('click', () => {
+  if (!editBuffer || !currentHead) return;
+  const lineId = editLineSelect.value;
+  const lines = currentHead.lines.filter(l => l.id === lineId);
+  if (!lines.length) return;
+
+  // Распределяем отредактированные точки обратно по сегментам
+  let offset = 0;
+  for (const l of lines) {
+    for (let i = 0; i < l.pts.length; i++) {
+      if (offset < editBuffer.length) {
+        const p = editBuffer[offset];
+        l.pts[i] = [p.x, p.y, p.z];
+      }
+      offset++;
+    }
+  }
+
+  // Перерисовываем с новыми данными
+  // Временно заменяем lines в currentHead и рендерим напрямую
+  renderCustomLines();
+  editStatus.innerHTML = '<div class="status-msg ok">Применено</div>';
+  setTimeout(() => { editStatus.innerHTML = ''; }, 1500);
+});
+
+resetCoords.addEventListener('click', () => {
+  if (!originalBuffer) return;
+  editBuffer = originalBuffer.map(p => ({ ...p }));
+  renderCoordList();
+  editStatus.innerHTML = '<div class="status-msg ok">Сброшено</div>';
+  setTimeout(() => { editStatus.innerHTML = ''; }, 1500);
+});
+
+editLineSelect.addEventListener('change', () => {
+  loadLineForEditing(editLineSelect.value);
+});
+
+// Отрисовка кастомных линий (без пересборки head)
+function renderCustomLines() {
+  if (!currentHead) return;
+  gVisible.innerHTML = '';
+  gHidden.innerHTML = '';
+  gLabels.innerHTML = '';
+
+  const strokeW = state.line * SCALE;
+
+  for (const l of currentHead.lines) {
+    const projected = l.pts.map((p) => project(p));
+    const parts = splitByVisibility(l.pts, projected);
+
+    for (const part of parts) {
+      if (part.pts2d.length < 2) continue;
+      const path = document.createElementNS(SVG_NS, 'path');
+      path.setAttribute('d', lineToPath(part.pts2d, false));
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', l.color === RED ? 'var(--guide-red)' : 'var(--guide-blue)');
+      path.setAttribute('stroke-width', strokeW.toFixed(2));
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('stroke-linejoin', 'round');
       if (!part.visible) {
         if (!state.display.hidden) continue;
         path.setAttribute('stroke-opacity', '0.22');
@@ -691,213 +1327,67 @@ function render() {
 
   // Подписи
   if (state.display.labels) {
-    for (const [id, cands] of Object.entries(allLabels)) {
+    for (const [id, cands] of Object.entries(currentHead.labels)) {
       let best = null;
       for (const c of cands) {
-        const rotatedN = rotatePoint(c.n, state.view.yaw, state.view.pitch);
-        if (rotatedN[1] > 0) continue; // Невидимая
-        best = c; break;
+        if (!isVisiblePoint(c.p, c.n)) continue;
+        const proj = project(c.p);
+        if (!best) best = { proj, c };
       }
       if (!best) continue;
-      
-      const proj = project(best.p);
-      const nProj = project([best.p[0] + best.n[0]*0.1, best.p[1] + best.n[1]*0.1, best.p[2] + best.n[2]*0.1]);
-      let dx = nProj.x - proj.x;
-      let dy = nProj.y - proj.y;
+      const t = document.createElementNS(SVG_NS, 'text');
+      const nProj = project([
+        best.c.p[0] + best.c.n[0] * 0.15,
+        best.c.p[1] + best.c.n[1] * 0.15,
+        best.c.p[2] + best.c.n[2] * 0.15,
+      ]);
+      let dx = nProj.x - best.proj.x;
+      let dy = nProj.y - best.proj.y;
       const dl = Math.hypot(dx, dy) || 1;
       dx /= dl; dy /= dl;
-      
-      const t = document.createElementNS(SVG_NS, 'text');
-      t.setAttribute('x', (proj.x + dx * 14).toFixed(1));
-      t.setAttribute('y', (proj.y + dy * 14).toFixed(1));
+      const x = best.proj.x + dx * 14;
+      const y = best.proj.y + dy * 14;
+      t.setAttribute('x', x.toFixed(1));
+      t.setAttribute('y', y.toFixed(1));
       t.setAttribute('text-anchor', 'middle');
       t.setAttribute('dominant-baseline', 'central');
-      t.setAttribute('class', `label label--${id === '3' || id === '4' || id === '5' || id === '7' || id === '8' ? 'blue' : 'red'}`);
-      t.textContent = id;
+      t.setAttribute('class', `label label--${LABEL_COLOR[id]}`);
+      t.textContent = LABEL_TEXT[id];
       gLabels.appendChild(t);
     }
   }
 }
 
-function project(p) {
-  const r = rotatePoint(p, state.view.yaw, state.view.pitch);
-  return { x: CX + r[0] * SCALE, y: CY - r[1] * SCALE, depth: r[2] };
-}
+/* ==================================================================
+ * О методе
+ * ================================================================== */
 
-function updateViewName() {
-  const y = state.view.yaw;
-  const ay = Math.abs(y);
-  let name = 'Анфас';
-  if (ay > 158) name = 'Спина';
-  else if (ay > 112) name = 'Задний 3/4';
-  else if (ay > 68) name = y > 0 ? 'Профиль влево' : 'Профиль вправо';
-  else if (ay > 22) name = y > 0 ? '3/4 влево' : '3/4 вправо';
-  
-  const p = state.view.pitch;
-  const sign = p > 0 ? ` · ↑${Math.round(p)}°` : p < 0 ? ` · ↓${Math.round(-p)}°` : '';
-  $('view-name').textContent = `${name} · ${Math.round(y)}°${sign}`;
-}
-
-// Слайдеры
-const yawInput = $('yaw'), pitchInput = $('pitch');
-yawInput.value = state.view.yaw;
-pitchInput.value = state.view.pitch;
-$('yaw-out').textContent = Math.round(state.view.yaw) + '°';
-$('pitch-out').textContent = Math.round(state.view.pitch) + '°';
-
-yawInput.addEventListener('input', () => {
-  state.view.yaw = Number(yawInput.value);
-  $('yaw-out').textContent = Math.round(state.view.yaw) + '°';
-  render(); updateViewName(); save();
-});
-pitchInput.addEventListener('input', () => {
-  state.view.pitch = Number(pitchInput.value);
-  $('pitch-out').textContent = Math.round(state.view.pitch) + '°';
-  render(); updateViewName(); save();
+$('about-btn').addEventListener('click', () => {
+  alert(
+    'Голова Лумиса (2D, 360°)\n\n' +
+    '① — центральная линия\n' +
+    '② — уровень бровей / глаз\n' +
+    '③ — боковой круг (висок → затылок)\n' +
+    '④ — линия волос\n' +
+    '⑤ — линия носа\n' +
+    '⑥ — центральная линия лица\n' +
+    '⑦ — линия челюсти Ⓐ→Ⓑ→Ⓒ\n' +
+    '⑧ — линия скулы\n\n' +
+    'Перетаскивай мышью — вращение по кругу (yaw) и наклон (pitch).\n' +
+    'Кнопка «Крутить» — плавный автоповорот.\n' +
+    'Скрытые линии — приглушённый пунктир на обратной стороне.\n\n' +
+    'Вкладка «Редактор» — прямое редактирование координат линий.'
+  );
 });
 
-document.querySelectorAll('[data-angle]').forEach(b => {
-  b.addEventListener('click', () => {
-    const angles = { front: [0, 0], three: [45, 0], side: [90, 0], back: [180, 0] };
-    const [y, p] = angles[b.dataset.angle] || [0, 0];
-    state.view.yaw = y; state.view.pitch = p;
-    yawInput.value = y; pitchInput.value = p;
-    $('yaw-out').textContent = y + '°'; $('pitch-out').textContent = p + '°';
-    render(); updateViewName(); save();
-  });
-});
+/* ==================================================================
+ * Перетаскивание мышью
+ * ================================================================== */
 
-$('reset-view').addEventListener('click', () => {
-  state.view.yaw = 0; state.view.pitch = 0;
-  yawInput.value = 0; pitchInput.value = 0;
-  $('yaw-out').textContent = '0°'; $('pitch-out').textContent = '0°';
-  render(); updateViewName(); save();
-});
-
-// Режимы
-function updateMode() {
-  $('mode-head').setAttribute('aria-pressed', String(state.mode === 'head'));
-  $('mode-torso').setAttribute('aria-pressed', String(state.mode === 'torso'));
-  $('mode-both').setAttribute('aria-pressed', String(state.mode === 'both'));
-  $('sec-head').style.display = state.mode === 'head' || state.mode === 'both' ? 'block' : 'none';
-  $('sec-torso').style.display = state.mode === 'torso' || state.mode === 'both' ? 'block' : 'none';
-}
-$('mode-head').addEventListener('click', () => { state.mode = 'head'; updateMode(); render(); save(); });
-$('mode-torso').addEventListener('click', () => { state.mode = 'torso'; updateMode(); render(); save(); });
-$('mode-both').addEventListener('click', () => { state.mode = 'both'; updateMode(); render(); save(); });
-
-// Пресеты
-const PRESETS_HEAD = [
-  { id: 'standard', label: 'Стандарт', values: { r0: 0.68, eye: 0.0, jaw_len: 0.40, jaw_x: 0.62, chin_len: 1.0, chin_w: 0.22 } },
-  { id: 'youth', label: 'Юноша', values: { r0: 0.70, eye: -0.1, jaw_len: 0.45, jaw_x: 0.60, chin_len: 1.05, chin_w: 0.18 } },
-  { id: 'girl', label: 'Девушка', values: { r0: 0.64, eye: -0.35, jaw_len: 0.30, jaw_x: 0.55, chin_len: 0.85, chin_w: 0.16 } },
-  { id: 'child', label: 'Ребёнок', values: { r0: 0.58, eye: -0.6, jaw_len: 0.20, jaw_x: 0.60, chin_len: 0.65, chin_w: 0.25 } },
-];
-
-const PRESETS_TORSO = [
-  { id: 'male', label: 'Мужской', values: { chest_w: 1.0, chest_h: 1.1, chest_d: 0.7, rib_taper: 0.5, chest_flat: 0.2, clavicle_z: 0.6, nipple_z: 0.1, rib_bottom: -0.6 } },
-  { id: 'female', label: 'Женский', values: { chest_w: 0.85, chest_h: 0.95, chest_d: 0.75, rib_taper: 0.7, chest_flat: 0.15, clavicle_z: 0.5, nipple_z: 0.0, rib_bottom: -0.5 } },
-  { id: 'child', label: 'Ребёнок', values: { chest_w: 0.7, chest_h: 0.8, chest_d: 0.6, rib_taper: 0.3, chest_flat: 0.1, clavicle_z: 0.4, nipple_z: -0.1, rib_bottom: -0.4 } },
-  { id: 'hero', label: 'Героический', values: { chest_w: 1.1, chest_h: 1.0, chest_d: 0.8, rib_taper: 0.8, chest_flat: 0.25, clavicle_z: 0.7, nipple_z: 0.15, rib_bottom: -0.7 } },
-];
-
-function createPresetButtons(containerId, presets, shapeKey) {
-  const host = $(containerId);
-  host.innerHTML = '';
-  presets.forEach(p => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'btn';
-    b.textContent = p.label;
-    b.addEventListener('click', () => {
-      state[shapeKey] = { ...defaultShapeHead(), ...defaultShapeTorso(), ...p.values };
-      // Очистка лишних ключей
-      const allowed = shapeKey === 'shapeHead' ? SHAPE_PARAMS_HEAD : SHAPE_PARAMS_TORSO;
-      const clean = {};
-      for (const param of allowed) clean[param.key] = state[shapeKey][param.key];
-      state[shapeKey] = clean;
-      
-      syncSliders(shapeKey);
-      render(); save();
-    });
-    host.appendChild(b);
-  });
-}
-
-createPresetButtons('presets-head', PRESETS_HEAD, 'shapeHead');
-createPresetButtons('presets-torso', PRESETS_TORSO, 'shapeTorso');
-
-// Слайдеры формы
-const sliders = { head: [], torso: [] };
-
-function createShapeSliders(hostId, params, shapeKey, groupKey) {
-  const host = $(hostId);
-  host.innerHTML = '';
-  sliders[groupKey] = [];
-  
-  for (const p of params) {
-    const row = document.createElement('div');
-    row.className = 'slider';
-    const id = `${groupKey}-${p.key}`;
-    row.innerHTML = `<label for="${id}">${p.label}</label>
-      <input type="range" id="${id}" min="${p.min}" max="${p.max}" step="${p.step}">
-      <output for="${id}"></output>`;
-    host.appendChild(row);
-    
-    const input = row.querySelector('input');
-    const out = row.querySelector('output');
-    const fmt = (v) => p.unit ? `${Math.round(v)}${p.unit}` : v.toFixed(2);
-    
-    const sync = () => {
-      input.value = state[shapeKey][p.key];
-      out.textContent = fmt(state[shapeKey][p.key]);
-    };
-    
-    input.addEventListener('input', () => {
-      state[shapeKey][p.key] = Number(input.value);
-      out.textContent = fmt(Number(input.value));
-      render(); save();
-    });
-    sync();
-    sliders[groupKey].push(sync);
-  }
-}
-
-function syncSliders(shapeKey) {
-  const groupKey = shapeKey === 'shapeHead' ? 'head' : 'torso';
-  for (const s of sliders[groupKey]) s();
-}
-
-createShapeSliders('shape-sliders-head', SHAPE_PARAMS_HEAD, 'shapeHead', 'head');
-createShapeSliders('shape-sliders-torso', SHAPE_PARAMS_TORSO, 'shapeTorso', 'torso');
-
-// Толщина
-const lineInput = $('line'), lineOut = $('line-out');
-lineInput.value = state.line;
-lineOut.textContent = state.line.toFixed(3);
-lineInput.addEventListener('input', () => {
-  state.line = Number(lineInput.value);
-  lineOut.textContent = state.line.toFixed(3);
-  render(); save();
-});
-
-// Переключатели
-$('toggle-hidden').setAttribute('aria-pressed', String(state.display.hidden));
-$('toggle-hidden').addEventListener('click', () => {
-  state.display.hidden = !state.display.hidden;
-  $('toggle-hidden').setAttribute('aria-pressed', String(state.display.hidden));
-  render(); save();
-});
-$('toggle-labels').setAttribute('aria-pressed', String(state.display.labels));
-$('toggle-labels').addEventListener('click', () => {
-  state.display.labels = !state.display.labels;
-  $('toggle-labels').setAttribute('aria-pressed', String(state.display.labels));
-  render(); save();
-});
-
-// Вращение мышью
 let dragStart = null;
 stage.addEventListener('pointerdown', (e) => {
+  if (e.target.closest('aside') || e.target.closest('.editor-panel')) return;
+  stopSpin();
   dragStart = { x: e.clientX, y: e.clientY, yaw: state.view.yaw, pitch: state.view.pitch };
   stage.setPointerCapture(e.pointerId);
 });
@@ -905,28 +1395,25 @@ stage.addEventListener('pointermove', (e) => {
   if (!dragStart) return;
   const dx = e.clientX - dragStart.x;
   const dy = e.clientY - dragStart.y;
-  state.view.yaw = dragStart.yaw + dx * 0.5;
+  state.view.yaw = wrapYaw(dragStart.yaw + dx * 0.5);
   state.view.pitch = Math.max(-60, Math.min(60, dragStart.pitch - dy * 0.3));
-  yawInput.value = state.view.yaw; pitchInput.value = state.view.pitch;
+  yawInput.value = state.view.yaw;
+  pitchInput.value = state.view.pitch;
   $('yaw-out').textContent = Math.round(state.view.yaw) + '°';
   $('pitch-out').textContent = Math.round(state.view.pitch) + '°';
   render(); updateViewName();
 });
 stage.addEventListener('pointerup', () => { dragStart = null; save(); });
+stage.addEventListener('pointercancel', () => { dragStart = null; save(); });
 
-// About
-$('about-btn').addEventListener('click', () => {
-  alert("Метод Лумиса: Голова и Торс\n\n" +
-    "Голова: классические пропорции.\n" +
-    "Торс: эллипсоид с сужением к талии.\n" +
-    "Используйте слайдеры для настройки формы.");
-});
+/* ==================================================================
+ * Запуск
+ * ================================================================== */
 
-// Запуск
-updateMode();
+syncShapeSliders();
+renderPresets();
 render();
 updateViewName();
-
 </script>
 </body>
 </html>
