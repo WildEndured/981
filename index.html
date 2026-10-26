@@ -15,7 +15,7 @@
     --muted: #8a8394;
     --line: #e5e1eb;
     --accent: #7a4dff;
-    --ball-fill: rgba(140, 128, 170, 0.25);
+    --ball-fill: rgba(140, 128, 170, 0.22);
   }
   * { box-sizing: border-box; }
   body {
@@ -541,26 +541,30 @@ function buildHead(input, lift = 0, opts = {}) {
 
   const out = (p) => norm(p);
 
-  // --- ⑨ АНИМЕ-КОНТУР (3D-СПЛАЙН) ---
+  // --- ⑨ АНИМЕ-КОНТУР (2D-ДУГА) ---
   if (s.anime_on > 0.5) {
-    const segs = 32; 
+    const segs = 24; 
     const anime_pts = [];
     
-    // Управляющие точки для 3D-дуги
-    const p0 = A; // Старт: висок
-    const p2 = CfR; // Финиш: подбородок
-    
-    // Точка изгиба скулы (аниме-щека)
-    // Находим середину по Z между виском и подбородком
-    const zMid = (A[2] + CfR[2]) * 0.5;
-    const yMid = (A[1] + CfR[1]) * 0.5;
-    // Уводим скулу вперед (по Y) на параметр anime_curve, и ограничиваем ширину (anime_width)
-    const cheekX = s.jaw_x * s.anime_width;
-    const cheekY = yMid - (s.anime_curve * 0.8); // Выступ вперед
-    
-    const p1 = [cheekX, cheekY, zMid]; 
+    // Опорные точки: висок и подбородок
+    const p0 = A; 
+    const p2 = CfR; 
 
-    // Квадратичная кривая Безье в 3D
+    // Вычисляем точку скулы (середина + смещение)
+    const midPoint = [
+      (A[0] + CfR[0]) / 2,
+      (A[1] + CfR[1]) / 2,
+      (A[2] + CfR[2]) / 2
+    ];
+
+    // В аниме скула «выдвигается» вперед по оси Y и слегка сужается по X
+    const p1 = [
+      midPoint[0] * s.anime_width,
+      midPoint[1] - s.anime_curve, // выступ вперед
+      midPoint[2] 
+    ];
+
+    // Квадратичная кривая Безье
     for (let i = 0; i <= segs; i++) {
       const t = i / segs;
       const mt = 1 - t;
@@ -568,17 +572,13 @@ function buildHead(input, lift = 0, opts = {}) {
       const y = mt*mt*p0[1] + 2*mt*t*p1[1] + t*t*p2[1];
       const z = mt*mt*p0[2] + 2*mt*t*p1[2] + t*t*p2[2];
       
-      // Проецируем точку на поверхность шара, чтобы она не висела в воздухе
-      const rho = Math.sqrt(x*x + y*y);
-      const normPt = [x, y, z];
-      // Вместо жесткой проекции просто пушим точку вперед по Y, чтобы она была на поверхности
-      anime_pts.push([x, y - 0.05, z]); 
+      anime_pts.push([x, y, z]); 
     }
     
     add('9', GREEN, anime_pts);
     add('9', GREEN, anime_pts.map(mirror));
 
-    // Подпись ⑨
+    // Подпись
     const anime_mid = anime_pts[Math.floor(segs * 0.5)];
     labels['9'] = [{ 
       p: anime_mid, 
@@ -665,7 +665,7 @@ function presetShape(id) {
  * Состояние
  * ================================================================== */
 
-const STORE_KEY = 'loomis-2d:v10';
+const STORE_KEY = 'loomis-2d:v11';
 
 function wrapYaw(y) { return ((((y + 180) % 360) + 360) % 360) - 180; }
 
@@ -826,7 +826,7 @@ function render() {
 
   const strokeW = state.line * BASE_SCALE * state.figureScale;
 
-  // ----- ЗАЛИВКА СФЕРЫ (ПРАВИЛЬНАЯ 3D-ПРОЕКЦИЯ) -----
+  // ----- ЗАЛИВКА СФЕРЫ -----
   {
     const outline = buildBallOutline();
     const proj = outline.map(project);
