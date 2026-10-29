@@ -1,25 +1,27 @@
 // ============================================================
-//  js/worker.js · запуск Web Worker (файл в папке js)
+//  js/worker.js · запуск Web Worker (main-thread)
 // ============================================================
 
 function initWorker() {
   if (worker) return true;
+  if (workerFailed) return false; // NEW
   try {
-    worker = new Worker('worker.js?v=7'); // путь к корневому воркеру
+    worker = new Worker('js/worker-body.js?v=17'); // CHANGED: путь
   } catch (err) {
     worker = null;
+    workerFailed = true; // NEW
     showError('Worker не создан. Fallback в главном потоке.');
     return false;
   }
-  
+
   worker.onmessage = (e) => {
     const { type, payload } = e.data;
     if (type === 'mask') {
-      isBg = new Uint8Array(payload.mask);
+      isBg = payload.mask instanceof Uint8Array ? payload.mask : new Uint8Array(payload.mask);
       bgCount = payload.bgCount;
       charBBox = payload.bbox || null;
-      propLines = payload.propLines || []; // Убрали gridInfo
-      
+      propLines = payload.propLines || [];
+
       drawOverlay();
       updateInfo();
       workerBusy = false;
@@ -31,15 +33,16 @@ function initWorker() {
       showError('Worker error: ' + payload);
     }
   };
-  
+
   worker.onerror = (err) => {
     workerBusy = false;
     hideProgress();
     worker = null;
-    showError('Worker error: ' + (err.message || 'unknown'));
+    workerFailed = true; // NEW
+    showError('Worker error: ' + (err.message || 'unknown') + '. Дальше — fallback.');
   };
   return true;
 }
 
-function showProgress() { progressOverlay.classList.add('visible'); }
-function hideProgress() { progressOverlay.classList.remove('visible'); }
+function showProgress() { if (progressOverlay) progressOverlay.classList.add('visible'); }
+function hideProgress() { if (progressOverlay) progressOverlay.classList.remove('visible'); }
