@@ -1,26 +1,17 @@
 // ============================================================
-//  js/worker.js · запуск Web Worker (main-thread)
+//  js/worker.js · встроенный Web Worker (без внешних файлов)
 // ============================================================
 
-// Встроенный код воркера (тот, что ты присылал первым)
-// Мы упаковываем его в Blob, чтобы не зависеть от путей к файлам на GitHub Pages
 const workerCode = `
   console.log('[worker] loaded from Blob');
-
   self.onmessage = (e) => {
     const { type, payload } = e.data;
-
     if (type === 'buildMask') {
       try {
         const r = buildMaskInWorker(payload);
         self.postMessage({
           type: 'mask',
-          payload: {
-            mask: r.mask, bgCount: r.bgCount,
-            width: r.width, height: r.height,
-            bbox: r.bbox,
-            propLines: r.propLines
-          }
+          payload: { mask: r.mask, bgCount: r.bgCount, width: r.width, height: r.height, bbox: r.bbox, propLines: r.propLines }
         });
       } catch (err) {
         self.postMessage({ type: 'error', payload: String(err && err.message || err) });
@@ -30,25 +21,16 @@ const workerCode = `
   };
 
   function buildMaskInWorker(p) {
-    const {
-      imageData, width, height,
-      mode, thresholdLum, colorSamples, thresholdDist, invert,
-      sourcePoints, autoSeeds, useSmooth, smoothIter, morphOpen, morphClose,
-      regionTolerance, activePropLines
-    } = p;
-
+    const { imageData, width, height, mode, thresholdLum, colorSamples, thresholdDist, invert, sourcePoints, autoSeeds, useSmooth, smoothIter, morphOpen, morphClose, regionTolerance, activePropLines } = p;
     const w = width, h = height, N = w * h;
     const data = imageData.data;
-
     const lum = new Float32Array(N);
     for (let i = 0, j = 0; i < N; i++, j += 4) {
       if (data[j + 3] < 20) { lum[i] = 255; continue; }
       lum[i] = 0.299 * data[j] + 0.587 * data[j + 1] + 0.114 * data[j + 2];
     }
-
     const dist2 = thresholdDist * thresholdDist * 3;
     const colorMode = (mode === 'color' && colorSamples && colorSamples.length > 0);
-
     function isPixelBg(idx) {
       let matched;
       if (mode === 'lum') matched = lum[idx] >= thresholdLum;
@@ -65,11 +47,9 @@ const workerCode = `
       } else matched = lum[idx] >= thresholdLum;
       return invert ? !matched : matched;
     }
-
     const mask = new Uint8Array(N);
     const queue = new Int32Array(N);
     let head = 0, tail = 0;
-
     const push = (x, y) => {
       if (x < 0 || y < 0 || x >= w || y >= h) return;
       const idx = y * w + x;
@@ -77,60 +57,31 @@ const workerCode = `
       mask[idx] = 1;
       queue[tail++] = idx;
     };
-
-    if (sourcePoints && sourcePoints.length > 0) {
-      for (const pt of sourcePoints) push(pt.x, pt.y);
-    } else if (autoSeeds && autoSeeds.length > 0) {
-      for (const pt of autoSeeds) push(pt.x, pt.y);
-    }
+    if (sourcePoints && sourcePoints.length > 0) { for (const pt of sourcePoints) push(pt.x, pt.y); }
+    else if (autoSeeds && autoSeeds.length > 0) { for (const pt of autoSeeds) push(pt.x, pt.y); }
     for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
     for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
-
     while (head < tail) {
       const idx = queue[head++];
       const x = idx % w, y = (idx / w) | 0;
       push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
     }
-
-    if (mode === 'region' && sourcePoints && sourcePoints.length > 0) {
-      regionGrow(mask, data, w, h, sourcePoints, regionTolerance);
-    }
-
-    if (morphOpen > 0) {
-      for (let i = 0; i < morphOpen; i++) erode(mask, w, h);
-      for (let i = 0; i < morphOpen; i++) dilate(mask, w, h);
-    }
-    if (morphClose > 0) {
-      for (let i = 0; i < morphClose; i++) dilate(mask, w, h);
-      for (let i = 0; i < morphClose; i++) erode(mask, w, h);
-    }
-    if (useSmooth) {
-      for (let i = 0; i < smoothIter; i++) smoothOnce(mask, w, h);
-    }
-
+    if (mode === 'region' && sourcePoints && sourcePoints.length > 0) regionGrow(mask, data, w, h, sourcePoints, regionTolerance);
+    if (morphOpen > 0) { for (let i = 0; i < morphOpen; i++) erode(mask, w, h); for (let i = 0; i < morphOpen; i++) dilate(mask, w, h); }
+    if (morphClose > 0) { for (let i = 0; i < morphClose; i++) dilate(mask, w, h); for (let i = 0; i < morphClose; i++) erode(mask, w, h); }
+    if (useSmooth) { for (let i = 0; i < smoothIter; i++) smoothOnce(mask, w, h); }
     let bgCount = 0;
     for (let i = 0; i < N; i++) if (mask[i]) bgCount++;
-
     const bbox = computeCharacterBBox(mask, w, h, { minComponentSize: 200 });
     let propLines = [];
-
-    if (bbox) {
-      if (Array.isArray(activePropLines) && activePropLines.length > 0) {
-        propLines = activePropLines.map(line => ({
-          id: line.id,
-          label: line.label,
-          percent: line.percent,
-          y: bbox.y + Math.round(bbox.h * (line.percent / 100)),
-          enabled: line.enabled !== false,
-          width: line.width
-        }));
-      }
+    if (bbox && Array.isArray(activePropLines) && activePropLines.length > 0) {
+      propLines = activePropLines.map(line => ({
+        id: line.id, label: line.label, percent: line.percent,
+        y: bbox.y + Math.round(bbox.h * (line.percent / 100)),
+        enabled: line.enabled !== false, width: line.width
+      }));
     }
-
-    return {
-      mask, bgCount, width: w, height: h,
-      bbox, propLines
-    };
+    return { mask, bgCount, width: w, height: h, bbox, propLines };
   }
 
   function computeCharacterBBox(mask, w, h, opts = {}) {
@@ -139,13 +90,11 @@ const workerCode = `
     const visited = new Uint8Array(N);
     const queue = new Int32Array(N);
     let best = null, bestSize = 0;
-
     for (let start = 0; start < N; start++) {
       if (visited[start] || mask[start] === 1) continue;
       let head = 0, tail = 0;
       queue[tail++] = start; visited[start] = 1;
       let minX = w, minY = h, maxX = -1, maxY = -1, size = 0;
-
       while (head < tail) {
         const cur = queue[head++];
         const cx = cur % w, cy = (cur / w) | 0;
@@ -157,21 +106,10 @@ const workerCode = `
         if (cy > 0)     { const n = cur - w; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
         if (cy < h - 1) { const n = cur + w; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
       }
-
-      if (size >= minSize && size > bestSize) {
-        bestSize = size;
-        best = { minX, minY, maxX, maxY, size };
-      }
+      if (size >= minSize && size > bestSize) { bestSize = size; best = { minX, minY, maxX, maxY, size }; }
     }
-
     if (!best) return null;
-    return {
-      x: best.minX, y: best.minY,
-      w: best.maxX - best.minX + 1,
-      h: best.maxY - best.minY + 1,
-      area: best.size,
-      fillRatio: best.size / ((best.maxX - best.minX + 1) * (best.maxY - best.minY + 1))
-    };
+    return { x: best.minX, y: best.minY, w: best.maxX - best.minX + 1, h: best.maxY - best.minY + 1, area: best.size, fillRatio: best.size / ((best.maxX - best.minX + 1) * (best.maxY - best.minY + 1)) };
   }
 
   function regionGrow(mask, data, w, h, seeds, tolerance) {
@@ -179,25 +117,19 @@ const workerCode = `
     const queue = new Int32Array(N);
     let head = 0, tail = 0;
     const visited = new Uint8Array(N);
-
     const pushSeed = (x, y) => {
       if (x < 0 || y < 0 || x >= w || y >= h) return;
       const idx = y * w + x;
       if (visited[idx]) return;
-      visited[idx] = 1;
-      mask[idx] = 1;
-      queue[tail++] = idx;
+      visited[idx] = 1; mask[idx] = 1; queue[tail++] = idx;
     };
-
     for (const s of seeds) pushSeed(s.x, s.y);
     const tol2 = tolerance * tolerance * 3;
-
     while (head < tail) {
       const idx = queue[head++];
       const x = idx % w, y = (idx / w) | 0;
       const j = idx * 4;
       const r0 = data[j], g0 = data[j + 1], b0 = data[j + 2];
-
       const tryNeighbor = (nx, ny) => {
         if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
         const nidx = ny * w + nx;
@@ -205,14 +137,9 @@ const workerCode = `
         visited[nidx] = 1;
         const nj = nidx * 4;
         const dr = data[nj] - r0, dg = data[nj + 1] - g0, db = data[nj + 2] - b0;
-        if (dr * dr + dg * dg + db * db <= tol2) {
-          mask[nidx] = 1;
-          queue[tail++] = nidx;
-        }
+        if (dr * dr + dg * dg + db * db <= tol2) { mask[nidx] = 1; queue[tail++] = nidx; }
       };
-
-      tryNeighbor(x + 1, y); tryNeighbor(x - 1, y);
-      tryNeighbor(x, y + 1); tryNeighbor(x, y - 1);
+      tryNeighbor(x + 1, y); tryNeighbor(x - 1, y); tryNeighbor(x, y + 1); tryNeighbor(x, y - 1);
     }
   }
 
@@ -252,14 +179,9 @@ const workerCode = `
 function initWorker() {
   if (worker) return true;
   if (workerFailed) return false;
-
   try {
-    // Создаем Blob из строки с кодом
     const blob = new Blob([workerCode], { type: 'application/javascript' });
-    const blobUrl = URL.createObjectURL(blob);
-    
-    // Запускаем воркер
-    worker = new Worker(blobUrl);
+    worker = new Worker(URL.createObjectURL(blob));
   } catch (err) {
     worker = null;
     workerFailed = true;
@@ -274,7 +196,6 @@ function initWorker() {
       bgCount = payload.bgCount;
       charBBox = payload.bbox || null;
       propLines = payload.propLines || [];
-
       drawOverlay();
       updateInfo();
       workerBusy = false;
