@@ -4,12 +4,14 @@
 
 function initWorker() {
   if (worker) return true;
-  if (workerFailed) return false; // NEW
+  if (workerFailed) return false;
+
   try {
-    worker = new Worker('js/worker-body.js?v=17'); // CHANGED: путь
+    // ВАЖНО: файл воркера должен лежать в папке js/ и называться worker-body.js
+    worker = new Worker('js/worker-body.js?v=17');
   } catch (err) {
     worker = null;
-    workerFailed = true; // NEW
+    workerFailed = true;
     showError('Worker не создан. Fallback в главном потоке.');
     return false;
   }
@@ -35,10 +37,17 @@ function initWorker() {
   };
 
   worker.onerror = (err) => {
+    console.error('[worker error]', {
+      message: err.message,
+      filename: err.filename,
+      lineno: err.lineno,
+      colno: err.colno,
+      error: err.error
+    });
     workerBusy = false;
     hideProgress();
     worker = null;
-    workerFailed = true; // NEW
+    workerFailed = true;
     showError('Worker error: ' + (err.message || 'unknown') + '. Дальше — fallback.');
   };
   return true;
