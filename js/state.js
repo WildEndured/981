@@ -74,7 +74,7 @@ let hideImage = false;
 let bgCount = 0;
 
 let charBBox = null;
-let propLines = []; // вычисленные Y-координаты для рендера
+let propLines = [];
 
 // --- Линии пропорций ---
 let showPropLines = true;
@@ -88,14 +88,21 @@ let zoom = 1, panX = 0, panY = 0;
 let fitZoom = 1;
 let isDragging = false, dragStartX = 0, dragStartY = 0;
 let dragStartPanX = 0, dragStartPanY = 0;
+let hadDrag = false; // NEW: был ли реальный drag (для защиты от случайного клика)
 
 // Worker
 let worker = null;
 let workerBusy = false;
 let pendingBuild = false;
+let workerFailed = false; // NEW: воркер упал — больше не пытаемся
 
 let _seedsCache = null;
 function invalidateSeeds() { _seedsCache = null; }
+
+// --- Замер головы (NEW) ---
+let measureHeadMode = false;
+let measureCrown = null;
+let measureChin = null;
 
 // ---------- Ошибки ----------
 function showError(msg) {
@@ -106,3 +113,4 @@ function showError(msg) {
   }
 }
 window.addEventListener('error', (e) => showError('JS error: ' + (e.message || e.error)));
+window.addEventListener('unhandledrejection', (e) => showError('Promise: ' + (e.reason && e.reason.message || e.reason)));
