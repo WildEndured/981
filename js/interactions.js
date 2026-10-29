@@ -13,9 +13,35 @@ function clientToImage(cx, cy) {
 if (stageWrap) {
   stageWrap.addEventListener('click', (e) => {
     if (!lum) return;
-    if (isDragging) return;
+    if (hadDrag) { hadDrag = false; return; } // NEW: защита от клика после панорамы
+
     const { x, y } = clientToImage(e.clientX, e.clientY);
     if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) return;
+
+    // NEW: режим замера головы
+    if (measureHeadMode) {
+      if (!measureCrown) {
+        measureCrown = { x, y };
+      } else if (!measureChin) {
+        measureChin = { x, y };
+        const r = headCountFromPoints(measureCrown, measureChin);
+        if (r) {
+          applyHeadCount(r.N, 'замер');
+          const inp = document.getElementById('headCountGen');
+          if (inp) inp.value = r.N;
+        } else {
+          showError('Подбородок должен быть ниже макушки, N должно быть 2–12');
+        }
+        measureCrown = null;
+        measureChin = null;
+        measureHeadMode = false;
+        const mb = document.getElementById('measureHeadBtn');
+        if (mb) mb.classList.remove('active');
+      }
+      updateCursor();
+      drawOverlay();
+      return;
+    }
 
     if (bgColorMode) {
       const idx = y * imgWidth + x;
@@ -96,7 +122,13 @@ if (autoThresholdBtn) {
 if (addPointBtn) {
   addPointBtn.addEventListener('click', () => {
     addPointMode = !addPointMode;
-    if (addPointMode) { bgColorMode = false; if (pickBgColorBtn) pickBgColorBtn.classList.remove('active'); }
+    if (addPointMode) {
+      bgColorMode = false;
+      measureHeadMode = false;
+      if (pickBgColorBtn) pickBgColorBtn.classList.remove('active');
+      const mb = document.getElementById('measureHeadBtn');
+      if (mb) mb.classList.remove('active');
+    }
     addPointBtn.classList.toggle('active', addPointMode);
     updateCursor();
   });
@@ -105,7 +137,13 @@ if (addPointBtn) {
 if (pickBgColorBtn) {
   pickBgColorBtn.addEventListener('click', () => {
     bgColorMode = !bgColorMode;
-    if (bgColorMode) { addPointMode = false; if (addPointBtn) addPointBtn.classList.remove('active'); }
+    if (bgColorMode) {
+      addPointMode = false;
+      measureHeadMode = false;
+      if (addPointBtn) addPointBtn.classList.remove('active');
+      const mb = document.getElementById('measureHeadBtn');
+      if (mb) mb.classList.remove('active');
+    }
     pickBgColorBtn.classList.toggle('active', bgColorMode);
     updateCursor();
   });
@@ -113,7 +151,7 @@ if (pickBgColorBtn) {
 
 if (clearPointsBtn) {
   clearPointsBtn.addEventListener('click', () => {
-    sourcePoints = [];
+    sourcePoints.length = 0; // CHANGED
     selectedPointIndex = -1;
     invalidateSeeds();
     if (lum) rebuildAll();
@@ -170,7 +208,7 @@ if (exportCutBtn) {
     const d = out.data;
     for (let i = 0, j = 0; i < w * h; i++, j += 4) {
       d[j] = src[j]; d[j+1] = src[j+1]; d[j+2] = src[j+2];
-      d[j+3] = isBg[i] ? 0 : 255;
+      d[j+3] = isBg[i] ? 0 : src[j+3]; // CHANGED: сохраняем исходную альфу
     }
     ctx.putImageData(out, 0, 0);
     downloadCanvasPNG(c, 'cutout.png');
