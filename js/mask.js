@@ -31,7 +31,6 @@ fileInput.addEventListener('change', e => {
       autoPickThreshold();
       renderSamplesList();
 
-      // Ждём кадр, чтобы браузер применил размеры DOM, и только потом фитим
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           try {
