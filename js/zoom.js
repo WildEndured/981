@@ -4,7 +4,7 @@
 
 function applyTransform() {
   stageEl.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
-  infoZoom.textContent = Math.round(zoom * 100) + '%';
+  if (infoZoom) infoZoom.textContent = Math.round(zoom * 100) + '%';
   drawOverlay();
 }
 
@@ -36,16 +36,16 @@ function zoomAt(factor, cx, cy) {
   applyTransform();
 }
 
-zoomInBtn.addEventListener('click', () => {
+if (zoomInBtn) zoomInBtn.addEventListener('click', () => {
   const r = stageWrap.getBoundingClientRect();
   zoomAt(1.25, r.left + stageWrap.clientWidth / 2, r.top + stageWrap.clientHeight / 2);
 });
-zoomOutBtn.addEventListener('click', () => {
+if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => {
   const r = stageWrap.getBoundingClientRect();
   zoomAt(1 / 1.25, r.left + stageWrap.clientWidth / 2, r.top + stageWrap.clientHeight / 2);
 });
-zoomFitBtn.addEventListener('click', fitToView);
-zoomResetBtn.addEventListener('click', resetZoom);
+if (zoomFitBtn) zoomFitBtn.addEventListener('click', fitToView);
+if (zoomResetBtn) zoomResetBtn.addEventListener('click', resetZoom);
 
 stageWrap.addEventListener('wheel', (e) => {
   e.preventDefault();
@@ -56,6 +56,7 @@ stageWrap.addEventListener('mousedown', (e) => {
   if (e.button === 1 || e.button === 2) {
     e.preventDefault();
     isDragging = true;
+    hadDrag = false; // NEW
     dragStartX = e.clientX; dragStartY = e.clientY;
     dragStartPanX = panX; dragStartPanY = panY;
     stageWrap.classList.add('dragging');
@@ -65,8 +66,11 @@ stageWrap.addEventListener('mousedown', (e) => {
 
 window.addEventListener('mousemove', (e) => {
   if (!isDragging) return;
-  panX = dragStartPanX + (e.clientX - dragStartX);
-  panY = dragStartPanY + (e.clientY - dragStartY);
+  const dx = e.clientX - dragStartX;
+  const dy = e.clientY - dragStartY;
+  if (Math.abs(dx) + Math.abs(dy) > 4) hadDrag = true; // NEW
+  panX = dragStartPanX + dx;
+  panY = dragStartPanY + dy;
   applyTransform();
 });
 
@@ -82,8 +86,10 @@ stageWrap.addEventListener('contextmenu', (e) => e.preventDefault());
 // ---------- Touch ----------
 let touchMode = null, touchStartDist = 0, touchStartZoom = 1;
 let touchStartX = 0, touchStartY = 0, touchStartPanX = 0, touchStartPanY = 0;
+let touchMoved = false; // NEW
 
 stageWrap.addEventListener('touchstart', (e) => {
+  touchMoved = false; // NEW
   if (e.touches.length === 1) {
     touchMode = 'pan';
     touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY;
@@ -98,10 +104,14 @@ stageWrap.addEventListener('touchstart', (e) => {
 
 stageWrap.addEventListener('touchmove', (e) => {
   if (touchMode === 'pan' && e.touches.length === 1) {
-    panX = touchStartPanX + (e.touches[0].clientX - touchStartX);
-    panY = touchStartPanY + (e.touches[0].clientY - touchStartY);
+    const dx = e.touches[0].clientX - touchStartX;
+    const dy = e.touches[0].clientY - touchStartY;
+    if (Math.abs(dx) + Math.abs(dy) > 6) touchMoved = true; // NEW
+    panX = touchStartPanX + dx;
+    panY = touchStartPanY + dy;
     applyTransform();
   } else if (touchMode === 'pinch' && e.touches.length === 2) {
+    touchMoved = true; // NEW
     const [a, b] = e.touches;
     const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
     const factor = dist / touchStartDist;
@@ -118,4 +128,12 @@ stageWrap.addEventListener('touchmove', (e) => {
   }
 }, { passive: true });
 
-stageWrap.addEventListener('touchend', () => { touchMode = null; }, { passive: true });
+stageWrap.addEventListener('touchend', () => {
+  if (touchMoved) hadDrag = true; // NEW: если был сдвиг — подавляем следующий click
+  touchMode = null;
+}, { passive: true });
+
+// NEW: ресайз окна — пере-фит
+window.addEventListener('resize', () => {
+  if (imgWidth) fitToView();
+});
