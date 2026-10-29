@@ -31,9 +31,16 @@ fileInput.addEventListener('change', e => {
       autoPickThreshold();
       renderSamplesList();
 
+      // Ждём кадр, чтобы браузер применил размеры DOM, и только потом фитим
       requestAnimationFrame(() => {
-        fitToView();
-        rebuildAll();
+        requestAnimationFrame(() => {
+          try {
+            fitToView();
+            rebuildAll();
+          } catch (err) {
+            showError('Fit/rebuild: ' + (err.message || err));
+          }
+        });
       });
     } catch (err) {
       showError('Ошибка обработки: ' + (err.message || err));
@@ -184,7 +191,7 @@ function rebuildAll() {
     morphOpen: +morphOpenEl.value,
     morphClose: +morphCloseEl.value,
     regionTolerance: +regionTolEl.value,
-    activePropLines // передаём только линии пропорций
+    activePropLines
   };
 
   if (worker) {
@@ -302,4 +309,76 @@ function buildMaskMainThread(p) {
 
   return { mask, bgCount, width: w, height: h, bbox, propLines };
 }
-// ... остальные функции maskErode, maskDilate, maskSmooth, computeBBox остаются без изменений
+
+// ---------- Вспомогательные функции ----------
+function computeBBox(mask, w, h, minSize) {
+  const N = w * h;
+  const visited = new Uint8Array(N);
+  const queue = new Int32Array(N);
+  let best = null, bestSize = 0;
+
+  for (let start = 0; start < N; start++) {
+    if (visited[start] || mask[start] === 1) continue;
+    let head = 0, tail = 0;
+    queue[tail++] = start; visited[start] = 1;
+    let minX = w, minY = h, maxX = -1, maxY = -1, size = 0;
+
+    while (head < tail) {
+      const cur = queue[head++];
+      const cx = cur % w, cy = (cur / w) | 0;
+      size++;
+      if (cx < minX) minX = cx; if (cy < minY) minY = cy;
+      if (cx > maxX) maxX = cx; if (cy > maxY) maxY = cy;
+      if (cx > 0)     { const n = cur - 1; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
+      if (cx < w - 1) { const n = cur + 1; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
+      if (cy > 0)     { const n = cur - w; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
+      if (cy < h - 1) { const n = cur + w; if (!visited[n] && mask[n] === 0) { visited[n] = 1; queue[tail++] = n; } }
+    }
+
+    if (size >= minSize && size > bestSize) {
+      bestSize = size;
+      best = { minX, minY, maxX, maxY, size };
+    }
+  }
+
+  if (!best) return null;
+  return {
+    x: best.minX, y: best.minY,
+    w: best.maxX - best.minX + 1,
+    h: best.maxY - best.minY + 1,
+    area: best.size,
+    fillRatio: best.size / ((best.maxX - best.minX + 1) * (best.maxY - best.minY + 1))
+  };
+}
+
+function maskErode(mask, w, h) {
+  const copy = mask.slice();
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const idx = y * w + x;
+    if (!copy[idx]) continue;
+    if (!copy[idx - 1] || !copy[idx + 1] || !copy[idx - w] || !copy[idx + w]) mask[idx] = 0;
+  }
+}
+
+function maskDilate(mask, w, h) {
+  const copy = mask.slice();
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const idx = y * w + x;
+    if (copy[idx]) continue;
+    if (copy[idx - 1] || copy[idx + 1] || copy[idx - w] || copy[idx + w]) mask[idx] = 1;
+  }
+}
+
+function maskSmooth(mask, w, h) {
+  const copy = mask.slice();
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const idx = y * w + x;
+    let bgCount = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      bgCount += copy[idx + dy * w + dx];
+    }
+    if (bgCount >= 7) mask[idx] = 1;
+    else if (bgCount <= 1) mask[idx] = 0;
+  }
+}
