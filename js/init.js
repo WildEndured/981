@@ -3,18 +3,31 @@
 // ============================================================
 
 try {
-  initWorker();
-  smoothIterEl.disabled = !useSmoothEl.checked;
+  console.log('[init] start');
   
-  // updateCursor() убран, так как он не нужен до загрузки картинки
-  // и может вызвать ошибку, если utils.js не успел загрузиться.
+  try {
+    initWorker();
+  } catch (e) {
+    showError('initWorker: ' + (e.message || e));
+  }
 
-  bindStyleControls();
-  setStyleUIFromState();
-  
-  // Инициализация панели линий пропорций
-  initProportionsUI(); 
-  
+  if (typeof smoothIterEl !== 'undefined' && smoothIterEl && typeof useSmoothEl !== 'undefined' && useSmoothEl) {
+    smoothIterEl.disabled = !useSmoothEl.checked;
+  }
+
+  try {
+    bindStyleControls();
+    setStyleUIFromState();
+  } catch (e) {
+    showError('Style init: ' + (e.message || e));
+  }
+
+  try {
+    initProportionsUI();
+  } catch (e) {
+    showError('Proportions init: ' + (e.message || e));
+  }
+
   console.log('[main] init OK');
 } catch (e) {
   showError('Init error: ' + (e.message || e));
