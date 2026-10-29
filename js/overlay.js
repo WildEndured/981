@@ -52,7 +52,7 @@ function drawOverlay() {
     overlayCtx.fillText(`bbox ${bw}×${bh}`, x, Math.max(fs, y - 6 / zoom));
   }
 
-  // --- Линии пропорций (Сетка голов) ---
+  // --- Линии пропорций ---
   if (charBBox && showPropLines && propLines && propLines.length > 0) {
     const { x: bx, w: bw } = charBBox;
     const s = style.prop;
@@ -75,7 +75,7 @@ function drawOverlay() {
         overlayCtx.lineWidth = lw * 2.5;
         overlayCtx.setLineDash([]);
         overlayCtx.beginPath();
-        overlayCtx.moveTo(startX, pl.y); 
+        overlayCtx.moveTo(startX, pl.y);
         overlayCtx.lineTo(endX, pl.y);
         overlayCtx.stroke();
       }
@@ -84,16 +84,16 @@ function drawOverlay() {
       overlayCtx.lineWidth = lw;
       overlayCtx.setLineDash(s.dashed ? [s.dashLen / zoom, s.dashGap / zoom] : []);
       overlayCtx.beginPath();
-      overlayCtx.moveTo(startX, pl.y); 
+      overlayCtx.moveTo(startX, pl.y);
       overlayCtx.lineTo(endX, pl.y);
       overlayCtx.stroke();
       overlayCtx.setLineDash([]);
 
       if (s.showLabels) {
         const label = `${pl.label} · ${pl.percent}%`;
-        const tx = startX + 4 / zoom; 
+        const tx = startX + 4 / zoom;
         const ty = pl.y - 4 / zoom;
-        
+
         overlayCtx.textAlign = 'left';
         overlayCtx.lineWidth = 3 / zoom;
         overlayCtx.strokeStyle = 'rgba(0,0,0,0.95)';
@@ -117,4 +117,49 @@ function drawOverlay() {
     overlayCtx.strokeStyle = '#000';
     overlayCtx.stroke();
   });
+
+  // --- Маркеры замера головы (NEW) ---
+  if (measureCrown) {
+    overlayCtx.beginPath();
+    overlayCtx.arc(measureCrown.x, measureCrown.y, 9, 0, Math.PI * 2);
+    overlayCtx.fillStyle = '#00ff88';
+    overlayCtx.fill();
+    overlayCtx.lineWidth = 2;
+    overlayCtx.strokeStyle = '#000';
+    overlayCtx.stroke();
+  }
+  if (measureCrown && measureChin) {
+    overlayCtx.beginPath();
+    overlayCtx.arc(measureChin.x, measureChin.y, 9, 0, Math.PI * 2);
+    overlayCtx.fillStyle = '#00ff88';
+    overlayCtx.fill();
+    overlayCtx.lineWidth = 2;
+    overlayCtx.strokeStyle = '#000';
+    overlayCtx.stroke();
+
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(measureCrown.x, measureCrown.y);
+    overlayCtx.lineTo(measureChin.x, measureChin.y);
+    overlayCtx.strokeStyle = '#00ff88';
+    overlayCtx.lineWidth = 2 / zoom;
+    overlayCtx.setLineDash([6 / zoom, 4 / zoom]);
+    overlayCtx.stroke();
+    overlayCtx.setLineDash([]);
+
+    const dy = measureChin.y - measureCrown.y;
+    const N = (charBBox && dy > 0) ? (charBBox.h / dy).toFixed(2) : '—';
+    const fs = Math.max(12, 14 / zoom);
+    overlayCtx.font = `bold ${fs}px system-ui, sans-serif`;
+    overlayCtx.textAlign = 'left';
+    overlayCtx.textBaseline = 'bottom';
+    const lx = Math.max(measureCrown.x, measureChin.x) + 8 / zoom;
+    const ly = (measureCrown.y + measureChin.y) / 2;
+    overlayCtx.lineWidth = 3 / zoom;
+    overlayCtx.strokeStyle = 'rgba(0,0,0,0.95)';
+    overlayCtx.strokeText(`N ≈ ${N}`, lx, ly);
+    overlayCtx.fillStyle = '#00ff88';
+    overlayCtx.fillText(`N ≈ ${N}`, lx, ly);
+    overlayCtx.textAlign = 'start';
+    overlayCtx.textBaseline = 'alphabetic';
+  }
 }
