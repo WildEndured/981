@@ -6,7 +6,7 @@ function updateInfo() {
   if (!lum) return;
   const N = imgWidth * imgHeight;
   const charCount = N - bgCount;
-  
+
   if (infoSize) infoSize.textContent = `${imgWidth} × ${imgHeight}`;
   if (infoMode) infoMode.textContent = mode === 'lum' ? 'яркость' : mode === 'color' ? 'цвет' : 'регион';
   if (infoBgPct) infoBgPct.textContent = ((bgCount / N) * 100).toFixed(1) + '%';
@@ -62,7 +62,9 @@ function renderSamplesList() {
     samplesList.innerHTML = '<span class="sample-empty">Образцы не заданы.</span>';
     return;
   }
-  colorSamples.forEach((s, i) => {
+  // CHANGED: обратный цикл, чтобы splice не ломал индексы
+  for (let i = colorSamples.length - 1; i >= 0; i--) {
+    const s = colorSamples[i];
     const chip = document.createElement('div');
     chip.className = 'sample-chip';
     chip.innerHTML = `
@@ -76,5 +78,5 @@ function renderSamplesList() {
       if (lum) rebuildAll();
     });
     samplesList.appendChild(chip);
-  });
+  }
 }
