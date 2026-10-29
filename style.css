@@ -306,3 +306,10 @@ details.advanced summary:hover { color: var(--muted-2); }
   .topbar button, .topbar .file-label { height: 36px; padding: 0 10px; font-size: 12px; }
   .stage-wrap { height: 55vh; }
 }
+
+/* ===== NEW: активное состояние малых кнопок (Авто N / Замер головы и т.п.) ===== */
+.btn-small.active {
+  background: #00b894;
+  border-color: #00b894;
+  color: #fff;
+}
